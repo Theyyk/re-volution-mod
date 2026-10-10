@@ -1,15 +1,15 @@
-# Cristalix support response and integration decision
+# Ответ поддержки Cristalix и решение об интеграции
 
-Scope: noncommercial educational/portfolio RE:volution project, without sales or monetization. Source: user-supplied screenshot of the Cristalix technical-support chatbot, received in this task on 2026-10-10. The screenshot does not establish the calendar date of the exchange.
+Область использования: некоммерческий учебный/портфолио-проект RE:volution, без продаж и монетизации. Источник: предоставленный пользователем скриншот переписки с чат-ботом технической поддержки Cristalix, полученный в ходе задачи 10 октября 2026 года. Скриншот не позволяет установить календарную дату самой переписки.
 
-The user's question explicitly names minecraft_five.otf and minecraft_seven.otf, use in the project, inclusion in public GitHub, distribution in compiled JAR/releases, portfolio display and attribution. A subsequent question asks about publishing the implemented GUI. Support replies that they understand there are no objections, especially for local development. On the explicit follow-up about public GitHub, support answers: «Как понимаем - да, в ином случае нам бы ответили, что нет, когда отправляли информацию ранее.»
+Вопрос пользователя прямо называет `minecraft_five.otf` и `minecraft_seven.otf`, использование в проекте, размещение в публичном GitHub, распространение в собранном JAR и релизах, демонстрацию в портфолио и указание источника. Следующий вопрос касается публикации реализованного GUI. Поддержка отвечает, что, насколько они понимают, возражений нет, особенно для локальной разработки. На прямой уточняющий вопрос о публичном GitHub поддержка отвечает: «Как понимаем - да, в ином случае нам бы ответили, что нет, когда отправляли информацию ранее.»
 
-Decision: proceed with these two fonts and the GUI presentation code for the described noncommercial project, relying on this support response. This is a support correspondence record with qualified wording, not a newly supplied general font license or a grant for commercial uses. No permission for other client assets is inferred. Embedded font metadata is retained. Other permission-pending client textures/themes remain prohibited by the build guard.
+Решение: использовать эти два шрифта и код визуального представления GUI в описанном некоммерческом проекте, опираясь на этот ответ поддержки. Это запись переписки с оговорками в формулировках, а не новая общая лицензия на шрифты или разрешение на коммерческое использование. Разрешение на другие ассеты клиента из неё не выводится. Встроенные метаданные шрифтов сохранены. Другие клиентские текстуры и темы, ожидающие разрешения, по-прежнему запрещены проверкой публичной сборки.
 
-Fonts came from the user's installed Cristalix Minigames client, libraries/mcassets.jar, assets/minecraft/fonts/minecraft_{five,seven}.crifont -> font.otf. Credit/source: Cristalix; embedded names MinecraftFivev2-Regular and MinecraftSevenv2-Regular. The repository's general LICENSE does not change the ownership or licensing of these third-party fonts.
+Шрифты получены из установленного у пользователя клиента Cristalix Minigames: `libraries/mcassets.jar`, `assets/minecraft/fonts/minecraft_{five,seven}.crifont` → `font.otf`. Источник и указание авторства: Cristalix; встроенные названия — `MinecraftFivev2-Regular` и `MinecraftSevenv2-Regular`. Общая `LICENSE` репозитория не изменяет принадлежность или условия лицензирования этих сторонних шрифтов.
 
-Original supplied screenshot (copied without image editing):
+Исходный предоставленный скриншот (скопирован без редактирования изображения):
 
-![Cristalix technical-support correspondence](cristalix-support.png)
+![Переписка с технической поддержкой Cristalix](cristalix-support.png)
 
-Retain the original evidence. Any later privacy-redacted display copy must be labelled as redacted and preserve the message text, authorship and context.
+Исходное подтверждение необходимо сохранить. Любая последующая демонстрационная копия с удалёнными персональными данными должна быть помечена как отредактированная и сохранять текст сообщений, авторство и контекст.

@@ -407,14 +407,6 @@ build/libs/customguimod-1.1.7.jar
 
 ![RE:volution GUI v1.1.4 — full](screenshots/gui-v1.1.4-full.png)
 
-### Wide
-
-![RE:volution GUI v1.1.4 — wide](screenshots/gui-v1.1.4-wide.png)
-
-### Compact
-
-![RE:volution GUI v1.1.4 — compact](screenshots/gui-v1.1.4-compact.png)
-
 Исторические изображения предыдущих версий сохраняются для демонстрации развития проекта.
 
 ---
