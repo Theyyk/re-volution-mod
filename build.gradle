@@ -14,7 +14,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.1.5'
+version = '1.1.6'
 group = 'com.example.customguimod'
 archivesBaseName = 'customguimod'
 
@@ -134,3 +134,11 @@ tasks.register('runeInventoryRegression', JavaExec) {
     mainClass = 'com.example.customguimod.RuneInventoryTest'
 }
 check.dependsOn runeInventoryRegression
+
+// Preserve viewport geometry and pointer mapping independently of Minecraft/OpenGL.
+tasks.register('guiLayoutRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.GuiLayoutTest'
+}
+check.dependsOn guiLayoutRegression

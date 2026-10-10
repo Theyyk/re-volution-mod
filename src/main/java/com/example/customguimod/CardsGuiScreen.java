@@ -17,32 +17,15 @@ import java.util.List;
 
 import static com.example.customguimod.GuiControls.*;
 import static com.example.customguimod.GuiDrawing.drawSurface;
+import static com.example.customguimod.GuiTheme.*;
 
 public class CardsGuiScreen extends GuiScreen {
 
     private static final int STORAGE_SLOT_COUNT = RuneInventory.LEGACY_RECORD_CAPACITY;
     private static final int VISIBLE_RUNE_SLOTS = RuneInventory.BOOST_TYPE_COUNT;
 
-    private static final int GUI_MAX_WIDTH = 1240;
-    private static final int GUI_MAX_HEIGHT = 620;
-    private static final int GUI_OUTER_MARGIN = 10;
-
-    private static final int OVERLAY_COLOR = 0xB8000000;
-    private static final int PANEL_BG_COLOR = 0xB8080808;
-    private static final int PANEL_BG_SOFT = 0x40080808;
-    private static final int PANEL_LINE_COLOR = 0xFF202226;
-    private static final int SLOT_BG_COLOR = 0x40080808;
-    private static final int SLOT_BORDER_COLOR = 0xFF282A30;
-    private static final int HEADING_TEXT_COLOR = 0xFFAAAAAA;
-    private static final int MUTED_TEXT_COLOR = 0xFF686868;
-    private static final int LINK_TEXT_COLOR = 0xFF4488DD;
     private static final int STAT_ICON_SIZE = 10;
     private static final int STAT_ICON_GAP = 5;
-    private static final int LOCK_COLOR = 0xFFFFFFFF;
-
-    private static final int NORMAL_COLOR = 0xFF2D7FD6;
-    private static final int SILVER_COLOR = 0xFFC9CDD2;
-    private static final int GOLD_COLOR = 0xFFFFC83D;
 
     private static final int BUY_BUTTON_ID = 0;
     private static final int UPGRADE_PLACEHOLDER_ID = 2;
@@ -90,49 +73,7 @@ public class CardsGuiScreen extends GuiScreen {
     private int buyAmount = 1;
     private static RenderItem renderItem;
 
-    private float layoutScale = 1.0F;
-    private boolean compactLayout;
-
-    private int guiX;
-    private int guiY;
-    private int guiWidth;
-    private int guiHeight;
-
-    private int mainX;
-    private int mainY;
-    private int mainWidth;
-    private int mainHeight;
-
-    private int leftPanelX;
-    private int leftPanelY;
-    private int leftPanelWidth;
-    private int leftPanelHeight;
-
-    private int centerPanelX;
-    private int centerPanelY;
-    private int centerPanelWidth;
-    private int centerPanelHeight;
-
-    private int runePanelX;
-    private int runePanelY;
-    private int runePanelWidth;
-    private int runePanelHeight;
-
-    private int navPanelX;
-    private int navPanelY;
-    private int navPanelWidth;
-    private int navPanelHeight;
-
-    private int purchaseTop;
-    private int purchasePanelY;
-    private static final int PURCHASE_PANEL_HEIGHT = 102;
-    private int runeColumns = 10;
-    private int runeRows = 3;
-    private int runeSlotWidth;
-    private int runeSlotHeight;
-    private int runeSlotGap;
-    private int runeGridX;
-    private int runeGridY;
+    private final GuiLayout layout = new GuiLayout(VISIBLE_RUNE_SLOTS);
 
     private net.minecraft.client.gui.GuiTextField searchField;
     private net.minecraft.client.shader.ShaderGroup guiBlur;
@@ -167,11 +108,11 @@ public class CardsGuiScreen extends GuiScreen {
     }
 
     int canvasMouseX(int mouseX) {
-        return (int) Math.floor((mouseX - canvasX) / canvasScale);
+        return layout.canvasMouseX(mouseX);
     }
 
     int canvasMouseY(int mouseY) {
-        return (int) Math.floor((mouseY - canvasY) / canvasScale);
+        return layout.canvasMouseY(mouseY);
     }
 
     boolean runeMatchesSearch(int slot) {
@@ -180,15 +121,15 @@ public class CardsGuiScreen extends GuiScreen {
 
     private void drawCanvasTooltip(List<String> lines, int x, int y) {
         int oldWidth = width, oldHeight = height;
-        width = 1280; height = 669;
+        width = GuiLayout.CANVAS_WIDTH; height = GuiLayout.CANVAS_HEIGHT;
         try { drawHoveringText(lines, x, y); }
         finally { width = oldWidth; height = oldHeight; }
     }
 
     @Override
     protected void mouseClicked(int x, int y, int button) throws IOException {
-        x = (int) Math.floor((x - canvasX) / canvasScale);
-        y = (int) Math.floor((y - canvasY) / canvasScale);
+        x = layout.canvasMouseX(x);
+        y = layout.canvasMouseY(y);
         searchField.mouseClicked(x, y, button);
         super.mouseClicked(x, y, button);
     }
@@ -230,58 +171,13 @@ public class CardsGuiScreen extends GuiScreen {
     }
 
     private int scaled(int base, int minimum) {
-        return Math.max(minimum, Math.round(base * layoutScale));
+        return layout.scaled(base, minimum);
     }
 
-    // Use one logical canvas so panel proportions and hit targets scale together.
-    private float canvasScale;
-    private int canvasX, canvasY;
     private String equipmentTooltip;
 
     private void updateLayout() {
-        canvasScale = Math.min(width / 1280.0F, height / 669.0F);
-        canvasX = Math.round((width - 1280 * canvasScale) / 2);
-        canvasY = Math.round((height - 669 * canvasScale) / 2);
-        layoutScale = 1.0F;
-        compactLayout = false;
-        guiX = mainX = 10;
-        guiY = mainY = 10;
-        guiWidth = 1260;
-        guiHeight = mainHeight = 624;
-        mainWidth = 1224;
-        leftPanelX = 10; leftPanelY = 10;
-        leftPanelWidth = 300; leftPanelHeight = 52;
-        centerPanelX = 320; centerPanelY = 10;
-        centerPanelWidth = 302; centerPanelHeight = 458;
-        runePanelX = 632; runePanelY = 10;
-        runePanelWidth = 603; runePanelHeight = 624;
-        navPanelWidth = 34;
-        navPanelHeight = (int) Math.ceil((height - canvasY) / canvasScale) - 26;
-        // Anchor the navigation strip to the actual viewport, including wide windows.
-        navPanelX = (int) Math.ceil((width - canvasX) / canvasScale) - navPanelWidth;
-        navPanelY = 10;
-        updateRuneGridLayout();
-    }
-    private void updateRuneGridLayout() {
-        int pad = scaled(8, 4);
-        int topReserved = 83;
-        int availableWidth = Math.max(1, runePanelWidth - pad * 2);
-        runeSlotGap = scaled(5, 2);
-        runeColumns = 10;
-        runeRows = (VISIBLE_RUNE_SLOTS + runeColumns - 1) / runeColumns;
-        int sizeByWidth = (availableWidth - runeSlotGap * (runeColumns - 1)) / runeColumns;
-        int maxSlot = compactLayout ? scaled(42, 14) : scaled(50, 18);
-        runeSlotWidth = Math.max(1, Math.min(sizeByWidth, maxSlot));
-        runeSlotHeight = runeSlotWidth;
-        runeGridX = runePanelX + pad;
-        runeGridY = runePanelY + topReserved;
-
-        int contentHeight = topReserved
-                + runeRows * runeSlotHeight
-                + (runeRows - 1) * runeSlotGap
-                + scaled(29, 20);
-        runePanelHeight = contentHeight;
-        purchasePanelY = runePanelY + runePanelHeight + 10;
+        layout.update(width, height);
     }
 
     private void rebuildControls() {
@@ -289,14 +185,13 @@ public class CardsGuiScreen extends GuiScreen {
         updateLayout();
 
         int pad = scaled(7, 3);
-        int buttonX = runePanelX + pad;
-        int buttonWidth = runePanelWidth - pad * 2;
+        int buttonX = layout.runePanelX + pad;
+        int buttonWidth = layout.runePanelWidth - pad * 2;
         int amountHeight = 24;
         int buyHeight = 36;
 
-        int buyY = purchasePanelY + 28;
+        int buyY = layout.purchaseTop;
         int amountY = buyY + buyHeight + 6;
-        purchaseTop = buyY;
         int purchaseWidth = (buttonWidth - 5) / 2;
         buttonList.add(new PanelButton(BUY_BUTTON_ID, buttonX, buyY,
                 purchaseWidth, buyHeight, "Купить руну"));
@@ -309,7 +204,7 @@ public class CardsGuiScreen extends GuiScreen {
                 amountHeight, amountHeight, "x" + buyAmount));
         String search = searchField == null ? "" : searchField.getText();
         searchField = new net.minecraft.client.gui.GuiTextField(400, fontRenderer,
-                runePanelX + 16, runePanelY + 30, runePanelWidth - 32, 19);
+                layout.runePanelX + 16, layout.runePanelY + 30, layout.runePanelWidth - 32, 19);
         searchField.setEnableBackgroundDrawing(false);
         searchField.setTextColor(TEXT_COLOR);
         searchField.setDisabledTextColour(MUTED_TEXT_COLOR);
@@ -325,10 +220,10 @@ public class CardsGuiScreen extends GuiScreen {
         int count = Math.min(deckNames.size(), MAX_ELEMENTS);
         if (count <= 0) return;
 
-        int x = runePanelX + scaled(8, 4);
-        int y = runePanelY + 57;
+        int x = layout.runePanelX + scaled(8, 4);
+        int y = layout.runePanelY + 57;
         int gap = scaled(3, 2);
-        int availableRight = runePanelX + runePanelWidth - scaled(8, 4);
+        int availableRight = layout.runePanelX + layout.runePanelWidth - scaled(8, 4);
 
         for (int i = 0; i < count; i++) {
             String name = deckNames.get(i);
@@ -349,9 +244,9 @@ public class CardsGuiScreen extends GuiScreen {
 
     private void rebuildNavigationButtons() {
         int pad = 2;
-        int buttonSize = navPanelWidth - pad * 2;
-        int x = navPanelX + pad;
-        int y = navPanelY + pad;
+        int buttonSize = layout.navPanelWidth - pad * 2;
+        int x = layout.navPanelX + pad;
+        int y = layout.navPanelY + pad;
         int gap = 10;
 
         buttonList.add(new NavButton(
@@ -360,7 +255,7 @@ public class CardsGuiScreen extends GuiScreen {
         ));
 
         int closeSize = buttonSize;
-        int closeY = navPanelY + navPanelHeight - pad - closeSize;
+        int closeY = layout.navPanelY + layout.navPanelHeight - pad - closeSize;
         buttonList.add(new PanelButton(
                 CLOSE_BUTTON_ID, x, closeY, closeSize, closeSize, "X"
         ));
@@ -482,9 +377,9 @@ public class CardsGuiScreen extends GuiScreen {
 
     private void drawLeftPanelContent() {
         int pad = scaled(8, 4);
-        int x = leftPanelX + pad;
-        int textW = Math.max(10, leftPanelWidth - pad * 2);
-        int y = leftPanelY + pad;
+        int x = layout.leftPanelX + pad;
+        int textW = Math.max(10, layout.leftPanelWidth - pad * 2);
+        int y = layout.leftPanelY + pad;
 
         drawHeadingString("СТАТИСТИКА", x, y, textW, HEADING_TEXT_COLOR, true);
         y += scaled(21, 16);
@@ -495,8 +390,8 @@ public class CardsGuiScreen extends GuiScreen {
                 : String.format(java.util.Locale.ROOT, "%.2f", damage).replaceAll("0+$", "").replaceAll("\\.$", "");
         drawStatLine(x, y, "Урон за клик", damageText, textW);
 
-        int resourcesY = leftPanelY + leftPanelHeight + 11;
-        drawPanel(leftPanelX, resourcesY, leftPanelWidth, 68);
+        int resourcesY = layout.leftPanelY + layout.leftPanelHeight + 11;
+        drawPanel(layout.leftPanelX, resourcesY, layout.leftPanelWidth, 68);
         y = resourcesY + pad;
         drawHeadingString("РЕСУРСЫ", x, y, textW, HEADING_TEXT_COLOR, true);
         y += scaled(21, 16);
@@ -517,42 +412,42 @@ public class CardsGuiScreen extends GuiScreen {
 
     private void drawStatIcon(int x, int y, String name) {
         if ("Монеты".equals(name)) {
-            drawRect(x + 2, y + 1, x + 8, y + 10, 0xFFE6B845);
-            drawRect(x + 1, y + 3, x + 9, y + 8, 0xFFE6B845);
-            drawRect(x + 3, y + 3, x + 5, y + 7, 0xFFFFE59A);
+            drawRect(x + 2, y + 1, x + 8, y + 10, COIN_COLOR);
+            drawRect(x + 1, y + 3, x + 9, y + 8, COIN_COLOR);
+            drawRect(x + 3, y + 3, x + 5, y + 7, COIN_HIGHLIGHT_COLOR);
         } else if ("Кристаллы".equals(name)) {
-            drawRect(x + 3, y + 1, x + 7, y + 10, 0xFF5EDAD1);
-            drawRect(x + 1, y + 4, x + 9, y + 7, 0xFF5EDAD1);
-            drawRect(x + 2, y + 2, x + 8, y + 9, 0xFF5EDAD1);
-            drawRect(x + 3, y + 2, x + 5, y + 6, 0xFFBAFFF6);
+            drawRect(x + 3, y + 1, x + 7, y + 10, CRYSTAL_COLOR);
+            drawRect(x + 1, y + 4, x + 9, y + 7, CRYSTAL_COLOR);
+            drawRect(x + 2, y + 2, x + 8, y + 9, CRYSTAL_COLOR);
+            drawRect(x + 3, y + 2, x + 5, y + 6, CRYSTAL_HIGHLIGHT_COLOR);
         } else {
             for (int i = 0; i < 6; i++)
-                drawRect(x + 7 - i, y + 1 + i, x + 9 - i, y + 3 + i, 0xFFD4D4D4);
-            drawRect(x + 1, y + 6, x + 5, y + 8, 0xFF858585);
-            drawRect(x, y + 8, x + 2, y + 10, 0xFFAAAAAA);
+                drawRect(x + 7 - i, y + 1 + i, x + 9 - i, y + 3 + i, SWORD_BLADE_COLOR);
+            drawRect(x + 1, y + 6, x + 5, y + 8, SWORD_HILT_COLOR);
+            drawRect(x, y + 8, x + 2, y + 10, SWORD_GRIP_COLOR);
         }
     }
 
     private void drawCenterPanelContent(int mouseX, int mouseY) {
         equipmentTooltip = null;
-        int x = centerPanelX, y = centerPanelY;
-        drawPanel(x, y, centerPanelWidth, 63);
+        int x = layout.centerPanelX, y = layout.centerPanelY;
+        drawPanel(x, y, layout.centerPanelWidth, 63);
         // Progression and donation data will replace these presentation placeholders.
         fontRenderer.drawString("#1", x + 8, y + 9, TEXT_COLOR);
         int rankSeparatorX = x + 8 + fontRenderer.getStringWidth("#1") + 7;
         drawRect(rankSeparatorX, y + 10, rankSeparatorX + 1, y + 20, MUTED_TEXT_COLOR);
         drawFittedString("Моб #1", rankSeparatorX + 8, y + 9,
-                x + centerPanelWidth - 8 - rankSeparatorX - 8, TEXT_COLOR, true);
+                x + layout.centerPanelWidth - 8 - rankSeparatorX - 8, TEXT_COLOR, true);
         drawFittedString("Базовая", x + 8, y + 29, 303, LINK_TEXT_COLOR, false);
         drawFittedString("—", x + 8, y + 47, 24, MUTED_TEXT_COLOR, false);
         int separatorX = x + 8 + fontRenderer.getStringWidth("—") + 7;
         drawRect(separatorX, y + 48, separatorX + 1, y + 58, MUTED_TEXT_COLOR);
         int nameX = separatorX + 8;
         drawFittedString(mc.player == null ? "Игрок" : mc.player.getName(),
-                nameX, y + 47, x + centerPanelWidth - 8 - nameX, TEXT_COLOR, true);
+                nameX, y + 47, x + layout.centerPanelWidth - 8 - nameX, TEXT_COLOR, true);
 
         int top = y + 74;
-        drawPanel(x, top, centerPanelWidth, centerPanelHeight - 74);
+        drawPanel(x, top, layout.centerPanelWidth, layout.centerPanelHeight - 74);
         int slot = 50, gap = 8, left = x + 9;
         // The reference has five positions across, three side rows and a bottom row.
         String[] upper = {"Основная рука", "Дополнительная рука", "Талисман", "Реликвия", "Артефакт"};
@@ -605,7 +500,7 @@ public class CardsGuiScreen extends GuiScreen {
     private void drawEquipmentSlot(int x, int y, int size, String name, int mouseX, int mouseY) {
         boolean hover = mouseX >= x && mouseX < x + size && mouseY >= y && mouseY < y + size;
         drawSurface(x, y, size, size, SLOT_BG_COLOR, hover ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
-        drawLock(x + size / 2 - 6, y + size / 2 - 6, 0xFF585858);
+        drawLock(x + size / 2 - 6, y + size / 2 - 6, EQUIPMENT_LOCK_COLOR);
         if (hover) equipmentTooltip = name + " — недоступно";
     }
     private void drawSmallLock(int x, int y) {
@@ -613,7 +508,7 @@ public class CardsGuiScreen extends GuiScreen {
         drawRect(x + 1, y + 1, x + 3, y + 4, LOCK_COLOR);
         drawRect(x + 5, y + 1, x + 7, y + 4, LOCK_COLOR);
         drawRect(x, y + 4, x + 8, y + 9, LOCK_COLOR);
-        drawRect(x + 3, y + 5, x + 5, y + 7, 0xFF111111);
+        drawRect(x + 3, y + 5, x + 5, y + 7, SMALL_LOCK_KEYHOLE_COLOR);
     }
 
     private void drawLock(int x, int y, int color) {
@@ -622,34 +517,34 @@ public class CardsGuiScreen extends GuiScreen {
         drawRect(x + 2, y + 1, x + 10, y + 3, color);
         drawRect(x + 1, y + 3, x + 4, y + 6, color);
         drawRect(x + 8, y + 3, x + 11, y + 6, color);
-        drawRect(x + 4, y + 2, x + 8, y + 6, 0xFF101112);
+        drawRect(x + 4, y + 2, x + 8, y + 6, LOCK_KEYHOLE_COLOR);
         drawRect(x - 1, y + 6, x + 13, y + 12, color);
-        drawRect(x + 4, y + 8, x + 8, y + 11, 0xFF101112);
+        drawRect(x + 4, y + 8, x + 8, y + 11, LOCK_KEYHOLE_COLOR);
     }
     private void drawRunePanelContent(int mouseX, int mouseY) {
         int pad = scaled(8, 4);
-        int titleX = runePanelX + pad;
-        int titleY = runePanelY + pad;
-        drawHeadingString("РУНЫ", titleX, titleY, runePanelWidth / 2, HEADING_TEXT_COLOR, true);
+        int titleX = layout.runePanelX + pad;
+        int titleY = layout.runePanelY + pad;
+        drawHeadingString("РУНЫ", titleX, titleY, layout.runePanelWidth / 2, HEADING_TEXT_COLOR, true);
         String count = activeDeck == 0
                 ? inventory.ownedCatalogSlotCount() + " из " + EarthRuneCatalog.size()
                 : inventory.occupiedTypeCount(CARD_NAMES.length) + " из " + CARD_NAMES.length;
         fontRenderer.drawString(count,
-                runePanelX + runePanelWidth - pad - fontRenderer.getStringWidth(count), titleY, MUTED_TEXT_COLOR);
-        drawSurface(titleX, runePanelY + 30, runePanelWidth - pad * 2, 19,
+                layout.runePanelX + layout.runePanelWidth - pad - fontRenderer.getStringWidth(count), titleY, MUTED_TEXT_COLOR);
+        drawSurface(titleX, layout.runePanelY + 30, layout.runePanelWidth - pad * 2, 19,
                 BUTTON_BG_COLOR, searchField.isFocused() ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
         GlStateManager.pushMatrix();
         GlStateManager.translate(0, 4, 0);
         searchField.drawTextBox();
         GlStateManager.popMatrix();
         if (searchField.getText().isEmpty() && !searchField.isFocused()) {
-            drawFittedString("Поиск...", titleX + 8, runePanelY + 34,
-                    runePanelWidth - 24, MUTED_TEXT_COLOR, false);
+            drawFittedString("Поиск...", titleX + 8, layout.runePanelY + 34,
+                    layout.runePanelWidth - 24, MUTED_TEXT_COLOR, false);
         }
-        drawPanel(runePanelX, purchasePanelY, runePanelWidth, PURCHASE_PANEL_HEIGHT);
-        drawHeadingString("ПОКУПКА РУН", titleX, purchasePanelY + 8, 300, HEADING_TEXT_COLOR, false);
-        drawRuneActionHints(titleX, runePanelY + runePanelHeight - 17,
-                runePanelWidth - pad * 2);
+        drawPanel(layout.runePanelX, layout.purchasePanelY, layout.runePanelWidth, GuiLayout.PURCHASE_PANEL_HEIGHT);
+        drawHeadingString("ПОКУПКА РУН", titleX, layout.purchasePanelY + 8, 300, HEADING_TEXT_COLOR, false);
+        drawRuneActionHints(titleX, layout.runePanelY + layout.runePanelHeight - 17,
+                layout.runePanelWidth - pad * 2);
         for (int i = 0; i < VISIBLE_RUNE_SLOTS; i++) {
             int[] pos = getRuneSlotPosition(i);
             if (matchesSearch(i)) drawRuneSlot(pos[0], pos[1], i, mouseX, mouseY);
@@ -669,14 +564,14 @@ public class CardsGuiScreen extends GuiScreen {
         int offset = 0;
         for (int i = 0; i < labels.length; i++) {
             drawMouseHintIcon(offset, 0, buttons[i]);
-            fontRenderer.drawString(labels[i], offset + 13, 0, 0xFF999999);
+            fontRenderer.drawString(labels[i], offset + 13, 0, ACTION_HINT_TEXT_COLOR);
             offset += 13 + fontRenderer.getStringWidth(labels[i]) + 10;
         }
         GlStateManager.popMatrix();
     }
 
     private void drawMouseHintIcon(int x, int y, int button) {
-        int white = 0xFFFFFFFF, dark = 0xFF161616, red = 0xFFFF4444;
+        int white = MOUSE_HINT_COLOR, dark = MOUSE_HINT_BACKGROUND_COLOR, red = MOUSE_HINT_ACTIVE_COLOR;
         drawRect(x + 1, y, x + 7, y + 10, white);
         drawRect(x, y + 2, x + 8, y + 8, white);
         drawRect(x + 1, y + 1, x + 7, y + 8, dark);
@@ -691,42 +586,42 @@ public class CardsGuiScreen extends GuiScreen {
             drawEarthRuneSlot(x, y, visualIndex, mouseX, mouseY);
             return;
         }
-        boolean hovered = mouseX >= x && mouseX < x + runeSlotWidth
-                && mouseY >= y && mouseY < y + runeSlotHeight;
+        boolean hovered = mouseX >= x && mouseX < x + layout.runeSlotWidth
+                && mouseY >= y && mouseY < y + layout.runeSlotHeight;
         boolean futureType = visualIndex >= CARD_NAMES.length;
         int border = futureType ? PANEL_BORDER_COLOR : (hovered ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
-        drawSurface(x, y, runeSlotWidth, runeSlotHeight, hovered ? 0x5024282C : SLOT_BG_COLOR, border);
+        drawSurface(x, y, layout.runeSlotWidth, layout.runeSlotHeight, hovered ? RUNE_HOVER_BG_COLOR : SLOT_BG_COLOR, border);
         if (futureType) {
-            int markSize = Math.max(3, Math.min(scaled(8, 3), runeSlotWidth - 4));
-            int markX = x + (runeSlotWidth - markSize) / 2;
-            int markY = y + runeSlotHeight / 2;
+            int markSize = Math.max(3, Math.min(scaled(8, 3), layout.runeSlotWidth - 4));
+            int markX = x + (layout.runeSlotWidth - markSize) / 2;
+            int markY = y + layout.runeSlotHeight / 2;
             drawRect(markX, markY, markX + markSize, markY + 1, MUTED_TEXT_COLOR);
             return;
         }
         RuneInventory.Entry rune = getRuneForVisualSlot(visualIndex);
         if (rune == null) return;
-        drawRankCorners(x, y, runeSlotWidth, runeSlotHeight, getRankColor(rune.layer));
+        drawRankCorners(x, y, layout.runeSlotWidth, layout.runeSlotHeight, getRankColor(rune.layer));
         if (rune.cardIndex >= 0 && rune.cardIndex < CARD_ICONS.length) {
             String type = rune.cardIndex < RUNE_TYPES.length ? RUNE_TYPES[rune.cardIndex] : "Ресурс";
-            drawRuneIcon(CARD_ICONS[rune.cardIndex], x, y, runeSlotWidth, runeSlotHeight, type);
-            drawSurface(x, y, runeSlotWidth, runeSlotHeight, 0, border);
-            drawRankCorners(x, y, runeSlotWidth, runeSlotHeight, getRankColor(rune.layer));
+            drawRuneIcon(CARD_ICONS[rune.cardIndex], x, y, layout.runeSlotWidth, layout.runeSlotHeight, type);
+            drawSurface(x, y, layout.runeSlotWidth, layout.runeSlotHeight, 0, border);
+            drawRankCorners(x, y, layout.runeSlotWidth, layout.runeSlotHeight, getRankColor(rune.layer));
         }
     }
 
     private void drawEarthRuneSlot(int x, int y, int slot, int mouseX, int mouseY) {
         EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(slot);
         if (definition == null) return;
-        boolean hovered = mouseX >= x && mouseX < x + runeSlotWidth
-                && mouseY >= y && mouseY < y + runeSlotHeight;
-        drawSurface(x, y, runeSlotWidth, runeSlotHeight, hovered ? 0x5024282C : SLOT_BG_COLOR,
+        boolean hovered = mouseX >= x && mouseX < x + layout.runeSlotWidth
+                && mouseY >= y && mouseY < y + layout.runeSlotHeight;
+        drawSurface(x, y, layout.runeSlotWidth, layout.runeSlotHeight, hovered ? RUNE_HOVER_BG_COLOR : SLOT_BG_COLOR,
                 hovered ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
         RuneInventory.Entry owned = inventory.get(slot);
         if (owned == null) return;
-        drawCustomRuneIcon(definition, x, y, runeSlotWidth, runeSlotHeight);
-        drawSurface(x, y, runeSlotWidth, runeSlotHeight, 0,
+        drawCustomRuneIcon(definition, x, y, layout.runeSlotWidth, layout.runeSlotHeight);
+        drawSurface(x, y, layout.runeSlotWidth, layout.runeSlotHeight, 0,
                 hovered ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
-        drawRankCorners(x, y, runeSlotWidth, runeSlotHeight, getRankColor(owned.layer));
+        drawRankCorners(x, y, layout.runeSlotWidth, layout.runeSlotHeight, getRankColor(owned.layer));
     }
 
     private void drawCustomRuneIcon(EarthRuneCatalog.Definition definition, int x, int y, int w, int h) {
@@ -768,7 +663,7 @@ public class CardsGuiScreen extends GuiScreen {
         int glyphSize = hybrid ? Math.max(2, Math.min(size, (availableWidth - 1) / 2)) : size;
         int badgeWidth = hybrid ? glyphSize * 2 + 1 : glyphSize;
         x -= badgeWidth;
-        drawRect(x - 1, y - 1, x + badgeWidth + 1, y + glyphSize + 1, 0xD012161B);
+        drawRect(x - 1, y - 1, x + badgeWidth + 1, y + glyphSize + 1, TYPE_BADGE_BG_COLOR);
         drawTypeGlyph(hybrid ? "Клик" : type, x, y, glyphSize);
         if (hybrid) drawTypeGlyph("Яд", x + glyphSize + 1, y, glyphSize);
     }
@@ -778,19 +673,19 @@ public class CardsGuiScreen extends GuiScreen {
         int color;
         if ("Клик".equals(type)) {
             rows = new String[]{"0001100", "0011000", "0110000", "1111110", "0001100", "0011000", "0110000"};
-            color = 0xFFFFD34E;
+            color = CLICK_TYPE_COLOR;
         } else if ("Яд".equals(type)) {
             rows = new String[]{"0001000", "0011100", "0111110", "1111111", "1111111", "0111110", "0011100"};
-            color = 0xFF72E84A;
+            color = POISON_TYPE_COLOR;
         } else if ("Усиление".equals(type)) {
             rows = new String[]{"0001000", "0011100", "0111110", "1111111", "0001000", "0001000", "0001000"};
-            color = 0xFF73BEFF;
+            color = BOOST_TYPE_COLOR;
         } else if ("Вода".equals(type)) {
             rows = new String[]{"0001000", "0001000", "0011100", "0011100", "0111110", "0111110", "0011100"};
-            color = 0xFF53CBED;
+            color = WATER_TYPE_COLOR;
         } else {
             rows = new String[]{"0011100", "0111110", "1111111", "1101011", "1111111", "0111110", "0011100"};
-            color = 0xFFFFB84D;
+            color = RESOURCE_TYPE_COLOR;
         }
         for (int row = 0; row < 7; row++) {
             for (int col = 0; col < 7; col++) {
@@ -813,12 +708,7 @@ public class CardsGuiScreen extends GuiScreen {
     }
 
     private int[] getRuneSlotPosition(int visualIndex) {
-        int row = visualIndex / runeColumns;
-        int col = visualIndex % runeColumns;
-        return new int[]{
-                runeGridX + col * (runeSlotWidth + runeSlotGap),
-                runeGridY + row * (runeSlotHeight + runeSlotGap)
-        };
+        return layout.runeSlotPosition(visualIndex);
     }
 
     private RuneInventory.Entry getRuneForVisualSlot(int visualIndex) {
@@ -831,8 +721,8 @@ public class CardsGuiScreen extends GuiScreen {
             int[] pos = getRuneSlotPosition(i);
             int x = pos[0];
             int y = pos[1];
-            if (mouseX < x || mouseX >= x + runeSlotWidth
-                    || mouseY < y || mouseY >= y + runeSlotHeight) continue;
+            if (mouseX < x || mouseX >= x + layout.runeSlotWidth
+                    || mouseY < y || mouseY >= y + layout.runeSlotHeight) continue;
 
             if (activeDeck == 0) {
                 if (inventory.get(i) == null) return;
@@ -892,8 +782,8 @@ public class CardsGuiScreen extends GuiScreen {
     private void drawFlyingRune(FlyingCard card) {
         int x = (int) card.getX();
         int y = (int) card.getY();
-        int w = Math.max(14, Math.min(scaled(38, 22), runeSlotWidth));
-        int h = Math.max(18, Math.min(scaled(46, 28), runeSlotHeight));
+        int w = Math.max(14, Math.min(scaled(38, 22), layout.runeSlotWidth));
+        int h = Math.max(18, Math.min(scaled(46, 28), layout.runeSlotHeight));
 
         drawSurface(x - w / 2, y - h / 2, w, h, SLOT_BG_COLOR, SLOT_BORDER_COLOR);
         drawRankCorners(x - w / 2, y - h / 2, w, h, card.color);
@@ -924,15 +814,15 @@ public class CardsGuiScreen extends GuiScreen {
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         updateLayout();
         drawRect(0, 0, width, height, OVERLAY_COLOR);
-        mouseX = (int) Math.floor((mouseX - canvasX) / canvasScale);
-        mouseY = (int) Math.floor((mouseY - canvasY) / canvasScale);
+        mouseX = layout.canvasMouseX(mouseX);
+        mouseY = layout.canvasMouseY(mouseY);
         GlStateManager.pushMatrix();
-        GlStateManager.translate(canvasX, canvasY, 0);
-        GlStateManager.scale(canvasScale, canvasScale, 1);
+        GlStateManager.translate(layout.canvasX, layout.canvasY, 0);
+        GlStateManager.scale(layout.canvasScale, layout.canvasScale, 1);
 
-        drawPanel(leftPanelX, leftPanelY, leftPanelWidth, leftPanelHeight);
-        drawPanel(runePanelX, runePanelY, runePanelWidth, runePanelHeight);
-        drawSurface(navPanelX, navPanelY, navPanelWidth, navPanelHeight, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
+        drawPanel(layout.leftPanelX, layout.leftPanelY, layout.leftPanelWidth, layout.leftPanelHeight);
+        drawPanel(layout.runePanelX, layout.runePanelY, layout.runePanelWidth, layout.runePanelHeight);
+        drawSurface(layout.navPanelX, layout.navPanelY, layout.navPanelWidth, layout.navPanelHeight, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
 
         drawLeftPanelContent();
         drawCenterPanelContent(mouseX, mouseY);
@@ -996,10 +886,10 @@ public class CardsGuiScreen extends GuiScreen {
         if (animate && (activeDeck == 0 ? slot < VISIBLE_RUNE_SLOTS : cardIndex >= 0 && cardIndex < CARD_ICONS.length)) {
             int[] pos = getRuneSlotPosition(activeDeck == 0 ? slot : cardIndex);
             flyingCards.add(new FlyingCard(
-                    runePanelX + runePanelWidth / 2.0D,
-                    purchaseTop,
-                    pos[0] + runeSlotWidth / 2.0D,
-                    pos[1] + runeSlotHeight / 2.0D,
+                    layout.runePanelX + layout.runePanelWidth / 2.0D,
+                    layout.purchaseTop,
+                    pos[0] + layout.runeSlotWidth / 2.0D,
+                    pos[1] + layout.runeSlotHeight / 2.0D,
                     activeDeck == 0 ? slot : cardIndex,
                     getRankColor(layer)
             ));
