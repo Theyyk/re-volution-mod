@@ -115,6 +115,11 @@ public class CardsGuiScreen extends GuiScreen {
         return layout.canvasMouseY(mouseY);
     }
 
+    int awakeningRuneAt(int screenX, int screenY) {
+        return RuneAwakeningInput.runeAt(layout, inventory, activeDeck,
+                screenX, screenY, this::matchesSearch);
+    }
+
     boolean runeMatchesSearch(int slot) {
         return matchesSearch(slot);
     }
