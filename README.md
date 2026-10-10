@@ -4,7 +4,7 @@
 
 Проект построен на Forge Dedicated Server и использует единый клиент-серверный мод. Чисто визуальные PNG-ассеты рун вынесены в отдельный [RE:volution Resource Pack](https://github.com/Theyyk/re-volution-resource-pack).
 
-**Текущая версия: `v1.1.3`**
+**Текущая версия: `v1.1.4`**
 
 ---
 
@@ -87,7 +87,7 @@ GUI открывается клавишей `C`.
 
 Текстуры находятся не внутри JAR мода, а в отдельном resource pack и подключаются через тот же namespace `customguimod`. Мод хранит `ResourceLocation`, игровую логику и состояние, а resource pack отвечает за PNG.
 
-![Актуальный GUI v1.1.3](screenshots/2026-10-10_05.12.55.png)
+![Актуальный GUI v1.1.4](screenshots/gui-v1.1.4-full.png)
 
 ### Покупка рун
 
@@ -310,7 +310,7 @@ MongoDB
 JAR создаётся в:
 
 ```text
-build/libs/customguimod-1.1.3.jar
+build/libs/customguimod-1.1.4.jar
 ```
 
 Клиент и сервер должны использовать одинаковую версию мода.
@@ -401,10 +401,32 @@ build/libs/customguimod-1.1.3.jar
 
 ## 📸 Скриншоты
 
-Актуальные скриншоты rune-интерфейса хранятся вместе с визуальными ассетами в [RE:volution Resource Pack](https://github.com/Theyyk/re-volution-resource-pack). Исторические изображения предыдущих версий сохраняются в этом репозитории для демонстрации развития проекта.
+Актуальные runtime-скриншоты GUI **v1.1.4** хранятся в этом репозитории и синхронизированы с [RE:volution Resource Pack](https://github.com/Theyyk/re-volution-resource-pack). В resource-pack репозитории те же кадры дополнительно документируют rune-текстуры, варианты 64×64 / 128×128 и структуру визуальных ресурсов.
+
+### Full
+
+![RE:volution GUI v1.1.4 — full](screenshots/gui-v1.1.4-full.png)
+
+### Wide
+
+![RE:volution GUI v1.1.4 — wide](screenshots/gui-v1.1.4-wide.png)
+
+### Compact
+
+![RE:volution GUI v1.1.4 — compact](screenshots/gui-v1.1.4-compact.png)
+
+Исторические изображения предыдущих версий сохраняются для демонстрации развития проекта.
 
 ---
 
 ## 📄 License
 
 См. файл [LICENSE](LICENSE).
+
+## v1.1.4 — archive integration
+
+Выборочно перенесены GUI layout/polish и экранные шрифты Five/Seven поверх логики v1.1.3. [Инвентаризация, roadmap и runtime checklist](docs/v1.1.4-archive-integration.md).
+
+Шрифты получены из клиента Cristalix; сохраняются исходные метаданные. [Ответ поддержки, scope и attribution](docs/permissions/cristalix.md). Использование относится к описанному некоммерческому учебному/портфолио-проекту.
+
+![Исходный скриншот ответа поддержки Cristalix](docs/permissions/cristalix-support.png)

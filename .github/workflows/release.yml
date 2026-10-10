@@ -25,9 +25,8 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Five/Seven OTF decision and source: docs/permissions/cristalix.md
           forbidden_paths=(
-            "src/main/resources/assets/customguimod/fonts/minecraft_five.otf"
-            "src/main/resources/assets/customguimod/fonts/minecraft_seven.otf"
             "src/main/java/com/example/customguimod/CristalixGuiTheme.java"
             "src/main/resources/assets/customguimod/themes/cristalix"
             "src/main/resources/assets/customguimod/textures/gui/cristalix"
