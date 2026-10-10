@@ -15,6 +15,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.example.customguimod.GuiControls.*;
+import static com.example.customguimod.GuiDrawing.drawSurface;
+
 public class CardsGuiScreen extends GuiScreen {
 
     private static final int STORAGE_SLOT_COUNT = RuneInventory.LEGACY_RECORD_CAPACITY;
@@ -27,19 +30,11 @@ public class CardsGuiScreen extends GuiScreen {
     private static final int OVERLAY_COLOR = 0xB8000000;
     private static final int PANEL_BG_COLOR = 0xB8080808;
     private static final int PANEL_BG_SOFT = 0x40080808;
-    private static final int PANEL_BORDER_COLOR = 0xFF292B30;
     private static final int PANEL_LINE_COLOR = 0xFF202226;
     private static final int SLOT_BG_COLOR = 0x40080808;
     private static final int SLOT_BORDER_COLOR = 0xFF282A30;
-    private static final int SLOT_HOVER_COLOR = 0xC0586067;
-    private static final int SELECTED_COLOR = 0xFF315F9B;
-    private static final int SELECTED_BG_COLOR = 0xA0152945;
-    private static final int BUTTON_BG_COLOR = 0x40080808;
-    private static final int DISABLED_BG_COLOR = 0x20080808;
-    private static final int TEXT_COLOR = 0xFFFFFFFF;
     private static final int HEADING_TEXT_COLOR = 0xFFAAAAAA;
     private static final int MUTED_TEXT_COLOR = 0xFF686868;
-    private static final int DISABLED_TEXT_COLOR = 0xFF909090;
     private static final int LINK_TEXT_COLOR = 0xFF4488DD;
     private static final int STAT_ICON_SIZE = 10;
     private static final int STAT_ICON_GAP = 5;
@@ -50,15 +45,12 @@ public class CardsGuiScreen extends GuiScreen {
     private static final int GOLD_COLOR = 0xFFFFC83D;
 
     private static final int BUY_BUTTON_ID = 0;
-    private static final int AMOUNT_BUTTON_START_ID = 1;
     private static final int UPGRADE_PLACEHOLDER_ID = 2;
     private static final int RUNE_UNIT_PRICE = 100;
     private static final int ELEMENT_BUTTON_START_ID = 100;
     private static final int MAX_ELEMENTS = 8;
 
-    private static final int NAV_RUNES_ID = 200;
     private static final int NAV_PLACEHOLDER_START_ID = 201;
-    private static final int CLOSE_BUTTON_ID = 299;
 
     private static final String[] CARD_NAMES = {
             "Каменный молот", "Теневой клинок", "Сердце леса", "Печать кузнеца",
@@ -204,175 +196,6 @@ public class CardsGuiScreen extends GuiScreen {
     @Override
     protected void keyTyped(char character, int key) throws IOException {
         if (!searchField.textboxKeyTyped(character, key)) super.keyTyped(character, key);
-    }
-
-    private static class FlyingCard {
-        double startX;
-        double startY;
-        double endX;
-        double endY;
-        double progress;
-        int cardIndex;
-        int color;
-
-        FlyingCard(double startX, double startY, double endX, double endY,
-                   int cardIndex, int color) {
-            this.startX = startX;
-            this.startY = startY;
-            this.endX = endX;
-            this.endY = endY;
-            this.cardIndex = cardIndex;
-            this.color = color;
-        }
-
-        void update() {
-            progress += 0.12D;
-            if (progress > 1.0D) progress = 1.0D;
-        }
-
-        double getX() {
-            return startX + (endX - startX) * progress;
-        }
-
-        double getY() {
-            return startY + (endY - startY) * progress;
-        }
-
-        boolean isDone() {
-            return progress >= 1.0D;
-        }
-    }
-
-    private static class PanelButton extends GuiButton {
-        private boolean selected;
-
-        PanelButton(int id, int x, int y, int width, int height, String text) {
-            super(id, x, y, width, height, text);
-        }
-
-        void setSelected(boolean selected) {
-            this.selected = selected;
-        }
-
-        @Override
-        public void drawButton(Minecraft mc, int mouseX, int mouseY, float partialTicks) {
-            if (!visible) return;
-
-            hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
-
-            int border = selected ? SELECTED_COLOR : (hovered && enabled ? SLOT_HOVER_COLOR : PANEL_BORDER_COLOR);
-            int background = selected ? SELECTED_BG_COLOR : (enabled ? BUTTON_BG_COLOR : DISABLED_BG_COLOR);
-            int textColor = id == -1 || enabled ? TEXT_COLOR : DISABLED_TEXT_COLOR;
-
-            if (id != CLOSE_BUTTON_ID) drawSurface(x, y, width, height, background, border);
-
-            net.minecraft.client.gui.FontRenderer font = GuiFontRenderer.get(mc);
-
-            if (id == AMOUNT_BUTTON_START_ID) {
-                int textWidth = font.getStringWidth(displayString);
-                float textScale = Math.min(
-                        1.0F,
-                        (width - 4) / (float) Math.max(1, textWidth)
-                );
-
-                GlStateManager.pushMatrix();
-                GlStateManager.translate(
-                        x + width / 2.0F,
-                        y + (height - font.FONT_HEIGHT * textScale) / 2.0F,
-                        0.0F
-                );
-                GlStateManager.scale(textScale, textScale, 1.0F);
-                font.drawString(
-                        displayString,
-                        -textWidth / 2.0F,
-                        0.0F,
-                        textColor,
-                        false
-                );
-                GlStateManager.popMatrix();
-                return;
-            }
-
-            String[] lines = displayString.split("\n");
-            int lineHeight = font.FONT_HEIGHT;
-            int textY = y + (height - lines.length * lineHeight) / 2;
-
-            for (String line : lines) {
-                String label = font.trimStringToWidth(
-                        line,
-                        Math.max(1, width - 6)
-                );
-                drawCenteredString(
-                        font,
-                        label,
-                        x + width / 2,
-                        textY,
-                        textColor
-                );
-                textY += lineHeight;
-            }
-        }
-    }
-
-    private static class ElementButton extends PanelButton {
-        private final String elementName;
-        private final boolean active;
-
-        ElementButton(int id, int x, int y, int width, int height,
-                      String elementName, boolean active) {
-            super(id, x, y, width, height, elementName);
-            this.elementName = elementName;
-            this.active = active;
-            setSelected(active);
-        }
-
-        String getElementName() {
-            return elementName;
-        }
-
-        boolean isActiveElement() {
-            return active;
-        }
-    }
-
-    private static class NavButton extends GuiButton {
-        private final ItemStack icon;
-        private final boolean selected;
-
-        NavButton(int id, int x, int y, int width, int height,
-                  ItemStack icon, boolean selected, boolean enabled) {
-            super(id, x, y, width, height, "");
-            this.icon = icon;
-            this.selected = selected;
-            this.enabled = enabled;
-        }
-
-        @Override
-        public void drawButton(Minecraft mc, int mouseX, int mouseY, float partialTicks) {
-            if (!visible) return;
-
-            hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
-            int border = selected ? SELECTED_COLOR : (hovered && enabled ? SLOT_HOVER_COLOR : PANEL_BORDER_COLOR);
-            int background = selected ? SELECTED_BG_COLOR : (enabled ? BUTTON_BG_COLOR : DISABLED_BG_COLOR);
-
-            if (hovered) drawRect(x, y, x + width, y + height, BUTTON_BG_COLOR);
-            if (selected) drawRect(x + width - 1, y, x + width, y + height, SELECTED_COLOR);
-
-            if (id == NAV_RUNES_ID) {
-                int cx = x + width / 2, cy = y + height / 2;
-                int stone = 0xFF487C86, edge = 0xFF87B6BF, rune = 0xFFD0F4F3;
-                drawRect(cx - 7, cy - 8, cx + 7, cy + 8, edge);
-                drawRect(cx - 8, cy - 6, cx + 8, cy + 6, edge);
-                drawRect(cx - 6, cy - 7, cx + 6, cy + 7, stone);
-                drawRect(cx - 7, cy - 5, cx + 7, cy + 5, stone);
-                drawRect(cx - 1, cy - 5, cx + 1, cy + 6, rune);
-                drawRect(cx + 1, cy - 5, cx + 4, cy - 3, rune);
-                drawRect(cx + 3, cy - 3, cx + 5, cy - 1, rune);
-                drawRect(cx + 1, cy - 1, cx + 4, cy + 1, rune);
-                drawRect(cx - 4, cy + 1, cx - 1, cy + 3, rune);
-            }
-
-        }
     }
 
     @Override
@@ -618,46 +441,6 @@ public class CardsGuiScreen extends GuiScreen {
                     : 1;
             updateAmountButtonSelection();
         }
-    }
-
-    // Fill and stroke separately: a translucent border must not darken the whole interior.
-    private static final java.nio.FloatBuffer SURFACE_TRANSFORM = org.lwjgl.BufferUtils.createFloatBuffer(16);
-
-    private static void drawSurface(int x, int y, int w, int h, int background, int border) {
-        if (w < 6 || h < 6) return;
-        GlStateManager.pushMatrix();
-        java.nio.FloatBuffer transform = SURFACE_TRANSFORM;
-        transform.clear();
-        org.lwjgl.opengl.GL11.glGetFloat(org.lwjgl.opengl.GL11.GL_MODELVIEW_MATRIX, transform);
-        float guiScale = new net.minecraft.client.gui.ScaledResolution(Minecraft.getMinecraft()).getScaleFactor();
-        float pixels = Math.max(0.01F, Math.abs(transform.get(0)) * guiScale);
-        float originX = transform.get(12) * guiScale;
-        float originY = transform.get(13) * guiScale;
-        float snappedX = (Math.round(originX + x * pixels) - originX) / pixels;
-        float snappedY = (Math.round(originY + y * pixels) - originY) / pixels;
-        GlStateManager.translate(snappedX, snappedY, 0);
-        GlStateManager.scale(1.0F / pixels, 1.0F / pixels, 1);
-        int right = Math.round(w * pixels), bottom = Math.round(h * pixels);
-        int stroke = Math.max(1, Math.round(1.25F * pixels));
-        boolean itemSlot = w == h && w >= 40 && w <= 60;
-        int shoulder = Math.max(stroke + 1,
-                Math.round((itemSlot ? 4 : (w > 200 && h > 30) ? 4 : 3) * pixels));
-        drawRect(stroke, shoulder, right - stroke, bottom - shoulder, background);
-        drawRect(shoulder, stroke, right - shoulder, shoulder, background);
-        drawRect(shoulder, bottom - shoulder, right - shoulder, bottom - stroke, background);
-        drawRect(shoulder, 0, right - shoulder, stroke, border);
-        drawRect(shoulder, bottom - stroke, right - shoulder, bottom, border);
-        drawRect(0, shoulder, stroke, bottom - shoulder, border);
-        drawRect(right - stroke, shoulder, right, bottom - shoulder, border);
-        drawRect(shoulder - stroke, 0, shoulder, shoulder, border);
-        drawRect(0, shoulder - stroke, shoulder, shoulder, border);
-        drawRect(right - shoulder, 0, right - shoulder + stroke, shoulder, border);
-        drawRect(right - shoulder, shoulder - stroke, right, shoulder, border);
-        drawRect(0, bottom - shoulder, shoulder, bottom - shoulder + stroke, border);
-        drawRect(shoulder - stroke, bottom - shoulder, shoulder, bottom, border);
-        drawRect(right - shoulder, bottom - shoulder, right, bottom - shoulder + stroke, border);
-        drawRect(right - shoulder, bottom - shoulder, right - shoulder + stroke, bottom, border);
-        GlStateManager.popMatrix();
     }
 
     private void drawPanel(int x, int y, int w, int h) {
