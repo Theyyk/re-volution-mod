@@ -4,7 +4,7 @@
 
 Проект построен на Forge Dedicated Server и использует единый клиент-серверный мод. Чисто визуальные PNG-ассеты рун вынесены в отдельный [RE:volution Resource Pack](https://github.com/Theyyk/re-volution-resource-pack).
 
-**Текущая версия: `v1.1.4`**
+**Текущая версия: `v1.1.5`**
 
 ---
 
@@ -310,7 +310,7 @@ MongoDB
 JAR создаётся в:
 
 ```text
-build/libs/customguimod-1.1.4.jar
+build/libs/customguimod-1.1.5.jar
 ```
 
 Клиент и сервер должны использовать одинаковую версию мода.
@@ -430,3 +430,7 @@ build/libs/customguimod-1.1.4.jar
 Шрифты получены из клиента Cristalix; сохраняются исходные метаданные. [Ответ поддержки, scope и attribution](docs/permissions/cristalix.md). Использование относится к описанному некоммерческому учебному/портфолио-проекту.
 
 ![Исходный скриншот ответа поддержки Cristalix](docs/permissions/cristalix-support.png)
+
+## v1.1.5 — GUI cleanup
+
+Кнопки, отрисовка рамок и состояние анимации вынесены из `CardsGuiScreen` в отдельные классы. Игровая логика и внешний вид сохранены; показанные выше скриншоты сняты на v1.1.4. [Область изменений и проверки](docs/v1.1.5-gui-cleanup.md).
