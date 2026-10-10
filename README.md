@@ -401,7 +401,21 @@ build/libs/customguimod-1.1.4.jar
 
 ## 📸 Скриншоты
 
-Актуальные скриншоты rune-интерфейса хранятся вместе с визуальными ассетами в [RE:volution Resource Pack](https://github.com/Theyyk/re-volution-resource-pack). Исторические изображения предыдущих версий сохраняются в этом репозитории для демонстрации развития проекта.
+Актуальные runtime-скриншоты GUI **v1.1.4** хранятся в этом репозитории и синхронизированы с [RE:volution Resource Pack](https://github.com/Theyyk/re-volution-resource-pack). В resource-pack репозитории те же кадры дополнительно документируют rune-текстуры, варианты 64×64 / 128×128 и структуру визуальных ресурсов.
+
+### Full
+
+![RE:volution GUI v1.1.4 — full](screenshots/gui-v1.1.4-full.png)
+
+### Wide
+
+![RE:volution GUI v1.1.4 — wide](screenshots/gui-v1.1.4-wide.png)
+
+### Compact
+
+![RE:volution GUI v1.1.4 — compact](screenshots/gui-v1.1.4-compact.png)
+
+Исторические изображения предыдущих версий сохраняются для демонстрации развития проекта.
 
 ---
 
