@@ -3,6 +3,7 @@ package com.example.customguimod;
 /** Frozen v1.1.5 viewport fixtures and click/slot alignment without Minecraft or OpenGL. */
 public final class GuiLayoutTest {
     public static void main(String[] args) {
+        RuneAwakeningInputTest.run();
         // width, height, scale float bits, canvas x/y, nav x/height, mouse (0,0), mouse bottom-right.
         // Captured from the original v1.1.5 screen before extracting GuiLayout.
         int[][] fixtures = {
