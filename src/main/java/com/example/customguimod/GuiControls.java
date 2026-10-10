@@ -6,19 +6,12 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.item.ItemStack;
 
 import static com.example.customguimod.GuiDrawing.drawSurface;
+import static com.example.customguimod.GuiTheme.*;
 
 /** Screen-local controls; action dispatch and layout remain with the screen. */
 final class GuiControls {
     private GuiControls() {}
 
-    static final int PANEL_BORDER_COLOR = 0xFF292B30;
-    static final int SLOT_HOVER_COLOR = 0xC0586067;
-    static final int SELECTED_COLOR = 0xFF315F9B;
-    static final int SELECTED_BG_COLOR = 0xA0152945;
-    static final int BUTTON_BG_COLOR = 0x40080808;
-    static final int DISABLED_BG_COLOR = 0x20080808;
-    static final int TEXT_COLOR = 0xFFFFFFFF;
-    static final int DISABLED_TEXT_COLOR = 0xFF909090;
     static final int AMOUNT_BUTTON_START_ID = 1;
     static final int NAV_RUNES_ID = 200;
     static final int CLOSE_BUTTON_ID = 299;
@@ -140,7 +133,7 @@ final class GuiControls {
 
             if (id == NAV_RUNES_ID) {
                 int cx = x + width / 2, cy = y + height / 2;
-                int stone = 0xFF487C86, edge = 0xFF87B6BF, rune = 0xFFD0F4F3;
+                int stone = NAV_STONE_COLOR, edge = NAV_EDGE_COLOR, rune = NAV_RUNE_COLOR;
                 drawRect(cx - 7, cy - 8, cx + 7, cy + 8, edge);
                 drawRect(cx - 8, cy - 6, cx + 8, cy + 6, edge);
                 drawRect(cx - 6, cy - 7, cx + 6, cy + 7, stone);
