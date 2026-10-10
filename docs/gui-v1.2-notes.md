@@ -1,29 +1,29 @@
-# GUI v1.2 — first element
+# GUI v1.2 — первая стихия
 
-These are historical design notes. The rune names, types and placeholder icons described below predate the current poison-status catalog; see `src/main/java/com/example/customguimod/EarthRuneCatalog.java` for the current definitions.
+Архив первоначального проекта. Названия, типы и временные иконки ниже предшествуют текущему каталогу статуса Яд. Актуальные определения находятся в `EarthRuneCatalog`; описание текущей архитектуры — в [справке](architecture.md).
 
-The first element (the first deck, index 0) contains 26 separate positions in the order shown in the user's reference. Names may repeat: each slot has its own definition and acquisition state. Duplicate counters are not displayed.
+Первая стихия (первая сборка, индекс 0) содержит 26 отдельных позиций по порядку на референсе пользователя. Названия могут повторяться: каждый слот имеет собственное определение и состояние получения. Счётчики повторов не показываются.
 
-| Slots | Name | Type |
+| Слоты | Название | Тип |
 |---|---|---|
-| 1–4 | Stone Hammer | Click |
-| 5–7 | Shadow Blade | Click |
-| 8 | Forest Heart | Click |
-| 9–10 | Blacksmith's Seal | Boost |
-| 11 | Golem Heart | Boost |
-| 12–13 | Mossy Shard | Click / Earth |
-| 14–17 | Ancient Root | Earth |
-| 18–20 | Obsidian Spike | Earth |
-| 21–22 | Ancient Forest Seed | Boost |
-| 23–25 | Cracked Seal | Boost |
-| 26 | Gold Nugget | Resource |
+| 1–4 | Каменный молот | Клик |
+| 5–7 | Теневой клинок | Клик |
+| 8 | Сердце леса | Клик |
+| 9–10 | Печать кузнеца | Усиление |
+| 11 | Сердце голема | Усиление |
+| 12–13 | Мшистый осколок | Клик / Земля |
+| 14–17 | Древний корень | Земля |
+| 18–20 | Обсидиановый шип | Земля |
+| 21–22 | Семя древолеса | Усиление |
+| 23–25 | Треснувшая печать | Усиление |
+| 26 | Золотой самородок | Ресурс |
 
-Only names and types were populated. Effect values, prices, boosts and images from the reference were not imported. Unowned slots are empty, with no icons, types, labels or tooltips. Owned runes display an item icon and a small type badge in the bottom-right corner. The name and type text are available only on hover. Item icons are the existing temporary Minecraft placeholders; Gold Nugget uses the corresponding Minecraft item.
+Заполнены только названия и типы. Числа эффектов, цена, усиления и изображения с референса не переносились. Неполученные слоты пусты, без иконок, типов, подписей и подсказок. Полученные руны показывают предметную иконку и мини-значок типа снизу справа. Название и текст типа доступны только при наведении. Предметные иконки — прежние временные значки Minecraft; для «Золотого самородка» используется одноимённый предмет.
 
-New purchases for the first element receive the ID of their fixed slot. Existing test records are neither rewritten nor deleted: acquisition and rank are displayed using the saved slot, while the name and type come from the new fixed definition. Legacy records outside the 26 positions are retained and count toward the limit. Other decks retain their previous display and allocation behavior.
+Новые покупки первой стихии получают ID своего фиксированного слота. Старые тестовые записи не переписываются и не удаляются; получение и ранг отображаются по сохранённому слоту, название и тип берутся из нового фиксированного определения. Старые записи вне 26 позиций сохраняются и учитываются в лимите. Остальные сборки сохраняют прежнее отображение и выдачу.
 
-The purchase limit is 26 runes per deck, enforced consistently by the server and the interface.
+Лимит покупок — 26 рун на сборку, одинаков на сервере и в интерфейсе.
 
-Planned duplicate-purchase mechanic: the player receives currency used to upgrade the corresponding element. Compensation and upgrades are not implemented yet.
+Будущая механика повторной покупки: игрок получает валюту, которой улучшает соответствующую стихию. Компенсация и улучшения пока не реализованы.
 
-Type badges: lightning for Click, a leaf for Earth, an upward arrow for Boost, and a coin for Resource. Click / Earth uses a lightning-and-leaf pair. The legacy Water type uses a droplet.
+Значки типов: молния — Клик, лист — Земля, стрелка вверх — Усиление, монета — Ресурс. Клик / Земля отображается парой молнии и листа. Для прежнего типа Вода используется капля.
