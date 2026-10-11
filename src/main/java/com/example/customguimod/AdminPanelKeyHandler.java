@@ -1,7 +1,5 @@
 package com.example.customguimod;
 
-import net.minecraft.client.settings.KeyBinding;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.relauncher.Side;
@@ -10,18 +8,21 @@ import org.lwjgl.input.Keyboard;
 
 @SideOnly(Side.CLIENT)
 public final class AdminPanelKeyHandler {
-    private static KeyBinding keyOpenAdmin;
+    private boolean wasPressed;
 
     public static void register() {
-        keyOpenAdmin = new KeyBinding("key.customguimod.admin", Keyboard.KEY_F8, "key.categories.customguimod");
-        ClientRegistry.registerKeyBinding(keyOpenAdmin);
+        // Intentionally not registered as a Minecraft KeyBinding: the admin shortcut
+        // must not be exposed in the public Controls menu.
     }
 
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || keyOpenAdmin == null) return;
-        if (keyOpenAdmin.isPressed()) {
+        if (event.phase != TickEvent.Phase.END) return;
+
+        boolean pressed = Keyboard.isKeyDown(Keyboard.KEY_F8);
+        if (pressed && !wasPressed) {
             NetworkHandler.INSTANCE.sendToServer(new AdminPanelRequestPacket("open"));
         }
+        wasPressed = pressed;
     }
 }
