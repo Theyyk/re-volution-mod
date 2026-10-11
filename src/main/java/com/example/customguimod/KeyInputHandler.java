@@ -13,16 +13,12 @@ import org.lwjgl.input.Keyboard;
 public class KeyInputHandler {
 
     public static KeyBinding keyOpenCards;
-    public static KeyBinding keyOpenAdminPanel;
 
     private boolean cardsWasPressed = false;
-    private boolean adminWasPressed = false;
 
     public static void register() {
         keyOpenCards = new KeyBinding("key.customguimod.cards", Keyboard.KEY_C, "key.categories.customguimod");
-        keyOpenAdminPanel = new KeyBinding("key.customguimod.admin_panel", Keyboard.KEY_F8, "key.categories.customguimod");
         ClientRegistry.registerKeyBinding(keyOpenCards);
-        ClientRegistry.registerKeyBinding(keyOpenAdminPanel);
     }
 
     @SubscribeEvent
@@ -35,11 +31,5 @@ public class KeyInputHandler {
             CustomGuiMod.logger.info("Открываю CardsGuiScreen");
         }
         cardsWasPressed = cardsPressed;
-
-        boolean adminPressed = keyOpenAdminPanel.isPressed();
-        if (adminPressed && !adminWasPressed) {
-            NetworkHandler.INSTANCE.sendToServer(new AdminPanelRequestPacket("open"));
-        }
-        adminWasPressed = adminPressed;
     }
 }
