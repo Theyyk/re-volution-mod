@@ -24,6 +24,7 @@ public class CustomGuiMod {
         if (event.getSide() == Side.SERVER) {
             NetworkHandler.registerServer();
             MongoManager.connect();
+            AdminPanelAccess.init(event.getModConfigurationDirectory());
             MinecraftForge.EVENT_BUS.register(new PlayerJoinHandler());
             MinecraftForge.EVENT_BUS.register(new MobManager());
             MinecraftForge.EVENT_BUS.register(new DamageBonusHandler());
@@ -54,6 +55,7 @@ public class CustomGuiMod {
         event.registerServerCommand(new CustomCardsCommand());
         event.registerServerCommand(new CustomDeckCommand());
         event.registerServerCommand(new CustomResourceCommand());
+        event.registerServerCommand(new AdminPanelCommand());
         net.minecraft.world.World world = event.getServer().getWorld(0);
         MobManager.loadFromDatabase(world);
     }
