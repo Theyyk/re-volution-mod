@@ -1,13 +1,8 @@
 package com.example.customguimod;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,20 +48,5 @@ public final class AdminPanelStatePacket implements IMessage {
         List<String> result = new ArrayList<>(size);
         for (int i = 0; i < size; i++) result.add(ByteBufUtils.readUTF8String(buf));
         return result;
-    }
-
-    @SideOnly(Side.CLIENT)
-    public static final class Handler implements IMessageHandler<AdminPanelStatePacket, IMessage> {
-        @Override
-        public IMessage onMessage(AdminPanelStatePacket message, MessageContext ctx) {
-            Minecraft.getMinecraft().addScheduledTask(() -> {
-                if (Minecraft.getMinecraft().currentScreen instanceof AdminPanelScreen) {
-                    ((AdminPanelScreen) Minecraft.getMinecraft().currentScreen).applyState(message);
-                } else {
-                    Minecraft.getMinecraft().displayGuiScreen(new AdminPanelScreen(message));
-                }
-            });
-            return null;
-        }
     }
 }
