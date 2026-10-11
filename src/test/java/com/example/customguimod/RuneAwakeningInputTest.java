@@ -1,8 +1,12 @@
 package com.example.customguimod;
 
-/** Exercises the actual selector used by the Forge middle-button event handler. */
+/** Exercises the selector and left-click gate used by the Forge awakening handler. */
 public final class RuneAwakeningInputTest {
     static void run() {
+        equal(RuneAwakeningInput.isAwakeningButton(0), true, "left click must awaken");
+        equal(RuneAwakeningInput.isAwakeningButton(1), false, "right click must not awaken");
+        equal(RuneAwakeningInput.isAwakeningButton(2), false, "middle click must not awaken");
+
         RuneInventory inventory = new RuneInventory();
         GuiLayout layout = new GuiLayout(26);
         int[][] viewports = {{1280, 669}, {1920, 1080}, {2560, 1369}, {2560, 1080}, {640, 360}};
@@ -12,7 +16,7 @@ public final class RuneAwakeningInputTest {
             for (int rune = 0; rune < 26; rune++) {
                 int[] pos = layout.runeSlotPosition(rune);
                 int x = screenX(layout, pos[0] + 25), y = screenY(layout, pos[1] + 25);
-                equal(select(layout, inventory, 0, x, y), rune, "middle click must select rune " + rune);
+                equal(select(layout, inventory, 0, x, y), rune, "left click must select rune " + rune);
                 equal(select(layout, inventory, 1, x, y), -1, "other deck must not awaken");
                 final int hiddenRune = rune;
                 equal(RuneAwakeningInput.runeAt(layout, inventory, 0, x, y, slot -> slot != hiddenRune),
@@ -33,7 +37,7 @@ public final class RuneAwakeningInputTest {
         equal(select(layout, inventory, 0, 665, 118), -1, "all gold collection must not awaken");
         inventory.set(25, 25, RuneInventory.SILVER_RANK);
         equal(select(layout, inventory, 0, 940, 228), 25, "mixed ranks remain selectable");
-        System.out.println("Awakening input selection, scaling, search and collection guards passed");
+        System.out.println("Awakening left-click input, scaling, search and collection guards passed");
     }
 
     private static int select(GuiLayout layout, RuneInventory inventory, int deck, int x, int y) {
@@ -46,6 +50,9 @@ public final class RuneAwakeningInputTest {
         for (int rune = 0; rune < 26; rune++) inventory.set(rune, rune, rank);
     }
     private static void equal(int actual, int expected, String label) {
+        if (actual != expected) throw new AssertionError(label + ": " + actual + " != " + expected);
+    }
+    private static void equal(boolean actual, boolean expected, String label) {
         if (actual != expected) throw new AssertionError(label + ": " + actual + " != " + expected);
     }
 }
