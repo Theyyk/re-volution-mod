@@ -1,6 +1,5 @@
 package com.example.customguimod;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -14,15 +13,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-public final class AdminPanelCommand extends CommandBase {
+public final class AdminPanelCommand extends AdminOnlyCommand {
     @Override
     public String getName() {
         return "adminpanel";
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 4;
     }
 
     @Override
