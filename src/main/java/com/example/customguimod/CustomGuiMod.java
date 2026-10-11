@@ -39,7 +39,9 @@ public class CustomGuiMod {
     @SideOnly(Side.CLIENT)
     public void init(FMLInitializationEvent event) {
         KeyInputHandler.register();
+        AdminPanelKeyHandler.register();
         MinecraftForge.EVENT_BUS.register(new KeyInputHandler());
+        MinecraftForge.EVENT_BUS.register(new AdminPanelKeyHandler());
         MinecraftForge.EVENT_BUS.register(new ClientPacketHandler());
         MinecraftForge.EVENT_BUS.register(new HealthBarRenderer());
         MinecraftForge.EVENT_BUS.register(new NameHider());
