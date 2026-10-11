@@ -44,7 +44,6 @@ public final class AdminPanelRequestPacket implements IMessage {
 
         private static void handle(EntityPlayerMP admin, String action) {
             if (!AdminPanelAccess.isAllowed(admin.getUniqueID())) {
-                admin.sendMessage(new net.minecraft.util.text.TextComponentString("§cНет доступа к Admin Panel."));
                 return;
             }
 
