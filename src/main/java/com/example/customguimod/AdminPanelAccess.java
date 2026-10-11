@@ -3,6 +3,8 @@ package com.example.customguimod;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.io.File;
 import java.io.FileReader;
@@ -16,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-/** Separate whitelist for the in-game admin/test panel. */
+/** Separate whitelist for the in-game admin/test panel and mod commands. */
 public final class AdminPanelAccess {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Type LIST_TYPE = new TypeToken<List<Entry>>() {}.getType();
@@ -63,6 +65,11 @@ public final class AdminPanelAccess {
 
     public static synchronized boolean isAllowed(UUID uuid) {
         return uuid != null && ALLOWED.contains(uuid);
+    }
+
+    public static boolean canUseModCommands(ICommandSender sender) {
+        return !(sender instanceof EntityPlayerMP)
+                || isAllowed(((EntityPlayerMP) sender).getUniqueID());
     }
 
     public static synchronized boolean add(UUID uuid, String name) {
