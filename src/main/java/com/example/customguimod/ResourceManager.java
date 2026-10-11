@@ -131,6 +131,26 @@ public final class ResourceManager {
         return getPlayerResource(uuid, canonical);
     }
 
+    public static int setPlayerResource(UUID uuid, String resource, int value) {
+        ensureConnected();
+        String canonical = findCanonicalName(resource);
+        if (canonical == null) return 0;
+
+        String normalized = normalize(canonical);
+        String field;
+        if (normalized.equals("coins")) field = "balance";
+        else if (normalized.equals("crystals")) field = "crystals";
+        else if (normalized.equals("lightnings")) field = "lightnings";
+        else field = "resources." + normalized;
+
+        players.updateOne(
+                new Document("_id", uuid.toString()),
+                new Document("$set", new Document(field, value)),
+                new UpdateOptions().upsert(true)
+        );
+        return getPlayerResource(uuid, canonical);
+    }
+
     public static void setMobReward(String mobName, String resource, int amount) {
         ensureConnected();
         String canonical = findCanonicalName(resource);
