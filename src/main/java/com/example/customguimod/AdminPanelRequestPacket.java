@@ -11,6 +11,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public final class AdminPanelRequestPacket implements IMessage {
@@ -97,7 +98,7 @@ public final class AdminPanelRequestPacket implements IMessage {
                     PlayerStatsService.sendTo(target);
                 } else if ("mob_create".equals(parts[0]) && parts.length >= 7) {
                     String name = parts[1].trim();
-                    String type = parts[2].trim().toLowerCase();
+                    String type = parts[2].trim().toLowerCase(Locale.ROOT);
                     String resource = ResourceManager.findCanonicalName(parts[3]);
                     int amount = Integer.parseInt(parts[4]);
                     int hp = Integer.parseInt(parts[5]);
@@ -155,19 +156,56 @@ public final class AdminPanelRequestPacket implements IMessage {
         }
 
         static void sendState(EntityPlayerMP admin) {
+            List<String> resources = ResourceManager.getResourceNames();
             List<String> players = new ArrayList<>();
+            List<String> balances = new ArrayList<>();
+
             for (EntityPlayerMP player : admin.getServer().getPlayerList().getPlayers()) {
-                players.add(player.getUniqueID().toString() + "\t" + player.getName());
+                int[] bestRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
+                for (MongoManager.SavedCard card : MongoManager.getCardsInDeck(player.getUniqueID(), 0)) {
+                    if (card.cardIndex < 0 || card.cardIndex >= bestRanks.length) continue;
+                    bestRanks[card.cardIndex] = Math.max(bestRanks[card.cardIndex], card.layer);
+                }
+
+                int owned = 0, normal = 0, silver = 0, gold = 0;
+                for (int rank : bestRanks) {
+                    if (rank <= 0) continue;
+                    owned++;
+                    if (rank >= RuneInventory.GOLD_RANK) gold++;
+                    else if (rank >= RuneInventory.SILVER_RANK) silver++;
+                    else normal++;
+                }
+
+                players.add(player.getUniqueID().toString() + "\t" + player.getName()
+                        + "\t" + player.dimension
+                        + "\t" + coordinate(player.posX)
+                        + "\t" + coordinate(player.posY)
+                        + "\t" + coordinate(player.posZ)
+                        + "\t" + owned
+                        + "\t" + normal
+                        + "\t" + silver
+                        + "\t" + gold);
+
+                for (String resource : resources) {
+                    balances.add(player.getUniqueID().toString() + "\t" + resource + "\t"
+                            + ResourceManager.getPlayerResource(player.getUniqueID(), resource));
+                }
             }
 
             List<String> mobs = new ArrayList<>();
             for (MongoManager.CustomMob mob : MongoManager.getAllMobs()) {
                 mobs.add(mob.name + "\t" + mob.type + "\t" + mob.hp + "\t"
-                        + ResourceManager.getMobResource(mob.name) + "\t" + ResourceManager.getMobAmount(mob.name));
+                        + ResourceManager.getMobResource(mob.name) + "\t" + ResourceManager.getMobAmount(mob.name)
+                        + "\t" + coordinate(mob.x) + "\t" + coordinate(mob.y) + "\t" + coordinate(mob.z)
+                        + "\t" + mob.enabled);
             }
 
             NetworkHandler.INSTANCE.sendTo(
-                    new AdminPanelStatePacket(players, ResourceManager.getResourceNames(), mobs), admin);
+                    new AdminPanelStatePacket(players, resources, mobs, balances), admin);
+        }
+
+        private static String coordinate(double value) {
+            return String.format(Locale.ROOT, "%.1f", value);
         }
     }
 }

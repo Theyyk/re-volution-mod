@@ -11,24 +11,29 @@ public final class AdminPanelStatePacket implements IMessage {
     private List<String> players = new ArrayList<>();
     private List<String> resources = new ArrayList<>();
     private List<String> mobs = new ArrayList<>();
+    private List<String> balances = new ArrayList<>();
 
     public AdminPanelStatePacket() {}
 
-    public AdminPanelStatePacket(List<String> players, List<String> resources, List<String> mobs) {
+    public AdminPanelStatePacket(List<String> players, List<String> resources,
+                                 List<String> mobs, List<String> balances) {
         this.players = new ArrayList<>(players);
         this.resources = new ArrayList<>(resources);
         this.mobs = new ArrayList<>(mobs);
+        this.balances = new ArrayList<>(balances);
     }
 
     public List<String> getPlayers() { return players; }
     public List<String> getResources() { return resources; }
     public List<String> getMobs() { return mobs; }
+    public List<String> getBalances() { return balances; }
 
     @Override
     public void fromBytes(ByteBuf buf) {
         players = readList(buf);
         resources = readList(buf);
         mobs = readList(buf);
+        balances = readList(buf);
     }
 
     @Override
@@ -36,6 +41,7 @@ public final class AdminPanelStatePacket implements IMessage {
         writeList(buf, players);
         writeList(buf, resources);
         writeList(buf, mobs);
+        writeList(buf, balances);
     }
 
     private static void writeList(ByteBuf buf, List<String> values) {
@@ -44,7 +50,7 @@ public final class AdminPanelStatePacket implements IMessage {
     }
 
     private static List<String> readList(ByteBuf buf) {
-        int size = Math.max(0, Math.min(1024, buf.readInt()));
+        int size = Math.max(0, Math.min(4096, buf.readInt()));
         List<String> result = new ArrayList<>(size);
         for (int i = 0; i < size; i++) result.add(ByteBufUtils.readUTF8String(buf));
         return result;
