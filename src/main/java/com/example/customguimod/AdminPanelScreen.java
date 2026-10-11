@@ -14,26 +14,42 @@ public final class AdminPanelScreen extends GuiScreen {
     private final List<String> mobs = new ArrayList<>();
     private int tab, playerIndex, resourceIndex, mobIndex, mobTypeIndex;
     private GuiTextField amountField, mobNameField, mobHpField, mobRewardField;
+    private String amountText = "1000";
+    private String mobNameText = "TestMob";
+    private String mobHpText = "1000";
+    private String mobRewardText = "100";
 
     public AdminPanelScreen(AdminPanelStatePacket state) { readState(state); }
 
     void applyState(AdminPanelStatePacket state) {
+        snapshotInputs();
         readState(state);
         if (mc != null) initGui();
     }
 
     private void readState(AdminPanelStatePacket state) {
+        String selectedPlayer = playerUuid();
+        String selectedResource = resource();
+        String selectedMob = mobName();
+
         players.clear(); players.addAll(state.getPlayers());
         resources.clear(); resources.addAll(state.getResources());
         mobs.clear(); mobs.addAll(state.getMobs());
-        if (playerIndex >= players.size()) playerIndex = 0;
-        if (resourceIndex >= resources.size()) resourceIndex = 0;
-        if (mobIndex >= mobs.size()) mobIndex = 0;
+
+        playerIndex = findByFirstColumn(players, selectedPlayer);
+        resourceIndex = findExact(resources, selectedResource);
+        mobIndex = findByFirstColumn(mobs, selectedMob);
     }
 
     @Override
     public void initGui() {
+        snapshotInputs();
         buttonList.clear();
+        amountField = null;
+        mobNameField = null;
+        mobHpField = null;
+        mobRewardField = null;
+
         int x = width / 2 - 150, y = Math.max(30, height / 2 - 145);
         buttonList.add(new GuiButton(1, x, y, 300, 20, "Игрок: " + playerName()));
         buttonList.add(new GuiButton(2, x, y + 26, 96, 20, tab == 0 ? "[ РУНЫ ]" : "РУНЫ"));
@@ -55,7 +71,7 @@ public final class AdminPanelScreen extends GuiScreen {
     private void buildResources(int x, int y) {
         buttonList.add(new GuiButton(30, x, y, 300, 20, "Ресурс: " + resource()));
         amountField = new GuiTextField(31, fontRenderer, x, y + 28, 300, 20);
-        amountField.setText("1000");
+        amountField.setText(amountText);
         buttonList.add(new GuiButton(32, x, y + 54, 94, 20, "Добавить"));
         buttonList.add(new GuiButton(33, x + 103, y + 54, 94, 20, "Установить"));
         buttonList.add(new GuiButton(34, x + 206, y + 54, 94, 20, "Обнулить"));
@@ -65,9 +81,9 @@ public final class AdminPanelScreen extends GuiScreen {
     private void buildMobs(int x, int y) {
         buttonList.add(new GuiButton(40, x, y, 145, 20, "Тип: " + (mobTypeIndex == 0 ? "zombie" : "skeleton")));
         buttonList.add(new GuiButton(41, x + 155, y, 145, 20, "Награда: " + resource()));
-        mobNameField = field(42, x, y + 28, 300, "TestMob");
-        mobHpField = field(43, x, y + 54, 145, "1000");
-        mobRewardField = field(44, x + 155, y + 54, 145, "100");
+        mobNameField = field(42, x, y + 28, 300, mobNameText);
+        mobHpField = field(43, x, y + 54, 145, mobHpText);
+        mobRewardField = field(44, x + 155, y + 54, 145, mobRewardText);
         buttonList.add(new GuiButton(45, x, y + 80, 300, 20, "Создать у выбранного игрока"));
         buttonList.add(new GuiButton(46, x, y + 112, 300, 20, "Моб: " + mobName()));
         buttonList.add(new GuiButton(47, x, y + 138, 145, 20, "Установить спавн"));
@@ -82,6 +98,7 @@ public final class AdminPanelScreen extends GuiScreen {
 
     @Override
     protected void actionPerformed(GuiButton button) throws IOException {
+        snapshotInputs();
         if (button.id == 1) { cyclePlayer(); return; }
         if (button.id >= 2 && button.id <= 4) { tab = button.id - 2; initGui(); return; }
         if (button.id == 5) { send("refresh"); return; }
@@ -103,27 +120,28 @@ public final class AdminPanelScreen extends GuiScreen {
     private void cycleResource() { if (!resources.isEmpty()) resourceIndex = (resourceIndex + 1) % resources.size(); initGui(); }
 
     private void resourceAction(String action) {
-        send(action + "\t" + playerUuid() + "\t" + resource() + "\t" + number(amountField));
+        send(action + "\t" + playerUuid() + "\t" + resource() + "\t" + number(amountText));
     }
 
     private void createMob() {
-        int hp = number(mobHpField), reward = number(mobRewardField);
-        String name = mobNameField == null ? "" : mobNameField.getText().trim();
+        int hp = number(mobHpText), reward = number(mobRewardText);
+        String name = mobNameText.trim();
         if (name.isEmpty() || hp <= 0 || reward <= 0) return;
         send("mob_create\t" + name + "\t" + (mobTypeIndex == 0 ? "zombie" : "skeleton")
                 + "\t" + resource() + "\t" + reward + "\t" + hp + "\t" + playerUuid());
     }
 
     private void send(String action) {
+        if (playerUuid().isEmpty() && !"refresh".equals(action)) return;
         NetworkHandler.INSTANCE.sendToServer(new AdminPanelRequestPacket(action));
     }
 
     @Override
     protected void keyTyped(char c, int key) throws IOException {
-        if (amountField != null && amountField.textboxKeyTyped(c, key)) return;
-        if (mobNameField != null && mobNameField.textboxKeyTyped(c, key)) return;
-        if (mobHpField != null && mobHpField.textboxKeyTyped(c, key)) return;
-        if (mobRewardField != null && mobRewardField.textboxKeyTyped(c, key)) return;
+        if (amountField != null && amountField.textboxKeyTyped(c, key)) { snapshotInputs(); return; }
+        if (mobNameField != null && mobNameField.textboxKeyTyped(c, key)) { snapshotInputs(); return; }
+        if (mobHpField != null && mobHpField.textboxKeyTyped(c, key)) { snapshotInputs(); return; }
+        if (mobRewardField != null && mobRewardField.textboxKeyTyped(c, key)) { snapshotInputs(); return; }
         super.keyTyped(c, key);
     }
 
@@ -147,10 +165,29 @@ public final class AdminPanelScreen extends GuiScreen {
 
     @Override public boolean doesGuiPauseGame() { return false; }
 
+    private void snapshotInputs() {
+        if (amountField != null) amountText = amountField.getText();
+        if (mobNameField != null) mobNameText = mobNameField.getText();
+        if (mobHpField != null) mobHpText = mobHpField.getText();
+        if (mobRewardField != null) mobRewardText = mobRewardField.getText();
+    }
+
     private String playerUuid() { return players.isEmpty() ? "" : split(players.get(playerIndex), 0); }
     private String playerName() { return players.isEmpty() ? "нет игроков онлайн" : split(players.get(playerIndex), 1); }
     private String resource() { return resources.isEmpty() ? "нет" : resources.get(resourceIndex); }
     private String mobName() { return mobs.isEmpty() ? "нет мобов" : split(mobs.get(mobIndex), 0); }
     private String split(String value, int index) { String[] p = value.split("\\t", -1); return index < p.length ? p[index] : ""; }
-    private int number(GuiTextField field) { try { return Integer.parseInt(field == null ? "0" : field.getText().trim()); } catch (NumberFormatException e) { return 0; } }
+    private int number(String value) { try { return Integer.parseInt(value == null ? "0" : value.trim()); } catch (NumberFormatException e) { return 0; } }
+
+    private int findExact(List<String> values, String selected) {
+        if (values.isEmpty() || selected == null || selected.isEmpty()) return 0;
+        for (int i = 0; i < values.size(); i++) if (selected.equals(values.get(i))) return i;
+        return 0;
+    }
+
+    private int findByFirstColumn(List<String> values, String selected) {
+        if (values.isEmpty() || selected == null || selected.isEmpty()) return 0;
+        for (int i = 0; i < values.size(); i++) if (selected.equals(split(values.get(i), 0))) return i;
+        return 0;
+    }
 }
