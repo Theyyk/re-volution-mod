@@ -39,7 +39,7 @@ public class PingPacket implements IMessage {
     }
 
     public static class Handler implements IMessageHandler<PingPacket, IMessage> {
-        private static final int CARD_COST = 100;
+        private static final int LEGACY_CARD_COST = 100;
         private static final Random RANDOM = new Random();
 
         @Override
@@ -143,10 +143,10 @@ public class PingPacket implements IMessage {
                 return;
             }
 
-            int affordable = balance / CARD_COST;
+            int affordable = balance / LEGACY_CARD_COST;
             if (affordable <= 0) {
                 player.sendMessage(new TextComponentString(
-                        "§cНедостаточно монет! Нужно минимум " + CARD_COST + ", у тебя " + balance));
+                        "§cНедостаточно монет! Нужно минимум " + LEGACY_CARD_COST + ", у тебя " + balance));
                 NetworkHandler.INSTANCE.sendTo(new PongPacket(balance), player);
                 return;
             }
@@ -173,16 +173,22 @@ public class PingPacket implements IMessage {
                         new CardPacket(slot, cardIndex, layer, true), player);
             }
 
-            finishPurchase(player, balance, requestedAmount, buyAll, amountToBuy, amountToBuy, 0);
+            finishLegacyPurchase(player, balance, requestedAmount, buyAll, amountToBuy, amountToBuy, 0);
         }
 
         private void buyEarthRunes(EntityPlayerMP player, int deckIndex, int requestedAmount, boolean buyAll) {
-            int balance = MongoManager.getBalance(player.getUniqueID());
-            int affordable = balance / CARD_COST;
+            int statusId = RuneEconomyConfig.STATUS_POISON;
+            String purchaseResource = canonicalPurchaseResource(statusId);
+            String purchaseDisplayName = ResourceManager.getDisplayName(purchaseResource);
+            int unitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
+            int balance = ResourceManager.getPlayerResource(player.getUniqueID(), purchaseResource);
+            int affordable = balance / unitCost;
+
             if (affordable <= 0) {
                 player.sendMessage(new TextComponentString(
-                        "§cНедостаточно монет! Нужно минимум " + CARD_COST + ", у тебя " + balance));
-                NetworkHandler.INSTANCE.sendTo(new PongPacket(balance), player);
+                        "§cНедостаточно ресурса «" + purchaseDisplayName + "»! Нужно минимум "
+                                + unitCost + ", у тебя " + balance + "."));
+                syncPurchaseBalance(player, purchaseResource, balance);
                 return;
             }
 
@@ -205,13 +211,13 @@ public class PingPacket implements IMessage {
                         allAtLeast(bestRanks, RuneInventory.GOLD_RANK)
                                 ? "§6Все 26 рун уже продвинутые. Достигнут максимальный ранг."
                                 : "§eВсе 26 слотов заполнены. §6Пробудите подходящую руну."));
-                NetworkHandler.INSTANCE.sendTo(new PongPacket(balance), player);
+                syncPurchaseBalance(player, purchaseResource, balance);
                 return;
             }
 
             int targetAttempts = buyAll ? affordable : Math.min(requestedAmount, affordable);
             if (targetAttempts <= 0) {
-                NetworkHandler.INSTANCE.sendTo(new PongPacket(balance), player);
+                syncPurchaseBalance(player, purchaseResource, balance);
                 return;
             }
 
@@ -238,9 +244,9 @@ public class PingPacket implements IMessage {
                         new CardPacket(runeIndex, runeIndex, RuneInventory.NORMAL_RANK, true), player);
             }
 
-            String duplicateResource = RuneEconomyConfig.resourceForStatus(RuneEconomyConfig.STATUS_POISON);
+            String duplicateResource = RuneEconomyConfig.resourceForStatus(statusId);
             int duplicateCompensation = RuneEconomyConfig.duplicateCompensation(
-                    RuneEconomyConfig.STATUS_POISON,
+                    statusId,
                     RuneInventory.NORMAL_RANK,
                     duplicates
             );
@@ -249,7 +255,16 @@ public class PingPacket implements IMessage {
                         player.getUniqueID(), duplicateResource, duplicateCompensation);
             }
 
-            finishPurchase(player, balance, requestedAmount, buyAll, attempts, newRunes, duplicates);
+            finishRunePurchase(
+                    player,
+                    purchaseResource,
+                    unitCost,
+                    requestedAmount,
+                    buyAll,
+                    attempts,
+                    newRunes,
+                    duplicates
+            );
 
             if (duplicateCompensation > 0) {
                 player.sendMessage(new TextComponentString(
@@ -265,9 +280,9 @@ public class PingPacket implements IMessage {
             }
         }
 
-        private void finishPurchase(EntityPlayerMP player, int balance, int requestedAmount, boolean buyAll,
-                                    int amountToBuy, int newRunes, int duplicates) {
-            int spent = amountToBuy * CARD_COST;
+        private void finishLegacyPurchase(EntityPlayerMP player, int balance, int requestedAmount, boolean buyAll,
+                                          int amountToBuy, int newRunes, int duplicates) {
+            int spent = amountToBuy * LEGACY_CARD_COST;
             int newBalance = balance - spent;
             MongoManager.setBalance(player.getUniqueID(), newBalance);
             PlayerStatsService.sendTo(player);
@@ -286,6 +301,52 @@ public class PingPacket implements IMessage {
                         "§aПокупок: " + amountToBuy + ". Новых рун: " + newRunes
                                 + ". Потрачено: " + spent + ". Остаток: " + newBalance + "." + duplicateText));
             }
+        }
+
+        private void finishRunePurchase(EntityPlayerMP player, String purchaseResource, int unitCost,
+                                        int requestedAmount, boolean buyAll,
+                                        int amountToBuy, int newRunes, int duplicates) {
+            int spent = safeMultiply(unitCost, amountToBuy);
+            int newBalance = ResourceManager.addPlayerResource(
+                    player.getUniqueID(), purchaseResource, -spent);
+            PlayerStatsService.sendTo(player);
+            syncPurchaseBalance(player, purchaseResource, newBalance);
+
+            String resourceName = ResourceManager.getDisplayName(purchaseResource);
+            String duplicateText = duplicates > 0
+                    ? " §7Дубликаты: §e" + duplicates + "§7."
+                    : "";
+
+            if (!buyAll && amountToBuy < requestedAmount) {
+                player.sendMessage(new TextComponentString(
+                        "§eКуплено " + amountToBuy + " из " + requestedAmount
+                                + " попыток. Новых рун: " + newRunes
+                                + ". Потрачено: " + spent + " " + resourceName
+                                + ". Остаток: " + newBalance + "." + duplicateText));
+            } else {
+                player.sendMessage(new TextComponentString(
+                        "§aПокупок: " + amountToBuy + ". Новых рун: " + newRunes
+                                + ". Потрачено: " + spent + " " + resourceName
+                                + ". Остаток: " + newBalance + "." + duplicateText));
+            }
+        }
+
+        private String canonicalPurchaseResource(int statusId) {
+            String configured = RuneEconomyConfig.purchaseResourceForStatus(statusId);
+            String canonical = ResourceManager.findCanonicalName(configured);
+            return canonical == null ? "coins" : canonical;
+        }
+
+        private void syncPurchaseBalance(EntityPlayerMP player, String resource, int balance) {
+            PlayerStatsService.sendTo(player);
+            if ("coins".equals(ResourceManager.normalize(resource))) {
+                NetworkHandler.INSTANCE.sendTo(new PongPacket(balance), player);
+            }
+        }
+
+        private int safeMultiply(int left, int right) {
+            long total = (long) left * right;
+            return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
         }
 
         private void awakenRune(EntityPlayerMP player, int deckIndex, int runeIndex) {
