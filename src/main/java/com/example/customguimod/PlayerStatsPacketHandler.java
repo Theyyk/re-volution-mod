@@ -16,10 +16,12 @@ public class PlayerStatsPacketHandler implements IMessageHandler<PlayerStatsPack
             ClientPlayerStats.update(
                     message.getCoins(),
                     message.getCrystals(),
+                    message.getRuneResources(),
                     message.getTotalDamage()
             );
             CustomGuiMod.logger.info("Player stats updated on client: coins=" + message.getCoins()
                     + ", crystals=" + message.getCrystals()
+                    + ", runeResources=" + message.getRuneResources()
                     + ", damage=" + message.getTotalDamage());
         });
         return null;
