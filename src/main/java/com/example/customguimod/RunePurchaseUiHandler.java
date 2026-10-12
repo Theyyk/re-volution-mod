@@ -14,6 +14,8 @@ import java.util.Locale;
 
 @SideOnly(Side.CLIENT)
 public class RunePurchaseUiHandler {
+    private static final int FIRST_STATUS_ELEMENT_BUTTON_ID = 100;
+
     private GuiScreen trackedScreen;
     private List<GuiButton> trackedButtons;
 
@@ -57,7 +59,7 @@ public class RunePurchaseUiHandler {
     }
 
     private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
-        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+        if (!(gui instanceof CardsGuiScreen) || buttons == null || !usesStatusPurchaseEconomy(buttons)) return;
 
         int unitCost = Math.max(1, ClientPlayerStats.getPurchaseUnitCost());
         long total = (long) unitCost * currentBuyAmount(buttons);
@@ -72,6 +74,20 @@ public class RunePurchaseUiHandler {
                 return;
             }
         }
+    }
+
+    private boolean usesStatusPurchaseEconomy(List<GuiButton> buttons) {
+        boolean foundElementButton = false;
+        for (GuiButton button : buttons) {
+            if (!(button instanceof GuiControls.ElementButton)) continue;
+            foundElementButton = true;
+            GuiControls.ElementButton element = (GuiControls.ElementButton) button;
+            if (element.isActiveElement()) {
+                return button.id == FIRST_STATUS_ELEMENT_BUTTON_ID;
+            }
+        }
+        // Before deck state arrives the first status collection is the screen default.
+        return !foundElementButton;
     }
 
     private int currentBuyAmount(List<GuiButton> buttons) {
