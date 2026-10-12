@@ -15,7 +15,13 @@ import java.util.UUID;
 
 public final class ResourceManager {
 
-    private static final List<String> BUILT_IN = Arrays.asList("coins", "crystals", "lightnings");
+    public static final String RUNE_DUST = "rune_dust";
+    public static final String RUNE_SHARDS = "rune_shards";
+    public static final String RUNE_CORES = "rune_cores";
+
+    private static final List<String> BUILT_IN = Arrays.asList(
+            "coins", "crystals", RUNE_DUST, RUNE_SHARDS, RUNE_CORES
+    );
 
     private static MongoClient client;
     private static MongoDatabase database;
@@ -35,6 +41,30 @@ public final class ResourceManager {
         mobs = database.getCollection("custom_mobs");
     }
 
+    public static void purgeDeprecatedLightnings() {
+        ensureConnected();
+
+        players.updateMany(
+                new Document("lightnings", new Document("$exists", true)),
+                new Document("$unset", new Document("lightnings", ""))
+        );
+
+        mobs.updateMany(
+                new Document("resource", "lightnings"),
+                new Document("$unset", new Document("resource", "").append("amount", ""))
+        );
+
+        resources.deleteMany(new Document("name", "lightnings"));
+    }
+
+    public static void purgeDeprecatedLightnings(UUID uuid) {
+        ensureConnected();
+        players.updateOne(
+                new Document("_id", uuid.toString()),
+                new Document("$unset", new Document("lightnings", ""))
+        );
+    }
+
     public static boolean isValidName(String name) {
         return name != null && name.matches("[\\p{L}\\p{N}_-]+");
     }
@@ -47,7 +77,9 @@ public final class ResourceManager {
         String normalized = normalize(resource);
         if (normalized.equals("coins")) return "Монеты";
         if (normalized.equals("crystals")) return "Кристаллы";
-        if (normalized.equals("lightnings")) return "Молнии";
+        if (normalized.equals(RUNE_DUST)) return "Пыль рун";
+        if (normalized.equals(RUNE_SHARDS)) return "Осколки рун";
+        if (normalized.equals(RUNE_CORES)) return "Ядра рун";
         return resource;
     }
 
@@ -103,7 +135,6 @@ public final class ResourceManager {
         String normalized = normalize(canonical);
         if (normalized.equals("coins")) return getInt(doc, "balance");
         if (normalized.equals("crystals")) return getInt(doc, "crystals");
-        if (normalized.equals("lightnings")) return getInt(doc, "lightnings");
 
         Document custom = doc.get("resources", Document.class);
         if (custom == null) return 0;
@@ -119,7 +150,6 @@ public final class ResourceManager {
         String field;
         if (normalized.equals("coins")) field = "balance";
         else if (normalized.equals("crystals")) field = "crystals";
-        else if (normalized.equals("lightnings")) field = "lightnings";
         else field = "resources." + normalized;
 
         players.updateOne(
@@ -140,7 +170,6 @@ public final class ResourceManager {
         String field;
         if (normalized.equals("coins")) field = "balance";
         else if (normalized.equals("crystals")) field = "crystals";
-        else if (normalized.equals("lightnings")) field = "lightnings";
         else field = "resources." + normalized;
 
         players.updateOne(

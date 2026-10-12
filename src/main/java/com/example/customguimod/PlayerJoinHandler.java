@@ -19,6 +19,10 @@ public class PlayerJoinHandler {
             CustomGuiMod.logger.info("Created default deck for " + player.getName());
         }
 
+        // v1.2.2: полностью удаляем устаревшее поле lightnings,
+        // в том числе у новых документов, созданных старой схемой MongoManager.
+        ResourceManager.purgeDeprecatedLightnings(uuid);
+
         PlayerStatsService.sendTo(player);
         CustomGuiMod.logger.info("Player joined: " + player.getName());
     }
