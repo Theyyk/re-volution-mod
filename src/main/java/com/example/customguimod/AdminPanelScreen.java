@@ -327,8 +327,34 @@ public final class AdminPanelScreen extends GuiScreen {
 
     private void drawField(GuiTextField f) {
         if (f == null) return;
-        GuiDrawing.drawSurface(f.x, f.y, f.width, f.height, GuiTheme.BUTTON_BG_COLOR, f.isFocused() ? GuiTheme.CRYSTAL_COLOR : GuiTheme.PANEL_BORDER_COLOR);
-        f.drawTextBox();
+
+        int originalX = f.x;
+        int originalY = f.y;
+        int originalWidth = f.width;
+
+        GuiDrawing.drawSurface(
+            originalX,
+            originalY,
+            originalWidth,
+            f.height,
+            GuiTheme.BUTTON_BG_COLOR,
+            f.isFocused() ? GuiTheme.CRYSTAL_COLOR : GuiTheme.PANEL_BORDER_COLOR
+        );
+
+        // GuiTextField removes its vanilla inner padding when
+        // background drawing is disabled. Move only the text/caret
+        // drawing area while keeping the real field bounds intact.
+        f.x = originalX + 4;
+        f.y = originalY + (f.height - 8) / 2;
+        f.width = Math.max(1, originalWidth - 8);
+
+        try {
+            f.drawTextBox();
+        } finally {
+            f.x = originalX;
+            f.y = originalY;
+            f.width = originalWidth;
+        }
     }
 
     @Override public boolean doesGuiPauseGame() { return false; }
