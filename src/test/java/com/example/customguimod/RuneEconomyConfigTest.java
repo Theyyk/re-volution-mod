@@ -3,6 +3,11 @@ package com.example.customguimod;
 /** Pure Java regression checks for configurable duplicate compensation rules. */
 public final class RuneEconomyConfigTest {
     public static void main(String[] args) {
+        run();
+        System.out.println("Rune economy fixed, formula and event modifier checks passed");
+    }
+
+    static void run() {
         clearProperties();
 
         check(ResourceManager.RUNE_DUST.equals(
@@ -36,7 +41,6 @@ public final class RuneEconomyConfigTest {
                 "Event multiplier must modify the base calculation without replacing it");
 
         clearProperties();
-        System.out.println("Rune economy fixed, formula and event modifier checks passed");
     }
 
     private static void clearProperties() {
