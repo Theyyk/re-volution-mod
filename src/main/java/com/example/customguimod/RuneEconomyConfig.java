@@ -17,6 +17,43 @@ final class RuneEconomyConfig {
         return "";
     }
 
+    static String purchaseResourceForStatus(int statusId) {
+        String key = statusKey(statusId);
+        String fallback = statusId == STATUS_POISON ? "coins" : "coins";
+        String raw = System.getProperty(
+                "customguimod.runes." + key + ".purchase.resource",
+                fallback
+        );
+        String normalized = ResourceManager.normalize(raw).trim();
+        return normalized.isEmpty() ? fallback : normalized;
+    }
+
+    static int purchaseUnitCost(int statusId) {
+        String key = statusKey(statusId);
+        int baseCost = intProperty(
+                "customguimod.runes." + key + ".purchase.cost",
+                purchaseCostDefault(statusId)
+        );
+
+        double eventMultiplier = doubleProperty(
+                "customguimod.runes.purchase.event.multiplier",
+                1.0D
+        ) * doubleProperty(
+                "customguimod.runes." + key + ".purchase.event.multiplier",
+                1.0D
+        );
+
+        long adjusted = Math.round(Math.max(1, baseCost) * Math.max(0.0D, eventMultiplier));
+        if (adjusted <= 0L) return 1;
+        return adjusted > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) adjusted;
+    }
+
+    static int purchaseCost(int statusId, int amount) {
+        if (amount <= 0) return 0;
+        long total = (long) purchaseUnitCost(statusId) * amount;
+        return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
+    }
+
     static CalculationType duplicateCalculationType(int statusId) {
         String key = statusKey(statusId);
         String raw = System.getProperty(
@@ -83,6 +120,11 @@ final class RuneEconomyConfig {
     private static int fixedDefault(int statusId) {
         if (statusId == STATUS_POISON) return 10;
         return 0;
+    }
+
+    private static int purchaseCostDefault(int statusId) {
+        if (statusId == STATUS_POISON) return 100;
+        return 100;
     }
 
     private static String statusKey(int statusId) {
