@@ -1,13 +1,36 @@
 package com.example.customguimod;
 
-/** Pure Java regression checks for configurable duplicate compensation rules. */
+/** Pure Java regression checks for configurable rune economy rules. */
 public final class RuneEconomyConfigTest {
     public static void main(String[] args) {
         run();
-        System.out.println("Rune economy fixed, formula and event modifier checks passed");
+        System.out.println("Rune economy purchase, duplicate and event modifier checks passed");
     }
 
     static void run() {
+        clearProperties();
+
+        check("coins".equals(
+                        RuneEconomyConfig.purchaseResourceForStatus(RuneEconomyConfig.STATUS_POISON)),
+                "Poison rune purchases must default to coins");
+        check(RuneEconomyConfig.purchaseUnitCost(RuneEconomyConfig.STATUS_POISON) == 100,
+                "Poison rune purchases must default to 100 coins");
+        check(RuneEconomyConfig.purchaseCost(RuneEconomyConfig.STATUS_POISON, 5) == 500,
+                "Five poison rune attempts must cost 500 coins by default");
+
+        System.setProperty("customguimod.runes.poison.purchase.cost", "125");
+        check(RuneEconomyConfig.purchaseCost(RuneEconomyConfig.STATUS_POISON, 2) == 250,
+                "Purchase cost must be adjustable outside purchase logic");
+
+        System.setProperty("customguimod.runes.poison.purchase.resource", "crystals");
+        check("crystals".equals(
+                        RuneEconomyConfig.purchaseResourceForStatus(RuneEconomyConfig.STATUS_POISON)),
+                "Purchase resource must be configurable per status");
+
+        System.setProperty("customguimod.runes.purchase.event.multiplier", "0.5");
+        check(RuneEconomyConfig.purchaseUnitCost(RuneEconomyConfig.STATUS_POISON) == 63,
+                "Purchase event multiplier must modify the status purchase cost");
+
         clearProperties();
 
         check(ResourceManager.RUNE_DUST.equals(
@@ -38,12 +61,16 @@ public final class RuneEconomyConfigTest {
         System.setProperty("customguimod.runes.event.multiplier", "2.0");
         check(RuneEconomyConfig.duplicateCompensationPerRune(
                         RuneEconomyConfig.STATUS_POISON, RuneInventory.NORMAL_RANK) == 20,
-                "Event multiplier must modify the base calculation without replacing it");
+                "Event multiplier must modify the base duplicate calculation without replacing it");
 
         clearProperties();
     }
 
     private static void clearProperties() {
+        System.clearProperty("customguimod.runes.poison.purchase.resource");
+        System.clearProperty("customguimod.runes.poison.purchase.cost");
+        System.clearProperty("customguimod.runes.purchase.event.multiplier");
+        System.clearProperty("customguimod.runes.poison.purchase.event.multiplier");
         System.clearProperty("customguimod.runes.poison.duplicate.type");
         System.clearProperty("customguimod.runes.poison.duplicate.fixed");
         System.clearProperty("customguimod.runes.poison.duplicate.formula.base");
