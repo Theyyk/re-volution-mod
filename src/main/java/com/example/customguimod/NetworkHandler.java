@@ -15,6 +15,8 @@ public class NetworkHandler {
         INSTANCE.registerMessage(CardPacketServerHandler.class, CardPacket.class, 2, Side.CLIENT);
         INSTANCE.registerMessage(DeckPacketServerHandler.class, DeckPacket.class, 3, Side.CLIENT);
         INSTANCE.registerMessage(PlayerStatsPacketServerHandler.class, PlayerStatsPacket.class, 4, Side.CLIENT);
+        INSTANCE.registerMessage(AdminPanelRequestPacket.Handler.class, AdminPanelRequestPacket.class, 5, Side.SERVER);
+        INSTANCE.registerMessage(AdminPanelStateServerHandler.class, AdminPanelStatePacket.class, 6, Side.CLIENT);
     }
 
     public static void registerClient() {
@@ -23,5 +25,7 @@ public class NetworkHandler {
         INSTANCE.registerMessage(CardPacketHandler.class, CardPacket.class, 2, Side.CLIENT);
         INSTANCE.registerMessage(DeckPacketHandler.class, DeckPacket.class, 3, Side.CLIENT);
         INSTANCE.registerMessage(PlayerStatsPacketHandler.class, PlayerStatsPacket.class, 4, Side.CLIENT);
+        INSTANCE.registerMessage(AdminPanelRequestClientHandler.class, AdminPanelRequestPacket.class, 5, Side.SERVER);
+        INSTANCE.registerMessage(AdminPanelStateClientHandler.class, AdminPanelStatePacket.class, 6, Side.CLIENT);
     }
 }

@@ -23,7 +23,8 @@ public class RunePurchaseUiHandler {
     @SubscribeEvent
     public void onMouseInput(GuiScreenEvent.MouseInputEvent.Post event) {
         if (!(event.getGui() instanceof CardsGuiScreen)) return;
-        if (Mouse.getEventButton() != 2 || !Mouse.getEventButtonState()) return;
+        if (!RuneAwakeningInput.isAwakeningButton(Mouse.getEventButton())
+                || !Mouse.getEventButtonState()) return;
 
         CardsGuiScreen screen = (CardsGuiScreen) event.getGui();
         Minecraft mc = Minecraft.getMinecraft();

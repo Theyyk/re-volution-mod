@@ -1,6 +1,5 @@
 package com.example.customguimod;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -13,7 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class CustomResourceCommand extends CommandBase {
+public class CustomResourceCommand extends AdminOnlyCommand {
 
     @Override
     public String getName() {
