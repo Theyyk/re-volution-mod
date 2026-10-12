@@ -4,6 +4,7 @@ package com.example.customguimod;
 public final class RuneInventoryTest {
     public static void main(String[] args) {
         EarthRuneCatalogTest.run();
+        RuneEconomyConfigTest.run();
 
         RuneInventory inventory = new RuneInventory();
         inventory.set(0, 0, 1);
@@ -62,7 +63,7 @@ public final class RuneInventoryTest {
         check(free.size() == 1 && free.get(0) == 25,
                 "Legacy fixed-slot helper must still expose the missing 26th position");
 
-        System.out.println("26 fixed rune slots, awakening purchase lock and rank regression checks passed");
+        System.out.println("26 fixed rune slots, awakening purchase lock, rune economy and rank regression checks passed");
     }
 
     private static void check(boolean condition, String message) {
