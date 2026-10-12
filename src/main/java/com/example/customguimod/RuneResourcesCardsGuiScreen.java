@@ -1,5 +1,6 @@
 package com.example.customguimod;
 
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 
 import static com.example.customguimod.GuiDrawing.drawSurface;
@@ -15,6 +16,7 @@ import static com.example.customguimod.GuiTheme.TEXT_COLOR;
 public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
 
     private static final int RESOURCE_PANEL_HEIGHT = 84;
+    private static final int RESOURCE_PANEL_CLEAR_COLOR = 0xFF080808;
     private final GuiLayout resourceLayout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
 
     @Override
@@ -34,6 +36,10 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
         int x = panelX + pad;
         int y = panelY + pad;
 
+        // CardsGuiScreen has already drawn the old 68px resource panel. Clear it fully
+        // before drawing the v1.2.2 panel so the old border/icons cannot bleed through.
+        Gui.drawRect(panelX, panelY, panelX + panelWidth, panelY + RESOURCE_PANEL_HEIGHT,
+                RESOURCE_PANEL_CLEAR_COLOR);
         drawSurface(panelX, panelY, panelWidth, RESOURCE_PANEL_HEIGHT, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
         GuiFontRenderer.heading(mc).drawStringWithShadow("РЕСУРСЫ", x, y, HEADING_TEXT_COLOR);
 
