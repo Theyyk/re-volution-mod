@@ -15,10 +15,12 @@ import java.util.UUID;
 
 public final class ResourceManager {
 
-    public static final String RUNE_RESOURCES = "rune_resources";
+    public static final String RUNE_DUST = "rune_dust";
+    public static final String RUNE_SHARDS = "rune_shards";
+    public static final String RUNE_CORES = "rune_cores";
 
     private static final List<String> BUILT_IN = Arrays.asList(
-            "coins", "crystals", "lightnings", RUNE_RESOURCES
+            "coins", "crystals", "lightnings", RUNE_DUST, RUNE_SHARDS, RUNE_CORES
     );
 
     private static MongoClient client;
@@ -52,7 +54,9 @@ public final class ResourceManager {
         if (normalized.equals("coins")) return "Монеты";
         if (normalized.equals("crystals")) return "Кристаллы";
         if (normalized.equals("lightnings")) return "Молнии";
-        if (normalized.equals(RUNE_RESOURCES)) return "Ресурсы рун";
+        if (normalized.equals(RUNE_DUST)) return "Пыль рун";
+        if (normalized.equals(RUNE_SHARDS)) return "Осколки рун";
+        if (normalized.equals(RUNE_CORES)) return "Ядра рун";
         return resource;
     }
 
