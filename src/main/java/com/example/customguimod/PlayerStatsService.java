@@ -46,10 +46,11 @@ public final class PlayerStatsService {
         UUID uuid = player.getUniqueID();
         int coins = MongoManager.getBalance(uuid);
         int crystals = MongoManager.getCrystals(uuid);
+        int runeResources = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_RESOURCES);
         int totalDamage = getTotalDamageBonus(uuid);
 
         NetworkHandler.INSTANCE.sendTo(
-                new PlayerStatsPacket(coins, crystals, totalDamage),
+                new PlayerStatsPacket(coins, crystals, runeResources, totalDamage),
                 player
         );
     }
