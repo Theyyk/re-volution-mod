@@ -50,9 +50,16 @@ public final class PlayerStatsService {
         int runeShards = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_SHARDS);
         int runeCores = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_CORES);
         int totalDamage = getTotalDamageBonus(uuid);
+        String purchaseResource = RuneEconomyConfig.purchaseResourceForStatus(RuneEconomyConfig.STATUS_POISON);
+        String canonicalPurchaseResource = ResourceManager.findCanonicalName(purchaseResource);
+        if (canonicalPurchaseResource == null) canonicalPurchaseResource = "coins";
+        int purchaseUnitCost = RuneEconomyConfig.purchaseUnitCost(RuneEconomyConfig.STATUS_POISON);
 
         NetworkHandler.INSTANCE.sendTo(
-                new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage),
+                new PlayerStatsPacket(
+                        coins, crystals, runeDust, runeShards, runeCores, totalDamage,
+                        canonicalPurchaseResource, purchaseUnitCost
+                ),
                 player
         );
     }
