@@ -18,14 +18,7 @@ final class RuneEconomyConfig {
     }
 
     static String purchaseResourceForStatus(int statusId) {
-        String key = statusKey(statusId);
-        String fallback = statusId == STATUS_POISON ? "coins" : "coins";
-        String raw = System.getProperty(
-                "customguimod.runes." + key + ".purchase.resource",
-                fallback
-        );
-        String normalized = ResourceManager.normalize(raw).trim();
-        return normalized.isEmpty() ? fallback : normalized;
+        return actionResourceForStatus(statusId, "purchase", "coins");
     }
 
     static int purchaseUnitCost(int statusId) {
@@ -35,14 +28,7 @@ final class RuneEconomyConfig {
                 purchaseCostDefault(statusId)
         );
 
-        double eventMultiplier = doubleProperty(
-                "customguimod.runes.purchase.event.multiplier",
-                1.0D
-        ) * doubleProperty(
-                "customguimod.runes." + key + ".purchase.event.multiplier",
-                1.0D
-        );
-
+        double eventMultiplier = actionEventMultiplier(statusId, "purchase");
         long adjusted = Math.round(Math.max(1, baseCost) * Math.max(0.0D, eventMultiplier));
         if (adjusted <= 0L) return 1;
         return adjusted > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) adjusted;
@@ -52,6 +38,44 @@ final class RuneEconomyConfig {
         if (amount <= 0) return 0;
         long total = (long) purchaseUnitCost(statusId) * amount;
         return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
+    }
+
+    /**
+     * Prepared for v1.2.5. A zero default means awakening remains free until paid awakening is enabled.
+     */
+    static String awakeningResourceForStatus(int statusId) {
+        return actionResourceForStatus(statusId, "awakening", "");
+    }
+
+    static CalculationType awakeningCalculationType(int statusId) {
+        return actionCalculationType(statusId, "awakening");
+    }
+
+    static int awakeningCost(int statusId, int rank) {
+        return actionRankCost(statusId, "awakening", rank, 0);
+    }
+
+    static boolean isAwakeningPaymentConfigured(int statusId, int rank) {
+        return !awakeningResourceForStatus(statusId).isEmpty() && awakeningCost(statusId, rank) > 0;
+    }
+
+    /**
+     * Prepared for future rune upgrades. A zero default keeps current gameplay unchanged.
+     */
+    static String upgradeResourceForStatus(int statusId) {
+        return actionResourceForStatus(statusId, "upgrade", "");
+    }
+
+    static CalculationType upgradeCalculationType(int statusId) {
+        return actionCalculationType(statusId, "upgrade");
+    }
+
+    static int upgradeCost(int statusId, int rank) {
+        return actionRankCost(statusId, "upgrade", rank, 0);
+    }
+
+    static boolean isUpgradePaymentConfigured(int statusId, int rank) {
+        return !upgradeResourceForStatus(statusId).isEmpty() && upgradeCost(statusId, rank) > 0;
     }
 
     static CalculationType duplicateCalculationType(int statusId) {
@@ -115,6 +139,79 @@ final class RuneEconomyConfig {
         if (duplicateCount <= 0) return 0;
         long total = (long) duplicateCompensationPerRune(statusId, rank) * duplicateCount;
         return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
+    }
+
+    private static String actionResourceForStatus(int statusId, String action, String fallback) {
+        String key = statusKey(statusId);
+        String raw = System.getProperty(
+                "customguimod.runes." + key + "." + action + ".resource",
+                fallback
+        );
+        String normalized = ResourceManager.normalize(raw).trim();
+        return normalized.isEmpty() ? fallback : normalized;
+    }
+
+    private static CalculationType actionCalculationType(int statusId, String action) {
+        String key = statusKey(statusId);
+        String raw = System.getProperty(
+                "customguimod.runes." + key + "." + action + ".type",
+                "FIXED"
+        );
+        try {
+            return CalculationType.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return CalculationType.FIXED;
+        }
+    }
+
+    private static int actionRankCost(int statusId, String action, int rank, int fallback) {
+        String key = statusKey(statusId);
+        int safeRank = Math.max(RuneInventory.NORMAL_RANK, rank);
+        CalculationType type = actionCalculationType(statusId, action);
+        int amount;
+
+        switch (type) {
+            case BY_RANK:
+                amount = intProperty(
+                        "customguimod.runes." + key + "." + action + ".rank." + safeRank,
+                        fallback
+                );
+                break;
+            case FORMULA:
+                int base = intProperty(
+                        "customguimod.runes." + key + "." + action + ".formula.base",
+                        fallback
+                );
+                int perRank = intProperty(
+                        "customguimod.runes." + key + "." + action + ".formula.per_rank",
+                        0
+                );
+                amount = base + Math.max(0, safeRank - RuneInventory.NORMAL_RANK) * perRank;
+                break;
+            case FIXED:
+            default:
+                amount = intProperty(
+                        "customguimod.runes." + key + "." + action + ".fixed",
+                        fallback
+                );
+                break;
+        }
+
+        double multiplier = actionEventMultiplier(statusId, action);
+        long adjusted = Math.round(Math.max(0, amount) * Math.max(0.0D, multiplier));
+        if (adjusted <= 0L) return 0;
+        return adjusted > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) adjusted;
+    }
+
+    private static double actionEventMultiplier(int statusId, String action) {
+        String key = statusKey(statusId);
+        return doubleProperty(
+                "customguimod.runes." + action + ".event.multiplier",
+                1.0D
+        ) * doubleProperty(
+                "customguimod.runes." + key + "." + action + ".event.multiplier",
+                1.0D
+        );
     }
 
     private static int fixedDefault(int statusId) {
