@@ -1,6 +1,7 @@
 package com.example.customguimod;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -8,16 +9,28 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.input.Mouse;
 
+import java.util.List;
+import java.util.Locale;
+
 @SideOnly(Side.CLIENT)
 public class RunePurchaseUiHandler {
+    private GuiScreen trackedScreen;
+    private List<GuiButton> trackedButtons;
+
     @SubscribeEvent
     public void onInitGui(GuiScreenEvent.InitGuiEvent.Post event) {
+        trackedScreen = event.getGui();
+        trackedButtons = event.getButtonList();
         applyState(event.getGui());
+        applyPurchaseEconomy(event.getGui(), trackedButtons);
     }
 
     @SubscribeEvent
     public void onDrawPost(GuiScreenEvent.DrawScreenEvent.Post event) {
         applyState(event.getGui());
+        if (event.getGui() == trackedScreen) {
+            applyPurchaseEconomy(event.getGui(), trackedButtons);
+        }
     }
 
     @SubscribeEvent
@@ -41,5 +54,38 @@ public class RunePurchaseUiHandler {
             // The screen owns labels and IDs; legacy overrides conflict with the new controls.
             ((CardsGuiScreen) gui).updatePurchaseAvailability();
         }
+    }
+
+    private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
+        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+
+        int unitCost = Math.max(1, ClientPlayerStats.getPurchaseUnitCost());
+        long total = (long) unitCost * currentBuyAmount(buttons);
+        if (total > Integer.MAX_VALUE) total = Integer.MAX_VALUE;
+
+        String resource = ClientPlayerStats.getPurchaseResource();
+        String resourceName = ResourceManager.getDisplayName(resource).toLowerCase(Locale.ROOT);
+
+        for (GuiButton button : buttons) {
+            if (button.id == 0 && button.enabled) {
+                button.displayString = "Купить руну:\n" + total + " " + resourceName;
+                return;
+            }
+        }
+    }
+
+    private int currentBuyAmount(List<GuiButton> buttons) {
+        for (GuiButton button : buttons) {
+            if (button.id != GuiControls.AMOUNT_BUTTON_START_ID) continue;
+            String label = button.displayString == null ? "" : button.displayString.trim();
+            if (!label.startsWith("x")) return 1;
+            try {
+                int amount = Integer.parseInt(label.substring(1));
+                return amount > 0 ? amount : 1;
+            } catch (NumberFormatException ignored) {
+                return 1;
+            }
+        }
+        return 1;
     }
 }
