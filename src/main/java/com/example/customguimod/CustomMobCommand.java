@@ -1,6 +1,5 @@
 package com.example.customguimod;
 
-import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -13,7 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class CustomMobCommand extends CommandBase {
+public class CustomMobCommand extends AdminOnlyCommand {
 
     @Override
     public String getName() {
@@ -47,19 +46,11 @@ public class CustomMobCommand extends CommandBase {
             }
         }
 
-        if (args[0].equalsIgnoreCase("create")) {
-            if (args.length == 3) {
-                return getListOfStringsMatchingLastWord(args, ResourceManager.getResourceNames());
-            }
-            if (args.length == 4) {
-                return getListOfStringsMatchingLastWord(args, Arrays.asList("<amount>"));
-            }
-            if (args.length == 5) {
-                return getListOfStringsMatchingLastWord(args, Arrays.asList("<hp>"));
-            }
-            if (args.length == 6) {
-                return getListOfStringsMatchingLastWord(args, Arrays.asList("zombie", "skeleton"));
-            }
+        if (args.length > 0 && args[0].equalsIgnoreCase("create")) {
+            if (args.length == 3) return getListOfStringsMatchingLastWord(args, ResourceManager.getResourceNames());
+            if (args.length == 4) return getListOfStringsMatchingLastWord(args, Arrays.asList("<amount>"));
+            if (args.length == 5) return getListOfStringsMatchingLastWord(args, Arrays.asList("<hp>"));
+            if (args.length == 6) return getListOfStringsMatchingLastWord(args, Arrays.asList("zombie", "skeleton"));
         }
 
         return new ArrayList<>();

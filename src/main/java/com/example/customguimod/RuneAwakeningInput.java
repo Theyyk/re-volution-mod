@@ -2,9 +2,13 @@ package com.example.customguimod;
 
 import java.util.function.IntPredicate;
 
-/** Resolves an awakening click from screen coordinates using the rendered layout. */
+/** Resolves awakening input and rune selection using the rendered layout. */
 final class RuneAwakeningInput {
     private RuneAwakeningInput() {}
+
+    static boolean isAwakeningButton(int button) {
+        return button == 0;
+    }
 
     static int runeAt(GuiLayout layout, RuneInventory inventory, int activeDeck,
                       int screenX, int screenY, IntPredicate matchesSearch) {
