@@ -238,7 +238,24 @@ public class PingPacket implements IMessage {
                         new CardPacket(runeIndex, runeIndex, RuneInventory.NORMAL_RANK, true), player);
             }
 
+            String duplicateResource = RuneEconomyConfig.resourceForStatus(RuneEconomyConfig.STATUS_POISON);
+            int duplicateCompensation = RuneEconomyConfig.duplicateCompensation(
+                    RuneEconomyConfig.STATUS_POISON,
+                    RuneInventory.NORMAL_RANK,
+                    duplicates
+            );
+            if (duplicateCompensation > 0 && !duplicateResource.isEmpty()) {
+                ResourceManager.addPlayerResource(
+                        player.getUniqueID(), duplicateResource, duplicateCompensation);
+            }
+
             finishPurchase(player, balance, requestedAmount, buyAll, attempts, newRunes, duplicates);
+
+            if (duplicateCompensation > 0) {
+                player.sendMessage(new TextComponentString(
+                        "§aКомпенсация за дубликаты: §e+" + duplicateCompensation + " §f"
+                                + ResourceManager.getDisplayName(duplicateResource) + "§a."));
+            }
 
             if (ownedCount >= RuneInventory.BOOST_TYPE_COUNT) {
                 player.sendMessage(new TextComponentString(
@@ -256,7 +273,7 @@ public class PingPacket implements IMessage {
             PlayerStatsService.sendTo(player);
 
             String duplicateText = duplicates > 0
-                    ? " §7Дубликаты: §e" + duplicates + "§7 (ресурс пока не начисляется)."
+                    ? " §7Дубликаты: §e" + duplicates + "§7."
                     : "";
 
             if (!buyAll && amountToBuy < requestedAmount) {
