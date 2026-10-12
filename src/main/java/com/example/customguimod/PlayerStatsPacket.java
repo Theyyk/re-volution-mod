@@ -7,15 +7,20 @@ public class PlayerStatsPacket implements IMessage {
 
     private int coins;
     private int crystals;
-    private int runeResources;
+    private int runeDust;
+    private int runeShards;
+    private int runeCores;
     private int totalDamage;
 
     public PlayerStatsPacket() {}
 
-    public PlayerStatsPacket(int coins, int crystals, int runeResources, int totalDamage) {
+    public PlayerStatsPacket(int coins, int crystals, int runeDust,
+                             int runeShards, int runeCores, int totalDamage) {
         this.coins = coins;
         this.crystals = crystals;
-        this.runeResources = runeResources;
+        this.runeDust = runeDust;
+        this.runeShards = runeShards;
+        this.runeCores = runeCores;
         this.totalDamage = totalDamage;
     }
 
@@ -23,7 +28,9 @@ public class PlayerStatsPacket implements IMessage {
     public void fromBytes(ByteBuf buf) {
         coins = buf.readInt();
         crystals = buf.readInt();
-        runeResources = buf.readInt();
+        runeDust = buf.readInt();
+        runeShards = buf.readInt();
+        runeCores = buf.readInt();
         totalDamage = buf.readInt();
     }
 
@@ -31,7 +38,9 @@ public class PlayerStatsPacket implements IMessage {
     public void toBytes(ByteBuf buf) {
         buf.writeInt(coins);
         buf.writeInt(crystals);
-        buf.writeInt(runeResources);
+        buf.writeInt(runeDust);
+        buf.writeInt(runeShards);
+        buf.writeInt(runeCores);
         buf.writeInt(totalDamage);
     }
 
@@ -43,8 +52,16 @@ public class PlayerStatsPacket implements IMessage {
         return crystals;
     }
 
-    public int getRuneResources() {
-        return runeResources;
+    public int getRuneDust() {
+        return runeDust;
+    }
+
+    public int getRuneShards() {
+        return runeShards;
+    }
+
+    public int getRuneCores() {
+        return runeCores;
     }
 
     public int getTotalDamage() {
