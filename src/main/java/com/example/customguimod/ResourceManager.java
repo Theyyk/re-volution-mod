@@ -15,7 +15,11 @@ import java.util.UUID;
 
 public final class ResourceManager {
 
-    private static final List<String> BUILT_IN = Arrays.asList("coins", "crystals", "lightnings");
+    public static final String RUNE_RESOURCES = "rune_resources";
+
+    private static final List<String> BUILT_IN = Arrays.asList(
+            "coins", "crystals", "lightnings", RUNE_RESOURCES
+    );
 
     private static MongoClient client;
     private static MongoDatabase database;
@@ -48,6 +52,7 @@ public final class ResourceManager {
         if (normalized.equals("coins")) return "Монеты";
         if (normalized.equals("crystals")) return "Кристаллы";
         if (normalized.equals("lightnings")) return "Молнии";
+        if (normalized.equals(RUNE_RESOURCES)) return "Ресурсы рун";
         return resource;
     }
 
