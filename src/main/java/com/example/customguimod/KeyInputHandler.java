@@ -27,8 +27,8 @@ public class KeyInputHandler {
 
         boolean cardsPressed = keyOpenCards.isPressed();
         if (cardsPressed && !cardsWasPressed) {
-            Minecraft.getMinecraft().displayGuiScreen(new CardsGuiScreen());
-            CustomGuiMod.logger.info("Открываю CardsGuiScreen");
+            Minecraft.getMinecraft().displayGuiScreen(new RuneResourcesCardsGuiScreen());
+            CustomGuiMod.logger.info("Открываю RuneResourcesCardsGuiScreen");
         }
         cardsWasPressed = cardsPressed;
     }
