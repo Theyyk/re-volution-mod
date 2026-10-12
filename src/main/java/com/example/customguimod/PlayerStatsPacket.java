@@ -1,6 +1,7 @@
 package com.example.customguimod;
 
 import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 public class PlayerStatsPacket implements IMessage {
@@ -11,17 +12,22 @@ public class PlayerStatsPacket implements IMessage {
     private int runeShards;
     private int runeCores;
     private int totalDamage;
+    private String purchaseResource;
+    private int purchaseUnitCost;
 
     public PlayerStatsPacket() {}
 
     public PlayerStatsPacket(int coins, int crystals, int runeDust,
-                             int runeShards, int runeCores, int totalDamage) {
+                             int runeShards, int runeCores, int totalDamage,
+                             String purchaseResource, int purchaseUnitCost) {
         this.coins = coins;
         this.crystals = crystals;
         this.runeDust = runeDust;
         this.runeShards = runeShards;
         this.runeCores = runeCores;
         this.totalDamage = totalDamage;
+        this.purchaseResource = purchaseResource == null ? "coins" : purchaseResource;
+        this.purchaseUnitCost = purchaseUnitCost;
     }
 
     @Override
@@ -32,6 +38,8 @@ public class PlayerStatsPacket implements IMessage {
         runeShards = buf.readInt();
         runeCores = buf.readInt();
         totalDamage = buf.readInt();
+        purchaseResource = ByteBufUtils.readUTF8String(buf);
+        purchaseUnitCost = buf.readInt();
     }
 
     @Override
@@ -42,6 +50,8 @@ public class PlayerStatsPacket implements IMessage {
         buf.writeInt(runeShards);
         buf.writeInt(runeCores);
         buf.writeInt(totalDamage);
+        ByteBufUtils.writeUTF8String(buf, purchaseResource == null ? "coins" : purchaseResource);
+        buf.writeInt(purchaseUnitCost);
     }
 
     public int getCoins() {
@@ -66,5 +76,13 @@ public class PlayerStatsPacket implements IMessage {
 
     public int getTotalDamage() {
         return totalDamage;
+    }
+
+    public String getPurchaseResource() {
+        return purchaseResource;
+    }
+
+    public int getPurchaseUnitCost() {
+        return purchaseUnitCost;
     }
 }
