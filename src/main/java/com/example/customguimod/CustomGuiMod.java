@@ -13,7 +13,7 @@ import org.apache.logging.log4j.Logger;
 public class CustomGuiMod {
 
     public static final String MODID = "customguimod";
-    public static final String VERSION = "1.2.3";
+    public static final String VERSION = "1.2.4";
 
     public static Logger logger;
 
