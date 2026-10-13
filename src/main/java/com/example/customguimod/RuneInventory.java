@@ -9,6 +9,11 @@ final class RuneInventory {
     static final int IMPROVED_RANK = RuneProgression.IMPROVED_RANK;
     static final int ADVANCED_RANK = RuneProgression.ADVANCED_RANK;
 
+    // Temporary source-compatibility aliases while old callers are migrated.
+    // Gameplay terminology remains: Обычная -> Улучшенная -> Продвинутая.
+    @Deprecated static final int SILVER_RANK = IMPROVED_RANK;
+    @Deprecated static final int GOLD_RANK = ADVANCED_RANK;
+
     static final class Entry {
         final int cardIndex;
         final int layer;
