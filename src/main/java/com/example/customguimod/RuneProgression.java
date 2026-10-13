@@ -40,13 +40,6 @@ final class RuneProgression {
     }
 
     static boolean canAwaken(int[] bestRanks, int runeIndex) {
-        if (bestRanks == null || bestRanks.length < RuneInventory.BOOST_TYPE_COUNT) return false;
-        if (runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT) return false;
-
-        int rawRank = bestRanks[runeIndex];
-        if (rawRank < NORMAL_RANK || rawRank > ADVANCED_RANK) return false;
-
-        int currentRank = clampRank(rawRank);
-        return currentRank < ADVANCED_RANK && allAtLeast(bestRanks, currentRank);
+        return RuneAwakeningDecision.evaluate(bestRanks, runeIndex).isAllowed();
     }
 }
