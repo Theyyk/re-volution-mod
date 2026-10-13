@@ -705,6 +705,7 @@ public class CardsGuiScreen extends GuiScreen {
     }
 
     private void drawRankCorners(int x, int y, int w, int h, int color) {
+        if (color == 0) return;
         int length = Math.max(3, Math.min(scaled(8, 4), w / 5));
         int thickness = 1;
 
@@ -730,10 +731,13 @@ public class CardsGuiScreen extends GuiScreen {
                     || mouseY < y || mouseY >= y + layout.runeSlotHeight) continue;
 
             if (activeDeck == 0) {
-                if (inventory.get(i) == null) return;
+                RuneInventory.Entry owned = inventory.get(i);
+                if (owned == null) return;
                 EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(i);
+                if (definition == null) return;
                 List<String> tooltip = new ArrayList<>();
                 tooltip.add("§b" + definition.name);
+                tooltip.add("§7Ранг: §f" + RuneProgression.rankName(owned.layer));
                 tooltip.add("§7Тип: §f" + definition.type);
                 drawCanvasTooltip(tooltip, mouseX, mouseY);
                 return;
@@ -745,7 +749,7 @@ public class CardsGuiScreen extends GuiScreen {
             List<String> tooltip = new ArrayList<>();
             tooltip.add("§b" + CARD_NAMES[cardIndex]);
             tooltip.add("");
-            tooltip.add("§7Ранг: §f" + getRankName(rune.layer));
+            tooltip.add("§7Ранг: §f" + RuneProgression.rankName(rune.layer));
             tooltip.add("§7Тип: §f" + (cardIndex < RUNE_TYPES.length ? RUNE_TYPES[cardIndex] : "Неизвестно"));
             tooltip.add("§7Эффект: §a+" + CARD_STATS[cardIndex]);
             tooltip.add("§7Усиление: §f0");
@@ -857,15 +861,9 @@ public class CardsGuiScreen extends GuiScreen {
     }
 
     private int getRankColor(int layer) {
-        if (layer == 2) return SILVER_COLOR;
-        if (layer == 3) return GOLD_COLOR;
-        return NORMAL_COLOR;
-    }
-
-    private String getRankName(int layer) {
-        if (layer == 2) return "Серебряная";
-        if (layer == 3) return "Золотая";
-        return "Обычная";
+        if (layer >= RuneInventory.ADVANCED_RANK) return GOLD_COLOR;
+        if (layer >= RuneInventory.IMPROVED_RANK) return TEXT_COLOR;
+        return 0;
     }
 
     public void setBalance(int balance) {
