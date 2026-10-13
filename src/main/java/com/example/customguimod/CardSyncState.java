@@ -1,31 +1,41 @@
 package com.example.customguimod;
 
-/** Keeps purchase controls hidden while the rune collection is being synchronized. */
+/** Keeps purchase controls hidden only during an explicit rune collection synchronization. */
 final class CardSyncState {
     private static final long SETTLE_DELAY_MS = 250L;
 
-    private static boolean waitingForServer = true;
+    private static boolean syncing;
+    private static boolean receivedPacket;
     private static long lastPacketAt;
 
     private CardSyncState() {}
 
     static void beginLoad() {
-        waitingForServer = true;
+        syncing = true;
+        receivedPacket = false;
         lastPacketAt = 0L;
     }
 
     static void notePacket() {
-        waitingForServer = false;
+        if (!syncing) return;
+        receivedPacket = true;
         lastPacketAt = System.currentTimeMillis();
     }
 
     static void completeLoad() {
-        waitingForServer = false;
-        lastPacketAt = System.currentTimeMillis() - SETTLE_DELAY_MS;
+        syncing = false;
+        receivedPacket = false;
+        lastPacketAt = 0L;
     }
 
     static boolean isLoading() {
-        return waitingForServer
-                || System.currentTimeMillis() - lastPacketAt < SETTLE_DELAY_MS;
+        if (!syncing) return false;
+        if (!receivedPacket) return true;
+        if (System.currentTimeMillis() - lastPacketAt < SETTLE_DELAY_MS) return true;
+
+        syncing = false;
+        receivedPacket = false;
+        lastPacketAt = 0L;
+        return false;
     }
 }
