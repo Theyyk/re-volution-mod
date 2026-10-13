@@ -33,9 +33,9 @@ public final class RuneAwakeningInputTest {
         inventory.clear();
         for (int rune = 0; rune < 25; rune++) inventory.set(rune, rune, RuneInventory.NORMAL_RANK);
         equal(select(layout, inventory, 0, 665, 118), -1, "incomplete collection must not awaken");
-        fill(inventory, RuneInventory.GOLD_RANK);
+        fill(inventory, RuneInventory.ADVANCED_RANK);
         equal(select(layout, inventory, 0, 665, 118), -1, "all gold collection must not awaken");
-        inventory.set(25, 25, RuneInventory.SILVER_RANK);
+        inventory.set(25, 25, RuneInventory.IMPROVED_RANK);
         equal(select(layout, inventory, 0, 940, 228), 25, "mixed ranks remain selectable");
         System.out.println("Awakening left-click input, scaling, search and collection guards passed");
     }

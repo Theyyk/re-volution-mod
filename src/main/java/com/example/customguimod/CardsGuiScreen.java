@@ -271,7 +271,7 @@ public class CardsGuiScreen extends GuiScreen {
 
         for (GuiButton button : buttonList) {
             if (button.id == BUY_BUTTON_ID) {
-                int collectionRank = RuneInventory.GOLD_RANK;
+                int collectionRank = RuneInventory.ADVANCED_RANK;
 
                 for (int slot = 0; slot < RuneInventory.BOOST_TYPE_COUNT; slot++) {
                     RuneInventory.Entry entry = inventory.get(slot);
@@ -283,7 +283,7 @@ public class CardsGuiScreen extends GuiScreen {
                 button.enabled = !full;
 
                 if (full) {
-                    button.displayString = collectionRank >= RuneInventory.GOLD_RANK
+                    button.displayString = collectionRank >= RuneInventory.ADVANCED_RANK
                             ? "Максимальный ранг"
                             : "Пробудить руну";
                 } else {
@@ -395,6 +395,8 @@ public class CardsGuiScreen extends GuiScreen {
                 : String.format(java.util.Locale.ROOT, "%.2f", damage).replaceAll("0+$", "").replaceAll("\\.$", "");
         drawStatLine(x, y, "Урон за клик", damageText, textW);
 
+        if (this instanceof RuneResourcesCardsGuiScreen) return;
+
         int resourcesY = layout.leftPanelY + layout.leftPanelHeight + 11;
         drawPanel(layout.leftPanelX, resourcesY, layout.leftPanelWidth, 68);
         y = resourcesY + pad;
@@ -437,7 +439,6 @@ public class CardsGuiScreen extends GuiScreen {
         equipmentTooltip = null;
         int x = layout.centerPanelX, y = layout.centerPanelY;
         drawPanel(x, y, layout.centerPanelWidth, 63);
-        // Progression and donation data will replace these presentation placeholders.
         fontRenderer.drawString("#1", x + 8, y + 9, TEXT_COLOR);
         int rankSeparatorX = x + 8 + fontRenderer.getStringWidth("#1") + 7;
         drawRect(rankSeparatorX, y + 10, rankSeparatorX + 1, y + 20, MUTED_TEXT_COLOR);
@@ -454,7 +455,6 @@ public class CardsGuiScreen extends GuiScreen {
         int top = y + 74;
         drawPanel(x, top, layout.centerPanelWidth, layout.centerPanelHeight - 74);
         int slot = 50, gap = 8, left = x + 9;
-        // The reference has five positions across, three side rows and a bottom row.
         String[] upper = {"Основная рука", "Дополнительная рука", "Талисман", "Реликвия", "Артефакт"};
         for (int i = 0; i < 5; i++) {
             drawEquipmentSlot(left + i * (slot + gap), top + 9, slot, upper[i], mouseX, mouseY);
@@ -508,6 +508,7 @@ public class CardsGuiScreen extends GuiScreen {
         drawLock(x + size / 2 - 6, y + size / 2 - 6, EQUIPMENT_LOCK_COLOR);
         if (hover) equipmentTooltip = name + " — недоступно";
     }
+
     private void drawSmallLock(int x, int y) {
         drawRect(x + 2, y, x + 6, y + 1, LOCK_COLOR);
         drawRect(x + 1, y + 1, x + 3, y + 4, LOCK_COLOR);
@@ -517,7 +518,6 @@ public class CardsGuiScreen extends GuiScreen {
     }
 
     private void drawLock(int x, int y, int color) {
-        // Stepped arch and compact square keyhole measured from the reference.
         drawRect(x + 3, y, x + 9, y + 1, color);
         drawRect(x + 2, y + 1, x + 10, y + 3, color);
         drawRect(x + 1, y + 3, x + 4, y + 6, color);
@@ -526,6 +526,7 @@ public class CardsGuiScreen extends GuiScreen {
         drawRect(x - 1, y + 6, x + 13, y + 12, color);
         drawRect(x + 4, y + 8, x + 8, y + 11, LOCK_KEYHOLE_COLOR);
     }
+
     private void drawRunePanelContent(int mouseX, int mouseY) {
         int pad = scaled(8, 4);
         int titleX = layout.runePanelX + pad;
@@ -558,7 +559,7 @@ public class CardsGuiScreen extends GuiScreen {
 
     private void drawRuneActionHints(int x, int y, int availableWidth) {
         String[] labels = {"Пробудить", "+ CTRL Поделиться в чате", "+ CTRL Ослабить"};
-        int[] buttons = {2, 0, 1};
+        int[] buttons = {0, 0, 1};
         int totalWidth = 0;
         for (String label : labels) totalWidth += 13 + fontRenderer.getStringWidth(label);
         totalWidth += 20;
@@ -705,6 +706,7 @@ public class CardsGuiScreen extends GuiScreen {
     }
 
     private void drawRankCorners(int x, int y, int w, int h, int color) {
+        if (color == 0) return;
         int length = Math.max(3, Math.min(scaled(8, 4), w / 5));
         int thickness = 1;
 
@@ -730,10 +732,13 @@ public class CardsGuiScreen extends GuiScreen {
                     || mouseY < y || mouseY >= y + layout.runeSlotHeight) continue;
 
             if (activeDeck == 0) {
-                if (inventory.get(i) == null) return;
+                RuneInventory.Entry owned = inventory.get(i);
+                if (owned == null) return;
                 EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(i);
+                if (definition == null) return;
                 List<String> tooltip = new ArrayList<>();
                 tooltip.add("§b" + definition.name);
+                tooltip.add("§7Ранг: §f" + RuneProgression.rankName(owned.layer));
                 tooltip.add("§7Тип: §f" + definition.type);
                 drawCanvasTooltip(tooltip, mouseX, mouseY);
                 return;
@@ -745,7 +750,7 @@ public class CardsGuiScreen extends GuiScreen {
             List<String> tooltip = new ArrayList<>();
             tooltip.add("§b" + CARD_NAMES[cardIndex]);
             tooltip.add("");
-            tooltip.add("§7Ранг: §f" + getRankName(rune.layer));
+            tooltip.add("§7Ранг: §f" + RuneProgression.rankName(rune.layer));
             tooltip.add("§7Тип: §f" + (cardIndex < RUNE_TYPES.length ? RUNE_TYPES[cardIndex] : "Неизвестно"));
             tooltip.add("§7Эффект: §a+" + CARD_STATS[cardIndex]);
             tooltip.add("§7Усиление: §f0");
@@ -841,7 +846,6 @@ public class CardsGuiScreen extends GuiScreen {
         drawElementTooltip(mouseX, mouseY);
         drawNavigationTooltip(mouseX, mouseY);
         drawRuneTooltip(mouseX, mouseY);
-        // Tooltips use the logical canvas bounds, too.
         if (equipmentTooltip != null) drawCanvasTooltip(java.util.Collections.singletonList(equipmentTooltip), mouseX, mouseY);
         GlStateManager.popMatrix();
     }
@@ -857,15 +861,9 @@ public class CardsGuiScreen extends GuiScreen {
     }
 
     private int getRankColor(int layer) {
-        if (layer == 2) return SILVER_COLOR;
-        if (layer == 3) return GOLD_COLOR;
-        return NORMAL_COLOR;
-    }
-
-    private String getRankName(int layer) {
-        if (layer == 2) return "Серебряная";
-        if (layer == 3) return "Золотая";
-        return "Обычная";
+        if (layer >= RuneInventory.ADVANCED_RANK) return GOLD_COLOR;
+        if (layer >= RuneInventory.IMPROVED_RANK) return TEXT_COLOR;
+        return 0;
     }
 
     public void setBalance(int balance) {

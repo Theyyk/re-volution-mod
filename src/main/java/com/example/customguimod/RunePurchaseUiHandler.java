@@ -28,7 +28,7 @@ public class RunePurchaseUiHandler {
     }
 
     @SubscribeEvent
-    public void onDrawPost(GuiScreenEvent.DrawScreenEvent.Post event) {
+    public void onDrawPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
         applyState(event.getGui());
         if (event.getGui() == trackedScreen) {
             applyPurchaseEconomy(event.getGui(), trackedButtons);
@@ -47,6 +47,7 @@ public class RunePurchaseUiHandler {
         int mouseY = screen.height - Mouse.getEventY() * screen.height / Math.max(1, mc.displayHeight) - 1;
         int rune = screen.awakeningRuneAt(mouseX, mouseY);
         if (rune >= 0) {
+            // Legacy packet name; the server already treats this as awakening, not a separate upgrade mechanic.
             NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
         }
     }

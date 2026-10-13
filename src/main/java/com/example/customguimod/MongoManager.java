@@ -274,7 +274,7 @@ public class MongoManager {
 
         target.put("slot", cardIndex);
         target.put("cardIndex", cardIndex);
-        target.put("layer", Math.max(RuneInventory.NORMAL_RANK, Math.min(RuneInventory.GOLD_RANK, layer)));
+        target.put("layer", Math.max(RuneInventory.NORMAL_RANK, Math.min(RuneInventory.ADVANCED_RANK, layer)));
         if (!target.containsKey("level")) target.put("level", 1);
 
         deck.put("cards", cards);
