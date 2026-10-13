@@ -71,16 +71,21 @@ final class RuneInventory {
         return ownedCatalogSlotCount() == BOOST_TYPE_COUNT;
     }
 
-    boolean canAwaken(int cardIndex) {
-        Entry entry = getBoost(cardIndex);
-        if (!hasAllCatalogRunes() || entry == null) return false;
+    RuneAwakeningDecision awakeningDecision(int cardIndex) {
+        return RuneAwakeningDecision.evaluate(bestRanks(), cardIndex);
+    }
 
+    boolean canAwaken(int cardIndex) {
+        return awakeningDecision(cardIndex).isAllowed();
+    }
+
+    int[] bestRanks() {
         int[] ranks = new int[BOOST_TYPE_COUNT];
         for (int rune = 0; rune < BOOST_TYPE_COUNT; rune++) {
             Entry best = getBoost(rune);
             ranks[rune] = best == null ? 0 : best.layer;
         }
-        return RuneProgression.canAwaken(ranks, cardIndex);
+        return ranks;
     }
 
     /** Purchase attempts stop once all 26 fixed runes of the element are collected. */
