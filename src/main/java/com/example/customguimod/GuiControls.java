@@ -184,7 +184,7 @@ final class GuiControls {
 
         ElementButton(int id, int x, int y, int width, int height,
                       String elementName, boolean active) {
-            super(id, x, y, width, height, text);
+            super(id, x, y, width, height, elementName);
             this.elementName = elementName;
             this.active = active;
             setSelected(active);
