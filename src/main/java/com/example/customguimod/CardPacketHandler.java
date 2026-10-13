@@ -14,6 +14,7 @@ public class CardPacketHandler implements IMessageHandler<CardPacket, IMessage> 
     public IMessage onMessage(CardPacket message, MessageContext ctx) {
         Minecraft.getMinecraft().addScheduledTask(() -> {
             RuneGuiPreloader.acceptCard(message);
+            ClientRuneRanks.accept(message);
             CardSyncState.notePacket();
 
             if (Minecraft.getMinecraft().currentScreen instanceof CardsGuiScreen) {
