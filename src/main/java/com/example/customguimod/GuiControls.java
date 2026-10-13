@@ -24,21 +24,33 @@ final class GuiControls {
 
         PanelButton(int id, int x, int y, int width, int height, String text) {
             super(id, x, y, width, height, text);
+            if (id == 0) CardSyncState.beginLoad();
         }
 
         void setSelected(boolean selected) {
             this.selected = selected;
         }
 
+        private boolean blockedByCardSync() {
+            return (id == 0 || id == AMOUNT_BUTTON_START_ID) && CardSyncState.isLoading();
+        }
+
+        @Override
+        public boolean mousePressed(Minecraft mc, int mouseX, int mouseY) {
+            return !blockedByCardSync() && super.mousePressed(mc, mouseX, mouseY);
+        }
+
         @Override
         public void drawButton(Minecraft mc, int mouseX, int mouseY, float partialTicks) {
             if (!visible) return;
 
+            boolean syncBlocked = blockedByCardSync();
             hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
 
-            int border = selected ? SELECTED_COLOR : (hovered && enabled ? SLOT_HOVER_COLOR : PANEL_BORDER_COLOR);
-            int background = selected ? SELECTED_BG_COLOR : (enabled ? BUTTON_BG_COLOR : DISABLED_BG_COLOR);
-            int textColor = id == -1 || enabled ? TEXT_COLOR : DISABLED_TEXT_COLOR;
+            boolean interactive = enabled && !syncBlocked;
+            int border = selected ? SELECTED_COLOR : (hovered && interactive ? SLOT_HOVER_COLOR : PANEL_BORDER_COLOR);
+            int background = selected ? SELECTED_BG_COLOR : (interactive ? BUTTON_BG_COLOR : DISABLED_BG_COLOR);
+            int textColor = id == -1 || interactive ? TEXT_COLOR : DISABLED_TEXT_COLOR;
 
             if (id != CLOSE_BUTTON_ID) drawSurface(x, y, width, height, background, border);
 
@@ -69,10 +81,13 @@ final class GuiControls {
                 return;
             }
 
-            String[] lines = displayString.split("\n");
+            String[] lines = syncBlocked && id == 0
+                    ? new String[]{"Загрузка..."}
+                    : displayString.split("\n");
             int lineHeight = font.FONT_HEIGHT;
             int textY = y + (height - lines.length * lineHeight) / 2;
-            boolean purchasePrice = id == 0
+            boolean purchasePrice = !syncBlocked
+                    && id == 0
                     && enabled
                     && lines.length > 1
                     && displayString.startsWith("Купить руну");
@@ -174,6 +189,13 @@ final class GuiControls {
             this.elementName = elementName;
             this.active = active;
             setSelected(active);
+        }
+
+        @Override
+        public boolean mousePressed(Minecraft mc, int mouseX, int mouseY) {
+            boolean pressed = super.mousePressed(mc, mouseX, mouseY);
+            if (pressed && !active) CardSyncState.beginLoad();
+            return pressed;
         }
 
         String getElementName() {
