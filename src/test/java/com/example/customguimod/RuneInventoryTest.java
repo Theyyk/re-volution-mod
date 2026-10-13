@@ -21,6 +21,8 @@ public final class RuneInventoryTest {
         check(!inventory.hasAllCatalogRunes(), "Two owned runes are not a complete collection");
         check(!inventory.isPurchaseLimitReached(), "Purchases must remain available before 26 / 26");
         check(!inventory.canAwaken(1), "Ranks stay locked until all 26 runes are collected");
+        check(inventory.awakeningDecision(1).reason == RuneAwakeningDecision.Reason.COLLECTION_BEHIND,
+                "Inventory must surface collection-behind awakening state");
 
         inventory.clear();
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
@@ -33,22 +35,30 @@ public final class RuneInventoryTest {
         check(inventory.isPurchaseLimitReached(),
                 "A complete collection must block purchases and move the player to awakening");
         check(inventory.canAwaken(0), "An ordinary rune may become improved after collection completion");
+        check(inventory.awakeningDecision(0).nextRank == RuneInventory.IMPROVED_RANK,
+                "Inventory decision must target improved rank from ordinary");
 
         inventory.set(0, 0, RuneInventory.IMPROVED_RANK);
         check(inventory.getBoost(0).layer == RuneInventory.IMPROVED_RANK,
                 "Improved rank must be stored independently for its fixed rune");
         check(!inventory.canAwaken(0),
                 "An improved rune must wait until all runes have reached improved rank");
+        check(inventory.awakeningDecision(0).reason == RuneAwakeningDecision.Reason.COLLECTION_BEHIND,
+                "Inventory must expose why an improved rune is blocked");
 
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             inventory.set(rune, rune, RuneInventory.IMPROVED_RANK);
         }
         check(inventory.canAwaken(0), "An improved rune may become advanced once the collection catches up");
+        check(inventory.awakeningDecision(0).nextRank == RuneInventory.ADVANCED_RANK,
+                "Inventory decision must target advanced rank from improved");
 
         inventory.set(0, 0, RuneInventory.ADVANCED_RANK);
         check(inventory.getBoost(0).layer == RuneInventory.ADVANCED_RANK,
                 "Advanced rank must be the highest visible state");
         check(!inventory.canAwaken(0), "Advanced is the current maximum rank");
+        check(inventory.awakeningDecision(0).reason == RuneAwakeningDecision.Reason.MAXIMUM_RANK,
+                "Inventory must expose maximum-rank awakening state");
 
         inventory.set(1, 1, 99);
         check(inventory.getBoost(1).layer == RuneInventory.ADVANCED_RANK,
