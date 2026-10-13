@@ -13,6 +13,8 @@ public class CardPacketHandler implements IMessageHandler<CardPacket, IMessage> 
     @Override
     public IMessage onMessage(CardPacket message, MessageContext ctx) {
         Minecraft.getMinecraft().addScheduledTask(() -> {
+            CardSyncState.notePacket();
+
             if (Minecraft.getMinecraft().currentScreen instanceof CardsGuiScreen) {
                 CardsGuiScreen screen = (CardsGuiScreen) Minecraft.getMinecraft().currentScreen;
                 if (message.getSlot() == -1) {
