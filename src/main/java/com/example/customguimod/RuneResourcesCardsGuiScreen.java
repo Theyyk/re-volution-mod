@@ -67,13 +67,45 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
 
     private void drawResourceLine(int x, int y, String name, int value, int availableWidth) {
         String valueText = String.valueOf(value);
-        int valueX = x + availableWidth - fontRenderer.getStringWidth(valueText);
+        int digitAdvance = stableDigitAdvance();
+        int valueWidth = stableValueWidth(valueText, digitAdvance);
+        int valueX = x + availableWidth - valueWidth;
         int nameX = x + RESOURCE_ICON_SIZE + RESOURCE_ICON_GAP;
         int nameMaxWidth = Math.max(8, valueX - nameX - resourceLayout.scaled(4, 2));
 
         drawResourceIcon(x, y, name);
         drawFitted(name, nameX, y, nameMaxWidth);
-        fontRenderer.drawString(valueText, valueX, y, TEXT_COLOR);
+        drawStableValue(valueText, valueX, y, digitAdvance);
+    }
+
+    private int stableDigitAdvance() {
+        int widest = 0;
+        for (char digit = '0'; digit <= '9'; digit++) {
+            widest = Math.max(widest, fontRenderer.getCharWidth(digit));
+        }
+        return Math.max(1, widest);
+    }
+
+    private int stableValueWidth(String text, int digitAdvance) {
+        int width = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            width += Character.isDigit(c) ? digitAdvance : fontRenderer.getCharWidth(c);
+        }
+        return width;
+    }
+
+    private void drawStableValue(String text, int x, int y, int digitAdvance) {
+        int cursor = x;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            String glyph = String.valueOf(c);
+            int glyphWidth = fontRenderer.getStringWidth(glyph);
+            int advance = Character.isDigit(c) ? digitAdvance : glyphWidth;
+            int glyphX = cursor + Math.max(0, (advance - glyphWidth) / 2);
+            fontRenderer.drawString(glyph, glyphX, y, TEXT_COLOR);
+            cursor += Math.max(1, advance);
+        }
     }
 
     private void drawResourceIcon(int x, int y, String name) {
