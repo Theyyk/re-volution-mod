@@ -203,12 +203,13 @@ public class PingPacket implements IMessage {
                     owned[card.cardIndex] = true;
                     ownedCount++;
                 }
-                bestRanks[card.cardIndex] = Math.max(bestRanks[card.cardIndex], clampRank(card.layer));
+                bestRanks[card.cardIndex] = Math.max(
+                        bestRanks[card.cardIndex], RuneProgression.clampRank(card.layer));
             }
 
             if (ownedCount >= RuneInventory.BOOST_TYPE_COUNT) {
                 player.sendMessage(new TextComponentString(
-                        allAtLeast(bestRanks, RuneInventory.ADVANCED_RANK)
+                        RuneProgression.allAtLeast(bestRanks, RuneProgression.ADVANCED_RANK)
                                 ? "§6Все 26 рун уже продвинутые. Достигнут максимальный ранг."
                                 : "§eВсе 26 слотов заполнены. §6Пробудите подходящую руну."));
                 syncPurchaseBalance(player, purchaseResource, balance);
@@ -234,20 +235,20 @@ public class PingPacket implements IMessage {
                 }
 
                 owned[runeIndex] = true;
-                bestRanks[runeIndex] = RuneInventory.NORMAL_RANK;
+                bestRanks[runeIndex] = RuneProgression.NORMAL_RANK;
                 ownedCount++;
                 newRunes++;
                 MongoManager.addCardToDeck(
                         player.getUniqueID(), deckIndex,
-                        runeIndex, runeIndex, RuneInventory.NORMAL_RANK, 1);
+                        runeIndex, runeIndex, RuneProgression.NORMAL_RANK, 1);
                 NetworkHandler.INSTANCE.sendTo(
-                        new CardPacket(runeIndex, runeIndex, RuneInventory.NORMAL_RANK, true), player);
+                        new CardPacket(runeIndex, runeIndex, RuneProgression.NORMAL_RANK, true), player);
             }
 
             String duplicateResource = RuneEconomyConfig.resourceForStatus(statusId);
             int duplicateCompensation = RuneEconomyConfig.duplicateCompensation(
                     statusId,
-                    RuneInventory.NORMAL_RANK,
+                    RuneProgression.NORMAL_RANK,
                     duplicates
             );
             if (duplicateCompensation > 0 && !duplicateResource.isEmpty()) {
@@ -274,7 +275,7 @@ public class PingPacket implements IMessage {
 
             if (ownedCount >= RuneInventory.BOOST_TYPE_COUNT) {
                 player.sendMessage(new TextComponentString(
-                        allAtLeast(bestRanks, RuneInventory.ADVANCED_RANK)
+                        RuneProgression.allAtLeast(bestRanks, RuneProgression.ADVANCED_RANK)
                                 ? "§6Все 26 рун уже продвинутые. Максимальный ранг достигнут."
                                 : "§6Все 26 слотов заполнены. Пробудите подходящую руну."));
             }
@@ -370,7 +371,8 @@ public class PingPacket implements IMessage {
                     owned[card.cardIndex] = true;
                     ownedCount++;
                 }
-                bestRanks[card.cardIndex] = Math.max(bestRanks[card.cardIndex], clampRank(card.layer));
+                bestRanks[card.cardIndex] = Math.max(
+                        bestRanks[card.cardIndex], RuneProgression.clampRank(card.layer));
             }
 
             if (ownedCount < RuneInventory.BOOST_TYPE_COUNT) {
@@ -383,20 +385,24 @@ public class PingPacket implements IMessage {
                 return;
             }
 
-            int currentRank = bestRanks[runeIndex];
-            if (currentRank >= RuneInventory.ADVANCED_RANK) {
+            RuneAwakeningDecision decision = RuneAwakeningDecision.evaluate(bestRanks, runeIndex);
+            if (decision.reason == RuneAwakeningDecision.Reason.MAXIMUM_RANK) {
                 player.sendMessage(new TextComponentString("§6Эта руна уже продвинутая."));
                 return;
             }
-
-            if (!allAtLeast(bestRanks, currentRank)) {
-                player.sendMessage(new TextComponentString(
-                        "§eЧтобы пробудить эту руну дальше, сначала доведите все 26 рун минимум до ранга «"
-                                + rankName(currentRank) + "»."));
+            if (!decision.isAllowed()) {
+                if (decision.reason == RuneAwakeningDecision.Reason.COLLECTION_BEHIND) {
+                    player.sendMessage(new TextComponentString(
+                            "§eЧтобы пробудить эту руну дальше, сначала доведите все 26 рун минимум до ранга «"
+                                    + RuneProgression.rankName(decision.currentRank) + "»."));
+                } else {
+                    player.sendMessage(new TextComponentString("§cЭту руну сейчас нельзя пробудить."));
+                }
                 return;
             }
 
-            int newRank = currentRank + 1;
+            int currentRank = decision.currentRank;
+            int newRank = decision.nextRank;
 
             MongoManager.clearDeck(player.getUniqueID(), deckIndex);
 
@@ -424,28 +430,10 @@ public class PingPacket implements IMessage {
             PlayerStatsService.sendTo(player);
 
             player.sendMessage(new TextComponentString(
-                    "§aРуна пробуждена: §f" + rankName(currentRank) + " §7→ §f" + rankName(newRank)
-                            + "§a. Руны ранга «" + rankName(currentRank)
+                    "§aРуна пробуждена: §f" + RuneProgression.rankName(currentRank)
+                            + " §7→ §f" + RuneProgression.rankName(newRank)
+                            + "§a. Руны ранга «" + RuneProgression.rankName(currentRank)
                             + "» сброшены, более высокие ранги сохранены."));
-        }
-
-        private boolean allAtLeast(int[] bestRanks, int rank) {
-            for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-                if (bestRanks[rune] < rank) return false;
-            }
-            return true;
-        }
-
-        private int clampRank(int rank) {
-            if (rank <= RuneInventory.NORMAL_RANK) return RuneInventory.NORMAL_RANK;
-            if (rank >= RuneInventory.ADVANCED_RANK) return RuneInventory.ADVANCED_RANK;
-            return rank;
-        }
-
-        private String rankName(int rank) {
-            if (rank == RuneInventory.IMPROVED_RANK) return "Улучшенная";
-            if (rank == RuneInventory.ADVANCED_RANK) return "Продвинутая";
-            return "Обычная";
         }
 
         private void sendDeckState(EntityPlayerMP player) {
