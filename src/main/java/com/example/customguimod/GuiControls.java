@@ -46,10 +46,13 @@ final class GuiControls {
             boolean syncBlocked = blockedByCardSync();
             hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
 
+            // A status switch may take a moment while Mongo/server packets arrive. Keep the
+            // last meaningful label visible instead of replacing it with a loading placeholder.
+            // Interaction is still blocked by mousePressed until CardSyncState settles.
             boolean interactive = enabled && !syncBlocked;
             int border = selected ? SELECTED_COLOR : (hovered && interactive ? SLOT_HOVER_COLOR : PANEL_BORDER_COLOR);
-            int background = selected ? SELECTED_BG_COLOR : (interactive ? BUTTON_BG_COLOR : DISABLED_BG_COLOR);
-            int textColor = id == -1 || interactive ? TEXT_COLOR : DISABLED_TEXT_COLOR;
+            int background = selected ? SELECTED_BG_COLOR : (enabled ? BUTTON_BG_COLOR : DISABLED_BG_COLOR);
+            int textColor = id == -1 || enabled ? TEXT_COLOR : DISABLED_TEXT_COLOR;
 
             if (id != CLOSE_BUTTON_ID) drawSurface(x, y, width, height, background, border);
 
@@ -80,13 +83,10 @@ final class GuiControls {
                 return;
             }
 
-            String[] lines = syncBlocked && id == 0
-                    ? new String[]{"Загрузка..."}
-                    : displayString.split("\n");
+            String[] lines = displayString.split("\\n");
             int lineHeight = font.FONT_HEIGHT;
             int textY = y + (height - lines.length * lineHeight) / 2;
-            boolean purchasePrice = !syncBlocked
-                    && id == 0
+            boolean purchasePrice = id == 0
                     && enabled
                     && lines.length > 1
                     && displayString.startsWith("Купить руну");
@@ -184,7 +184,7 @@ final class GuiControls {
 
         ElementButton(int id, int x, int y, int width, int height,
                       String elementName, boolean active) {
-            super(id, x, y, width, height, elementName);
+            super(id, x, y, width, height, text);
             this.elementName = elementName;
             this.active = active;
             setSelected(active);
