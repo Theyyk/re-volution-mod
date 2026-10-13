@@ -24,7 +24,6 @@ final class GuiControls {
 
         PanelButton(int id, int x, int y, int width, int height, String text) {
             super(id, x, y, width, height, text);
-            if (id == 0) CardSyncState.beginLoad();
         }
 
         void setSelected(boolean selected) {
