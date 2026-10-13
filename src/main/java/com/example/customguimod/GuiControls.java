@@ -124,7 +124,7 @@ final class GuiControls {
             if (groupWidth > width - 6) return false;
 
             int groupX = x + (width - groupWidth) / 2;
-            drawResourceIcon(groupX, textY - 1, resource);
+            drawResourceIcon(groupX, textY, resource);
             font.drawString(text, groupX + RESOURCE_ICON_SIZE + RESOURCE_ICON_GAP, textY, textColor, false);
             return true;
         }
