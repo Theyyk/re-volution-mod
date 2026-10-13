@@ -2,6 +2,7 @@ package com.example.customguimod;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.SimpleTexture;
 import net.minecraft.client.resources.IReloadableResourceManager;
 import net.minecraft.client.resources.IResource;
 import net.minecraft.client.resources.IResourceManager;
@@ -46,19 +47,21 @@ final class RuneTexturePreloader implements IResourceManagerReloadListener {
 
             ResourceLocation runeTexture = new ResourceLocation(definition.iconTexture);
 
-            // A DynamicTexture fallback can remain cached under the same resource
-            // location after a resource-pack reload. Drop the cached texture first
-            // so an enabled pack can restore its real rune PNG immediately.
+            // A previous DynamicTexture fallback may still be registered under the
+            // rune path. Always replace that cache entry after a resource reload.
             mc.getTextureManager().deleteTexture(runeTexture);
 
             if (resourceExists(resourceManager, runeTexture)) {
-                mc.getTextureManager().bindTexture(runeTexture);
+                // Register a fresh SimpleTexture for this exact ResourceLocation.
+                // Merely binding textures while the resource manager is reloading can
+                // leave several rune paths pointing at the texture that was bound last.
+                mc.getTextureManager().loadTexture(runeTexture, new SimpleTexture(runeTexture));
                 continue;
             }
 
             if (fallback == null) fallback = loadGunpowderFallback(resourceManager);
             if (fallback != null) {
-                mc.getTextureManager().loadTexture(runeTexture, new DynamicTexture(fallback));
+                mc.getTextureManager().loadTexture(runeTexture, new DynamicTexture(copyImage(fallback)));
                 fallbackCount++;
             }
         }
@@ -100,5 +103,17 @@ final class RuneTexturePreloader implements IResourceManagerReloadListener {
             CustomGuiMod.logger.warn("Could not load vanilla gunpowder fallback texture", e);
             return null;
         }
+    }
+
+    private BufferedImage copyImage(BufferedImage source) {
+        BufferedImage copy = new BufferedImage(
+                source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = copy.createGraphics();
+        try {
+            graphics.drawImage(source, 0, 0, null);
+        } finally {
+            graphics.dispose();
+        }
+        return copy;
     }
 }
