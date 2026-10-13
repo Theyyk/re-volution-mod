@@ -49,6 +49,12 @@ final class RuneStatusRegistry {
         return normalized.isEmpty() ? fallback : normalized;
     }
 
+    static String displayNameForDeck(int deckIndex, String storedName) {
+        int statusId = statusForDeck(deckIndex);
+        if (statusId == STATUS_POISON) return "Яд";
+        return storedName == null ? "" : storedName;
+    }
+
     private static String normalizeKey(String raw) {
         String value = raw.trim().toLowerCase(java.util.Locale.ROOT);
         StringBuilder out = new StringBuilder(value.length());
