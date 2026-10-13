@@ -24,6 +24,11 @@ final class RuneProgressionTest {
                 "Продвинутая must be the maximum rank");
 
         int[] ranks = new int[RuneInventory.BOOST_TYPE_COUNT];
+        check(!RuneProgression.canAwaken(ranks, 0),
+                "Missing runes must not be treated as normal-rank runes");
+        check(!RuneProgression.allAtLeast(ranks, RuneProgression.NORMAL_RANK),
+                "An incomplete collection must not satisfy normal-rank progression");
+
         java.util.Arrays.fill(ranks, RuneProgression.NORMAL_RANK);
         check(RuneProgression.canAwaken(ranks, 0),
                 "A full normal collection must allow awakening a normal rune");
