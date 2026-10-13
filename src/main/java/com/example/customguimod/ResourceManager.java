@@ -150,21 +150,17 @@ public final class ResourceManager {
 
     /**
      * Generic signed adjustment kept for admin/migration compatibility.
-     * Gameplay actions should use grantPlayerResource/spendPlayerResource instead.
+     * Gameplay code should prefer grantPlayerResource/spendPlayerResource.
      */
     public static int addPlayerResource(UUID uuid, String resource, int amount) {
-        ensureConnected();
-        String canonical = findCanonicalName(resource);
-        if (canonical == null) return 0;
-
-        String field = playerResourceField(canonical);
-        players.updateOne(
-                new Document("_id", uuid.toString()),
-                new Document("$inc", new Document(field, amount)),
-                new UpdateOptions().upsert(true)
-        );
-
-        return getPlayerResource(uuid, canonical);
+        if (amount > 0) {
+            grantPlayerResource(uuid, resource, amount);
+        } else if (amount < 0) {
+            long requested = -(long) amount;
+            int spend = requested > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) requested;
+            spendPlayerResource(uuid, resource, spend);
+        }
+        return getPlayerResource(uuid, resource);
     }
 
     public static boolean canAfford(UUID uuid, String resource, int amount) {
@@ -175,12 +171,18 @@ public final class ResourceManager {
 
     /** Grant a non-negative amount of a known, non-retired resource. */
     public static boolean grantPlayerResource(UUID uuid, String resource, int amount) {
+        ensureConnected();
         if (amount < 0) return false;
         String canonical = findCanonicalName(resource);
         if (canonical == null) return false;
         if (amount == 0) return true;
 
-        addPlayerResource(uuid, canonical, amount);
+        String field = playerResourceField(canonical);
+        players.updateOne(
+                new Document("_id", uuid.toString()),
+                new Document("$inc", new Document(field, amount)),
+                new UpdateOptions().upsert(true)
+        );
         return true;
     }
 
@@ -210,10 +212,11 @@ public final class ResourceManager {
         String canonical = findCanonicalName(resource);
         if (canonical == null) return 0;
 
+        int safeValue = Math.max(0, value);
         String field = playerResourceField(canonical);
         players.updateOne(
                 new Document("_id", uuid.toString()),
-                new Document("$set", new Document(field, value)),
+                new Document("$set", new Document(field, safeValue)),
                 new UpdateOptions().upsert(true)
         );
         return getPlayerResource(uuid, canonical);
