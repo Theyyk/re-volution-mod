@@ -15,6 +15,7 @@ import java.util.Locale;
 @SideOnly(Side.CLIENT)
 public class RunePurchaseUiHandler {
     private static final int FIRST_STATUS_ELEMENT_BUTTON_ID = 100;
+    private static final int PURCHASE_OR_AWAKENING_BUTTON_ID = 0;
 
     private GuiScreen trackedScreen;
     private List<GuiButton> trackedButtons;
@@ -25,6 +26,7 @@ public class RunePurchaseUiHandler {
         trackedButtons = event.getButtonList();
         applyState(event.getGui());
         applyPurchaseEconomy(event.getGui(), trackedButtons);
+        applyAwakeningEconomy(event.getGui(), trackedButtons);
     }
 
     @SubscribeEvent
@@ -32,6 +34,7 @@ public class RunePurchaseUiHandler {
         applyState(event.getGui());
         if (event.getGui() == trackedScreen) {
             applyPurchaseEconomy(event.getGui(), trackedButtons);
+            applyAwakeningEconomy(event.getGui(), trackedButtons);
         }
     }
 
@@ -47,14 +50,14 @@ public class RunePurchaseUiHandler {
         int mouseY = screen.height - Mouse.getEventY() * screen.height / Math.max(1, mc.displayHeight) - 1;
         int rune = screen.awakeningRuneAt(mouseX, mouseY);
         if (rune >= 0) {
-            // Legacy packet name; the server already treats this as awakening, not a separate upgrade mechanic.
+            // Compatibility transport name only. Awakening and upgrade are separate gameplay mechanics;
+            // the actual upgrade mechanic is not implemented yet.
             NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
         }
     }
 
     private void applyState(GuiScreen gui) {
         if (gui instanceof CardsGuiScreen) {
-            // The screen owns labels and IDs; legacy overrides conflict with the new controls.
             ((CardsGuiScreen) gui).updatePurchaseAvailability();
         }
     }
@@ -70,11 +73,62 @@ public class RunePurchaseUiHandler {
         String resourceName = ResourceManager.getDisplayName(resource).toLowerCase(Locale.ROOT);
 
         for (GuiButton button : buttons) {
-            if (button.id == 0 && button.enabled) {
+            if (button.id == PURCHASE_OR_AWAKENING_BUTTON_ID && button.enabled) {
                 button.displayString = "Купить руну:\n" + total + " " + resourceName;
                 return;
             }
         }
+    }
+
+    private void applyAwakeningEconomy(GuiScreen gui, List<GuiButton> buttons) {
+        if (!(gui instanceof CardsGuiScreen) || buttons == null || !usesStatusPurchaseEconomy(buttons)) return;
+
+        GuiButton awakeningButton = null;
+        for (GuiButton button : buttons) {
+            if (button.id == PURCHASE_OR_AWAKENING_BUTTON_ID
+                    && "Пробудить руну".equals(button.displayString)) {
+                awakeningButton = button;
+                break;
+            }
+        }
+        if (awakeningButton == null) return;
+
+        String resource = ClientPlayerStats.getAwakeningResource();
+        String resourceName = resource == null || resource.isEmpty()
+                ? "" : ResourceManager.getDisplayName(resource).toLowerCase(Locale.ROOT);
+
+        int normalCost = ClientPlayerStats.getAwakeningNormalCost();
+        int improvedCost = ClientPlayerStats.getAwakeningImprovedCost();
+        int displayedCost = resolveHoveredAwakeningCost((CardsGuiScreen) gui, normalCost, improvedCost);
+
+        if (displayedCost > 0 && !resourceName.isEmpty()) {
+            awakeningButton.displayString = "Пробудить руну:\n" + displayedCost + " " + resourceName;
+            return;
+        }
+
+        if (normalCost > 0 && improvedCost > 0 && !resourceName.isEmpty()) {
+            int min = Math.min(normalCost, improvedCost);
+            int max = Math.max(normalCost, improvedCost);
+            awakeningButton.displayString = min == max
+                    ? "Пробудить руну:\n" + min + " " + resourceName
+                    : "Пробудить руну:\n" + min + "–" + max + " " + resourceName;
+            return;
+        }
+
+        awakeningButton.displayString = "Пробудить руну:\nБесплатно";
+    }
+
+    private int resolveHoveredAwakeningCost(CardsGuiScreen screen, int normalCost, int improvedCost) {
+        Minecraft mc = Minecraft.getMinecraft();
+        int mouseX = Mouse.getX() * screen.width / Math.max(1, mc.displayWidth);
+        int mouseY = screen.height - Mouse.getY() * screen.height / Math.max(1, mc.displayHeight) - 1;
+        int rune = screen.awakeningRuneAt(mouseX, mouseY);
+        if (rune < 0) return 0;
+
+        int rank = ClientRuneRanks.rankOf(rune);
+        if (rank >= RuneInventory.IMPROVED_RANK) return improvedCost;
+        if (rank >= RuneInventory.NORMAL_RANK) return normalCost;
+        return 0;
     }
 
     private boolean usesStatusPurchaseEconomy(List<GuiButton> buttons) {
@@ -87,7 +141,6 @@ public class RunePurchaseUiHandler {
                 return button.id == FIRST_STATUS_ELEMENT_BUTTON_ID;
             }
         }
-        // Before deck state arrives the first status collection is the screen default.
         return !foundElementButton;
     }
 

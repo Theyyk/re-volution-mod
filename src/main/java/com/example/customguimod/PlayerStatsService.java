@@ -50,15 +50,24 @@ public final class PlayerStatsService {
         int runeShards = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_SHARDS);
         int runeCores = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_CORES);
         int totalDamage = getTotalDamageBonus(uuid);
-        String purchaseResource = RuneEconomyConfig.purchaseResourceForStatus(RuneEconomyConfig.STATUS_POISON);
+        int statusId = RuneEconomyConfig.STATUS_POISON;
+
+        String purchaseResource = RuneEconomyConfig.purchaseResourceForStatus(statusId);
         String canonicalPurchaseResource = ResourceManager.findCanonicalName(purchaseResource);
         if (canonicalPurchaseResource == null) canonicalPurchaseResource = "coins";
-        int purchaseUnitCost = RuneEconomyConfig.purchaseUnitCost(RuneEconomyConfig.STATUS_POISON);
+        int purchaseUnitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
+
+        String awakeningResource = RuneEconomyConfig.awakeningResourceForStatus(statusId);
+        String canonicalAwakeningResource = ResourceManager.findCanonicalName(awakeningResource);
+        if (canonicalAwakeningResource == null) canonicalAwakeningResource = awakeningResource;
+        int awakeningNormalCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.NORMAL_RANK);
+        int awakeningImprovedCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.IMPROVED_RANK);
 
         NetworkHandler.INSTANCE.sendTo(
                 new PlayerStatsPacket(
                         coins, crystals, runeDust, runeShards, runeCores, totalDamage,
-                        canonicalPurchaseResource, purchaseUnitCost
+                        canonicalPurchaseResource, purchaseUnitCost,
+                        canonicalAwakeningResource, awakeningNormalCost, awakeningImprovedCost
                 ),
                 player
         );
