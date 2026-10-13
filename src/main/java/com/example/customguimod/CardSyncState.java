@@ -19,6 +19,11 @@ final class CardSyncState {
         lastPacketAt = System.currentTimeMillis();
     }
 
+    static void completeLoad() {
+        waitingForServer = false;
+        lastPacketAt = System.currentTimeMillis() - SETTLE_DELAY_MS;
+    }
+
     static boolean isLoading() {
         return waitingForServer
                 || System.currentTimeMillis() - lastPacketAt < SETTLE_DELAY_MS;
