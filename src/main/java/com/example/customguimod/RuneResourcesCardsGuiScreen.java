@@ -18,7 +18,7 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
     private static final int CURRENCY_PANEL_HEIGHT = 68;
     private static final int RUNE_PANEL_HEIGHT = 84;
     private static final int PANEL_GAP = 11;
-    private static final int PANEL_CLEAR_COLOR = 0xFF080808;
+    private static final int CURRENCY_HEADING_MASK = 0x90080808;
 
     private final GuiLayout resourceLayout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
 
@@ -39,11 +39,13 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
         int textWidth = Math.max(10, panelWidth - pad * 2);
         int x = panelX + pad;
 
-        // Replace the original single resource block with the agreed two-group layout.
-        Gui.drawRect(panelX, currencyY, panelX + panelWidth, currencyY + CURRENCY_PANEL_HEIGHT,
-                PANEL_CLEAR_COLOR);
+        // The base screen already draws the currency panel at this position. Reuse its
+        // translucent background instead of clearing it with an opaque rectangle; only
+        // refresh the border and mask the legacy heading before drawing the new label.
         drawSurface(panelX, currencyY, panelWidth, CURRENCY_PANEL_HEIGHT,
-                PANEL_BG_COLOR, PANEL_BORDER_COLOR);
+                0x00000000, PANEL_BORDER_COLOR);
+        Gui.drawRect(panelX + 2, currencyY + 2,
+                panelX + panelWidth - 2, currencyY + pad + 13, CURRENCY_HEADING_MASK);
 
         int y = currencyY + pad;
         GuiFontRenderer.heading(mc).drawStringWithShadow("ВАЛЮТА", x, y, HEADING_TEXT_COLOR);
@@ -52,8 +54,8 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
         y += resourceLayout.scaled(16, 12);
         drawResourceLine(x, y, "Кристаллы", ClientPlayerStats.getCrystals(), textWidth);
 
-        Gui.drawRect(panelX, runeY, panelX + panelWidth, runeY + RUNE_PANEL_HEIGHT,
-                PANEL_CLEAR_COLOR);
+        // This panel does not exist in the base screen, so draw it once with the same
+        // translucent background used by the rest of the GUI.
         drawSurface(panelX, runeY, panelWidth, RUNE_PANEL_HEIGHT,
                 PANEL_BG_COLOR, PANEL_BORDER_COLOR);
 
