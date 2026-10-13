@@ -20,6 +20,7 @@ public class PlayerStatsPacketHandler implements IMessageHandler<PlayerStatsPack
                     message.getRuneShards(),
                     message.getRuneCores(),
                     message.getTotalDamage(),
+                    message.getActiveRuneStatusId(),
                     message.getPurchaseResource(),
                     message.getPurchaseUnitCost(),
                     message.getAwakeningResource(),
@@ -33,6 +34,7 @@ public class PlayerStatsPacketHandler implements IMessageHandler<PlayerStatsPack
                     + ", runeShards=" + message.getRuneShards()
                     + ", runeCores=" + message.getRuneCores()
                     + ", damage=" + message.getTotalDamage()
+                    + ", activeRuneStatusId=" + message.getActiveRuneStatusId()
                     + ", purchaseResource=" + message.getPurchaseResource()
                     + ", purchaseUnitCost=" + message.getPurchaseUnitCost()
                     + ", awakeningResource=" + message.getAwakeningResource()
