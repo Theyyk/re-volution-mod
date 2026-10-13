@@ -5,6 +5,7 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.result.UpdateResult;
 import org.bson.Document;
 
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ public final class ResourceManager {
     public static final String RUNE_DUST = "rune_dust";
     public static final String RUNE_SHARDS = "rune_shards";
     public static final String RUNE_CORES = "rune_cores";
+    public static final String RETIRED_LIGHTNINGS = "lightnings";
 
     private static final List<String> BUILT_IN = Arrays.asList(
             "coins", "crystals", RUNE_DUST, RUNE_SHARDS, RUNE_CORES
@@ -45,24 +47,28 @@ public final class ResourceManager {
         ensureConnected();
 
         players.updateMany(
-                new Document("lightnings", new Document("$exists", true)),
-                new Document("$unset", new Document("lightnings", ""))
+                new Document(RETIRED_LIGHTNINGS, new Document("$exists", true)),
+                new Document("$unset", new Document(RETIRED_LIGHTNINGS, ""))
         );
 
         mobs.updateMany(
-                new Document("resource", "lightnings"),
+                new Document("resource", RETIRED_LIGHTNINGS),
                 new Document("$unset", new Document("resource", "").append("amount", ""))
         );
 
-        resources.deleteMany(new Document("name", "lightnings"));
+        resources.deleteMany(new Document("name", RETIRED_LIGHTNINGS));
     }
 
     public static void purgeDeprecatedLightnings(UUID uuid) {
         ensureConnected();
         players.updateOne(
                 new Document("_id", uuid.toString()),
-                new Document("$unset", new Document("lightnings", ""))
+                new Document("$unset", new Document(RETIRED_LIGHTNINGS, ""))
         );
+    }
+
+    public static boolean isRetiredResource(String name) {
+        return RETIRED_LIGHTNINGS.equals(normalize(name).trim());
     }
 
     public static boolean isValidName(String name) {
@@ -89,7 +95,7 @@ public final class ResourceManager {
 
         for (Document doc : resources.find()) {
             String name = doc.getString("name");
-            if (name != null && !containsIgnoreCase(result, name)) {
+            if (name != null && !isRetiredResource(name) && !containsIgnoreCase(result, name)) {
                 result.add(name);
             }
         }
@@ -98,6 +104,7 @@ public final class ResourceManager {
     }
 
     public static String findCanonicalName(String input) {
+        if (input == null || isRetiredResource(input)) return null;
         for (String name : getResourceNames()) {
             if (name.equalsIgnoreCase(input)) return name;
         }
@@ -110,7 +117,7 @@ public final class ResourceManager {
 
     public static boolean createResource(String name) {
         ensureConnected();
-        if (!isValidName(name) || resourceExists(name)) return false;
+        if (!isValidName(name) || isRetiredResource(name) || resourceExists(name)) return false;
 
         resources.insertOne(new Document("name", normalize(name)));
         return true;
@@ -141,17 +148,16 @@ public final class ResourceManager {
         return getInt(custom, normalized);
     }
 
+    /**
+     * Generic signed adjustment kept for admin/migration compatibility.
+     * Gameplay actions should use grantPlayerResource/spendPlayerResource instead.
+     */
     public static int addPlayerResource(UUID uuid, String resource, int amount) {
         ensureConnected();
         String canonical = findCanonicalName(resource);
         if (canonical == null) return 0;
 
-        String normalized = normalize(canonical);
-        String field;
-        if (normalized.equals("coins")) field = "balance";
-        else if (normalized.equals("crystals")) field = "crystals";
-        else field = "resources." + normalized;
-
+        String field = playerResourceField(canonical);
         players.updateOne(
                 new Document("_id", uuid.toString()),
                 new Document("$inc", new Document(field, amount)),
@@ -161,17 +167,50 @@ public final class ResourceManager {
         return getPlayerResource(uuid, canonical);
     }
 
+    public static boolean canAfford(UUID uuid, String resource, int amount) {
+        if (amount < 0) return false;
+        String canonical = findCanonicalName(resource);
+        return canonical != null && getPlayerResource(uuid, canonical) >= amount;
+    }
+
+    /** Grant a non-negative amount of a known, non-retired resource. */
+    public static boolean grantPlayerResource(UUID uuid, String resource, int amount) {
+        if (amount < 0) return false;
+        String canonical = findCanonicalName(resource);
+        if (canonical == null) return false;
+        if (amount == 0) return true;
+
+        addPlayerResource(uuid, canonical, amount);
+        return true;
+    }
+
+    /**
+     * Atomically spends a non-negative amount and never lets the persisted balance cross below zero.
+     */
+    public static boolean spendPlayerResource(UUID uuid, String resource, int amount) {
+        ensureConnected();
+        if (amount < 0) return false;
+
+        String canonical = findCanonicalName(resource);
+        if (canonical == null) return false;
+        if (amount == 0) return true;
+
+        String field = playerResourceField(canonical);
+        Document filter = new Document("_id", uuid.toString())
+                .append(field, new Document("$gte", amount));
+        UpdateResult result = players.updateOne(
+                filter,
+                new Document("$inc", new Document(field, -amount))
+        );
+        return result.getModifiedCount() > 0;
+    }
+
     public static int setPlayerResource(UUID uuid, String resource, int value) {
         ensureConnected();
         String canonical = findCanonicalName(resource);
         if (canonical == null) return 0;
 
-        String normalized = normalize(canonical);
-        String field;
-        if (normalized.equals("coins")) field = "balance";
-        else if (normalized.equals("crystals")) field = "crystals";
-        else field = "resources." + normalized;
-
+        String field = playerResourceField(canonical);
         players.updateOne(
                 new Document("_id", uuid.toString()),
                 new Document("$set", new Document(field, value)),
@@ -200,7 +239,7 @@ public final class ResourceManager {
         if (resource == null || resource.isEmpty()) return "coins";
 
         String canonical = findCanonicalName(resource);
-        return canonical == null ? resource : canonical;
+        return canonical == null ? "coins" : canonical;
     }
 
     public static int getMobAmount(String mobName) {
@@ -213,6 +252,13 @@ public final class ResourceManager {
 
         Integer oldMoney = doc.getInteger("money");
         return oldMoney == null ? 0 : oldMoney;
+    }
+
+    private static String playerResourceField(String canonical) {
+        String normalized = normalize(canonical);
+        if (normalized.equals("coins")) return "balance";
+        if (normalized.equals("crystals")) return "crystals";
+        return "resources." + normalized;
     }
 
     private static int getInt(Document doc, String field) {
