@@ -8,6 +8,7 @@ public final class ClientPlayerStats {
     private static int runeShards;
     private static int runeCores;
     private static int totalDamage;
+    private static int activeRuneStatusId = RuneStatusRegistry.STATUS_POISON;
     private static String purchaseResource = "coins";
     private static int purchaseUnitCost = 100;
     private static String awakeningResource = "";
@@ -18,6 +19,7 @@ public final class ClientPlayerStats {
 
     public static void update(int newCoins, int newCrystals, int newRuneDust,
                               int newRuneShards, int newRuneCores, int newTotalDamage,
+                              int newActiveRuneStatusId,
                               String newPurchaseResource, int newPurchaseUnitCost,
                               String newAwakeningResource, int newAwakeningNormalCost,
                               int newAwakeningImprovedCost) {
@@ -27,6 +29,7 @@ public final class ClientPlayerStats {
         runeShards = newRuneShards;
         runeCores = newRuneCores;
         totalDamage = newTotalDamage;
+        activeRuneStatusId = newActiveRuneStatusId;
         purchaseResource = newPurchaseResource == null || newPurchaseResource.trim().isEmpty()
                 ? "coins" : ResourceManager.normalize(newPurchaseResource);
         purchaseUnitCost = Math.max(1, newPurchaseUnitCost);
@@ -43,6 +46,7 @@ public final class ClientPlayerStats {
     public static int getRuneShards() { return runeShards; }
     public static int getRuneCores() { return runeCores; }
     public static int getTotalDamage() { return totalDamage; }
+    public static int getActiveRuneStatusId() { return activeRuneStatusId; }
     public static String getPurchaseResource() { return purchaseResource; }
     public static int getPurchaseUnitCost() { return purchaseUnitCost; }
     public static String getAwakeningResource() { return awakeningResource; }
