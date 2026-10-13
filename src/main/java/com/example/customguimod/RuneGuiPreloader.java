@@ -13,6 +13,7 @@ import java.util.List;
 final class RuneGuiPreloader {
     private static final long CARD_SETTLE_MS = 120L;
     private static final long FALLBACK_TIMEOUT_MS = 1500L;
+    private static final long POST_OPEN_REFRESH_TIMEOUT_MS = 750L;
 
     private static boolean pendingOpen;
     private static long startedAt;
@@ -23,6 +24,11 @@ final class RuneGuiPreloader {
     private static List<String> deckNames = Collections.emptyList();
     private static int activeDeck;
     private static final List<CardSnapshot> cards = new ArrayList<>();
+
+    private static boolean suppressInitialRefresh;
+    private static boolean refreshStarted;
+    private static long openedAt;
+    private static long lastRefreshPacketAt;
 
     private RuneGuiPreloader() {}
 
@@ -36,6 +42,10 @@ final class RuneGuiPreloader {
         deckNames = Collections.emptyList();
         activeDeck = 0;
         cards.clear();
+        suppressInitialRefresh = false;
+        refreshStarted = false;
+        openedAt = 0L;
+        lastRefreshPacketAt = 0L;
 
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("get_player_stats"));
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_decks"));
@@ -64,10 +74,33 @@ final class RuneGuiPreloader {
         cards.add(new CardSnapshot(packet.getSlot(), packet.getCardIndex(), packet.getLayer()));
     }
 
-    static void tick() {
-        if (!pendingOpen) return;
+    static boolean shouldSuppressLiveCard(CardPacket packet) {
+        if (!suppressInitialRefresh) return false;
 
         long now = System.currentTimeMillis();
+        if (packet.getSlot() == -1) {
+            refreshStarted = true;
+            lastRefreshPacketAt = now;
+            return true;
+        }
+        if (refreshStarted && !packet.isAnimate()) {
+            lastRefreshPacketAt = now;
+            return true;
+        }
+        return false;
+    }
+
+    static void tick() {
+        long now = System.currentTimeMillis();
+
+        if (suppressInitialRefresh) {
+            boolean refreshSettled = refreshStarted && now - lastRefreshPacketAt >= CARD_SETTLE_MS;
+            boolean refreshTimedOut = openedAt > 0L && now - openedAt >= POST_OPEN_REFRESH_TIMEOUT_MS;
+            if (refreshSettled || refreshTimedOut) suppressInitialRefresh = false;
+        }
+
+        if (!pendingOpen) return;
+
         boolean cardsSettled = cardsStarted && now - lastCardPacketAt >= CARD_SETTLE_MS;
         boolean complete = statsReady && decksReady && cardsSettled;
         boolean timedOut = now - startedAt >= FALLBACK_TIMEOUT_MS;
@@ -85,6 +118,11 @@ final class RuneGuiPreloader {
             screen.addCardFromServer(card.slot, card.cardIndex, card.layer, false);
         }
         CardSyncState.completeLoad();
+
+        suppressInitialRefresh = true;
+        refreshStarted = false;
+        openedAt = now;
+        lastRefreshPacketAt = 0L;
     }
 
     static boolean isPendingOpen() {
