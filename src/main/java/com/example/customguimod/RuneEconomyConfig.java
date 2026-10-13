@@ -2,7 +2,7 @@ package com.example.customguimod;
 
 /** Central economy rules for rune statuses. Gameplay code should read values here instead of hard-coding them. */
 final class RuneEconomyConfig {
-    static final int STATUS_POISON = 1;
+    static final int STATUS_POISON = RuneStatusRegistry.STATUS_POISON;
 
     enum CalculationType {
         FIXED,
@@ -13,8 +13,8 @@ final class RuneEconomyConfig {
     private RuneEconomyConfig() {}
 
     static String resourceForStatus(int statusId) {
-        if (statusId == STATUS_POISON) return ResourceManager.RUNE_DUST;
-        return "";
+        String fallback = statusId == STATUS_POISON ? ResourceManager.RUNE_DUST : "";
+        return actionResourceForStatus(statusId, "duplicate", fallback);
     }
 
     static String purchaseResourceForStatus(int statusId) {
@@ -42,7 +42,7 @@ final class RuneEconomyConfig {
 
     /**
      * v1.2.6 baseline: Poison awakening is paid with rune dust by default.
-     * Values remain configurable and are not a final economy balance.
+     * Other statuses are opt-in through status-specific configuration.
      */
     static String awakeningResourceForStatus(int statusId) {
         return actionResourceForStatus(
@@ -64,9 +64,7 @@ final class RuneEconomyConfig {
         return !awakeningResourceForStatus(statusId).isEmpty() && awakeningCost(statusId, rank) > 0;
     }
 
-    /**
-     * Prepared for future rune upgrades. A zero default keeps current gameplay unchanged.
-     */
+    /** Prepared for future rune upgrades. A zero default keeps current gameplay unchanged. */
     static String upgradeResourceForStatus(int statusId) {
         return actionResourceForStatus(statusId, "upgrade", "");
     }
@@ -225,7 +223,6 @@ final class RuneEconomyConfig {
     }
 
     private static int purchaseCostDefault(int statusId) {
-        if (statusId == STATUS_POISON) return 100;
         return 100;
     }
 
@@ -235,8 +232,7 @@ final class RuneEconomyConfig {
     }
 
     private static String statusKey(int statusId) {
-        if (statusId == STATUS_POISON) return "poison";
-        return "status_" + statusId;
+        return RuneStatusRegistry.statusKey(statusId);
     }
 
     private static int intProperty(String key, int fallback) {

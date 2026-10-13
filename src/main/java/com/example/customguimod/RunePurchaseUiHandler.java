@@ -10,11 +10,9 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.input.Mouse;
 
 import java.util.List;
-import java.util.Locale;
 
 @SideOnly(Side.CLIENT)
 public class RunePurchaseUiHandler {
-    private static final int FIRST_STATUS_ELEMENT_BUTTON_ID = 100;
     private static final int PURCHASE_OR_AWAKENING_BUTTON_ID = 0;
 
     private GuiScreen trackedScreen;
@@ -63,14 +61,14 @@ public class RunePurchaseUiHandler {
     }
 
     private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
-        if (!(gui instanceof CardsGuiScreen) || buttons == null || !usesStatusPurchaseEconomy(buttons)) return;
+        if (!(gui instanceof CardsGuiScreen) || buttons == null || !usesStatusPurchaseEconomy()) return;
 
         int unitCost = Math.max(1, ClientPlayerStats.getPurchaseUnitCost());
         long total = (long) unitCost * currentBuyAmount(buttons);
         if (total > Integer.MAX_VALUE) total = Integer.MAX_VALUE;
 
         String resource = ClientPlayerStats.getPurchaseResource();
-        String resourceName = ResourceManager.getDisplayName(resource).toLowerCase(Locale.ROOT);
+        String resourceName = priceResourceName(resource);
 
         for (GuiButton button : buttons) {
             if (button.id == PURCHASE_OR_AWAKENING_BUTTON_ID && button.enabled) {
@@ -81,7 +79,7 @@ public class RunePurchaseUiHandler {
     }
 
     private void applyAwakeningEconomy(GuiScreen gui, List<GuiButton> buttons) {
-        if (!(gui instanceof CardsGuiScreen) || buttons == null || !usesStatusPurchaseEconomy(buttons)) return;
+        if (!(gui instanceof CardsGuiScreen) || buttons == null || !usesStatusPurchaseEconomy()) return;
 
         GuiButton awakeningButton = null;
         for (GuiButton button : buttons) {
@@ -95,7 +93,7 @@ public class RunePurchaseUiHandler {
 
         String resource = ClientPlayerStats.getAwakeningResource();
         String resourceName = resource == null || resource.isEmpty()
-                ? "" : ResourceManager.getDisplayName(resource).toLowerCase(Locale.ROOT);
+                ? "" : priceResourceName(resource);
 
         int normalCost = ClientPlayerStats.getAwakeningNormalCost();
         int improvedCost = ClientPlayerStats.getAwakeningImprovedCost();
@@ -131,17 +129,18 @@ public class RunePurchaseUiHandler {
         return 0;
     }
 
-    private boolean usesStatusPurchaseEconomy(List<GuiButton> buttons) {
-        boolean foundElementButton = false;
-        for (GuiButton button : buttons) {
-            if (!(button instanceof GuiControls.ElementButton)) continue;
-            foundElementButton = true;
-            GuiControls.ElementButton element = (GuiControls.ElementButton) button;
-            if (element.isActiveElement()) {
-                return button.id == FIRST_STATUS_ELEMENT_BUTTON_ID;
-            }
-        }
-        return !foundElementButton;
+    private boolean usesStatusPurchaseEconomy() {
+        return RuneStatusRegistry.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId());
+    }
+
+    private String priceResourceName(String resource) {
+        String normalized = ResourceManager.normalize(resource);
+        if ("coins".equals(normalized)) return "монет";
+        if ("crystals".equals(normalized)) return "кристаллов";
+        if (ResourceManager.RUNE_DUST.equals(normalized)) return "пыли рун";
+        if (ResourceManager.RUNE_SHARDS.equals(normalized)) return "осколков рун";
+        if (ResourceManager.RUNE_CORES.equals(normalized)) return "ядер рун";
+        return ResourceManager.getDisplayName(resource).toLowerCase(java.util.Locale.ROOT);
     }
 
     private int currentBuyAmount(List<GuiButton> buttons) {
