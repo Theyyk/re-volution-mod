@@ -45,6 +45,12 @@ final class RuneTexturePreloader implements IResourceManagerReloadListener {
             if (definition == null || !loaded.add(definition.iconTexture)) continue;
 
             ResourceLocation runeTexture = new ResourceLocation(definition.iconTexture);
+
+            // A DynamicTexture fallback can remain cached under the same resource
+            // location after a resource-pack reload. Drop the cached texture first
+            // so an enabled pack can restore its real rune PNG immediately.
+            mc.getTextureManager().deleteTexture(runeTexture);
+
             if (resourceExists(resourceManager, runeTexture)) {
                 mc.getTextureManager().bindTexture(runeTexture);
                 continue;
