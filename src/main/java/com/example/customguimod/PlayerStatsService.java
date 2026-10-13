@@ -37,8 +37,8 @@ public final class PlayerStatsService {
     }
 
     private static int rankMultiplier(int rank) {
-        if (rank >= RuneInventory.GOLD_RANK) return 9;
-        if (rank >= RuneInventory.SILVER_RANK) return 3;
+        if (rank >= RuneInventory.ADVANCED_RANK) return 9;
+        if (rank >= RuneInventory.IMPROVED_RANK) return 3;
         return 1;
     }
 

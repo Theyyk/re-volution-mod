@@ -5,9 +5,9 @@ final class RuneInventory {
     // Read compatibility only: old purchases may use slots 26-49.
     static final int LEGACY_RECORD_CAPACITY = 50;
     static final int BOOST_TYPE_COUNT = 26;
-    static final int NORMAL_RANK = 1;
-    static final int SILVER_RANK = 2;
-    static final int GOLD_RANK = 3;
+    static final int NORMAL_RANK = RuneProgression.NORMAL_RANK;
+    static final int IMPROVED_RANK = RuneProgression.IMPROVED_RANK;
+    static final int ADVANCED_RANK = RuneProgression.ADVANCED_RANK;
 
     static final class Entry {
         final int cardIndex;
@@ -23,7 +23,7 @@ final class RuneInventory {
 
     void set(int slot, int cardIndex, int layer) {
         if (slot < 0 || slot >= LEGACY_RECORD_CAPACITY || cardIndex < 0 || cardIndex >= BOOST_TYPE_COUNT) return;
-        slots[slot] = new Entry(cardIndex, clampRank(layer));
+        slots[slot] = new Entry(cardIndex, RuneProgression.clampRank(layer));
     }
 
     Entry get(int slot) {
@@ -71,9 +71,21 @@ final class RuneInventory {
         return ownedCatalogSlotCount() == BOOST_TYPE_COUNT;
     }
 
-    boolean canUpgrade(int cardIndex) {
-        Entry entry = getBoost(cardIndex);
-        return hasAllCatalogRunes() && entry != null && entry.layer < GOLD_RANK;
+    RuneAwakeningDecision awakeningDecision(int cardIndex) {
+        return RuneAwakeningDecision.evaluate(bestRanks(), cardIndex);
+    }
+
+    boolean canAwaken(int cardIndex) {
+        return awakeningDecision(cardIndex).isAllowed();
+    }
+
+    int[] bestRanks() {
+        int[] ranks = new int[BOOST_TYPE_COUNT];
+        for (int rune = 0; rune < BOOST_TYPE_COUNT; rune++) {
+            Entry best = getBoost(rune);
+            ranks[rune] = best == null ? 0 : best.layer;
+        }
+        return ranks;
     }
 
     /** Purchase attempts stop once all 26 fixed runes of the element are collected. */
@@ -92,11 +104,5 @@ final class RuneInventory {
 
     void clear() {
         java.util.Arrays.fill(slots, null);
-    }
-
-    private static int clampRank(int layer) {
-        if (layer <= NORMAL_RANK) return NORMAL_RANK;
-        if (layer >= GOLD_RANK) return GOLD_RANK;
-        return layer;
     }
 }

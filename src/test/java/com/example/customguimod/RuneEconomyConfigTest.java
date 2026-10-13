@@ -58,7 +58,7 @@ public final class RuneEconomyConfigTest {
 
         System.setProperty("customguimod.runes.awakening.event.multiplier", "0.5");
         check(RuneEconomyConfig.awakeningCost(
-                        RuneEconomyConfig.STATUS_POISON, RuneInventory.SILVER_RANK) == 40,
+                        RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK) == 40,
                 "Awakening event multiplier must modify the configured rank cost");
 
         clearProperties();
@@ -77,10 +77,10 @@ public final class RuneEconomyConfigTest {
                         RuneEconomyConfig.upgradeResourceForStatus(RuneEconomyConfig.STATUS_POISON)),
                 "Upgrade resource must be configurable per status");
         check(RuneEconomyConfig.upgradeCost(
-                        RuneEconomyConfig.STATUS_POISON, RuneInventory.SILVER_RANK) == 35,
+                        RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK) == 35,
                 "Upgrade FORMULA cost must support rank-based growth");
         check(RuneEconomyConfig.isUpgradePaymentConfigured(
-                        RuneEconomyConfig.STATUS_POISON, RuneInventory.SILVER_RANK),
+                        RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK),
                 "Upgrade payment must become configured when resource and positive cost are provided");
 
         clearProperties();
@@ -107,7 +107,7 @@ public final class RuneEconomyConfigTest {
         System.setProperty("customguimod.runes.poison.duplicate.formula.base", "10");
         System.setProperty("customguimod.runes.poison.duplicate.formula.per_rank", "5");
         check(RuneEconomyConfig.duplicateCompensationPerRune(
-                        RuneEconomyConfig.STATUS_POISON, RuneInventory.SILVER_RANK) == 15,
+                        RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK) == 15,
                 "Formula mode must support rank-based growth");
 
         System.setProperty("customguimod.runes.event.multiplier", "2.0");

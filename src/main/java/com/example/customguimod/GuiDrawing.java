@@ -13,6 +13,15 @@ final class GuiDrawing extends Gui {
 
     static void drawSurface(int x, int y, int w, int h, int background, int border) {
         if (w < 6 || h < 6) return;
+
+        // Vanilla hover tooltips restore item lighting when they finish. Our flat GUI
+        // surfaces should always render with lighting disabled. Do not touch blend/depth
+        // here: Gui.drawRect manages its own alpha blending, and changing those flags
+        // globally can make translucent panels render as solid black.
+        GlStateManager.disableLighting();
+        GlStateManager.disableRescaleNormal();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+
         GlStateManager.pushMatrix();
         java.nio.FloatBuffer transform = SURFACE_TRANSFORM;
         transform.clear();

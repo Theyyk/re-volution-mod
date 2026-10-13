@@ -13,10 +13,14 @@ public class CardPacketHandler implements IMessageHandler<CardPacket, IMessage> 
     @Override
     public IMessage onMessage(CardPacket message, MessageContext ctx) {
         Minecraft.getMinecraft().addScheduledTask(() -> {
+            RuneGuiPreloader.acceptCard(message);
+            CardSyncState.notePacket();
+
             if (Minecraft.getMinecraft().currentScreen instanceof CardsGuiScreen) {
+                if (RuneGuiPreloader.shouldSuppressLiveCard(message)) return;
+
                 CardsGuiScreen screen = (CardsGuiScreen) Minecraft.getMinecraft().currentScreen;
                 if (message.getSlot() == -1) {
-                    // Очистка карточек
                     screen.clearCards();
                 } else {
                     screen.addCardFromServer(message.getSlot(), message.getCardIndex(), message.getLayer(), message.isAnimate());

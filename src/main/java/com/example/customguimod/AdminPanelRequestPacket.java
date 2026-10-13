@@ -66,7 +66,7 @@ public final class AdminPanelRequestPacket implements IMessage {
                     EntityPlayerMP target = target(admin, parts[1]);
                     if (target == null) return;
                     int rank = Integer.parseInt(parts[2]);
-                    rank = Math.max(RuneInventory.NORMAL_RANK, Math.min(RuneInventory.GOLD_RANK, rank));
+                    rank = Math.max(RuneInventory.NORMAL_RANK, Math.min(RuneInventory.ADVANCED_RANK, rank));
                     ensureDeckZero(target);
                     MongoManager.clearDeck(target.getUniqueID(), 0);
                     for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
@@ -170,8 +170,8 @@ public final class AdminPanelRequestPacket implements IMessage {
                 for (int rank : bestRanks) {
                     if (rank <= 0) continue;
                     owned++;
-                    if (rank >= RuneInventory.GOLD_RANK) gold++;
-                    else if (rank >= RuneInventory.SILVER_RANK) silver++;
+                    if (rank >= RuneInventory.ADVANCED_RANK) gold++;
+                    else if (rank >= RuneInventory.IMPROVED_RANK) silver++;
                     else normal++;
                 }
 
