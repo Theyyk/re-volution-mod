@@ -403,6 +403,23 @@ public class PingPacket implements IMessage {
 
             int currentRank = decision.currentRank;
             int newRank = decision.nextRank;
+            int statusId = RuneEconomyConfig.STATUS_POISON;
+            RuneAwakeningPaymentService.Result payment =
+                    RuneAwakeningPaymentService.charge(player, statusId, currentRank);
+
+            if (!payment.allowed) {
+                PlayerStatsService.sendTo(player);
+                if (payment.invalidConfiguration) {
+                    player.sendMessage(new TextComponentString(
+                            "§cПробуждение временно недоступно: ресурс оплаты настроен некорректно."));
+                } else {
+                    player.sendMessage(new TextComponentString(
+                            "§cНедостаточно ресурса «" + ResourceManager.getDisplayName(payment.resource)
+                                    + "» для пробуждения. Нужно " + payment.cost
+                                    + ", у тебя " + payment.balance + "."));
+                }
+                return;
+            }
 
             MongoManager.clearDeck(player.getUniqueID(), deckIndex);
 
@@ -429,11 +446,15 @@ public class PingPacket implements IMessage {
             NetworkHandler.INSTANCE.sendTo(new CardPacket(runeIndex, runeIndex, newRank, false), player);
             PlayerStatsService.sendTo(player);
 
+            String paymentText = payment.paid
+                    ? " §7Стоимость: §e" + payment.cost + " §f"
+                    + ResourceManager.getDisplayName(payment.resource) + "§7."
+                    : "";
             player.sendMessage(new TextComponentString(
                     "§aРуна пробуждена: §f" + RuneProgression.rankName(currentRank)
                             + " §7→ §f" + RuneProgression.rankName(newRank)
                             + "§a. Руны ранга «" + RuneProgression.rankName(currentRank)
-                            + "» сброшены, более высокие ранги сохранены."));
+                            + "» сброшены, более высокие ранги сохранены." + paymentText));
         }
 
         private void sendDeckState(EntityPlayerMP player) {
