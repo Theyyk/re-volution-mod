@@ -2,7 +2,6 @@ package com.example.customguimod;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.client.renderer.texture.SimpleTexture;
 import net.minecraft.client.resources.IReloadableResourceManager;
 import net.minecraft.client.resources.IResource;
 import net.minecraft.client.resources.IResourceManager;
@@ -47,15 +46,16 @@ final class RuneTexturePreloader implements IResourceManagerReloadListener {
 
             ResourceLocation runeTexture = new ResourceLocation(definition.iconTexture);
 
-            // A previous DynamicTexture fallback may still be registered under the
-            // rune path. Always replace that cache entry after a resource reload.
+            // Always remove anything cached under the rune path first. In particular,
+            // this clears a DynamicTexture fallback left by a previous pack state.
             mc.getTextureManager().deleteTexture(runeTexture);
 
             if (resourceExists(resourceManager, runeTexture)) {
-                // Register a fresh SimpleTexture for this exact ResourceLocation.
-                // Merely binding textures while the resource manager is reloading can
-                // leave several rune paths pointing at the texture that was bound last.
-                mc.getTextureManager().loadTexture(runeTexture, new SimpleTexture(runeTexture));
+                // Important: do not eagerly load/bind real rune textures from inside
+                // the resource-reload callback. Forge 1.12.2 can otherwise make
+                // several rune locations resolve to the same last-loaded PNG after
+                // toggling the pack. Leaving the path uncached lets TextureManager
+                // lazily load each exact PNG when CardsGuiScreen binds it.
                 continue;
             }
 
@@ -66,7 +66,7 @@ final class RuneTexturePreloader implements IResourceManagerReloadListener {
             }
         }
 
-        CustomGuiMod.logger.info("Preloaded " + loaded.size() + " rune textures"
+        CustomGuiMod.logger.info("Prepared " + loaded.size() + " rune texture paths"
                 + (fallbackCount > 0 ? "; vanilla gunpowder fallbacks=" + fallbackCount : ""));
     }
 
