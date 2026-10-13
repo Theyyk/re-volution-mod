@@ -17,6 +17,9 @@ final class GuiControls {
     static final int CLOSE_BUTTON_ID = 299;
 
     static class PanelButton extends GuiButton {
+        private static final int RESOURCE_ICON_SIZE = 10;
+        private static final int RESOURCE_ICON_GAP = 4;
+
         private boolean selected;
 
         PanelButton(int id, int x, int y, int width, int height, String text) {
@@ -69,8 +72,18 @@ final class GuiControls {
             String[] lines = displayString.split("\n");
             int lineHeight = font.FONT_HEIGHT;
             int textY = y + (height - lines.length * lineHeight) / 2;
+            boolean purchasePrice = id == 0
+                    && enabled
+                    && lines.length > 1
+                    && displayString.startsWith("Купить руну");
 
-            for (String line : lines) {
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i];
+                if (purchasePrice && i == 1 && drawPurchasePriceLine(font, line, textY, textColor)) {
+                    textY += lineHeight;
+                    continue;
+                }
+
                 String label = font.trimStringToWidth(
                         line,
                         Math.max(1, width - 6)
@@ -83,6 +96,70 @@ final class GuiControls {
                         textColor
                 );
                 textY += lineHeight;
+            }
+        }
+
+        private boolean drawPurchasePriceLine(net.minecraft.client.gui.FontRenderer font,
+                                              String text, int textY, int textColor) {
+            String resource = ResourceManager.normalize(ClientPlayerStats.getPurchaseResource());
+            if (!isKnownResource(resource)) return false;
+
+            int textWidth = font.getStringWidth(text);
+            int groupWidth = RESOURCE_ICON_SIZE + RESOURCE_ICON_GAP + textWidth;
+            if (groupWidth > width - 6) return false;
+
+            int groupX = x + (width - groupWidth) / 2;
+            drawResourceIcon(groupX, textY - 1, resource);
+            font.drawString(text, groupX + RESOURCE_ICON_SIZE + RESOURCE_ICON_GAP, textY, textColor, false);
+            return true;
+        }
+
+        private boolean isKnownResource(String resource) {
+            return "coins".equals(resource)
+                    || "crystals".equals(resource)
+                    || "rune_dust".equals(resource)
+                    || "rune_shards".equals(resource)
+                    || "rune_cores".equals(resource);
+        }
+
+        private void drawResourceIcon(int x, int y, String resource) {
+            if ("coins".equals(resource)) {
+                drawRect(x + 2, y + 1, x + 8, y + 10, COIN_COLOR);
+                drawRect(x + 1, y + 3, x + 9, y + 8, COIN_COLOR);
+                drawRect(x + 3, y + 3, x + 5, y + 7, COIN_HIGHLIGHT_COLOR);
+                return;
+            }
+
+            if ("crystals".equals(resource)) {
+                drawRect(x + 3, y + 1, x + 7, y + 10, CRYSTAL_COLOR);
+                drawRect(x + 1, y + 4, x + 9, y + 7, CRYSTAL_COLOR);
+                drawRect(x + 2, y + 2, x + 8, y + 9, CRYSTAL_COLOR);
+                drawRect(x + 3, y + 2, x + 5, y + 6, CRYSTAL_HIGHLIGHT_COLOR);
+                return;
+            }
+
+            if ("rune_dust".equals(resource)) {
+                drawRect(x + 1, y + 6, x + 4, y + 9, POISON_TYPE_COLOR);
+                drawRect(x + 5, y + 2, x + 7, y + 4, POISON_TYPE_COLOR);
+                drawRect(x + 7, y + 6, x + 9, y + 8, CRYSTAL_HIGHLIGHT_COLOR);
+                drawRect(x + 3, y + 4, x + 5, y + 6, BOOST_TYPE_COLOR);
+                return;
+            }
+
+            if ("rune_shards".equals(resource)) {
+                drawRect(x + 4, y + 1, x + 7, y + 4, CRYSTAL_COLOR);
+                drawRect(x + 3, y + 3, x + 8, y + 7, CRYSTAL_COLOR);
+                drawRect(x + 2, y + 6, x + 5, y + 10, BOOST_TYPE_COLOR);
+                drawRect(x + 6, y + 5, x + 9, y + 9, CRYSTAL_HIGHLIGHT_COLOR);
+                return;
+            }
+
+            if ("rune_cores".equals(resource)) {
+                drawRect(x + 2, y + 2, x + 8, y + 9, POISON_TYPE_COLOR);
+                drawRect(x + 1, y + 4, x + 9, y + 7, POISON_TYPE_COLOR);
+                drawRect(x + 4, y + 3, x + 6, y + 8, TYPE_BADGE_BG_COLOR);
+                drawRect(x + 3, y + 5, x + 7, y + 7, TYPE_BADGE_BG_COLOR);
+                drawRect(x + 4, y + 4, x + 6, y + 6, CRYSTAL_HIGHLIGHT_COLOR);
             }
         }
     }
