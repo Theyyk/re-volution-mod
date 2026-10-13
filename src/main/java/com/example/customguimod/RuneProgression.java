@@ -34,7 +34,7 @@ final class RuneProgression {
         if (bestRanks == null || bestRanks.length < RuneInventory.BOOST_TYPE_COUNT) return false;
         int required = clampRank(rank);
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-            if (clampRank(bestRanks[rune]) < required) return false;
+            if (bestRanks[rune] < required) return false;
         }
         return true;
     }
@@ -43,7 +43,10 @@ final class RuneProgression {
         if (bestRanks == null || bestRanks.length < RuneInventory.BOOST_TYPE_COUNT) return false;
         if (runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT) return false;
 
-        int currentRank = clampRank(bestRanks[runeIndex]);
+        int rawRank = bestRanks[runeIndex];
+        if (rawRank < NORMAL_RANK || rawRank > ADVANCED_RANK) return false;
+
+        int currentRank = clampRank(rawRank);
         return currentRank < ADVANCED_RANK && allAtLeast(bestRanks, currentRank);
     }
 }
