@@ -15,7 +15,10 @@ public class DeckPacket implements IMessage {
     public DeckPacket() {}
 
     public DeckPacket(List<String> deckNames, int activeDeck) {
-        this.deckNames = new ArrayList<>(deckNames);
+        this.deckNames = new ArrayList<>();
+        for (int i = 0; i < deckNames.size(); i++) {
+            this.deckNames.add(RuneStatusRegistry.displayNameForDeck(i, deckNames.get(i)));
+        }
         this.activeDeck = activeDeck;
     }
 
