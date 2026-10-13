@@ -23,6 +23,7 @@ public class PlayerStatsPacketHandler implements IMessageHandler<PlayerStatsPack
                     message.getPurchaseResource(),
                     message.getPurchaseUnitCost()
             );
+            RuneGuiPreloader.noteStats();
             CustomGuiMod.logger.info("Player stats updated on client: coins=" + message.getCoins()
                     + ", crystals=" + message.getCrystals()
                     + ", runeDust=" + message.getRuneDust()
