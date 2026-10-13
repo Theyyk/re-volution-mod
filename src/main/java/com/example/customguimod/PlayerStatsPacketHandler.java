@@ -21,7 +21,10 @@ public class PlayerStatsPacketHandler implements IMessageHandler<PlayerStatsPack
                     message.getRuneCores(),
                     message.getTotalDamage(),
                     message.getPurchaseResource(),
-                    message.getPurchaseUnitCost()
+                    message.getPurchaseUnitCost(),
+                    message.getAwakeningResource(),
+                    message.getAwakeningNormalCost(),
+                    message.getAwakeningImprovedCost()
             );
             RuneGuiPreloader.noteStats();
             CustomGuiMod.logger.info("Player stats updated on client: coins=" + message.getCoins()
@@ -31,7 +34,10 @@ public class PlayerStatsPacketHandler implements IMessageHandler<PlayerStatsPack
                     + ", runeCores=" + message.getRuneCores()
                     + ", damage=" + message.getTotalDamage()
                     + ", purchaseResource=" + message.getPurchaseResource()
-                    + ", purchaseUnitCost=" + message.getPurchaseUnitCost());
+                    + ", purchaseUnitCost=" + message.getPurchaseUnitCost()
+                    + ", awakeningResource=" + message.getAwakeningResource()
+                    + ", awakeningNormalCost=" + message.getAwakeningNormalCost()
+                    + ", awakeningImprovedCost=" + message.getAwakeningImprovedCost());
         });
         return null;
     }

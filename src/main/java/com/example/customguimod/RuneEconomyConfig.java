@@ -41,10 +41,15 @@ final class RuneEconomyConfig {
     }
 
     /**
-     * Prepared for v1.2.5. A zero default means awakening remains free until paid awakening is enabled.
+     * v1.2.6 baseline: Poison awakening is paid with rune dust by default.
+     * Values remain configurable and are not a final economy balance.
      */
     static String awakeningResourceForStatus(int statusId) {
-        return actionResourceForStatus(statusId, "awakening", "");
+        return actionResourceForStatus(
+                statusId,
+                "awakening",
+                statusId == STATUS_POISON ? ResourceManager.RUNE_DUST : ""
+        );
     }
 
     static CalculationType awakeningCalculationType(int statusId) {
@@ -52,7 +57,7 @@ final class RuneEconomyConfig {
     }
 
     static int awakeningCost(int statusId, int rank) {
-        return actionRankCost(statusId, "awakening", rank, 0);
+        return actionRankCost(statusId, "awakening", rank, awakeningCostDefault(statusId));
     }
 
     static boolean isAwakeningPaymentConfigured(int statusId, int rank) {
@@ -222,6 +227,11 @@ final class RuneEconomyConfig {
     private static int purchaseCostDefault(int statusId) {
         if (statusId == STATUS_POISON) return 100;
         return 100;
+    }
+
+    private static int awakeningCostDefault(int statusId) {
+        if (statusId == STATUS_POISON) return 100;
+        return 0;
     }
 
     private static String statusKey(int statusId) {
