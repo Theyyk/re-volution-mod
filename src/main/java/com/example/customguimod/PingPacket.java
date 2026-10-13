@@ -112,6 +112,7 @@ public class PingPacket implements IMessage {
                         MongoManager.setActiveDeck(player.getUniqueID(), targetDeck);
                         sendDeckState(player);
                         sendCards(player, targetDeck);
+                        PlayerStatsService.sendTo(player);
                         player.sendMessage(new TextComponentString(
                                 "§aАктивная колода: §e" + decks.get(targetDeck)));
                     } catch (NumberFormatException e) {
@@ -129,8 +130,9 @@ public class PingPacket implements IMessage {
                 return;
             }
 
-            if (deckIndex == 0) {
-                buyEarthRunes(player, deckIndex, requestedAmount, buyAll);
+            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+            if (RuneStatusRegistry.isRuneStatus(statusId)) {
+                buyRunes(player, deckIndex, statusId, requestedAmount, buyAll);
                 return;
             }
 
@@ -176,8 +178,8 @@ public class PingPacket implements IMessage {
             finishLegacyPurchase(player, balance, requestedAmount, buyAll, amountToBuy, amountToBuy, 0);
         }
 
-        private void buyEarthRunes(EntityPlayerMP player, int deckIndex, int requestedAmount, boolean buyAll) {
-            int statusId = RuneEconomyConfig.STATUS_POISON;
+        private void buyRunes(EntityPlayerMP player, int deckIndex, int statusId,
+                              int requestedAmount, boolean buyAll) {
             String purchaseResource = canonicalPurchaseResource(statusId);
             String purchaseDisplayName = ResourceManager.getDisplayName(purchaseResource);
             int unitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
@@ -351,8 +353,9 @@ public class PingPacket implements IMessage {
         }
 
         private void awakenRune(EntityPlayerMP player, int deckIndex, int runeIndex) {
-            if (deckIndex != 0) {
-                player.sendMessage(new TextComponentString("§cПробуждение пока доступно только первой стихии."));
+            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+            if (!RuneStatusRegistry.isRuneStatus(statusId)) {
+                player.sendMessage(new TextComponentString("§cПробуждение недоступно для этой legacy-коллекции."));
                 return;
             }
             if (runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT) {
@@ -403,7 +406,6 @@ public class PingPacket implements IMessage {
 
             int currentRank = decision.currentRank;
             int newRank = decision.nextRank;
-            int statusId = RuneEconomyConfig.STATUS_POISON;
             RuneAwakeningPaymentService.Result payment =
                     RuneAwakeningPaymentService.charge(player, statusId, currentRank);
 
