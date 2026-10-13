@@ -4,10 +4,7 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 
 import static com.example.customguimod.GuiDrawing.drawSurface;
-import static com.example.customguimod.GuiTheme.HEADING_TEXT_COLOR;
-import static com.example.customguimod.GuiTheme.PANEL_BG_COLOR;
-import static com.example.customguimod.GuiTheme.PANEL_BORDER_COLOR;
-import static com.example.customguimod.GuiTheme.TEXT_COLOR;
+import static com.example.customguimod.GuiTheme.*;
 
 /**
  * v1.2.2 presentation layer for persistent rune resource balances.
@@ -19,6 +16,8 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
     private static final int RUNE_PANEL_HEIGHT = 84;
     private static final int PANEL_GAP = 11;
     private static final int CURRENCY_HEADING_MASK = 0x90080808;
+    private static final int RESOURCE_ICON_SIZE = 10;
+    private static final int RESOURCE_ICON_GAP = 5;
 
     private final GuiLayout resourceLayout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
 
@@ -39,9 +38,6 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
         int textWidth = Math.max(10, panelWidth - pad * 2);
         int x = panelX + pad;
 
-        // The base screen already draws the currency panel at this position. Reuse its
-        // translucent background instead of clearing it with an opaque rectangle; only
-        // refresh the border and mask the legacy heading before drawing the new label.
         drawSurface(panelX, currencyY, panelWidth, CURRENCY_PANEL_HEIGHT,
                 0x00000000, PANEL_BORDER_COLOR);
         Gui.drawRect(panelX + 2, currencyY + 2,
@@ -54,8 +50,6 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
         y += resourceLayout.scaled(16, 12);
         drawResourceLine(x, y, "Кристаллы", ClientPlayerStats.getCrystals(), textWidth);
 
-        // This panel does not exist in the base screen, so draw it once with the same
-        // translucent background used by the rest of the GUI.
         drawSurface(panelX, runeY, panelWidth, RUNE_PANEL_HEIGHT,
                 PANEL_BG_COLOR, PANEL_BORDER_COLOR);
 
@@ -74,10 +68,53 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
     private void drawResourceLine(int x, int y, String name, int value, int availableWidth) {
         String valueText = String.valueOf(value);
         int valueX = x + availableWidth - fontRenderer.getStringWidth(valueText);
-        int nameMaxWidth = Math.max(8, valueX - x - resourceLayout.scaled(4, 2));
+        int nameX = x + RESOURCE_ICON_SIZE + RESOURCE_ICON_GAP;
+        int nameMaxWidth = Math.max(8, valueX - nameX - resourceLayout.scaled(4, 2));
 
-        drawFitted(name, x, y, nameMaxWidth);
+        drawResourceIcon(x, y, name);
+        drawFitted(name, nameX, y, nameMaxWidth);
         fontRenderer.drawString(valueText, valueX, y, TEXT_COLOR);
+    }
+
+    private void drawResourceIcon(int x, int y, String name) {
+        if ("Монеты".equals(name)) {
+            drawRect(x + 2, y + 1, x + 8, y + 10, COIN_COLOR);
+            drawRect(x + 1, y + 3, x + 9, y + 8, COIN_COLOR);
+            drawRect(x + 3, y + 3, x + 5, y + 7, COIN_HIGHLIGHT_COLOR);
+            return;
+        }
+
+        if ("Кристаллы".equals(name)) {
+            drawRect(x + 3, y + 1, x + 7, y + 10, CRYSTAL_COLOR);
+            drawRect(x + 1, y + 4, x + 9, y + 7, CRYSTAL_COLOR);
+            drawRect(x + 2, y + 2, x + 8, y + 9, CRYSTAL_COLOR);
+            drawRect(x + 3, y + 2, x + 5, y + 6, CRYSTAL_HIGHLIGHT_COLOR);
+            return;
+        }
+
+        if ("Пыль рун".equals(name)) {
+            drawRect(x + 1, y + 6, x + 4, y + 9, POISON_TYPE_COLOR);
+            drawRect(x + 5, y + 2, x + 7, y + 4, POISON_TYPE_COLOR);
+            drawRect(x + 7, y + 6, x + 9, y + 8, CRYSTAL_HIGHLIGHT_COLOR);
+            drawRect(x + 3, y + 4, x + 5, y + 6, BOOST_TYPE_COLOR);
+            return;
+        }
+
+        if ("Осколки рун".equals(name)) {
+            drawRect(x + 4, y + 1, x + 7, y + 4, CRYSTAL_COLOR);
+            drawRect(x + 3, y + 3, x + 8, y + 7, CRYSTAL_COLOR);
+            drawRect(x + 2, y + 6, x + 5, y + 10, BOOST_TYPE_COLOR);
+            drawRect(x + 6, y + 5, x + 9, y + 9, CRYSTAL_HIGHLIGHT_COLOR);
+            return;
+        }
+
+        if ("Ядра рун".equals(name)) {
+            drawRect(x + 2, y + 2, x + 8, y + 9, POISON_TYPE_COLOR);
+            drawRect(x + 1, y + 4, x + 9, y + 7, POISON_TYPE_COLOR);
+            drawRect(x + 4, y + 3, x + 6, y + 8, TYPE_BADGE_BG_COLOR);
+            drawRect(x + 3, y + 5, x + 7, y + 7, TYPE_BADGE_BG_COLOR);
+            drawRect(x + 4, y + 4, x + 6, y + 6, CRYSTAL_HIGHLIGHT_COLOR);
+        }
     }
 
     private void drawFitted(String text, int x, int y, int maxWidth) {
