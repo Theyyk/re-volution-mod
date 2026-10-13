@@ -12,6 +12,7 @@ public class PlayerStatsPacket implements IMessage {
     private int runeShards;
     private int runeCores;
     private int totalDamage;
+    private int activeRuneStatusId;
     private String purchaseResource;
     private int purchaseUnitCost;
     private String awakeningResource;
@@ -22,6 +23,7 @@ public class PlayerStatsPacket implements IMessage {
 
     public PlayerStatsPacket(int coins, int crystals, int runeDust,
                              int runeShards, int runeCores, int totalDamage,
+                             int activeRuneStatusId,
                              String purchaseResource, int purchaseUnitCost,
                              String awakeningResource, int awakeningNormalCost,
                              int awakeningImprovedCost) {
@@ -31,6 +33,7 @@ public class PlayerStatsPacket implements IMessage {
         this.runeShards = runeShards;
         this.runeCores = runeCores;
         this.totalDamage = totalDamage;
+        this.activeRuneStatusId = activeRuneStatusId;
         this.purchaseResource = purchaseResource == null ? "coins" : purchaseResource;
         this.purchaseUnitCost = purchaseUnitCost;
         this.awakeningResource = awakeningResource == null ? "" : awakeningResource;
@@ -46,6 +49,7 @@ public class PlayerStatsPacket implements IMessage {
         runeShards = buf.readInt();
         runeCores = buf.readInt();
         totalDamage = buf.readInt();
+        activeRuneStatusId = buf.readInt();
         purchaseResource = ByteBufUtils.readUTF8String(buf);
         purchaseUnitCost = buf.readInt();
         awakeningResource = ByteBufUtils.readUTF8String(buf);
@@ -61,6 +65,7 @@ public class PlayerStatsPacket implements IMessage {
         buf.writeInt(runeShards);
         buf.writeInt(runeCores);
         buf.writeInt(totalDamage);
+        buf.writeInt(activeRuneStatusId);
         ByteBufUtils.writeUTF8String(buf, purchaseResource == null ? "coins" : purchaseResource);
         buf.writeInt(purchaseUnitCost);
         ByteBufUtils.writeUTF8String(buf, awakeningResource == null ? "" : awakeningResource);
@@ -74,6 +79,7 @@ public class PlayerStatsPacket implements IMessage {
     public int getRuneShards() { return runeShards; }
     public int getRuneCores() { return runeCores; }
     public int getTotalDamage() { return totalDamage; }
+    public int getActiveRuneStatusId() { return activeRuneStatusId; }
     public String getPurchaseResource() { return purchaseResource; }
     public int getPurchaseUnitCost() { return purchaseUnitCost; }
     public String getAwakeningResource() { return awakeningResource; }

@@ -12,7 +12,8 @@ final class RuneAwakeningInput {
 
     static int runeAt(GuiLayout layout, RuneInventory inventory, int activeDeck,
                       int screenX, int screenY, IntPredicate matchesSearch) {
-        if (activeDeck != 0 || !inventory.hasAllCatalogRunes()) return -1;
+        int statusId = RuneStatusRegistry.statusForDeck(activeDeck);
+        if (!RuneStatusRegistry.isRuneStatus(statusId) || !inventory.hasAllCatalogRunes()) return -1;
 
         boolean allAdvanced = true;
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {

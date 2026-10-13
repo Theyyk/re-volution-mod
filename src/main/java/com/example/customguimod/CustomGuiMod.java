@@ -47,6 +47,7 @@ public class CustomGuiMod {
         MinecraftForge.EVENT_BUS.register(new NameHider());
         MinecraftForge.EVENT_BUS.register(new PlayerStatsHudRenderer());
         MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
+        MinecraftForge.EVENT_BUS.register(new RuneStatusChatFilter());
         RuneTexturePreloader.register();
 
         // Preload both GUI fonts during client initialization instead of on the

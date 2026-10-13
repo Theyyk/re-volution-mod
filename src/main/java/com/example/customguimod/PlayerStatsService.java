@@ -15,8 +15,9 @@ public final class PlayerStatsService {
 
         for (int deckIndex = 0; deckIndex < deckCount; deckIndex++) {
             List<MongoManager.SavedCard> cards = MongoManager.getCardsInDeck(uuid, deckIndex);
+            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
 
-            if (deckIndex != 0) {
+            if (!RuneStatusRegistry.isRuneStatus(statusId)) {
                 totalBonus += cards.size();
                 continue;
             }
@@ -50,7 +51,8 @@ public final class PlayerStatsService {
         int runeShards = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_SHARDS);
         int runeCores = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_CORES);
         int totalDamage = getTotalDamageBonus(uuid);
-        int statusId = RuneEconomyConfig.STATUS_POISON;
+        int activeDeck = MongoManager.getActiveDeck(uuid);
+        int statusId = RuneStatusRegistry.statusForDeck(activeDeck);
 
         String purchaseResource = RuneEconomyConfig.purchaseResourceForStatus(statusId);
         String canonicalPurchaseResource = ResourceManager.findCanonicalName(purchaseResource);
@@ -66,6 +68,7 @@ public final class PlayerStatsService {
         NetworkHandler.INSTANCE.sendTo(
                 new PlayerStatsPacket(
                         coins, crystals, runeDust, runeShards, runeCores, totalDamage,
+                        statusId,
                         canonicalPurchaseResource, purchaseUnitCost,
                         canonicalAwakeningResource, awakeningNormalCost, awakeningImprovedCost
                 ),

@@ -142,3 +142,26 @@ tasks.register('guiLayoutRegression', JavaExec) {
     mainClass = 'com.example.customguimod.GuiLayoutTest'
 }
 check.dependsOn guiLayoutRegression
+
+// Keep the existing configurable economy contract under CI rather than compile-only coverage.
+tasks.register('runeEconomyRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.RuneEconomyConfigTest'
+}
+check.dependsOn runeEconomyRegression
+
+// Prove that deck routing and economy configuration remain isolated across rune statuses.
+tasks.register('multiStatusRuneRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.RuneStatusRegistryTest'
+}
+check.dependsOn multiStatusRuneRegression
+
+tasks.register('multiStatusRuneEconomyRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.MultiStatusRuneEconomyTest'
+}
+check.dependsOn multiStatusRuneEconomyRegression
