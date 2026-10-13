@@ -63,6 +63,10 @@ public class CustomResourceCommand extends AdminOnlyCommand {
             }
 
             String name = args[1];
+            if (ResourceManager.isRetiredResource(name)) {
+                player.sendMessage(new TextComponentString("§cРесурс lightnings выведен из системы и не может быть создан снова."));
+                return;
+            }
             if (!ResourceManager.isValidName(name)) {
                 player.sendMessage(new TextComponentString("§cИмя ресурса: только буквы, цифры, _ и -"));
                 return;
