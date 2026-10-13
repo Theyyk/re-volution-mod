@@ -13,6 +13,16 @@ final class GuiDrawing extends Gui {
 
     static void drawSurface(int x, int y, int w, int h, int background, int border) {
         if (w < 6 || h < 6) return;
+
+        // Vanilla hover tooltips leave lighting/depth state suited for item rendering.
+        // Normalize it before drawing our translucent GUI surfaces so the next frame
+        // cannot inherit a darker state while a tooltip is visible.
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+
         GlStateManager.pushMatrix();
         java.nio.FloatBuffer transform = SURFACE_TRANSFORM;
         transform.clear();
