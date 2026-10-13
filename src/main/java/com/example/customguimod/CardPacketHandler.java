@@ -17,6 +17,8 @@ public class CardPacketHandler implements IMessageHandler<CardPacket, IMessage> 
             CardSyncState.notePacket();
 
             if (Minecraft.getMinecraft().currentScreen instanceof CardsGuiScreen) {
+                if (RuneGuiPreloader.shouldSuppressLiveCard(message)) return;
+
                 CardsGuiScreen screen = (CardsGuiScreen) Minecraft.getMinecraft().currentScreen;
                 if (message.getSlot() == -1) {
                     screen.clearCards();
