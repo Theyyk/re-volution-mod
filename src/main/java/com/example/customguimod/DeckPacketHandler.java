@@ -13,6 +13,8 @@ public class DeckPacketHandler implements IMessageHandler<DeckPacket, IMessage> 
     @Override
     public IMessage onMessage(DeckPacket message, MessageContext ctx) {
         Minecraft.getMinecraft().addScheduledTask(() -> {
+            RuneGuiPreloader.acceptDecks(message.getDeckNames(), message.getActiveDeck());
+
             if (Minecraft.getMinecraft().currentScreen instanceof CardsGuiScreen) {
                 CardsGuiScreen screen = (CardsGuiScreen) Minecraft.getMinecraft().currentScreen;
                 screen.setDecks(message.getDeckNames(), message.getActiveDeck());
