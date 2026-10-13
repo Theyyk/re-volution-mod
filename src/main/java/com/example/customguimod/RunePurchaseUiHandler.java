@@ -47,7 +47,8 @@ public class RunePurchaseUiHandler {
         int mouseY = screen.height - Mouse.getEventY() * screen.height / Math.max(1, mc.displayHeight) - 1;
         int rune = screen.awakeningRuneAt(mouseX, mouseY);
         if (rune >= 0) {
-            NetworkHandler.INSTANCE.sendToServer(new PingPacket("awaken_rune:" + rune));
+            // Legacy packet name; the server already treats this as awakening, not a separate upgrade mechanic.
+            NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
         }
     }
 
