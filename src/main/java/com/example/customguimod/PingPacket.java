@@ -208,7 +208,7 @@ public class PingPacket implements IMessage {
 
             if (ownedCount >= RuneInventory.BOOST_TYPE_COUNT) {
                 player.sendMessage(new TextComponentString(
-                        allAtLeast(bestRanks, RuneInventory.GOLD_RANK)
+                        allAtLeast(bestRanks, RuneInventory.ADVANCED_RANK)
                                 ? "§6Все 26 рун уже продвинутые. Достигнут максимальный ранг."
                                 : "§eВсе 26 слотов заполнены. §6Пробудите подходящую руну."));
                 syncPurchaseBalance(player, purchaseResource, balance);
@@ -274,7 +274,7 @@ public class PingPacket implements IMessage {
 
             if (ownedCount >= RuneInventory.BOOST_TYPE_COUNT) {
                 player.sendMessage(new TextComponentString(
-                        allAtLeast(bestRanks, RuneInventory.GOLD_RANK)
+                        allAtLeast(bestRanks, RuneInventory.ADVANCED_RANK)
                                 ? "§6Все 26 рун уже продвинутые. Максимальный ранг достигнут."
                                 : "§6Все 26 слотов заполнены. Пробудите подходящую руну."));
             }
@@ -384,7 +384,7 @@ public class PingPacket implements IMessage {
             }
 
             int currentRank = bestRanks[runeIndex];
-            if (currentRank >= RuneInventory.GOLD_RANK) {
+            if (currentRank >= RuneInventory.ADVANCED_RANK) {
                 player.sendMessage(new TextComponentString("§6Эта руна уже продвинутая."));
                 return;
             }
@@ -438,13 +438,13 @@ public class PingPacket implements IMessage {
 
         private int clampRank(int rank) {
             if (rank <= RuneInventory.NORMAL_RANK) return RuneInventory.NORMAL_RANK;
-            if (rank >= RuneInventory.GOLD_RANK) return RuneInventory.GOLD_RANK;
+            if (rank >= RuneInventory.ADVANCED_RANK) return RuneInventory.ADVANCED_RANK;
             return rank;
         }
 
         private String rankName(int rank) {
-            if (rank == RuneInventory.SILVER_RANK) return "Улучшенная";
-            if (rank == RuneInventory.GOLD_RANK) return "Продвинутая";
+            if (rank == RuneInventory.IMPROVED_RANK) return "Улучшенная";
+            if (rank == RuneInventory.ADVANCED_RANK) return "Продвинутая";
             return "Обычная";
         }
 

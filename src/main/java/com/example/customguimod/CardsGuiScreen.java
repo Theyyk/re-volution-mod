@@ -271,7 +271,7 @@ public class CardsGuiScreen extends GuiScreen {
 
         for (GuiButton button : buttonList) {
             if (button.id == BUY_BUTTON_ID) {
-                int collectionRank = RuneInventory.GOLD_RANK;
+                int collectionRank = RuneInventory.ADVANCED_RANK;
 
                 for (int slot = 0; slot < RuneInventory.BOOST_TYPE_COUNT; slot++) {
                     RuneInventory.Entry entry = inventory.get(slot);
@@ -283,7 +283,7 @@ public class CardsGuiScreen extends GuiScreen {
                 button.enabled = !full;
 
                 if (full) {
-                    button.displayString = collectionRank >= RuneInventory.GOLD_RANK
+                    button.displayString = collectionRank >= RuneInventory.ADVANCED_RANK
                             ? "Максимальный ранг"
                             : "Пробудить руну";
                 } else {
