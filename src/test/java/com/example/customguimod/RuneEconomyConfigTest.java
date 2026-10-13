@@ -4,7 +4,7 @@ package com.example.customguimod;
 public final class RuneEconomyConfigTest {
     public static void main(String[] args) {
         run();
-        System.out.println("Rune economy purchase, future paid actions, duplicate and event modifier checks passed");
+        System.out.println("Rune economy purchase, paid awakening, future upgrade, duplicate and event modifier checks passed");
     }
 
     static void run() {
@@ -33,33 +33,44 @@ public final class RuneEconomyConfigTest {
 
         clearProperties();
 
-        check(RuneEconomyConfig.awakeningResourceForStatus(RuneEconomyConfig.STATUS_POISON).isEmpty(),
-                "Paid awakening resource must remain unset before v1.2.5");
+        check(ResourceManager.RUNE_DUST.equals(
+                        RuneEconomyConfig.awakeningResourceForStatus(RuneEconomyConfig.STATUS_POISON)),
+                "Poison awakening must default to rune dust in v1.2.6");
         check(RuneEconomyConfig.awakeningCost(
-                        RuneEconomyConfig.STATUS_POISON, RuneInventory.NORMAL_RANK) == 0,
-                "Awakening must remain free until paid awakening is enabled");
-        check(!RuneEconomyConfig.isAwakeningPaymentConfigured(
+                        RuneEconomyConfig.STATUS_POISON, RuneInventory.NORMAL_RANK) == 100,
+                "Poison awakening must have a technical 100 rune dust baseline");
+        check(RuneEconomyConfig.awakeningCost(
+                        RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK) == 100,
+                "Fixed awakening baseline must apply to improved runes too");
+        check(RuneEconomyConfig.isAwakeningPaymentConfigured(
                         RuneEconomyConfig.STATUS_POISON, RuneInventory.NORMAL_RANK),
-                "Paid awakening must be disabled by default");
+                "Paid awakening must be enabled by default for Poison in v1.2.6");
 
-        System.setProperty("customguimod.runes.poison.awakening.resource", "rune_dust");
         System.setProperty("customguimod.runes.poison.awakening.type", "BY_RANK");
         System.setProperty("customguimod.runes.poison.awakening.rank.1", "40");
         System.setProperty("customguimod.runes.poison.awakening.rank.2", "80");
-        check(ResourceManager.RUNE_DUST.equals(
-                        RuneEconomyConfig.awakeningResourceForStatus(RuneEconomyConfig.STATUS_POISON)),
-                "Awakening resource must be configurable per status");
         check(RuneEconomyConfig.awakeningCost(
                         RuneEconomyConfig.STATUS_POISON, RuneInventory.NORMAL_RANK) == 40,
                 "Awakening BY_RANK cost must support current-rank pricing");
-        check(RuneEconomyConfig.isAwakeningPaymentConfigured(
-                        RuneEconomyConfig.STATUS_POISON, RuneInventory.NORMAL_RANK),
-                "Paid awakening must become configured when resource and positive cost are provided");
+        check(RuneEconomyConfig.awakeningCost(
+                        RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK) == 80,
+                "Awakening BY_RANK cost must support improved-rank pricing");
 
         System.setProperty("customguimod.runes.awakening.event.multiplier", "0.5");
         check(RuneEconomyConfig.awakeningCost(
                         RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK) == 40,
                 "Awakening event multiplier must modify the configured rank cost");
+
+        clearProperties();
+        System.setProperty("customguimod.runes.poison.awakening.type", "FORMULA");
+        System.setProperty("customguimod.runes.poison.awakening.formula.base", "60");
+        System.setProperty("customguimod.runes.poison.awakening.formula.per_rank", "25");
+        check(RuneEconomyConfig.awakeningCost(
+                        RuneEconomyConfig.STATUS_POISON, RuneInventory.NORMAL_RANK) == 60,
+                "Awakening FORMULA must use configured base cost");
+        check(RuneEconomyConfig.awakeningCost(
+                        RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK) == 85,
+                "Awakening FORMULA must support rank growth");
 
         clearProperties();
 
