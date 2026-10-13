@@ -20,12 +20,18 @@ public final class RuneStatusRegistryTest {
                 "STATUS_NONE must not be treated as a rune status");
         check("poison".equals(RuneStatusRegistry.statusKey(RuneStatusRegistry.STATUS_POISON)),
                 "Poison must keep its stable configuration key");
+        check("Яд".equals(RuneStatusRegistry.displayNameForDeck(0, "1")),
+                "Built-in Poison must use the user-facing Яд label regardless of stored legacy deck name");
+        check("Legacy".equals(RuneStatusRegistry.displayNameForDeck(1, "Legacy")),
+                "Legacy collections must keep their stored display name");
 
         System.setProperty("customguimod.runes.deck.1.status", "2");
         check(RuneStatusRegistry.statusForDeck(1) == 2,
                 "A second deck must be able to opt into a separate rune status");
         check("status_2".equals(RuneStatusRegistry.statusKey(2)),
                 "Unknown status ids must get deterministic default keys");
+        check("Проклятие".equals(RuneStatusRegistry.displayNameForDeck(1, "Проклятие")),
+                "Configured non-Poison statuses must keep their stored display name");
 
         System.setProperty("customguimod.runes.status.2.key", "Toxic-Frost");
         check("toxic_frost".equals(RuneStatusRegistry.statusKey(2)),
