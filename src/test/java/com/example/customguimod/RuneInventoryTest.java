@@ -21,7 +21,7 @@ public final class RuneInventoryTest {
         check(!inventory.hasAllCatalogRunes(), "Two owned runes are not a complete collection");
         check(!inventory.isPurchaseLimitReached(), "Purchases must remain available before 26 / 26");
         check(!inventory.canAwaken(1), "Ranks stay locked until all 26 runes are collected");
-        check(inventory.awakeningDecision(1).reason == RuneAwakeningDecision.Reason.COLLECTION_BEHIND,
+        check(inventory.awakeningDecision(0).reason == RuneAwakeningDecision.Reason.COLLECTION_BEHIND,
                 "Inventory must surface collection-behind awakening state");
 
         inventory.clear();
