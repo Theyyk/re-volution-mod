@@ -1,6 +1,5 @@
 package com.example.customguimod;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -25,10 +24,12 @@ public class KeyInputHandler {
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
 
+        RuneGuiPreloader.tick();
+
         boolean cardsPressed = keyOpenCards.isPressed();
-        if (cardsPressed && !cardsWasPressed) {
-            Minecraft.getMinecraft().displayGuiScreen(new RuneResourcesCardsGuiScreen());
-            CustomGuiMod.logger.info("Открываю RuneResourcesCardsGuiScreen");
+        if (cardsPressed && !cardsWasPressed && !RuneGuiPreloader.isPendingOpen()) {
+            RuneGuiPreloader.beginOpen();
+            CustomGuiMod.logger.info("Предзагружаю RuneResourcesCardsGuiScreen");
         }
         cardsWasPressed = cardsPressed;
     }
