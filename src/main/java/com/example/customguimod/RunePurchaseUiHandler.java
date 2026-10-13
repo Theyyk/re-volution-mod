@@ -28,7 +28,7 @@ public class RunePurchaseUiHandler {
     }
 
     @SubscribeEvent
-    public void onDrawPost(GuiScreenEvent.DrawScreenEvent.Post event) {
+    public void onDrawPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
         applyState(event.getGui());
         if (event.getGui() == trackedScreen) {
             applyPurchaseEconomy(event.getGui(), trackedButtons);
