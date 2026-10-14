@@ -21,22 +21,17 @@ public class CustomResourceCommand extends AdminOnlyCommand {
 
     @Override
     public String getUsage(ICommandSender sender) {
-        return "/customresource create|delete|list|balance";
+        return "/customresource list|balance";
     }
 
     @Override
     public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, Arrays.asList("create", "delete", "list", "balance"));
+            return getListOfStringsMatchingLastWord(args, Arrays.asList("list", "balance"));
         }
 
-        if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("create")) {
-                return getListOfStringsMatchingLastWord(args, Arrays.asList("<name>"));
-            }
-            if (args[0].equalsIgnoreCase("delete") || args[0].equalsIgnoreCase("balance")) {
-                return getListOfStringsMatchingLastWord(args, ResourceManager.getResourceNames());
-            }
+        if (args.length == 2 && args[0].equalsIgnoreCase("balance")) {
+            return getListOfStringsMatchingLastWord(args, ResourceManager.getResourceNames());
         }
 
         return new ArrayList<>();
@@ -53,45 +48,6 @@ public class CustomResourceCommand extends AdminOnlyCommand {
 
         if (args.length == 0) {
             showUsage(player);
-            return;
-        }
-
-        if (args[0].equalsIgnoreCase("create")) {
-            if (args.length != 2) {
-                player.sendMessage(new TextComponentString("§c/customresource create <name>"));
-                return;
-            }
-
-            String name = args[1];
-            if (ResourceManager.isRetiredResource(name)) {
-                player.sendMessage(new TextComponentString("§cРесурс lightnings выведен из системы и не может быть создан снова."));
-                return;
-            }
-            if (!ResourceManager.isValidName(name)) {
-                player.sendMessage(new TextComponentString("§cИмя ресурса: только буквы, цифры, _ и -"));
-                return;
-            }
-            if (!ResourceManager.createResource(name)) {
-                player.sendMessage(new TextComponentString("§cТакой ресурс уже существует"));
-                return;
-            }
-
-            player.sendMessage(new TextComponentString("§aРесурс создан: §e" + ResourceManager.normalize(name)));
-            return;
-        }
-
-        if (args[0].equalsIgnoreCase("delete")) {
-            if (args.length != 2) {
-                player.sendMessage(new TextComponentString("§c/customresource delete <resource>"));
-                return;
-            }
-
-            if (!ResourceManager.deleteResource(args[1])) {
-                player.sendMessage(new TextComponentString("§cРесурс не найден или является встроенным"));
-                return;
-            }
-
-            player.sendMessage(new TextComponentString("§cРесурс удалён: " + args[1]));
             return;
         }
 
@@ -118,12 +74,11 @@ public class CustomResourceCommand extends AdminOnlyCommand {
             return;
         }
 
+        player.sendMessage(new TextComponentString("§cСоздание и удаление ресурсов отключено: каталог ресурсов фиксирован."));
         showUsage(player);
     }
 
     private void showUsage(EntityPlayerMP player) {
-        player.sendMessage(new TextComponentString("§e/customresource create <name>"));
-        player.sendMessage(new TextComponentString("§e/customresource delete <resource>"));
         player.sendMessage(new TextComponentString("§e/customresource list"));
         player.sendMessage(new TextComponentString("§e/customresource balance <resource>"));
     }
