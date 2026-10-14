@@ -325,20 +325,6 @@ public class PingPacket implements IMessage {
                 return;
             }
 
-            boolean[] seen = new boolean[RuneInventory.BOOST_TYPE_COUNT];
-            int[] ownedRunes = new int[RuneInventory.BOOST_TYPE_COUNT];
-            int ownedCount = 0;
-            for (MongoManager.SavedCard card : MongoManager.getCardsInDeck(player.getUniqueID(), deckIndex)) {
-                int rune = card.cardIndex;
-                if (rune < 0 || rune >= RuneInventory.BOOST_TYPE_COUNT || seen[rune]) continue;
-                seen[rune] = true;
-                ownedRunes[ownedCount++] = rune;
-            }
-            if (ownedCount <= 0) {
-                player.sendMessage(new TextComponentString("§eСначала получите хотя бы одну руну."));
-                return;
-            }
-
             String configuredResource = RuneEconomyConfig.enhancementResourceForStatus(statusId);
             String resource = ResourceManager.findCanonicalName(configuredResource);
             if (resource == null) {
@@ -351,10 +337,11 @@ public class PingPacket implements IMessage {
             int[] increments = new int[RuneInventory.BOOST_TYPE_COUNT];
             long totalCost = 0L;
 
-            // Each requested enhancement is an independent random roll over all currently owned slots.
-            // Repeated rolls may hit the same slot, exactly like duplicate rune purchase attempts can.
+            // Each requested enhancement is an independent random roll over all 26 fixed slots.
+            // Empty slots are valid targets because enhancement is stored on the slot itself and
+            // becomes an active bonus only after the corresponding rune is obtained.
             for (int attempt = 0; attempt < requestedAmount; attempt++) {
-                int rune = ownedRunes[RANDOM.nextInt(ownedCount)];
+                int rune = RANDOM.nextInt(RuneInventory.BOOST_TYPE_COUNT);
                 int level = plannedLevels[rune];
                 if (level >= Integer.MAX_VALUE) {
                     player.sendMessage(new TextComponentString("§cЭтот слот достиг технического предела усиления."));
