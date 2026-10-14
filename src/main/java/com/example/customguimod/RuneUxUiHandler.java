@@ -16,7 +16,7 @@ import static com.example.customguimod.GuiTheme.*;
 
 /**
  * v1.2.9 visual feedback for rune progression.
- * Purchase and duplicate rolls use a pale cyan pulse, enhancement rolls use a medium green pulse,
+ * Purchase and duplicate rolls use a clear cyan pulse, enhancement rolls use a medium green pulse,
  * attained awakening ranks tint the slot border (silver/gold), and only currently eligible and
  * affordable slots receive a blinking next-awakening marker. Tooltip rendering stays compact and final-value only.
  */
@@ -27,7 +27,7 @@ public final class RuneUxUiHandler {
     private static final int IMPROVED_SILVER = 0x00D8DEE8;
     private static final int ADVANCED_GOLD = 0x00F2C75C;
     private static final int ENHANCEMENT_GREEN = 0x006FD080;
-    private static final int PURCHASE_PALE_CYAN = 0x00A9DCEB;
+    private static final int PURCHASE_CYAN = 0x007FC9E8;
     private static final long[] PURCHASE_PULSE_UNTIL = new long[RuneInventory.BOOST_TYPE_COUNT];
     private static final long[] ENHANCEMENT_PULSE_UNTIL = new long[RuneInventory.BOOST_TYPE_COUNT];
 
@@ -60,7 +60,7 @@ public final class RuneUxUiHandler {
         long now = System.currentTimeMillis();
         double wave = (Math.sin(now / 300.0D) + 1.0D) * 0.5D;
         int markerAlpha = 95 + (int) Math.round(wave * 160.0D);
-        int purchaseColor = withAlpha(PURCHASE_PALE_CYAN, 145);
+        int purchaseColor = withAlpha(PURCHASE_CYAN, 195);
         int enhancementColor = withAlpha(ENHANCEMENT_GREEN, 190);
 
         GlStateManager.pushMatrix();
@@ -70,6 +70,11 @@ public final class RuneUxUiHandler {
             for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
                 int rank = ClientRuneRanks.rankOf(rune);
                 int[] pos = layout.runeSlotPosition(rune);
+
+                // Remove the legacy top-left rank corner. Rank is now communicated by the full slot border.
+                if (rank >= RuneInventory.IMPROVED_RANK) {
+                    eraseLegacyRankCorner(pos[0], pos[1], layout.runeSlotWidth, layout);
+                }
 
                 // Persistent slot color shows the awakening rank already reached.
                 if (rank >= RuneInventory.ADVANCED_RANK) {
@@ -94,7 +99,7 @@ public final class RuneUxUiHandler {
                 // Normal -> Improved uses silver; Improved -> Advanced uses gold.
                 if (rank > 0 && eligibleRank > 0 && rank == eligibleRank && canAffordAwakening(rank)) {
                     int markerBase = rank >= RuneInventory.IMPROVED_RANK ? ADVANCED_GOLD : IMPROVED_SILVER;
-                    drawAwakeningMarker(pos[0], pos[1], layout.runeSlotWidth, withAlpha(markerBase, markerAlpha));
+                    drawAwakeningMarker(pos[0], pos[1], withAlpha(markerBase, markerAlpha));
                 }
             }
         } finally {
@@ -102,8 +107,16 @@ public final class RuneUxUiHandler {
         }
     }
 
-    private void drawAwakeningMarker(int slotX, int slotY, int slotWidth, int color) {
-        int cx = slotX + slotWidth - 7;
+    private void eraseLegacyRankCorner(int slotX, int slotY, int slotWidth, GuiLayout layout) {
+        int length = Math.max(3, Math.min(layout.scaled(8, 4), slotWidth / 5));
+        net.minecraft.client.gui.Gui.drawRect(slotX + 2, slotY + 2,
+                slotX + 2 + length, slotY + 3, SLOT_BG_COLOR);
+        net.minecraft.client.gui.Gui.drawRect(slotX + 2, slotY + 2,
+                slotX + 3, slotY + 2 + length, SLOT_BG_COLOR);
+    }
+
+    private void drawAwakeningMarker(int slotX, int slotY, int color) {
+        int cx = slotX + 7;
         int cy = slotY + 7;
         net.minecraft.client.gui.Gui.drawRect(cx - 1, cy - 5, cx + 2, cy + 6, color);
         net.minecraft.client.gui.Gui.drawRect(cx - 5, cy - 1, cx + 6, cy + 2, color);
