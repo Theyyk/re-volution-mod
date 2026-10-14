@@ -105,9 +105,9 @@ public final class RuneUxUiHandler {
     private void drawAwakeningMarker(int slotX, int slotY, int slotWidth, int color) {
         int cx = slotX + slotWidth - 7;
         int cy = slotY + 7;
-        GuiScreenEventAccessor.drawRect(cx - 1, cy - 5, cx + 2, cy + 6, color);
-        GuiScreenEventAccessor.drawRect(cx - 5, cy - 1, cx + 6, cy + 2, color);
-        GuiScreenEventAccessor.drawRect(cx - 3, cy - 3, cx + 4, cy + 4, color);
+        net.minecraft.client.gui.Gui.drawRect(cx - 1, cy - 5, cx + 2, cy + 6, color);
+        net.minecraft.client.gui.Gui.drawRect(cx - 5, cy - 1, cx + 6, cy + 2, color);
+        net.minecraft.client.gui.Gui.drawRect(cx - 3, cy - 3, cx + 4, cy + 4, color);
     }
 
     /** Keeps "+ CTRL" white while the neighboring action description remains muted. */
@@ -198,12 +198,5 @@ public final class RuneUxUiHandler {
 
     private static int withAlpha(int color, int alpha) {
         return (Math.max(0, Math.min(255, alpha)) << 24) | (color & 0x00FFFFFF);
-    }
-
-    /** Local bridge so the marker can use Minecraft's protected drawRect without changing GUI mechanics. */
-    private static final class GuiScreenEventAccessor extends net.minecraft.client.gui.Gui {
-        static void drawRect(int left, int top, int right, int bottom, int color) {
-            net.minecraft.client.gui.Gui.drawRect(left, top, right, bottom, color);
-        }
     }
 }
