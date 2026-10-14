@@ -35,7 +35,8 @@ final class GuiTheme {
     static final int EQUIPMENT_LOCK_COLOR = 0xFF585858;
     static final int SMALL_LOCK_KEYHOLE_COLOR = 0xFF111111;
     static final int LOCK_KEYHOLE_COLOR = 0xFF101112;
-    static final int ACTION_HINT_TEXT_COLOR = 0xFF999999;
+    // Action descriptions stay muted; mouse/keyboard hints are overlaid in white by RuneUxUiHandler.
+    static final int ACTION_HINT_TEXT_COLOR = 0xFF8A8A8A;
     static final int MOUSE_HINT_COLOR = 0xFFFFFFFF;
     static final int MOUSE_HINT_BACKGROUND_COLOR = 0xFF161616;
     static final int MOUSE_HINT_ACTIVE_COLOR = 0xFFFF4444;

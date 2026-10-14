@@ -6,40 +6,54 @@ final class EarthRuneCatalog {
         final String name;
         final String type;
         final String iconTexture;
+        final RuneStat[] stats;
 
-        Definition(String name, String type, String iconFile) {
+        Definition(String name, String type, String iconFile, RuneStat... stats) {
+            if (stats != null && stats.length > 3) {
+                throw new IllegalArgumentException("A rune may define at most three stats");
+            }
             this.name = name;
             this.type = type;
             this.iconTexture = "customguimod:textures/gui/runes/" + iconFile;
+            this.stats = stats == null ? new RuneStat[0] : stats.clone();
         }
     }
 
+    private static RuneStat clickDamage() {
+        return RuneStat.scaled(RuneStatType.CLICK_DAMAGE_FLAT, 1.0D);
+    }
+
+    private static RuneStat poisonDamage() {
+        return RuneStat.scaled(RuneStatType.POISON_DAMAGE_FLAT, 1.0D);
+    }
+
     private static final Definition[] RUNES = {
-        new Definition("Кинжал убийцы", "Клик", "killer_dagger.png"),
-        new Definition("Кинжал убийцы", "Клик", "killer_dagger.png"),
-        new Definition("Кинжал убийцы", "Клик", "killer_dagger.png"),
-        new Definition("Кинжал убийцы", "Клик", "killer_dagger.png"),
-        new Definition("Накидка убийцы", "Клик", "killer_cloak.png"),
-        new Definition("Накидка убийцы", "Клик", "killer_cloak.png"),
-        new Definition("Накидка убийцы", "Клик", "killer_cloak.png"),
-        new Definition("Перчатка скрытого удара", "Клик", "hidden_strike_glove.png"),
-        new Definition("Камень заточки", "Клик", "sharpening_stone.png"),
-        new Definition("Камень заточки", "Клик", "sharpening_stone.png"),
-        new Definition("Амулет ярости", "Клик", "rage_amulet.png"),
-        new Definition("Токсичный осколок", "Клик / Яд", "toxic_shard.png"),
-        new Definition("Токсичный осколок", "Клик / Яд", "toxic_shard.png"),
-        new Definition("Клык змеи", "Яд", "snake_fang.png"),
-        new Definition("Клык змеи", "Яд", "snake_fang.png"),
-        new Definition("Клык змеи", "Яд", "snake_fang.png"),
-        new Definition("Клык змеи", "Яд", "snake_fang.png"),
-        new Definition("Печать заражения", "Яд", "infection_seal.png"),
-        new Definition("Печать заражения", "Яд", "infection_seal.png"),
-        new Definition("Печать заражения", "Яд", "infection_seal.png"),
-        new Definition("Усилитель токсина", "Яд", "toxin_booster.png"),
-        new Definition("Усилитель токсина", "Яд", "toxin_booster.png"),
-        new Definition("Метка заражения", "Яд", "infection_mark.png"),
-        new Definition("Метка заражения", "Яд", "infection_mark.png"),
-        new Definition("Метка заражения", "Яд", "infection_mark.png"),
+        new Definition("Кинжал убийцы", "Клик", "killer_dagger.png", clickDamage()),
+        new Definition("Кинжал убийцы", "Клик", "killer_dagger.png", clickDamage()),
+        new Definition("Кинжал убийцы", "Клик", "killer_dagger.png", clickDamage()),
+        new Definition("Кинжал убийцы", "Клик", "killer_dagger.png", clickDamage()),
+        new Definition("Накидка убийцы", "Клик", "killer_cloak.png", clickDamage()),
+        new Definition("Накидка убийцы", "Клик", "killer_cloak.png", clickDamage()),
+        new Definition("Накидка убийцы", "Клик", "killer_cloak.png", clickDamage()),
+        new Definition("Перчатка скрытого удара", "Клик", "hidden_strike_glove.png", clickDamage()),
+        new Definition("Камень заточки", "Клик", "sharpening_stone.png", clickDamage()),
+        new Definition("Камень заточки", "Клик", "sharpening_stone.png", clickDamage()),
+        new Definition("Амулет ярости", "Клик", "rage_amulet.png", clickDamage()),
+        new Definition("Токсичный осколок", "Клик / Яд", "toxic_shard.png", clickDamage(), poisonDamage()),
+        new Definition("Токсичный осколок", "Клик / Яд", "toxic_shard.png", clickDamage(), poisonDamage()),
+        new Definition("Клык змеи", "Яд", "snake_fang.png", poisonDamage()),
+        new Definition("Клык змеи", "Яд", "snake_fang.png", poisonDamage()),
+        new Definition("Клык змеи", "Яд", "snake_fang.png", poisonDamage()),
+        new Definition("Клык змеи", "Яд", "snake_fang.png", poisonDamage()),
+        new Definition("Печать заражения", "Яд", "infection_seal.png", poisonDamage()),
+        new Definition("Печать заражения", "Яд", "infection_seal.png", poisonDamage()),
+        new Definition("Печать заражения", "Яд", "infection_seal.png", poisonDamage()),
+        new Definition("Усилитель токсина", "Яд", "toxin_booster.png", poisonDamage()),
+        new Definition("Усилитель токсина", "Яд", "toxin_booster.png", poisonDamage()),
+        new Definition("Метка заражения", "Яд", "infection_mark.png", poisonDamage()),
+        new Definition("Метка заражения", "Яд", "infection_mark.png", poisonDamage()),
+        new Definition("Метка заражения", "Яд", "infection_mark.png", poisonDamage()),
+        // Full resource-stat content is intentionally deferred to v1.2.10.
         new Definition("Реликвия охотника", "Ресурс", "hunter_relic.png")
     };
 

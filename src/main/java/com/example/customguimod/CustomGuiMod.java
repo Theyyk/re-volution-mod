@@ -47,11 +47,10 @@ public class CustomGuiMod {
         MinecraftForge.EVENT_BUS.register(new NameHider());
         MinecraftForge.EVENT_BUS.register(new PlayerStatsHudRenderer());
         MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
+        MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneStatusChatFilter());
         RuneTexturePreloader.register();
 
-        // Preload both GUI fonts during client initialization instead of on the
-        // first menu open. This moves the expensive font setup out of the input path.
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getMinecraft();
         GuiFontRenderer.get(minecraft);
         GuiFontRenderer.heading(minecraft);
@@ -67,8 +66,6 @@ public class CustomGuiMod {
         event.registerServerCommand(new CustomResourceCommand());
         event.registerServerCommand(new AdminPanelCommand());
 
-        // Remove the retired lightning resource from persistent data before
-        // mobs/admin state are loaded for this server session.
         ResourceManager.purgeDeprecatedLightnings();
 
         net.minecraft.world.World world = event.getServer().getWorld(0);
