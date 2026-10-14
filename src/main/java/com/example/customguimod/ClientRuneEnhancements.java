@@ -8,16 +8,24 @@ final class ClientRuneEnhancements {
     private static int statusId = -1;
     private static String resource = "";
     private static double powerStep;
+    private static boolean synced;
 
     private ClientRuneEnhancements() {}
 
     static void accept(RuneEnhancementPacket packet) {
+        int previousStatusId = statusId;
+        int[] previousLevels = Arrays.copyOf(LEVELS, LEVELS.length);
+        boolean mayPulse = synced && packet != null && packet.getStatusId() == previousStatusId;
+
         Arrays.fill(LEVELS, 0);
         for (int[] runeCosts : COSTS) Arrays.fill(runeCosts, 0);
         statusId = -1;
         resource = "";
         powerStep = 0.0D;
-        if (packet == null) return;
+        if (packet == null) {
+            synced = false;
+            return;
+        }
 
         statusId = packet.getStatusId();
         resource = packet.getResource() == null ? "" : ResourceManager.normalize(packet.getResource());
@@ -34,6 +42,15 @@ final class ClientRuneEnhancements {
                 COSTS[rune][amount] = Math.max(0, incomingCosts[rune][amount]);
             }
         }
+
+        if (mayPulse) {
+            for (int rune = 0; rune < LEVELS.length; rune++) {
+                if (LEVELS[rune] > previousLevels[rune]) {
+                    RuneUxUiHandler.noteEnhancement(rune);
+                }
+            }
+        }
+        synced = true;
     }
 
     static int levelOf(int runeIndex) {
