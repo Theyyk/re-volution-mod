@@ -16,14 +16,17 @@ import static com.example.customguimod.GuiTheme.*;
 
 /**
  * v1.2.9 visual feedback for rune progression.
- * Purchase and duplicate rolls use a short soft border pulse, random enhancement rolls use a pale
- * neutral pulse on every changed slot, while awakening eligibility uses a stronger slow persistent
- * border breath. Tooltip rendering stays compact and final-value only.
+ * Purchase and duplicate rolls use a short cyan-tinted border pulse, random enhancement rolls use
+ * a medium green pulse on every changed slot, while awakening eligibility uses a stronger slow
+ * golden border breath. Tooltip rendering stays compact and final-value only.
  */
 @SideOnly(Side.CLIENT)
 public final class RuneUxUiHandler {
     private static final long PURCHASE_PULSE_MS = 450L;
     private static final long ENHANCEMENT_PULSE_MS = 650L;
+    private static final int AWAKENING_GOLD = 0x00F2C75C;
+    private static final int ENHANCEMENT_GREEN = 0x006FD080;
+    private static final int PURCHASE_CYAN = 0x007FC9E8;
     private static final long[] PURCHASE_PULSE_UNTIL = new long[RuneInventory.BOOST_TYPE_COUNT];
     private static final long[] ENHANCEMENT_PULSE_UNTIL = new long[RuneInventory.BOOST_TYPE_COUNT];
 
@@ -55,10 +58,10 @@ public final class RuneUxUiHandler {
         int awakeningRank = awakeningRank();
         long now = System.currentTimeMillis();
         double wave = (Math.sin(now / 380.0D) + 1.0D) * 0.5D;
-        int awakeningAlpha = 135 + (int) Math.round(wave * 100.0D);
-        int awakeningColor = withAlpha(SELECTED_COLOR, awakeningAlpha);
-        int purchaseColor = withAlpha(TEXT_COLOR, 215);
-        int enhancementColor = withAlpha(TEXT_COLOR, 150);
+        int awakeningAlpha = 145 + (int) Math.round(wave * 90.0D);
+        int awakeningColor = withAlpha(AWAKENING_GOLD, awakeningAlpha);
+        int purchaseColor = withAlpha(PURCHASE_CYAN, 195);
+        int enhancementColor = withAlpha(ENHANCEMENT_GREEN, 190);
 
         GlStateManager.pushMatrix();
         GlStateManager.translate(layout.canvasX, layout.canvasY, 0.0F);
