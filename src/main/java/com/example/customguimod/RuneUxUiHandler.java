@@ -17,8 +17,8 @@ import static com.example.customguimod.GuiTheme.*;
 /**
  * v1.2.9 visual feedback for rune progression.
  * Purchase and duplicate rolls use a pale cyan pulse, enhancement rolls use a medium green pulse,
- * attained awakening ranks tint the slot border (silver/gold), and only currently eligible slots
- * receive a blinking next-awakening marker. Tooltip rendering stays compact and final-value only.
+ * attained awakening ranks tint the slot border (silver/gold), and only currently eligible and
+ * affordable slots receive a blinking next-awakening marker. Tooltip rendering stays compact and final-value only.
  */
 @SideOnly(Side.CLIENT)
 public final class RuneUxUiHandler {
@@ -90,9 +90,9 @@ public final class RuneUxUiHandler {
                             0, purchaseColor);
                 }
 
-                // The blinking marker means "this rune can be awakened now" rather than rank itself.
+                // The blinking marker means "this rune can be awakened and paid for now".
                 // Normal -> Improved uses silver; Improved -> Advanced uses gold.
-                if (rank > 0 && eligibleRank > 0 && rank == eligibleRank) {
+                if (rank > 0 && eligibleRank > 0 && rank == eligibleRank && canAffordAwakening(rank)) {
                     int markerBase = rank >= RuneInventory.IMPROVED_RANK ? ADVANCED_GOLD : IMPROVED_SILVER;
                     drawAwakeningMarker(pos[0], pos[1], layout.runeSlotWidth, withAlpha(markerBase, markerAlpha));
                 }
@@ -108,6 +108,17 @@ public final class RuneUxUiHandler {
         net.minecraft.client.gui.Gui.drawRect(cx - 1, cy - 5, cx + 2, cy + 6, color);
         net.minecraft.client.gui.Gui.drawRect(cx - 5, cy - 1, cx + 6, cy + 2, color);
         net.minecraft.client.gui.Gui.drawRect(cx - 3, cy - 3, cx + 4, cy + 4, color);
+    }
+
+    private boolean canAffordAwakening(int rank) {
+        String resource = ClientPlayerStats.getAwakeningResource();
+        int cost = ClientPlayerStats.getAwakeningCostForRank(rank);
+
+        // This mirrors the server's "payment not configured = free awakening" rule.
+        if (resource == null || resource.trim().isEmpty() || cost <= 0) return true;
+
+        int balance = ClientPlayerStats.getResourceBalance(resource);
+        return balance >= 0 && balance >= cost;
     }
 
     /** Keeps "+ CTRL" white while the neighboring action description remains muted. */
