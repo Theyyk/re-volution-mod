@@ -1,22 +1,40 @@
 package com.example.customguimod;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 public final class ResourceActionFoundationTest {
     private ResourceActionFoundationTest() {}
 
     public static void main(String[] args) throws Exception {
+        fixedResourceCatalogIsClosed();
         retiredLightningNameIsBlockedByPolicy();
         sharedResourceActionApiExists();
         legacyLightningPlayerApiIsGone();
+        dynamicResourceMutationApiIsGone();
         System.out.println("ResourceActionFoundationTest passed");
+    }
+
+    private static void fixedResourceCatalogIsClosed() {
+        List<String> expected = Arrays.asList(
+                "coins", "crystals",
+                ResourceManager.RUNE_DUST,
+                ResourceManager.RUNE_SHARDS,
+                ResourceManager.RUNE_CORES
+        );
+        assertEquals(expected, ResourceManager.getResourceNames(), "fixed resource catalog");
+        assertEquals("coins", ResourceManager.findCanonicalName("COINS"), "currency lookup must remain case-insensitive");
+        assertEquals(ResourceManager.RUNE_DUST, ResourceManager.findCanonicalName("RUNE_DUST"), "rune resource lookup must remain case-insensitive");
+        assertEquals(null, ResourceManager.findCanonicalName("custom_resource"), "unknown custom resources must be rejected");
     }
 
     private static void retiredLightningNameIsBlockedByPolicy() {
         assertTrue(ResourceManager.isRetiredResource("lightnings"), "lightnings must be retired");
         assertTrue(ResourceManager.isRetiredResource("LIGHTNINGS"), "retired resource check must be case-insensitive");
         assertFalse(ResourceManager.isRetiredResource("rune_dust"), "rune_dust must remain active");
+        assertEquals(null, ResourceManager.findCanonicalName("lightnings"), "lightnings must not resolve as a resource");
         assertEquals("Пыль рун", ResourceManager.getDisplayName(ResourceManager.RUNE_DUST), "rune dust display name");
         assertEquals("Осколки рун", ResourceManager.getDisplayName(ResourceManager.RUNE_SHARDS), "rune shards display name");
         assertEquals("Ядра рун", ResourceManager.getDisplayName(ResourceManager.RUNE_CORES), "rune cores display name");
@@ -37,6 +55,15 @@ public final class ResourceActionFoundationTest {
             String name = method.getName();
             if ("getLightnings".equals(name) || "setLightnings".equals(name)) {
                 throw new AssertionError("Legacy lightning player API must be removed: " + name);
+            }
+        }
+    }
+
+    private static void dynamicResourceMutationApiIsGone() {
+        for (Method method : ResourceManager.class.getDeclaredMethods()) {
+            String name = method.getName();
+            if ("createResource".equals(name) || "deleteResource".equals(name)) {
+                throw new AssertionError("Dynamic resource mutation API must be removed: " + name);
             }
         }
     }
