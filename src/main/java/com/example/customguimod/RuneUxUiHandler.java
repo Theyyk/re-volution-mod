@@ -16,9 +16,8 @@ import static com.example.customguimod.GuiTheme.*;
 
 /**
  * v1.2.9 visual feedback for rune progression.
- * Purchase and duplicate rolls use a short bright border pulse, while awakening eligibility uses
- * a slightly stronger slow persistent border breath. Slot effects reuse GuiDrawing.drawSurface so
- * the highlight follows the same clipped-corner geometry as the rune slot itself.
+ * Purchase and duplicate rolls use a short soft border pulse, while awakening eligibility uses
+ * a stronger slow persistent border breath. Tooltip rendering stays compact and final-value only.
  */
 @SideOnly(Side.CLIENT)
 public final class RuneUxUiHandler {
@@ -40,6 +39,7 @@ public final class RuneUxUiHandler {
         layout.update(screen.width, screen.height);
 
         drawSlotEffects(layout);
+        overlayWhiteCtrlHints(layout);
         drawFinalStatTooltip(screen, layout, event.getMouseX(), event.getMouseY());
     }
 
@@ -49,7 +49,7 @@ public final class RuneUxUiHandler {
         double wave = (Math.sin(now / 380.0D) + 1.0D) * 0.5D;
         int awakeningAlpha = 135 + (int) Math.round(wave * 100.0D);
         int awakeningColor = withAlpha(SELECTED_COLOR, awakeningAlpha);
-        int purchaseColor = withAlpha(TEXT_COLOR, 245);
+        int purchaseColor = withAlpha(TEXT_COLOR, 215);
 
         GlStateManager.pushMatrix();
         GlStateManager.translate(layout.canvasX, layout.canvasY, 0.0F);
@@ -68,6 +68,38 @@ public final class RuneUxUiHandler {
                 if (awakeningRank > 0 && rank == awakeningRank) {
                     drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, awakeningColor);
                 }
+            }
+        } finally {
+            GlStateManager.popMatrix();
+        }
+    }
+
+    /** Keeps "+ CTRL" white while the neighboring action description remains muted. */
+    private void overlayWhiteCtrlHints(GuiLayout layout) {
+        net.minecraft.client.gui.FontRenderer font = GuiFontRenderer.get(Minecraft.getMinecraft());
+        String[] labels = {"Пробудить", "+ CTRL Поделиться в чате", "+ CTRL Ослабить"};
+        int pad = layout.scaled(8, 4);
+        int x = layout.runePanelX + pad;
+        int y = layout.runePanelY + layout.runePanelHeight - 17;
+        int availableWidth = layout.runePanelWidth - pad * 2;
+
+        int totalWidth = 0;
+        for (String label : labels) totalWidth += 13 + font.getStringWidth(label);
+        totalWidth += 20;
+        float scale = Math.min(1.0F, availableWidth / (float) Math.max(1, totalWidth));
+
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(layout.canvasX, layout.canvasY, 0.0F);
+        GlStateManager.scale(layout.canvasScale, layout.canvasScale, 1.0F);
+        GlStateManager.translate(x, y, 0.0F);
+        GlStateManager.scale(scale, scale, 1.0F);
+        try {
+            int offset = 0;
+            for (String label : labels) {
+                if (label.startsWith("+ CTRL ")) {
+                    font.drawString("+ CTRL", offset + 13, 0, TEXT_COLOR, false);
+                }
+                offset += 13 + font.getStringWidth(label) + 10;
             }
         } finally {
             GlStateManager.popMatrix();
@@ -108,13 +140,11 @@ public final class RuneUxUiHandler {
             lines.add("§7Улучшение: §f+" + enhancement);
 
             List<String> stats = RuneStatDisplay.finalValueLines(definition.stats, rank, multiplier);
-            if (!stats.isEmpty()) {
-                StringBuilder effects = new StringBuilder("§7Эффекты: §f");
-                for (int i = 0; i < stats.size(); i++) {
-                    if (i > 0) effects.append("§f, ");
-                    effects.append(stats.get(i));
-                }
-                lines.add(effects.toString());
+            if (stats.size() == 1) {
+                lines.add("§7Эффекты: §f" + stats.get(0));
+            } else if (!stats.isEmpty()) {
+                lines.add("§7Эффекты:");
+                for (String stat : stats) lines.add("§f" + stat);
             }
 
             GuiUtils.drawHoveringText(
