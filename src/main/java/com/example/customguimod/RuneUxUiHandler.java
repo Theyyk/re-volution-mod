@@ -71,18 +71,20 @@ public final class RuneUxUiHandler {
                 int rank = ClientRuneRanks.rankOf(rune);
                 int[] pos = layout.runeSlotPosition(rune);
 
-                // Remove the legacy top-left rank corner. Rank is now communicated by the full slot border.
+                // Remove the old top-left rank corner. It was drawn with a solid rank color,
+                // so use an opaque slot-background repaint here instead of the translucent slot fill.
                 if (rank >= RuneInventory.IMPROVED_RANK) {
                     eraseLegacyRankCorner(pos[0], pos[1], layout.runeSlotWidth, layout);
                 }
 
-                // Persistent slot color shows the awakening rank already reached.
+                // Persistent slot color shows the awakening rank already reached, deliberately softer
+                // than the temporary action pulses and the blinking next-awakening marker.
                 if (rank >= RuneInventory.ADVANCED_RANK) {
                     drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
-                            0, withAlpha(ADVANCED_GOLD, 220));
+                            0, withAlpha(ADVANCED_GOLD, 165));
                 } else if (rank >= RuneInventory.IMPROVED_RANK) {
                     drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
-                            0, withAlpha(IMPROVED_SILVER, 205));
+                            0, withAlpha(IMPROVED_SILVER, 150));
                 }
 
                 // Enhancement belongs to the fixed slot, not to the currently owned rune.
@@ -109,10 +111,11 @@ public final class RuneUxUiHandler {
 
     private void eraseLegacyRankCorner(int slotX, int slotY, int slotWidth, GuiLayout layout) {
         int length = Math.max(3, Math.min(layout.scaled(8, 4), slotWidth / 5));
+        int opaqueSlotBackground = withAlpha(SLOT_BG_COLOR, 255);
         net.minecraft.client.gui.Gui.drawRect(slotX + 2, slotY + 2,
-                slotX + 2 + length, slotY + 3, SLOT_BG_COLOR);
+                slotX + 2 + length, slotY + 3, opaqueSlotBackground);
         net.minecraft.client.gui.Gui.drawRect(slotX + 2, slotY + 2,
-                slotX + 3, slotY + 2 + length, SLOT_BG_COLOR);
+                slotX + 3, slotY + 2 + length, opaqueSlotBackground);
     }
 
     private void drawAwakeningMarker(int slotX, int slotY, int color) {
