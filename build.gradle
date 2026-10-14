@@ -158,6 +158,14 @@ tasks.register('earthRuneCatalogRegression', JavaExec) {
 }
 check.dependsOn earthRuneCatalogRegression
 
+// Keep server-authored enhancement metadata ready for the GUI contract.
+tasks.register('runeEnhancementPacketRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.RuneEnhancementPacketTest'
+}
+check.dependsOn runeEnhancementPacketRegression
+
 // Prove that deck routing and economy configuration remain isolated across rune statuses.
 tasks.register('multiStatusRuneRegression', JavaExec) {
     dependsOn testClasses
