@@ -28,7 +28,6 @@ public final class ResourceManager {
     private static MongoClient client;
     private static MongoDatabase database;
     private static MongoCollection<Document> players;
-    private static MongoCollection<Document> resources;
     private static MongoCollection<Document> mobs;
 
     private ResourceManager() {}
@@ -39,7 +38,6 @@ public final class ResourceManager {
         client = MongoClients.create(System.getProperty("customguimod.mongo.uri", "mongodb://localhost:27017"));
         database = client.getDatabase(System.getProperty("customguimod.mongo.database", "MyProject_build"));
         players = database.getCollection("players");
-        resources = database.getCollection("custom_resources");
         mobs = database.getCollection("custom_mobs");
     }
 
@@ -56,7 +54,8 @@ public final class ResourceManager {
                 new Document("$unset", new Document("resource", "").append("amount", ""))
         );
 
-        resources.deleteMany(new Document("name", RETIRED_LIGHTNINGS));
+        // One-way migration cleanup for databases created before the fixed resource catalog.
+        database.getCollection("custom_resources").deleteMany(new Document("name", RETIRED_LIGHTNINGS));
     }
 
     public static void purgeDeprecatedLightnings(UUID uuid) {
@@ -69,10 +68,6 @@ public final class ResourceManager {
 
     public static boolean isRetiredResource(String name) {
         return RETIRED_LIGHTNINGS.equals(normalize(name).trim());
-    }
-
-    public static boolean isValidName(String name) {
-        return name != null && name.matches("[\\p{L}\\p{N}_-]+");
     }
 
     public static String normalize(String name) {
@@ -89,46 +84,19 @@ public final class ResourceManager {
         return resource;
     }
 
+    /**
+     * v1.2.8 fixed catalog. Runtime creation/deletion of currencies or rune resources is intentionally unsupported.
+     */
     public static List<String> getResourceNames() {
-        ensureConnected();
-        List<String> result = new ArrayList<>(BUILT_IN);
-
-        for (Document doc : resources.find()) {
-            String name = doc.getString("name");
-            if (name != null && !isRetiredResource(name) && !containsIgnoreCase(result, name)) {
-                result.add(name);
-            }
-        }
-
-        return result;
+        return new ArrayList<>(BUILT_IN);
     }
 
     public static String findCanonicalName(String input) {
         if (input == null || isRetiredResource(input)) return null;
-        for (String name : getResourceNames()) {
+        for (String name : BUILT_IN) {
             if (name.equalsIgnoreCase(input)) return name;
         }
         return null;
-    }
-
-    public static boolean resourceExists(String name) {
-        return findCanonicalName(name) != null;
-    }
-
-    public static boolean createResource(String name) {
-        ensureConnected();
-        if (!isValidName(name) || isRetiredResource(name) || resourceExists(name)) return false;
-
-        resources.insertOne(new Document("name", normalize(name)));
-        return true;
-    }
-
-    public static boolean deleteResource(String name) {
-        ensureConnected();
-        String canonical = findCanonicalName(name);
-        if (canonical == null || BUILT_IN.contains(normalize(canonical))) return false;
-
-        return resources.deleteMany(new Document("name", canonical)).getDeletedCount() > 0;
     }
 
     public static int getPlayerResource(UUID uuid, String resource) {
@@ -169,7 +137,7 @@ public final class ResourceManager {
         return canonical != null && getPlayerResource(uuid, canonical) >= amount;
     }
 
-    /** Grant a non-negative amount of a known, non-retired resource. */
+    /** Grant a non-negative amount of a known fixed resource. */
     public static boolean grantPlayerResource(UUID uuid, String resource, int amount) {
         ensureConnected();
         if (amount < 0) return false;
@@ -267,12 +235,5 @@ public final class ResourceManager {
     private static int getInt(Document doc, String field) {
         Number number = doc.get(field, Number.class);
         return number == null ? 0 : number.intValue();
-    }
-
-    private static boolean containsIgnoreCase(List<String> values, String value) {
-        for (String current : values) {
-            if (current.equalsIgnoreCase(value)) return true;
-        }
-        return false;
     }
 }
