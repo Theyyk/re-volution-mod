@@ -15,6 +15,10 @@ public class RuneEnhancementPacket implements IMessage {
 
     public RuneEnhancementPacket() {}
 
+    public RuneEnhancementPacket(int[] levels) {
+        this(-1, "", 0.0D, levels, null);
+    }
+
     public RuneEnhancementPacket(int statusId, String resource, double powerStep, int[] levels, int[][] costs) {
         this.statusId = statusId;
         this.resource = resource == null ? "" : resource;
