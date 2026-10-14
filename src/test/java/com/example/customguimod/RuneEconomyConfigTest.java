@@ -4,7 +4,7 @@ package com.example.customguimod;
 public final class RuneEconomyConfigTest {
     public static void main(String[] args) {
         run();
-        System.out.println("Rune economy purchase, paid awakening, future upgrade, duplicate and event modifier checks passed");
+        System.out.println("Rune economy purchase, awakening, enhancement, duplicate and event modifier checks passed");
     }
 
     static void run() {
@@ -74,25 +74,38 @@ public final class RuneEconomyConfigTest {
 
         clearProperties();
 
-        check(RuneEconomyConfig.upgradeResourceForStatus(RuneEconomyConfig.STATUS_POISON).isEmpty(),
-                "Upgrade resource must remain unset until upgrade economy is enabled");
-        check(RuneEconomyConfig.upgradeCost(
-                        RuneEconomyConfig.STATUS_POISON, RuneInventory.NORMAL_RANK) == 0,
-                "Upgrade economy must remain inactive by default");
+        check(ResourceManager.RUNE_DUST.equals(
+                        RuneEconomyConfig.enhancementResourceForStatus(RuneEconomyConfig.STATUS_POISON)),
+                "Poison enhancement must default to rune dust in v1.2.9");
+        check(RuneEconomyConfig.enhancementNextCost(RuneEconomyConfig.STATUS_POISON, 0) == 10,
+                "One poison enhancement must default to 10 rune dust");
+        check(RuneEconomyConfig.enhancementCost(RuneEconomyConfig.STATUS_POISON, 0, 100) == 1000,
+                "Flat v1.2.9 baseline must price x100 as 100 sequential ten-dust levels");
+        check(RuneEconomyConfig.affordableEnhancementAmount(
+                        RuneEconomyConfig.STATUS_POISON, 0, 100, 55) == 5,
+                "Bulk enhancement must stop at the affordable sequential level count");
+        check(Math.abs(RuneEconomyConfig.enhancementPowerMultiplier(
+                        RuneEconomyConfig.STATUS_POISON, 1) - 1.1D) < 0.000001D,
+                "+1 enhancement must default to x1.1 power");
+        check(Math.abs(RuneEconomyConfig.enhancementPowerMultiplier(
+                        RuneEconomyConfig.STATUS_POISON, 10) - 2.0D) < 0.000001D,
+                "+10 enhancement must default to x2.0 power");
 
-        System.setProperty("customguimod.runes.poison.upgrade.resource", "rune_shards");
-        System.setProperty("customguimod.runes.poison.upgrade.type", "FORMULA");
-        System.setProperty("customguimod.runes.poison.upgrade.formula.base", "25");
-        System.setProperty("customguimod.runes.poison.upgrade.formula.per_rank", "10");
-        check(ResourceManager.RUNE_SHARDS.equals(
-                        RuneEconomyConfig.upgradeResourceForStatus(RuneEconomyConfig.STATUS_POISON)),
-                "Upgrade resource must be configurable per status");
-        check(RuneEconomyConfig.upgradeCost(
-                        RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK) == 35,
-                "Upgrade FORMULA cost must support rank-based growth");
-        check(RuneEconomyConfig.isUpgradePaymentConfigured(
-                        RuneEconomyConfig.STATUS_POISON, RuneInventory.IMPROVED_RANK),
-                "Upgrade payment must become configured when resource and positive cost are provided");
+        System.setProperty("customguimod.runes.poison.enhancement.type", "FORMULA");
+        System.setProperty("customguimod.runes.poison.enhancement.formula.base", "10");
+        System.setProperty("customguimod.runes.poison.enhancement.formula.per_level", "2");
+        check(RuneEconomyConfig.enhancementNextCost(RuneEconomyConfig.STATUS_POISON, 5) == 20,
+                "Enhancement FORMULA must be able to grow with current slot level");
+        check(RuneEconomyConfig.enhancementCost(RuneEconomyConfig.STATUS_POISON, 5, 3) == 66,
+                "Bulk enhancement must sum each future level independently: 20 + 22 + 24");
+        check(RuneEconomyConfig.affordableEnhancementAmount(
+                        RuneEconomyConfig.STATUS_POISON, 5, 100, 43) == 2,
+                "Affordable bulk count must use the sequential growing formula");
+
+        System.setProperty("customguimod.runes.poison.enhancement.power_step", "0.25");
+        check(Math.abs(RuneEconomyConfig.enhancementPowerMultiplier(
+                        RuneEconomyConfig.STATUS_POISON, 4) - 2.0D) < 0.000001D,
+                "Enhancement power step must be configurable without changing stored levels");
 
         clearProperties();
 
@@ -147,16 +160,14 @@ public final class RuneEconomyConfigTest {
                 "customguimod.runes.awakening.event.multiplier",
                 "customguimod.runes.poison.awakening.event.multiplier",
 
-                "customguimod.runes.poison.upgrade.resource",
-                "customguimod.runes.poison.upgrade.type",
-                "customguimod.runes.poison.upgrade.fixed",
-                "customguimod.runes.poison.upgrade.rank.1",
-                "customguimod.runes.poison.upgrade.rank.2",
-                "customguimod.runes.poison.upgrade.rank.3",
-                "customguimod.runes.poison.upgrade.formula.base",
-                "customguimod.runes.poison.upgrade.formula.per_rank",
-                "customguimod.runes.upgrade.event.multiplier",
-                "customguimod.runes.poison.upgrade.event.multiplier",
+                "customguimod.runes.poison.enhancement.resource",
+                "customguimod.runes.poison.enhancement.type",
+                "customguimod.runes.poison.enhancement.fixed",
+                "customguimod.runes.poison.enhancement.formula.base",
+                "customguimod.runes.poison.enhancement.formula.per_level",
+                "customguimod.runes.enhancement.event.multiplier",
+                "customguimod.runes.poison.enhancement.event.multiplier",
+                "customguimod.runes.poison.enhancement.power_step",
 
                 "customguimod.runes.poison.duplicate.type",
                 "customguimod.runes.poison.duplicate.fixed",
