@@ -24,8 +24,8 @@ import static com.example.customguimod.GuiTheme.*;
 public final class RuneUxUiHandler {
     private static final long PURCHASE_PULSE_MS = 450L;
     private static final long ENHANCEMENT_PULSE_MS = 650L;
-    private static final int IMPROVED_SILVER = 0x00D8DEE8;
-    private static final int ADVANCED_GOLD = 0x00F2C75C;
+    private static final int IMPROVED_SILVER = 0x00E4E8EF;
+    private static final int ADVANCED_GOLD = 0x00F7D477;
     private static final int ENHANCEMENT_GREEN = 0x006FD080;
     private static final int PURCHASE_CYAN = 0x007FC9E8;
     private static final long[] PURCHASE_PULSE_UNTIL = new long[RuneInventory.BOOST_TYPE_COUNT];
