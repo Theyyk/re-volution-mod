@@ -96,6 +96,7 @@ jobs:
         run: |
           SAFE_REF_NAME=$(printf '%s' "$GITHUB_REF_NAME" | sed 's/[^A-Za-z0-9._-]/-/g')
           echo "ref=${SAFE_REF_NAME}" >> "$GITHUB_OUTPUT"
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -112,3 +113,35 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" build/libs/customguimod-*.jar \
             --title "Custom GUI Mod ${GITHUB_REF_NAME}" \
             --notes-file ".github/release-notes/${GITHUB_REF_NAME}.md"
+
+      - name: Delete merged feature and release branches
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t branches < <(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/branches?per_page=100" \
+              --jq '.[].name | select(startswith("feature/") or startswith("release/"))'
+          )
+
+          if [ "${#branches[@]}" -eq 0 ]; then
+            echo "No feature/* or release/* branches to inspect."
+            exit 0
+          fi
+
+          for branch in "${branches[@]}"; do
+            status=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${branch}" --jq '.status')
+
+            case "$status" in
+              behind|identical)
+                echo "Deleting merged branch: $branch ($status main)"
+                gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"
+                ;;
+              *)
+                echo "Keeping branch with commits not fully merged into main: $branch ($status)"
+                ;;
+            esac
+          done
