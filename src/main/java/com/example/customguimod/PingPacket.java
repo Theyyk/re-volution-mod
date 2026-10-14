@@ -10,6 +10,7 @@ import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -317,61 +318,92 @@ public class PingPacket implements IMessage {
             return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
         }
 
-        private void enhanceRune(EntityPlayerMP player, int deckIndex, int runeIndex, int requestedAmount) {
+        private void enhanceRune(EntityPlayerMP player, int deckIndex, int ignoredRuneIndex, int requestedAmount) {
             int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
             if (!RuneStatusRegistry.isRuneStatus(statusId)) {
                 player.sendMessage(new TextComponentString("§cУсиление недоступно для этой legacy-коллекции."));
                 return;
             }
-            if (runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT) {
-                player.sendMessage(new TextComponentString("§cНекорректная руна."));
-                return;
-            }
 
-            boolean owned = false;
+            boolean[] seen = new boolean[RuneInventory.BOOST_TYPE_COUNT];
+            int[] ownedRunes = new int[RuneInventory.BOOST_TYPE_COUNT];
+            int ownedCount = 0;
             for (MongoManager.SavedCard card : MongoManager.getCardsInDeck(player.getUniqueID(), deckIndex)) {
-                if (card.cardIndex == runeIndex) {
-                    owned = true;
-                    break;
-                }
+                int rune = card.cardIndex;
+                if (rune < 0 || rune >= RuneInventory.BOOST_TYPE_COUNT || seen[rune]) continue;
+                seen[rune] = true;
+                ownedRunes[ownedCount++] = rune;
             }
-            if (!owned) {
-                player.sendMessage(new TextComponentString("§eСлот может хранить усиление постоянно, но усиливать его можно только когда руна получена."));
+            if (ownedCount <= 0) {
+                player.sendMessage(new TextComponentString("§eСначала получите хотя бы одну руну."));
                 return;
             }
 
             String configuredResource = RuneEconomyConfig.enhancementResourceForStatus(statusId);
             String resource = ResourceManager.findCanonicalName(configuredResource);
-            if (resource == null || RuneEconomyConfig.enhancementNextCost(statusId,
-                    RuneEnhancementManager.getLevel(player.getUniqueID(), deckIndex, runeIndex)) <= 0) {
+            if (resource == null) {
                 player.sendMessage(new TextComponentString("§cУсиление для этого статуса пока не настроено."));
                 return;
             }
 
-            int currentLevel = RuneEnhancementManager.getLevel(player.getUniqueID(), deckIndex, runeIndex);
+            int[] currentLevels = RuneEnhancementManager.getLevels(player.getUniqueID(), deckIndex);
+            int[] plannedLevels = Arrays.copyOf(currentLevels, currentLevels.length);
+            int[] increments = new int[RuneInventory.BOOST_TYPE_COUNT];
+            long totalCost = 0L;
+
+            // Each requested enhancement is an independent random roll over all currently owned slots.
+            // Repeated rolls may hit the same slot, exactly like duplicate rune purchase attempts can.
+            for (int attempt = 0; attempt < requestedAmount; attempt++) {
+                int rune = ownedRunes[RANDOM.nextInt(ownedCount)];
+                int level = plannedLevels[rune];
+                if (level >= Integer.MAX_VALUE) {
+                    player.sendMessage(new TextComponentString("§cЭтот слот достиг технического предела усиления."));
+                    return;
+                }
+
+                int stepCost = RuneEconomyConfig.enhancementNextCost(statusId, level);
+                if (stepCost <= 0) {
+                    player.sendMessage(new TextComponentString("§cУсиление для этого статуса пока не настроено."));
+                    return;
+                }
+
+                totalCost += stepCost;
+                if (totalCost > Integer.MAX_VALUE) {
+                    player.sendMessage(new TextComponentString("§cСтоимость выбранного количества усилений слишком велика."));
+                    return;
+                }
+
+                plannedLevels[rune] = level + 1;
+                increments[rune]++;
+            }
+
+            int cost = (int) totalCost;
             int balance = ResourceManager.getPlayerResource(player.getUniqueID(), resource);
-            int amount = RuneEconomyConfig.affordableEnhancementAmount(statusId, currentLevel, requestedAmount, balance);
-            if (amount <= 0) {
-                int nextCost = RuneEconomyConfig.enhancementNextCost(statusId, currentLevel);
+            if (balance < cost) {
                 player.sendMessage(new TextComponentString("§cНедостаточно ресурса «" + ResourceManager.getDisplayName(resource)
-                        + "» для усиления. Следующий уровень стоит " + nextCost + ", у тебя " + balance + "."));
+                        + "» для " + requestedAmount + " усилений. Нужно " + cost + ", у тебя " + balance + "."));
                 PlayerStatsService.sendTo(player);
                 return;
             }
 
-            int cost = RuneEconomyConfig.enhancementCost(statusId, currentLevel, amount);
             if (!ResourceManager.spendPlayerResource(player.getUniqueID(), resource, cost)) {
                 player.sendMessage(new TextComponentString("§cБаланс изменился. Повторите усиление."));
                 PlayerStatsService.sendTo(player);
                 return;
             }
 
-            int newLevel = RuneEnhancementManager.addLevels(player.getUniqueID(), deckIndex, runeIndex, amount);
+            int affectedSlots = 0;
+            for (int rune = 0; rune < increments.length; rune++) {
+                if (increments[rune] <= 0) continue;
+                RuneEnhancementManager.addLevels(player.getUniqueID(), deckIndex, rune, increments[rune]);
+                affectedSlots++;
+            }
+
             sendEnhancements(player, deckIndex);
             PlayerStatsService.sendTo(player);
-            String partial = amount < requestedAmount ? " §7(доступно " + amount + " из " + requestedAmount + ")" : "";
-            player.sendMessage(new TextComponentString("§aУсиление слота: §f+" + currentLevel + " §7→ §f+" + newLevel
-                    + "§a. Потрачено: §e" + cost + " §f" + ResourceManager.getDisplayName(resource) + "§a." + partial));
+            player.sendMessage(new TextComponentString("§aСлучайных усилений: §f" + requestedAmount
+                    + "§a. Затронуто слотов: §f" + affectedSlots
+                    + "§a. Потрачено: §e" + cost + " §f" + ResourceManager.getDisplayName(resource) + "§a."));
         }
 
         private void awakenRune(EntityPlayerMP player, int deckIndex, int runeIndex) {
