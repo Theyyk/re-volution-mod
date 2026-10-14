@@ -8,7 +8,6 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.example.customguimod.GuiDrawing.drawSurface;
@@ -196,19 +195,8 @@ public final class RuneUxUiHandler {
 
             int enhancement = ClientRuneEnhancements.levelOf(rune);
             double multiplier = ClientRuneEnhancements.multiplierOf(rune);
-            List<String> lines = new ArrayList<>();
-            lines.add("§b" + definition.name);
-            lines.add("§7Ранг: §f" + RuneProgression.rankName(rank));
-            lines.add("§7Тип: §f" + definition.type);
-            lines.add("§7Улучшение: §f+" + enhancement);
-
-            List<String> stats = RuneStatDisplay.finalValueLines(definition.stats, rank, multiplier);
-            if (stats.size() == 1) {
-                lines.add("§7Эффекты: §f" + stats.get(0));
-            } else if (!stats.isEmpty()) {
-                lines.add("§7Эффекты:");
-                for (String stat : stats) lines.add("§f" + stat);
-            }
+            List<String> lines = RuneTooltipContent.lines(definition, rank, enhancement, multiplier);
+            if (lines.isEmpty()) return;
 
             GuiUtils.drawHoveringText(
                     lines,
