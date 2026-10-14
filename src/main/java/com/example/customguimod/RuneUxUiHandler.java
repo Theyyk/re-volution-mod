@@ -1,7 +1,7 @@
 package com.example.customguimod;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.fml.client.config.GuiUtils;
@@ -12,18 +12,20 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.example.customguimod.GuiDrawing.drawSurface;
 import static com.example.customguimod.GuiTheme.*;
 
 /**
  * v1.2.9 visual feedback for rune progression.
- * Purchase uses a short bright border pulse, while awakening eligibility uses a slow persistent border breath.
- * The tooltip intentionally renders only the final effective stat values; RuneStat.Breakdown keeps the detailed
- * base/awakening/enhancement split ready for a later Shift view.
+ * Purchase and duplicate rolls use a short bright border pulse, while awakening eligibility uses
+ * a slightly stronger slow persistent border breath. Slot effects reuse GuiDrawing.drawSurface so
+ * the highlight follows the same clipped-corner geometry as the rune slot itself.
  */
 @SideOnly(Side.CLIENT)
 public final class RuneUxUiHandler {
     private static final long PURCHASE_PULSE_MS = 450L;
     private static final long[] PURCHASE_PULSE_UNTIL = new long[RuneInventory.BOOST_TYPE_COUNT];
+    private static final int STATUS_BUTTON_GAP = 2;
 
     static void notePurchase(int rune) {
         if (rune < 0 || rune >= PURCHASE_PULSE_UNTIL.length) return;
@@ -36,6 +38,8 @@ public final class RuneUxUiHandler {
         if (!RuneStatusRegistry.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())) return;
 
         CardsGuiScreen screen = (CardsGuiScreen) event.getGui();
+        compactStatusButtons(screen);
+
         GuiLayout layout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
         layout.update(screen.width, screen.height);
 
@@ -43,13 +47,23 @@ public final class RuneUxUiHandler {
         drawFinalStatTooltip(screen, layout, event.getMouseX(), event.getMouseY());
     }
 
+    private void compactStatusButtons(CardsGuiScreen screen) {
+        int nextX = -1;
+        for (GuiButton button : screen.buttonList) {
+            if (!(button instanceof GuiControls.ElementButton)) continue;
+            if (nextX < 0) nextX = button.x;
+            button.x = nextX;
+            nextX += button.width + STATUS_BUTTON_GAP;
+        }
+    }
+
     private void drawSlotEffects(GuiLayout layout) {
         int awakeningRank = awakeningRank();
         long now = System.currentTimeMillis();
         double wave = (Math.sin(now / 380.0D) + 1.0D) * 0.5D;
-        int awakeningAlpha = 75 + (int) Math.round(wave * 95.0D);
+        int awakeningAlpha = 135 + (int) Math.round(wave * 100.0D);
         int awakeningColor = withAlpha(SELECTED_COLOR, awakeningAlpha);
-        int purchaseColor = withAlpha(TEXT_COLOR, 235);
+        int purchaseColor = withAlpha(TEXT_COLOR, 245);
 
         GlStateManager.pushMatrix();
         GlStateManager.translate(layout.canvasX, layout.canvasY, 0.0F);
@@ -61,12 +75,12 @@ public final class RuneUxUiHandler {
                 int[] pos = layout.runeSlotPosition(rune);
 
                 if (PURCHASE_PULSE_UNTIL[rune] > now) {
-                    drawBorder(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 2, purchaseColor);
+                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, purchaseColor);
                     continue;
                 }
 
                 if (awakeningRank > 0 && rank == awakeningRank) {
-                    drawBorder(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 1, awakeningColor);
+                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, awakeningColor);
                 }
             }
         } finally {
@@ -103,12 +117,19 @@ public final class RuneUxUiHandler {
             double multiplier = ClientRuneEnhancements.multiplierOf(rune);
             List<String> lines = new ArrayList<>();
             lines.add("§b" + definition.name);
-            lines.add("§7Ранг: §f" + RuneProgression.rankName(rank)
-                    + " §8| §7Усиление: §f+" + enhancement);
+            lines.add("§7Ранг: §f" + RuneProgression.rankName(rank));
             lines.add("§7Тип: §f" + definition.type);
+            lines.add("§7Улучшение: §f+" + enhancement);
 
             List<String> stats = RuneStatDisplay.finalValueLines(definition.stats, rank, multiplier);
-            for (String stat : stats) lines.add("§a" + stat);
+            if (!stats.isEmpty()) {
+                StringBuilder effects = new StringBuilder("§7Эффекты: §f");
+                for (int i = 0; i < stats.size(); i++) {
+                    if (i > 0) effects.append("§f, ");
+                    effects.append(stats.get(i));
+                }
+                lines.add(effects.toString());
+            }
 
             GuiUtils.drawHoveringText(
                     lines,
@@ -121,14 +142,6 @@ public final class RuneUxUiHandler {
             );
             return;
         }
-    }
-
-    private static void drawBorder(int x, int y, int width, int height, int thickness, int color) {
-        int t = Math.max(1, thickness);
-        Gui.drawRect(x, y, x + width, y + t, color);
-        Gui.drawRect(x, y + height - t, x + width, y + height, color);
-        Gui.drawRect(x, y + t, x + t, y + height - t, color);
-        Gui.drawRect(x + width - t, y + t, x + width, y + height - t, color);
     }
 
     private static int withAlpha(int color, int alpha) {
