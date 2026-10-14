@@ -14,25 +14,62 @@ import java.util.List;
 @SideOnly(Side.CLIENT)
 public class RunePurchaseUiHandler {
     private static final int PURCHASE_OR_AWAKENING_BUTTON_ID = 0;
+    private static final int ENHANCE_BUTTON_ID = 2;
+    private static final int ENHANCE_AMOUNT_BUTTON_ID = 3;
+    private static final int STATUS_BUTTON_GAP = 2;
+    private static final int AMOUNT_MIN_WIDTH = 42;
 
     private GuiScreen trackedScreen;
     private List<GuiButton> trackedButtons;
+    private int enhancementAmount = 1;
 
     @SubscribeEvent
     public void onInitGui(GuiScreenEvent.InitGuiEvent.Post event) {
         trackedScreen = event.getGui();
         trackedButtons = event.getButtonList();
+        enhancementAmount = 1;
+        compactStatusButtons(event.getGui(), trackedButtons);
+        installEnhancementAmountButton(event.getGui(), trackedButtons);
         applyState(event.getGui());
         applyPurchaseEconomy(event.getGui(), trackedButtons);
         applyAwakeningEconomy(event.getGui(), trackedButtons);
+        applyEnhancementEconomy(event.getGui(), trackedButtons);
     }
 
     @SubscribeEvent
     public void onDrawPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
         applyState(event.getGui());
         if (event.getGui() == trackedScreen) {
+            // CardsGuiScreen may rebuild its button list after packets arrive, so restore the
+            // enhancement amount selector whenever it is missing.
+            installEnhancementAmountButton(event.getGui(), trackedButtons);
+            compactStatusButtons(event.getGui(), trackedButtons);
             applyPurchaseEconomy(event.getGui(), trackedButtons);
             applyAwakeningEconomy(event.getGui(), trackedButtons);
+            applyEnhancementEconomy(event.getGui(), trackedButtons);
+        }
+    }
+
+    @SubscribeEvent
+    public void onActionPerformed(GuiScreenEvent.ActionPerformedEvent.Post event) {
+        if (!(event.getGui() instanceof CardsGuiScreen)) return;
+        GuiButton button = event.getButton();
+        if (button == null) return;
+
+        if (button.id == ENHANCE_AMOUNT_BUTTON_ID) {
+            enhancementAmount = enhancementAmount == 1 ? 5
+                    : enhancementAmount == 5 ? 10
+                    : enhancementAmount == 10 ? 100
+                    : 1;
+            applyEnhancementEconomy(event.getGui(), event.getButtonList());
+            return;
+        }
+
+        if (button.id == ENHANCE_BUTTON_ID && usesStatusPurchaseEconomy()) {
+            // The server chooses every target. The encoded slot is retained only for transport
+            // compatibility and is intentionally ignored by the authoritative enhancement logic.
+            NetworkHandler.INSTANCE.sendToServer(new PingPacket(
+                    "enhance_rune:0:" + enhancementAmount));
         }
     }
 
@@ -48,9 +85,18 @@ public class RunePurchaseUiHandler {
         int mouseY = screen.height - Mouse.getEventY() * screen.height / Math.max(1, mc.displayHeight) - 1;
         int rune = screen.awakeningRuneAt(mouseX, mouseY);
         if (rune >= 0) {
-            // Compatibility transport name only. Awakening and upgrade are separate gameplay mechanics;
-            // the actual upgrade mechanic is not implemented yet.
             NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
+        }
+    }
+
+    private void compactStatusButtons(GuiScreen gui, List<GuiButton> buttons) {
+        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+        int nextX = -1;
+        for (GuiButton button : buttons) {
+            if (!(button instanceof GuiControls.ElementButton)) continue;
+            if (nextX < 0) nextX = button.x;
+            button.x = nextX;
+            nextX += button.width + STATUS_BUTTON_GAP;
         }
     }
 
@@ -58,6 +104,89 @@ public class RunePurchaseUiHandler {
         if (gui instanceof CardsGuiScreen) {
             ((CardsGuiScreen) gui).updatePurchaseAvailability();
         }
+    }
+
+    private void installEnhancementAmountButton(GuiScreen gui, List<GuiButton> buttons) {
+        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+
+        GuiButton enhance = findButton(buttons, ENHANCE_BUTTON_ID);
+        GuiButton purchaseAmount = findButton(buttons, GuiControls.AMOUNT_BUTTON_START_ID);
+        if (enhance == null || purchaseAmount == null) return;
+
+        // Keep both quantity selectors equally wide so x10/x100 stay readable and aligned.
+        int amountWidth = Math.max(purchaseAmount.width, AMOUNT_MIN_WIDTH);
+        purchaseAmount.width = amountWidth;
+
+        GuiButton amount = findButton(buttons, ENHANCE_AMOUNT_BUTTON_ID);
+        if (amount == null) {
+            amount = new GuiControls.PanelButton(
+                    ENHANCE_AMOUNT_BUTTON_ID,
+                    enhance.x,
+                    enhance.y + enhance.height + 6,
+                    amountWidth,
+                    purchaseAmount.height,
+                    "x" + enhancementAmount
+            );
+            buttons.add(amount);
+        } else {
+            amount.x = enhance.x;
+            amount.y = enhance.y + enhance.height + 6;
+            amount.width = amountWidth;
+        }
+    }
+
+    private void applyEnhancementEconomy(GuiScreen gui, List<GuiButton> buttons) {
+        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+
+        boolean statusEconomy = usesStatusPurchaseEconomy();
+
+        GuiButton enhance = findButton(buttons, ENHANCE_BUTTON_ID);
+        GuiButton amount = findButton(buttons, ENHANCE_AMOUNT_BUTTON_ID);
+        if (amount != null) {
+            amount.displayString = "x" + enhancementAmount;
+            amount.visible = statusEconomy;
+            amount.enabled = amount.visible;
+        }
+        if (enhance == null) return;
+
+        if (!statusEconomy) {
+            enhance.enabled = false;
+            enhance.displayString = "Усиление:\nНедоступно";
+            return;
+        }
+
+        CostRange costs = enhancementCostRange(enhancementAmount);
+        String resource = ClientRuneEnhancements.getResource();
+        String resourceName = resource == null || resource.isEmpty() ? "" : priceResourceName(resource);
+        int balance = ClientPlayerStats.getResourceBalance(resource);
+
+        if (!costs.valid || resourceName.isEmpty()) {
+            enhance.enabled = false;
+            enhance.displayString = "Случайное усиление:\nНе настроено";
+            return;
+        }
+
+        String costText = costs.minimum == costs.maximum
+                ? String.valueOf(costs.maximum)
+                : costs.minimum + "–" + costs.maximum;
+        enhance.displayString = "Случайное усиление:\n" + costText + " " + resourceName;
+        // Every one of the 26 fixed slots is a valid random target, including empty slots.
+        enhance.enabled = balance >= costs.maximum;
+    }
+
+    private CostRange enhancementCostRange(int amount) {
+        int minimum = Integer.MAX_VALUE;
+        int maximum = 0;
+        boolean found = false;
+
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            int cost = ClientRuneEnhancements.costOf(rune, amount);
+            if (cost <= 0) return CostRange.invalid();
+            minimum = Math.min(minimum, cost);
+            maximum = Math.max(maximum, cost);
+            found = true;
+        }
+        return found ? new CostRange(true, minimum, maximum) : CostRange.invalid();
     }
 
     private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
@@ -156,5 +285,29 @@ public class RunePurchaseUiHandler {
             }
         }
         return 1;
+    }
+
+    private GuiButton findButton(List<GuiButton> buttons, int id) {
+        if (buttons == null) return null;
+        for (GuiButton button : buttons) {
+            if (button.id == id) return button;
+        }
+        return null;
+    }
+
+    private static final class CostRange {
+        final boolean valid;
+        final int minimum;
+        final int maximum;
+
+        CostRange(boolean valid, int minimum, int maximum) {
+            this.valid = valid;
+            this.minimum = minimum;
+            this.maximum = maximum;
+        }
+
+        static CostRange invalid() {
+            return new CostRange(false, 0, 0);
+        }
     }
 }

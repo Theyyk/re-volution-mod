@@ -17,6 +17,7 @@ public class NetworkHandler {
         INSTANCE.registerMessage(PlayerStatsPacketServerHandler.class, PlayerStatsPacket.class, 4, Side.CLIENT);
         INSTANCE.registerMessage(AdminPanelRequestPacket.Handler.class, AdminPanelRequestPacket.class, 5, Side.SERVER);
         INSTANCE.registerMessage(AdminPanelStateServerHandler.class, AdminPanelStatePacket.class, 6, Side.CLIENT);
+        INSTANCE.registerMessage(RuneEnhancementPacketServerHandler.class, RuneEnhancementPacket.class, 7, Side.CLIENT);
     }
 
     public static void registerClient() {
@@ -27,5 +28,6 @@ public class NetworkHandler {
         INSTANCE.registerMessage(PlayerStatsPacketHandler.class, PlayerStatsPacket.class, 4, Side.CLIENT);
         INSTANCE.registerMessage(AdminPanelRequestClientHandler.class, AdminPanelRequestPacket.class, 5, Side.SERVER);
         INSTANCE.registerMessage(AdminPanelStateClientHandler.class, AdminPanelStatePacket.class, 6, Side.CLIENT);
+        INSTANCE.registerMessage(RuneEnhancementPacketHandler.class, RuneEnhancementPacket.class, 7, Side.CLIENT);
     }
 }

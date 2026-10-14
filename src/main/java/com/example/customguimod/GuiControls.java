@@ -46,9 +46,6 @@ final class GuiControls {
             boolean syncBlocked = blockedByCardSync();
             hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
 
-            // A status switch may take a moment while Mongo/server packets arrive. Keep the
-            // last meaningful label visible instead of replacing it with a loading placeholder.
-            // Interaction is still blocked by mousePressed until CardSyncState settles.
             boolean interactive = enabled && !syncBlocked;
             int border = selected ? SELECTED_COLOR : (hovered && interactive ? SLOT_HOVER_COLOR : PANEL_BORDER_COLOR);
             int background = selected ? SELECTED_BG_COLOR : (enabled ? BUTTON_BG_COLOR : DISABLED_BG_COLOR);
@@ -60,25 +57,12 @@ final class GuiControls {
 
             if (id == AMOUNT_BUTTON_START_ID) {
                 int textWidth = font.getStringWidth(displayString);
-                float textScale = Math.min(
-                        1.0F,
-                        (width - 4) / (float) Math.max(1, textWidth)
-                );
+                float textScale = Math.min(1.0F, (width - 4) / (float) Math.max(1, textWidth));
 
                 GlStateManager.pushMatrix();
-                GlStateManager.translate(
-                        x + width / 2.0F,
-                        y + (height - font.FONT_HEIGHT * textScale) / 2.0F,
-                        0.0F
-                );
+                GlStateManager.translate(x + width / 2.0F, y + (height - font.FONT_HEIGHT * textScale) / 2.0F, 0.0F);
                 GlStateManager.scale(textScale, textScale, 1.0F);
-                font.drawString(
-                        displayString,
-                        -textWidth / 2.0F,
-                        0.0F,
-                        textColor,
-                        false
-                );
+                font.drawString(displayString, -textWidth / 2.0F, 0.0F, textColor, false);
                 GlStateManager.popMatrix();
                 return;
             }
@@ -86,10 +70,7 @@ final class GuiControls {
             String[] lines = displayString.split("\\n");
             int lineHeight = font.FONT_HEIGHT;
             int textY = y + (height - lines.length * lineHeight) / 2;
-            boolean purchasePrice = id == 0
-                    && enabled
-                    && lines.length > 1
-                    && displayString.startsWith("Купить руну");
+            boolean purchasePrice = id == 0 && enabled && lines.length > 1 && displayString.startsWith("Купить руну");
 
             for (int i = 0; i < lines.length; i++) {
                 String line = lines[i];
@@ -98,17 +79,8 @@ final class GuiControls {
                     continue;
                 }
 
-                String label = font.trimStringToWidth(
-                        line,
-                        Math.max(1, width - 6)
-                );
-                drawCenteredString(
-                        font,
-                        label,
-                        x + width / 2,
-                        textY,
-                        textColor
-                );
+                String label = font.trimStringToWidth(line, Math.max(1, width - 6));
+                drawCenteredString(font, label, x + width / 2, textY, textColor);
                 textY += lineHeight;
             }
         }
@@ -178,13 +150,14 @@ final class GuiControls {
         }
     }
 
+    /** Square icon selector; its status name is intentionally kept only for the hover tooltip. */
     static final class ElementButton extends PanelButton {
         private final String elementName;
         private final boolean active;
 
         ElementButton(int id, int x, int y, int width, int height,
                       String elementName, boolean active) {
-            super(id, x, y, width, height, elementName);
+            super(id, x, y, Math.max(1, height), Math.max(1, height), "");
             this.elementName = elementName;
             this.active = active;
             setSelected(active);
@@ -195,6 +168,61 @@ final class GuiControls {
             boolean pressed = super.mousePressed(mc, mouseX, mouseY);
             if (pressed && !active) CardSyncState.beginLoad();
             return pressed;
+        }
+
+        @Override
+        public void drawButton(Minecraft mc, int mouseX, int mouseY, float partialTicks) {
+            super.drawButton(mc, mouseX, mouseY, partialTicks);
+            if (!visible) return;
+            drawStatusGlyph(x + width / 2, y + height / 2, elementName);
+        }
+
+        private void drawStatusGlyph(int cx, int cy, String name) {
+            String normalized = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
+            int color = TEXT_COLOR;
+
+            if (normalized.contains("яд") || normalized.contains("poison")) {
+                color = POISON_TYPE_COLOR;
+                drawRect(cx - 1, cy - 6, cx + 2, cy - 3, color);
+                drawRect(cx - 3, cy - 3, cx + 4, cy + 4, color);
+                drawRect(cx - 2, cy + 4, cx + 3, cy + 6, color);
+                return;
+            }
+            if (normalized.contains("горен") || normalized.contains("burn")) {
+                color = RESOURCE_TYPE_COLOR;
+                drawRect(cx - 1, cy - 6, cx + 2, cy + 5, color);
+                drawRect(cx - 4, cy - 1, cx + 5, cy + 5, color);
+                return;
+            }
+            if (normalized.contains("кров") || normalized.contains("bleed")) {
+                color = MOUSE_HINT_ACTIVE_COLOR;
+                drawRect(cx - 1, cy - 6, cx + 2, cy + 6, color);
+                drawRect(cx - 3, cy - 1, cx + 4, cy + 5, color);
+                return;
+            }
+            if (normalized.contains("прокля") || normalized.contains("curse")) {
+                color = BOOST_TYPE_COLOR;
+                drawRect(cx - 5, cy - 1, cx + 6, cy + 2, color);
+                drawRect(cx - 1, cy - 5, cx + 2, cy + 6, color);
+                return;
+            }
+            if (normalized.contains("иссуш") || normalized.contains("wither")) {
+                color = MUTED_TEXT_COLOR;
+                drawRect(cx - 5, cy - 5, cx - 2, cy + 6, color);
+                drawRect(cx + 2, cy - 5, cx + 5, cy + 6, color);
+                drawRect(cx - 2, cy - 1, cx + 3, cy + 2, color);
+                return;
+            }
+            if (normalized.contains("разлож") || normalized.contains("decay")) {
+                color = CRYSTAL_COLOR;
+                drawRect(cx - 5, cy - 4, cx + 6, cy - 1, color);
+                drawRect(cx - 3, cy, cx + 4, cy + 3, color);
+                drawRect(cx - 1, cy + 4, cx + 2, cy + 6, color);
+                return;
+            }
+
+            drawRect(cx - 4, cy - 4, cx + 5, cy + 5, color);
+            drawRect(cx - 2, cy - 2, cx + 3, cy + 3, TYPE_BADGE_BG_COLOR);
         }
 
         String getElementName() {
@@ -223,8 +251,6 @@ final class GuiControls {
             if (!visible) return;
 
             hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
-            int border = selected ? SELECTED_COLOR : (hovered && enabled ? SLOT_HOVER_COLOR : PANEL_BORDER_COLOR);
-            int background = selected ? SELECTED_BG_COLOR : (enabled ? BUTTON_BG_COLOR : DISABLED_BG_COLOR);
 
             if (hovered) drawRect(x, y, x + width, y + height, BUTTON_BG_COLOR);
             if (selected) drawRect(x + width - 1, y, x + width, y + height, SELECTED_COLOR);
@@ -242,7 +268,6 @@ final class GuiControls {
                 drawRect(cx + 1, cy - 1, cx + 4, cy + 1, rune);
                 drawRect(cx - 4, cy + 1, cx - 1, cy + 3, rune);
             }
-
         }
     }
 }

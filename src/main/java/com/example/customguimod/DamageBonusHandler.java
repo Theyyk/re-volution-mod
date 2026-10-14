@@ -13,10 +13,10 @@ public class DamageBonusHandler {
         if (!(event.getSource().getTrueSource() instanceof EntityPlayerMP)) return;
 
         EntityPlayerMP player = (EntityPlayerMP) event.getSource().getTrueSource();
-        int totalDamageBonus = PlayerStatsService.getTotalDamageBonus(player.getUniqueID());
+        double totalDamageBonus = PlayerStatsService.getTotalDamageBonusValue(player.getUniqueID());
 
-        if (totalDamageBonus <= 0) return;
+        if (totalDamageBonus <= 0.0D) return;
 
-        event.setAmount(event.getAmount() + totalDamageBonus);
+        event.setAmount(event.getAmount() + (float) totalDamageBonus);
     }
 }

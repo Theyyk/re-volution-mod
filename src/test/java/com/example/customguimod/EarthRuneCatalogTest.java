@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import java.util.List;
+
 final class EarthRuneCatalogTest {
     static void run() {
         check(EarthRuneCatalog.size() == 26, "The catalog must define all 26 positions");
@@ -12,10 +14,12 @@ final class EarthRuneCatalogTest {
         java.util.Set<String> textures = new java.util.HashSet<>();
         RuneInventory inventory = new RuneInventory();
         for (int slot = 0; slot < expected.length; slot++) {
-            check(EarthRuneCatalog.at(slot).name.equals(expected[slot]), "Catalog order differs at " + slot);
-            check(!EarthRuneCatalog.at(slot).type.isEmpty(), "Every position needs a type");
+            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(slot);
+            check(definition.name.equals(expected[slot]), "Catalog order differs at " + slot);
+            check(!definition.type.isEmpty(), "Every position needs a type");
+            check(definition.stats.length <= 3, "Every rune must respect the three-stat limit");
             check(EarthRuneCatalog.iconIndex(slot) >= 0 && EarthRuneCatalog.iconIndex(slot) <= 10, "Every rune needs a placeholder icon");
-            String texture = EarthRuneCatalog.at(slot).iconTexture;
+            String texture = definition.iconTexture;
             check(texture.startsWith("customguimod:textures/gui/runes/") && texture.endsWith(".png"), "PNG path required");
             textures.add(texture);
             if (slot > 0 && expected[slot].equals(expected[slot - 1]))
@@ -33,9 +37,51 @@ final class EarthRuneCatalogTest {
         check(inventory.ownedCatalogSlotCount() == 0, "Changing statuses must clear owned positions");
         check(EarthRuneCatalog.at(0).name.equals("Кинжал убийцы"), "Definitions must remain visible without ownership");
         check(EarthRuneCatalog.at(11).type.equals("Клик / Яд"), "Hybrid rune type must combine click and poison");
+        check(EarthRuneCatalog.at(11).stats.length == 2, "Hybrid rune should demonstrate multiple stats in v1.2.9");
+        check(EarthRuneCatalog.at(11).stats[0].type == RuneStatType.CLICK_DAMAGE_FLAT,
+                "Hybrid rune should expose click damage through RuneStatType");
+        check(EarthRuneCatalog.at(11).stats[1].type == RuneStatType.POISON_DAMAGE_FLAT,
+                "Hybrid rune should expose poison damage through RuneStatType");
         check(EarthRuneCatalog.at(17).type.equals("Яд"), "Poison multiplier belongs to poison damage");
+        check(EarthRuneCatalog.at(17).stats.length == 1
+                        && EarthRuneCatalog.at(17).stats[0].type == RuneStatType.POISON_DAMAGE_FLAT,
+                "Poison rune should use the data-driven stat model");
         check(EarthRuneCatalog.at(25).type.equals("Ресурс"), "Hunter relic belongs to resources");
-        System.out.println("Fixed 26-position poison status catalog regression checks passed");
+        check(EarthRuneCatalog.at(25).stats.length == 0,
+                "Full resource-stat content remains deferred to v1.2.10");
+
+        RuneStat sample = RuneStat.scaled(RuneStatType.CLICK_DAMAGE_FLAT, 2.0D);
+        RuneStat.Breakdown normal = sample.resolve(RuneInventory.NORMAL_RANK, 1.5D);
+        check(close(normal.baseValue, 2.0D), "Normal stat base value must stay explicit");
+        check(close(normal.awakeningBonus, 0.0D), "Normal rank has no awakening bonus");
+        check(close(normal.enhancementBonus, 1.0D), "Enhancement bonus must be tracked separately");
+        check(close(normal.otherBonus, 0.0D), "Other bonus is reserved but zero in v1.2.9");
+        check(close(normal.finalValue, 3.0D), "Final value must include enhancement");
+
+        RuneStat.Breakdown improved = sample.resolve(RuneInventory.IMPROVED_RANK, 1.5D);
+        check(close(improved.baseValue, 2.0D), "Improved stat keeps the same base value");
+        check(close(improved.awakeningBonus, 4.0D), "Improved rank must expose its awakening contribution");
+        check(close(improved.enhancementBonus, 3.0D), "Enhancement must apply after awakening");
+        check(close(improved.finalValue, 9.0D), "Final value must combine awakening and enhancement");
+
+        List<String> compactLines = RuneStatDisplay.finalValueLines(
+                EarthRuneCatalog.at(11).stats,
+                RuneInventory.IMPROVED_RANK,
+                1.5D
+        );
+        check(compactLines.size() == 2, "Hybrid rune tooltip should expose two compact stat lines");
+        check(compactLines.get(0).equals("Урон Клика +4.5"), "Compact tooltip must show final click value only");
+        check(compactLines.get(1).equals("Урон Яда +4.5"), "Compact tooltip must show final poison value only");
+
+        System.out.println("Fixed 26-position poison status catalog and stat framework regression checks passed");
+    }
+
+    public static void main(String[] args) {
+        run();
+    }
+
+    private static boolean close(double left, double right) {
+        return Math.abs(left - right) < 0.000001D;
     }
 
     private static void check(boolean condition, String message) {

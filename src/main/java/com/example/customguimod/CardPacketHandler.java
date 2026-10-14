@@ -17,6 +17,13 @@ public class CardPacketHandler implements IMessageHandler<CardPacket, IMessage> 
             ClientRuneRanks.accept(message);
             CardSyncState.notePacket();
 
+            if (message.isAnimate()
+                    && RuneStatusRegistry.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())
+                    && message.getCardIndex() >= 0
+                    && message.getCardIndex() < RuneInventory.BOOST_TYPE_COUNT) {
+                RuneUxUiHandler.notePurchase(message.getCardIndex());
+            }
+
             if (Minecraft.getMinecraft().currentScreen instanceof CardsGuiScreen) {
                 if (RuneGuiPreloader.shouldSuppressLiveCard(message)) return;
 
@@ -24,7 +31,9 @@ public class CardPacketHandler implements IMessageHandler<CardPacket, IMessage> 
                 if (message.getSlot() == -1) {
                     screen.clearCards();
                 } else {
-                    screen.addCardFromServer(message.getSlot(), message.getCardIndex(), message.getLayer(), message.isAnimate());
+                    // v1.2.9 intentionally removes the flying-card animation. The purchase feedback
+                    // is now a short border pulse on the destination slot.
+                    screen.addCardFromServer(message.getSlot(), message.getCardIndex(), message.getLayer(), false);
                 }
             }
         });

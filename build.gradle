@@ -33,7 +33,7 @@ minecraft {
     // Simply re-run your setup task after changing your workspace.
     //mappings channel: 'snapshot', version: '20171003-1.12'
     mappings channel: 'snapshot', version: '20171003-1.12'
-    // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
+    // makeObfSourceJar = false // An Srg named sources jar is made by default. uncomment this to disable.
     
     // accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
 
@@ -149,6 +149,22 @@ tasks.register('runeEconomyRegression', JavaExec) {
     mainClass = 'com.example.customguimod.RuneEconomyConfigTest'
 }
 check.dependsOn runeEconomyRegression
+
+// Keep the fixed poison catalog and v1.2.9 stat framework under CI.
+tasks.register('earthRuneCatalogRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.EarthRuneCatalogTest'
+}
+check.dependsOn earthRuneCatalogRegression
+
+// Keep server-authored enhancement metadata ready for the GUI contract.
+tasks.register('runeEnhancementPacketRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.RuneEnhancementPacketTest'
+}
+check.dependsOn runeEnhancementPacketRegression
 
 // Prove that deck routing and economy configuration remain isolated across rune statuses.
 tasks.register('multiStatusRuneRegression', JavaExec) {
