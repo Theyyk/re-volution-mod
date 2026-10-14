@@ -14,25 +14,56 @@ import java.util.List;
 @SideOnly(Side.CLIENT)
 public class RunePurchaseUiHandler {
     private static final int PURCHASE_OR_AWAKENING_BUTTON_ID = 0;
+    private static final int ENHANCE_BUTTON_ID = 2;
+    private static final int ENHANCE_AMOUNT_BUTTON_ID = 3;
 
     private GuiScreen trackedScreen;
     private List<GuiButton> trackedButtons;
+    private int selectedEnhancementRune = -1;
+    private int enhancementAmount = 1;
 
     @SubscribeEvent
     public void onInitGui(GuiScreenEvent.InitGuiEvent.Post event) {
         trackedScreen = event.getGui();
         trackedButtons = event.getButtonList();
+        selectedEnhancementRune = -1;
+        enhancementAmount = 1;
+        installEnhancementAmountButton(event.getGui(), trackedButtons);
         applyState(event.getGui());
         applyPurchaseEconomy(event.getGui(), trackedButtons);
         applyAwakeningEconomy(event.getGui(), trackedButtons);
+        applyEnhancementEconomy(event.getGui(), trackedButtons);
     }
 
     @SubscribeEvent
     public void onDrawPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
         applyState(event.getGui());
         if (event.getGui() == trackedScreen) {
+            rememberHoveredEnhancementRune(event.getGui());
             applyPurchaseEconomy(event.getGui(), trackedButtons);
             applyAwakeningEconomy(event.getGui(), trackedButtons);
+            applyEnhancementEconomy(event.getGui(), trackedButtons);
+        }
+    }
+
+    @SubscribeEvent
+    public void onActionPerformed(GuiScreenEvent.ActionPerformedEvent.Post event) {
+        if (!(event.getGui() instanceof CardsGuiScreen)) return;
+        GuiButton button = event.getButton();
+        if (button == null) return;
+
+        if (button.id == ENHANCE_AMOUNT_BUTTON_ID) {
+            enhancementAmount = enhancementAmount == 1 ? 5
+                    : enhancementAmount == 5 ? 10
+                    : enhancementAmount == 10 ? 100
+                    : 1;
+            applyEnhancementEconomy(event.getGui(), event.getButtonList());
+            return;
+        }
+
+        if (button.id == ENHANCE_BUTTON_ID && selectedEnhancementRune >= 0) {
+            NetworkHandler.INSTANCE.sendToServer(new PingPacket(
+                    "enhance_rune:" + selectedEnhancementRune + ":" + enhancementAmount));
         }
     }
 
@@ -48,8 +79,7 @@ public class RunePurchaseUiHandler {
         int mouseY = screen.height - Mouse.getEventY() * screen.height / Math.max(1, mc.displayHeight) - 1;
         int rune = screen.awakeningRuneAt(mouseX, mouseY);
         if (rune >= 0) {
-            // Compatibility transport name only. Awakening and upgrade are separate gameplay mechanics;
-            // the actual upgrade mechanic is not implemented yet.
+            // Compatibility transport name only. Awakening and enhancement are separate mechanics.
             NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
         }
     }
@@ -58,6 +88,96 @@ public class RunePurchaseUiHandler {
         if (gui instanceof CardsGuiScreen) {
             ((CardsGuiScreen) gui).updatePurchaseAvailability();
         }
+    }
+
+    private void installEnhancementAmountButton(GuiScreen gui, List<GuiButton> buttons) {
+        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+        for (GuiButton button : buttons) {
+            if (button.id == ENHANCE_AMOUNT_BUTTON_ID) return;
+        }
+
+        GuiButton enhance = findButton(buttons, ENHANCE_BUTTON_ID);
+        GuiButton purchaseAmount = findButton(buttons, GuiControls.AMOUNT_BUTTON_START_ID);
+        if (enhance == null || purchaseAmount == null) return;
+
+        buttons.add(new GuiControls.PanelButton(
+                ENHANCE_AMOUNT_BUTTON_ID,
+                enhance.x,
+                purchaseAmount.y,
+                purchaseAmount.width,
+                purchaseAmount.height,
+                "x" + enhancementAmount
+        ));
+    }
+
+    private void rememberHoveredEnhancementRune(GuiScreen gui) {
+        if (!(gui instanceof CardsGuiScreen) || !usesStatusPurchaseEconomy()) return;
+        CardsGuiScreen screen = (CardsGuiScreen) gui;
+        int hovered = hoveredOwnedRune(screen);
+        if (hovered >= 0) selectedEnhancementRune = hovered;
+        if (selectedEnhancementRune >= 0 && ClientRuneRanks.rankOf(selectedEnhancementRune) <= 0) {
+            selectedEnhancementRune = -1;
+        }
+    }
+
+    private int hoveredOwnedRune(CardsGuiScreen screen) {
+        Minecraft mc = Minecraft.getMinecraft();
+        int mouseX = Mouse.getX() * screen.width / Math.max(1, mc.displayWidth);
+        int mouseY = screen.height - Mouse.getY() * screen.height / Math.max(1, mc.displayHeight) - 1;
+
+        GuiLayout layout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
+        layout.update(screen.width, screen.height);
+        int x = layout.canvasMouseX(mouseX);
+        int y = layout.canvasMouseY(mouseY);
+
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            if (ClientRuneRanks.rankOf(rune) <= 0 || !screen.runeMatchesSearch(rune)) continue;
+            int[] pos = layout.runeSlotPosition(rune);
+            if (x >= pos[0] && x < pos[0] + layout.runeSlotWidth
+                    && y >= pos[1] && y < pos[1] + layout.runeSlotHeight) {
+                return rune;
+            }
+        }
+        return -1;
+    }
+
+    private void applyEnhancementEconomy(GuiScreen gui, List<GuiButton> buttons) {
+        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+
+        GuiButton enhance = findButton(buttons, ENHANCE_BUTTON_ID);
+        GuiButton amount = findButton(buttons, ENHANCE_AMOUNT_BUTTON_ID);
+        if (amount != null) {
+            amount.displayString = "x" + enhancementAmount;
+            amount.visible = usesStatusPurchaseEconomy();
+            amount.enabled = amount.visible && selectedEnhancementRune >= 0;
+        }
+        if (enhance == null) return;
+
+        if (!usesStatusPurchaseEconomy()) {
+            enhance.enabled = false;
+            enhance.displayString = "Усиление:\nНедоступно";
+            return;
+        }
+        if (selectedEnhancementRune < 0) {
+            enhance.enabled = false;
+            enhance.displayString = "Усилить руну:\nНаведите на руну";
+            return;
+        }
+
+        int level = ClientRuneEnhancements.levelOf(selectedEnhancementRune);
+        int cost = ClientRuneEnhancements.costOf(selectedEnhancementRune, enhancementAmount);
+        String resource = ClientRuneEnhancements.getResource();
+        String resourceName = resource == null || resource.isEmpty() ? "" : priceResourceName(resource);
+        int balance = ClientPlayerStats.getResourceBalance(resource);
+
+        if (cost <= 0 || resourceName.isEmpty()) {
+            enhance.enabled = false;
+            enhance.displayString = "Усиление +" + level + ":\nНе настроено";
+            return;
+        }
+
+        enhance.displayString = "Усиление +" + level + ":\n" + cost + " " + resourceName;
+        enhance.enabled = balance >= cost;
     }
 
     private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
@@ -156,5 +276,13 @@ public class RunePurchaseUiHandler {
             }
         }
         return 1;
+    }
+
+    private GuiButton findButton(List<GuiButton> buttons, int id) {
+        if (buttons == null) return null;
+        for (GuiButton button : buttons) {
+            if (button.id == id) return button;
+        }
+        return null;
     }
 }
