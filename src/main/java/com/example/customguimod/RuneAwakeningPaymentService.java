@@ -19,12 +19,16 @@ final class RuneAwakeningPaymentService {
         }
 
         int balance = ResourceManager.getPlayerResource(player.getUniqueID(), canonicalResource);
-        if (balance < cost) {
+        if (!ResourceManager.canAfford(player.getUniqueID(), canonicalResource, cost)) {
             return Result.insufficient(canonicalResource, cost, balance);
         }
 
-        int newBalance = ResourceManager.addPlayerResource(
-                player.getUniqueID(), canonicalResource, -cost);
+        if (!ResourceManager.spendPlayerResource(player.getUniqueID(), canonicalResource, cost)) {
+            int currentBalance = ResourceManager.getPlayerResource(player.getUniqueID(), canonicalResource);
+            return Result.insufficient(canonicalResource, cost, currentBalance);
+        }
+
+        int newBalance = ResourceManager.getPlayerResource(player.getUniqueID(), canonicalResource);
         return Result.paid(canonicalResource, cost, newBalance);
     }
 

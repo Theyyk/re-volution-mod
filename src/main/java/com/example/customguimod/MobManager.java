@@ -141,11 +141,15 @@ public class MobManager {
             if (spawn.entity == event.getEntityLiving()) {
                 if (event.getSource().getTrueSource() instanceof EntityPlayerMP) {
                     EntityPlayerMP player = (EntityPlayerMP) event.getSource().getTrueSource();
-                    int newBalance = ResourceManager.addPlayerResource(player.getUniqueID(), spawn.resource, spawn.amount);
-                    player.sendMessage(new TextComponentString(
-                            "§6+" + spawn.amount + " " + ResourceManager.getDisplayName(spawn.resource)
-                                    + "! Баланс: " + newBalance));
-                    PlayerStatsService.sendTo(player);
+                    if (ResourceManager.grantPlayerResource(player.getUniqueID(), spawn.resource, spawn.amount)) {
+                        int newBalance = ResourceManager.getPlayerResource(player.getUniqueID(), spawn.resource);
+                        player.sendMessage(new TextComponentString(
+                                "§6+" + spawn.amount + " " + ResourceManager.getDisplayName(spawn.resource)
+                                        + "! Баланс: " + newBalance));
+                        PlayerStatsService.sendTo(player);
+                    } else {
+                        CustomGuiMod.logger.warn("Skipped invalid mob reward resource: " + spawn.resource);
+                    }
                 }
 
                 spawn.entity.setDead();
