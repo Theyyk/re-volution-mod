@@ -18,6 +18,7 @@ public class RunePurchaseUiHandler {
     private static final int ENHANCE_BUTTON_ID = 2;
     private static final int ENHANCE_AMOUNT_BUTTON_ID = 3;
     private static final int STATUS_BUTTON_GAP = 2;
+    private static final int ENHANCE_AMOUNT_MIN_WIDTH = 42;
     private static final Random RANDOM = new Random();
 
     private GuiScreen trackedScreen;
@@ -115,13 +116,14 @@ public class RunePurchaseUiHandler {
         GuiButton purchaseAmount = findButton(buttons, GuiControls.AMOUNT_BUTTON_START_ID);
         if (enhance == null || purchaseAmount == null) return;
 
+        int amountWidth = Math.max(purchaseAmount.width, ENHANCE_AMOUNT_MIN_WIDTH);
         GuiButton amount = findButton(buttons, ENHANCE_AMOUNT_BUTTON_ID);
         if (amount == null) {
             amount = new GuiControls.PanelButton(
                     ENHANCE_AMOUNT_BUTTON_ID,
                     enhance.x,
                     enhance.y + enhance.height + 6,
-                    purchaseAmount.width,
+                    amountWidth,
                     purchaseAmount.height,
                     "x" + enhancementAmount
             );
@@ -129,6 +131,7 @@ public class RunePurchaseUiHandler {
         } else {
             amount.x = enhance.x;
             amount.y = enhance.y + enhance.height + 6;
+            amount.width = amountWidth;
         }
     }
 
