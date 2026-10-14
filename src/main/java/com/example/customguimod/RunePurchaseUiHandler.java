@@ -16,6 +16,7 @@ public class RunePurchaseUiHandler {
     private static final int PURCHASE_OR_AWAKENING_BUTTON_ID = 0;
     private static final int ENHANCE_BUTTON_ID = 2;
     private static final int ENHANCE_AMOUNT_BUTTON_ID = 3;
+    private static final int STATUS_BUTTON_GAP = 2;
 
     private GuiScreen trackedScreen;
     private List<GuiButton> trackedButtons;
@@ -28,6 +29,7 @@ public class RunePurchaseUiHandler {
         trackedButtons = event.getButtonList();
         selectedEnhancementRune = -1;
         enhancementAmount = 1;
+        compactStatusButtons(event.getGui(), trackedButtons);
         installEnhancementAmountButton(event.getGui(), trackedButtons);
         applyState(event.getGui());
         applyPurchaseEconomy(event.getGui(), trackedButtons);
@@ -39,6 +41,7 @@ public class RunePurchaseUiHandler {
     public void onDrawPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
         applyState(event.getGui());
         if (event.getGui() == trackedScreen) {
+            compactStatusButtons(event.getGui(), trackedButtons);
             rememberHoveredEnhancementRune(event.getGui());
             applyPurchaseEconomy(event.getGui(), trackedButtons);
             applyAwakeningEconomy(event.getGui(), trackedButtons);
@@ -79,8 +82,18 @@ public class RunePurchaseUiHandler {
         int mouseY = screen.height - Mouse.getEventY() * screen.height / Math.max(1, mc.displayHeight) - 1;
         int rune = screen.awakeningRuneAt(mouseX, mouseY);
         if (rune >= 0) {
-            // Compatibility transport name only. Awakening and enhancement are separate mechanics.
             NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
+        }
+    }
+
+    private void compactStatusButtons(GuiScreen gui, List<GuiButton> buttons) {
+        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+        int nextX = -1;
+        for (GuiButton button : buttons) {
+            if (!(button instanceof GuiControls.ElementButton)) continue;
+            if (nextX < 0) nextX = button.x;
+            button.x = nextX;
+            nextX += button.width + STATUS_BUTTON_GAP;
         }
     }
 
