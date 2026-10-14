@@ -63,11 +63,28 @@ minecraft {
 
 dependencies {
     // Specify the version of Minecraft to use, if this is any group other then 'net.minecraft' it is assumed
-    // that its maven artifact will be remapped to your current MCP mappings
+    // that the dep is a special name supplied by Forge, and its access transformer will be applied.
     minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2859'
 	implementation 'org.mongodb:mongodb-driver-sync:4.5.1'
 
-    // You may put jars on which you depend in ./libs or declare them here.
+    // You may put jars on which you depend on in ./libs or you may define them like so..
+    // compile "some.group:artifact:version:classifier"
+    // compile "some.group:artifact:version"
+
+    // Real examples
+    // compile 'com.mod-buildcraft:buildcraft:6.0.8:dev'  // adds buildcraft to the dev env
+    // compile 'com.googlecode.efficient-java-matrix-library:ejml:0.24' // adds ejml to the dev env
+
+    // This dependency is provided at compile time and not bundled.
+    // provided 'com.mod-buildcraft:buildcraft:6.0.8:dev'
+
+    // These dependencies get remapped to your current MCP mappings
+    // deobf 'some.mod:example:1.0.0'
+
+    // For more info...
+    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
+    // http://www.gradle.org/docs/current/userguide/dependency_management.html
+
 }
 configurations.configureEach {
     resolutionStrategy {
@@ -75,12 +92,13 @@ configurations.configureEach {
     }
 }
 
+// Example for how to get properties into the manifest for reading by the runtime..
 jar {
     manifest {
         attributes([
             "Specification-Title": "examplemod",
             "Specification-Vendor": "examplemodsareus",
-            "Specification-Version": "1",
+            "Specification-Version": "1", // We are version 1 of ourselves
             "Implementation-Title": project.name,
             "Implementation-Version": "${version}",
             "Implementation-Vendor" :"examplemodsareus",
@@ -89,7 +107,11 @@ jar {
     }
 }
 
+// Example configuration to allow publishing using the maven-publish task
+// This is the preferred method to reobfuscate your jar file
 jar.finalizedBy('reobfJar') 
+// However if you are in a multi-project build, dev time needs unobfed jar files, so you can delay the obfuscation until publishing by doing
+//publish.dependsOn('reobfJar')
 
 publishing {
     publications {
