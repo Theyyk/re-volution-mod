@@ -70,8 +70,7 @@ public class PingPacket implements IMessage {
 
                     try {
                         int requestedAmount = Integer.parseInt(rawAmount);
-                        if (requestedAmount != 1 && requestedAmount != 5
-                                && requestedAmount != 10 && requestedAmount != 100) {
+                        if (!isSupportedBulkAmount(requestedAmount)) {
                             player.sendMessage(new TextComponentString("§cНекорректное количество рун."));
                             return;
                         }
@@ -79,7 +78,25 @@ public class PingPacket implements IMessage {
                     } catch (NumberFormatException e) {
                         player.sendMessage(new TextComponentString("§cНекорректное количество рун."));
                     }
+                } else if (action.startsWith("enhance_rune:")) {
+                    String[] parts = action.substring("enhance_rune:".length()).split(":");
+                    if (parts.length != 2) {
+                        player.sendMessage(new TextComponentString("§cНекорректная команда усиления."));
+                        return;
+                    }
+                    try {
+                        int runeIndex = Integer.parseInt(parts[0]);
+                        int requestedAmount = Integer.parseInt(parts[1]);
+                        if (!isSupportedBulkAmount(requestedAmount)) {
+                            player.sendMessage(new TextComponentString("§cНекорректное количество усилений."));
+                            return;
+                        }
+                        enhanceRune(player, deckIndex, runeIndex, requestedAmount);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage(new TextComponentString("§cНекорректная команда усиления."));
+                    }
                 } else if (action.startsWith("upgrade_rune:")) {
+                    // Legacy transport retained for awakening compatibility.
                     String rawIndex = action.substring("upgrade_rune:".length());
                     try {
                         awakenRune(player, deckIndex, Integer.parseInt(rawIndex));
@@ -121,6 +138,10 @@ public class PingPacket implements IMessage {
                 }
             });
             return null;
+        }
+
+        private boolean isSupportedBulkAmount(int amount) {
+            return amount == 1 || amount == 5 || amount == 10 || amount == 100;
         }
 
         private void buyCards(EntityPlayerMP player, int deckIndex, int requestedAmount, boolean buyAll) {
@@ -352,6 +373,73 @@ public class PingPacket implements IMessage {
             return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
         }
 
+        private void enhanceRune(EntityPlayerMP player, int deckIndex, int runeIndex, int requestedAmount) {
+            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+            if (!RuneStatusRegistry.isRuneStatus(statusId)) {
+                player.sendMessage(new TextComponentString("§cУсиление недоступно для этой legacy-коллекции."));
+                return;
+            }
+            if (runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT) {
+                player.sendMessage(new TextComponentString("§cНекорректная руна."));
+                return;
+            }
+
+            boolean owned = false;
+            for (MongoManager.SavedCard card : MongoManager.getCardsInDeck(player.getUniqueID(), deckIndex)) {
+                if (card.cardIndex == runeIndex) {
+                    owned = true;
+                    break;
+                }
+            }
+            if (!owned) {
+                player.sendMessage(new TextComponentString(
+                        "§eСлот может хранить усиление постоянно, но усиливать его можно только когда руна получена."));
+                return;
+            }
+
+            String configuredResource = RuneEconomyConfig.enhancementResourceForStatus(statusId);
+            String resource = ResourceManager.findCanonicalName(configuredResource);
+            if (resource == null || RuneEconomyConfig.enhancementNextCost(statusId,
+                    RuneEnhancementManager.getLevel(player.getUniqueID(), deckIndex, runeIndex)) <= 0) {
+                player.sendMessage(new TextComponentString("§cУсиление для этого статуса пока не настроено."));
+                return;
+            }
+
+            int currentLevel = RuneEnhancementManager.getLevel(player.getUniqueID(), deckIndex, runeIndex);
+            int balance = ResourceManager.getPlayerResource(player.getUniqueID(), resource);
+            int amount = RuneEconomyConfig.affordableEnhancementAmount(
+                    statusId, currentLevel, requestedAmount, balance);
+            if (amount <= 0) {
+                int nextCost = RuneEconomyConfig.enhancementNextCost(statusId, currentLevel);
+                player.sendMessage(new TextComponentString(
+                        "§cНедостаточно ресурса «" + ResourceManager.getDisplayName(resource)
+                                + "» для усиления. Следующий уровень стоит " + nextCost
+                                + ", у тебя " + balance + "."));
+                PlayerStatsService.sendTo(player);
+                return;
+            }
+
+            int cost = RuneEconomyConfig.enhancementCost(statusId, currentLevel, amount);
+            if (!ResourceManager.spendPlayerResource(player.getUniqueID(), resource, cost)) {
+                player.sendMessage(new TextComponentString("§cБаланс изменился. Повторите усиление."));
+                PlayerStatsService.sendTo(player);
+                return;
+            }
+
+            int newLevel = RuneEnhancementManager.addLevels(
+                    player.getUniqueID(), deckIndex, runeIndex, amount);
+            sendEnhancements(player, deckIndex);
+            PlayerStatsService.sendTo(player);
+
+            String partial = amount < requestedAmount
+                    ? " §7(доступно " + amount + " из " + requestedAmount + ")"
+                    : "";
+            player.sendMessage(new TextComponentString(
+                    "§aУсиление слота: §f+" + currentLevel + " §7→ §f+" + newLevel
+                            + "§a. Потрачено: §e" + cost + " §f" + ResourceManager.getDisplayName(resource)
+                            + "§a." + partial));
+        }
+
         private void awakenRune(EntityPlayerMP player, int deckIndex, int runeIndex) {
             int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
             if (!RuneStatusRegistry.isRuneStatus(statusId)) {
@@ -423,6 +511,7 @@ public class PingPacket implements IMessage {
                 return;
             }
 
+            // clearDeck resets rune ownership but intentionally leaves deck.runeEnhancements intact.
             MongoManager.clearDeck(player.getUniqueID(), deckIndex);
 
             for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
@@ -446,6 +535,7 @@ public class PingPacket implements IMessage {
                         new CardPacket(rune, rune, bestRanks[rune], false), player);
             }
             NetworkHandler.INSTANCE.sendTo(new CardPacket(runeIndex, runeIndex, newRank, false), player);
+            sendEnhancements(player, deckIndex);
             PlayerStatsService.sendTo(player);
 
             String paymentText = payment.paid
@@ -456,7 +546,7 @@ public class PingPacket implements IMessage {
                     "§aРуна пробуждена: §f" + RuneProgression.rankName(currentRank)
                             + " §7→ §f" + RuneProgression.rankName(newRank)
                             + "§a. Руны ранга «" + RuneProgression.rankName(currentRank)
-                            + "» сброшены, более высокие ранги сохранены." + paymentText));
+                            + "» сброшены, более высокие ранги сохранены. Усиления слотов сохранены." + paymentText));
         }
 
         private void sendDeckState(EntityPlayerMP player) {
@@ -475,6 +565,15 @@ public class PingPacket implements IMessage {
                 NetworkHandler.INSTANCE.sendTo(
                         new CardPacket(card.slot, card.cardIndex, card.layer, false), player);
             }
+            sendEnhancements(player, deckIndex);
+        }
+
+        private void sendEnhancements(EntityPlayerMP player, int deckIndex) {
+            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+            int[] levels = RuneStatusRegistry.isRuneStatus(statusId)
+                    ? RuneEnhancementManager.getLevels(player.getUniqueID(), deckIndex)
+                    : new int[RuneInventory.BOOST_TYPE_COUNT];
+            NetworkHandler.INSTANCE.sendTo(new RuneEnhancementPacket(levels), player);
         }
     }
 }
