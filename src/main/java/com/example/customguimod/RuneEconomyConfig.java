@@ -64,21 +64,116 @@ final class RuneEconomyConfig {
         return !awakeningResourceForStatus(statusId).isEmpty() && awakeningCost(statusId, rank) > 0;
     }
 
-    /** Prepared for future rune upgrades. A zero default keeps current gameplay unchanged. */
+    /**
+     * v1.2.9 enhancement foundation. Enhancement belongs to the rune slot and has no maximum level.
+     * Poison defaults to rune dust, while other statuses remain opt-in until their content is connected.
+     */
+    static String enhancementResourceForStatus(int statusId) {
+        return actionResourceForStatus(
+                statusId,
+                "enhancement",
+                statusId == STATUS_POISON ? ResourceManager.RUNE_DUST : ""
+        );
+    }
+
+    static CalculationType enhancementCalculationType(int statusId) {
+        return actionCalculationType(statusId, "enhancement");
+    }
+
+    /** Cost of the next single enhancement when the slot is currently at currentLevel. */
+    static int enhancementNextCost(int statusId, int currentLevel) {
+        String key = statusKey(statusId);
+        int safeLevel = Math.max(0, currentLevel);
+        CalculationType type = enhancementCalculationType(statusId);
+        int fallback = enhancementCostDefault(statusId);
+        int amount;
+
+        switch (type) {
+            case FORMULA:
+                int base = intProperty(
+                        "customguimod.runes." + key + ".enhancement.formula.base",
+                        fallback
+                );
+                int perLevel = intProperty(
+                        "customguimod.runes." + key + ".enhancement.formula.per_level",
+                        0
+                );
+                long formula = (long) base + (long) safeLevel * perLevel;
+                amount = formula > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(0L, formula);
+                break;
+            case BY_RANK:
+            case FIXED:
+            default:
+                amount = intProperty(
+                        "customguimod.runes." + key + ".enhancement.fixed",
+                        fallback
+                );
+                break;
+        }
+
+        double multiplier = actionEventMultiplier(statusId, "enhancement");
+        long adjusted = Math.round(Math.max(0, amount) * Math.max(0.0D, multiplier));
+        if (adjusted <= 0L) return 0;
+        return adjusted > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) adjusted;
+    }
+
+    /**
+     * Sequential bulk cost. Every requested future level is priced independently so a later growing
+     * formula can be introduced without changing the server action or GUI contract.
+     */
+    static int enhancementCost(int statusId, int currentLevel, int amount) {
+        if (amount <= 0) return 0;
+        long total = 0L;
+        int safeLevel = Math.max(0, currentLevel);
+        for (int i = 0; i < amount; i++) {
+            total += enhancementNextCost(statusId, safeLevel + i);
+            if (total >= Integer.MAX_VALUE) return Integer.MAX_VALUE;
+        }
+        return (int) total;
+    }
+
+    static int affordableEnhancementAmount(int statusId, int currentLevel, int requestedAmount, int balance) {
+        if (requestedAmount <= 0 || balance < 0) return 0;
+        long total = 0L;
+        int safeLevel = Math.max(0, currentLevel);
+        int accepted = 0;
+        for (int i = 0; i < requestedAmount; i++) {
+            int next = enhancementNextCost(statusId, safeLevel + i);
+            if (next <= 0) break;
+            if (total + next > balance) break;
+            total += next;
+            accepted++;
+        }
+        return accepted;
+    }
+
+    static double enhancementPowerStep(int statusId) {
+        String key = statusKey(statusId);
+        return Math.max(0.0D, doubleProperty(
+                "customguimod.runes." + key + ".enhancement.power_step",
+                0.1D
+        ));
+    }
+
+    static double enhancementPowerMultiplier(int statusId, int enhancementLevel) {
+        return 1.0D + Math.max(0, enhancementLevel) * enhancementPowerStep(statusId);
+    }
+
+    /** Backward-compatible preparatory alias retained for older callers until v1.2.9 GUI migration is complete. */
     static String upgradeResourceForStatus(int statusId) {
-        return actionResourceForStatus(statusId, "upgrade", "");
+        return enhancementResourceForStatus(statusId);
     }
 
     static CalculationType upgradeCalculationType(int statusId) {
-        return actionCalculationType(statusId, "upgrade");
+        return enhancementCalculationType(statusId);
     }
 
     static int upgradeCost(int statusId, int rank) {
-        return actionRankCost(statusId, "upgrade", rank, 0);
+        return enhancementNextCost(statusId, 0);
     }
 
     static boolean isUpgradePaymentConfigured(int statusId, int rank) {
-        return !upgradeResourceForStatus(statusId).isEmpty() && upgradeCost(statusId, rank) > 0;
+        return !enhancementResourceForStatus(statusId).isEmpty() && enhancementNextCost(statusId, 0) > 0;
     }
 
     static CalculationType duplicateCalculationType(int statusId) {
@@ -228,6 +323,11 @@ final class RuneEconomyConfig {
 
     private static int awakeningCostDefault(int statusId) {
         if (statusId == STATUS_POISON) return 100;
+        return 0;
+    }
+
+    private static int enhancementCostDefault(int statusId) {
+        if (statusId == STATUS_POISON) return 10;
         return 0;
     }
 
