@@ -64,24 +64,6 @@ public class MongoManager {
         );
     }
 
-    // === МОЛНИИ ===
-    public static int getLightnings(UUID uuid) {
-        if (players == null) return 0;
-        Document doc = players.find(new Document("_id", uuid.toString())).first();
-        if (doc == null) return 0;
-        Integer l = doc.getInteger("lightnings", 0);
-        return l == null ? 0 : l;
-    }
-
-    public static void setLightnings(UUID uuid, int lightnings) {
-        if (players == null) return;
-        players.updateOne(
-                new Document("_id", uuid.toString()),
-                new Document("$set", new Document("lightnings", lightnings)),
-                new UpdateOptions().upsert(true)
-        );
-    }
-
     // === КОЛОДЫ ===
     public static class SavedCard {
         public int slot, cardIndex, layer, level;
@@ -169,7 +151,6 @@ public class MongoManager {
             players.insertOne(new Document("_id", uuid.toString())
                     .append("balance", 0)
                     .append("crystals", 0)
-                    .append("lightnings", 0)
                     .append("activeDeck", 0)
                     .append("decks", decks));
             CustomGuiMod.logger.info("addDeck: created player doc + deck '" + name + "'");
