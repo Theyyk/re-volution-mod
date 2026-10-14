@@ -1,7 +1,6 @@
 package com.example.customguimod;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.fml.client.config.GuiUtils;
@@ -25,7 +24,6 @@ import static com.example.customguimod.GuiTheme.*;
 public final class RuneUxUiHandler {
     private static final long PURCHASE_PULSE_MS = 450L;
     private static final long[] PURCHASE_PULSE_UNTIL = new long[RuneInventory.BOOST_TYPE_COUNT];
-    private static final int STATUS_BUTTON_GAP = 2;
 
     static void notePurchase(int rune) {
         if (rune < 0 || rune >= PURCHASE_PULSE_UNTIL.length) return;
@@ -38,23 +36,11 @@ public final class RuneUxUiHandler {
         if (!RuneStatusRegistry.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())) return;
 
         CardsGuiScreen screen = (CardsGuiScreen) event.getGui();
-        compactStatusButtons(screen);
-
         GuiLayout layout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
         layout.update(screen.width, screen.height);
 
         drawSlotEffects(layout);
         drawFinalStatTooltip(screen, layout, event.getMouseX(), event.getMouseY());
-    }
-
-    private void compactStatusButtons(CardsGuiScreen screen) {
-        int nextX = -1;
-        for (GuiButton button : screen.buttonList) {
-            if (!(button instanceof GuiControls.ElementButton)) continue;
-            if (nextX < 0) nextX = button.x;
-            button.x = nextX;
-            nextX += button.width + STATUS_BUTTON_GAP;
-        }
     }
 
     private void drawSlotEffects(GuiLayout layout) {
