@@ -16,17 +16,18 @@ import static com.example.customguimod.GuiTheme.*;
 
 /**
  * v1.2.9 visual feedback for rune progression.
- * Purchase and duplicate rolls use a short cyan-tinted border pulse, random enhancement rolls use
- * a medium green pulse on every changed slot, while awakening eligibility uses a stronger slow
- * golden border breath. Tooltip rendering stays compact and final-value only.
+ * Purchase and duplicate rolls use a pale cyan pulse, enhancement rolls use a medium green pulse,
+ * attained awakening ranks tint the slot border (silver/gold), and only currently eligible slots
+ * receive a blinking next-awakening marker. Tooltip rendering stays compact and final-value only.
  */
 @SideOnly(Side.CLIENT)
 public final class RuneUxUiHandler {
     private static final long PURCHASE_PULSE_MS = 450L;
     private static final long ENHANCEMENT_PULSE_MS = 650L;
-    private static final int AWAKENING_GOLD = 0x00F2C75C;
+    private static final int IMPROVED_SILVER = 0x00D8DEE8;
+    private static final int ADVANCED_GOLD = 0x00F2C75C;
     private static final int ENHANCEMENT_GREEN = 0x006FD080;
-    private static final int PURCHASE_CYAN = 0x007FC9E8;
+    private static final int PURCHASE_PALE_CYAN = 0x00A9DCEB;
     private static final long[] PURCHASE_PULSE_UNTIL = new long[RuneInventory.BOOST_TYPE_COUNT];
     private static final long[] ENHANCEMENT_PULSE_UNTIL = new long[RuneInventory.BOOST_TYPE_COUNT];
 
@@ -55,12 +56,11 @@ public final class RuneUxUiHandler {
     }
 
     private void drawSlotEffects(GuiLayout layout) {
-        int awakeningRank = awakeningRank();
+        int eligibleRank = awakeningRank();
         long now = System.currentTimeMillis();
-        double wave = (Math.sin(now / 380.0D) + 1.0D) * 0.5D;
-        int awakeningAlpha = 145 + (int) Math.round(wave * 90.0D);
-        int awakeningColor = withAlpha(AWAKENING_GOLD, awakeningAlpha);
-        int purchaseColor = withAlpha(PURCHASE_CYAN, 195);
+        double wave = (Math.sin(now / 300.0D) + 1.0D) * 0.5D;
+        int markerAlpha = 95 + (int) Math.round(wave * 160.0D);
+        int purchaseColor = withAlpha(PURCHASE_PALE_CYAN, 145);
         int enhancementColor = withAlpha(ENHANCEMENT_GREEN, 190);
 
         GlStateManager.pushMatrix();
@@ -71,27 +71,43 @@ public final class RuneUxUiHandler {
                 int rank = ClientRuneRanks.rankOf(rune);
                 int[] pos = layout.runeSlotPosition(rune);
 
+                // Persistent slot color shows the awakening rank already reached.
+                if (rank >= RuneInventory.ADVANCED_RANK) {
+                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
+                            0, withAlpha(ADVANCED_GOLD, 220));
+                } else if (rank >= RuneInventory.IMPROVED_RANK) {
+                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
+                            0, withAlpha(IMPROVED_SILVER, 205));
+                }
+
                 // Enhancement belongs to the fixed slot, not to the currently owned rune.
                 // Therefore an empty slot may pulse when it receives a stored +N level.
                 if (ENHANCEMENT_PULSE_UNTIL[rune] > now) {
-                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, enhancementColor);
-                    continue;
+                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
+                            0, enhancementColor);
+                } else if (rank > 0 && PURCHASE_PULSE_UNTIL[rune] > now) {
+                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
+                            0, purchaseColor);
                 }
 
-                if (rank <= 0) continue;
-
-                if (PURCHASE_PULSE_UNTIL[rune] > now) {
-                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, purchaseColor);
-                    continue;
-                }
-
-                if (awakeningRank > 0 && rank == awakeningRank) {
-                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, awakeningColor);
+                // The blinking marker means "this rune can be awakened now" rather than rank itself.
+                // Normal -> Improved uses silver; Improved -> Advanced uses gold.
+                if (rank > 0 && eligibleRank > 0 && rank == eligibleRank) {
+                    int markerBase = rank >= RuneInventory.IMPROVED_RANK ? ADVANCED_GOLD : IMPROVED_SILVER;
+                    drawAwakeningMarker(pos[0], pos[1], layout.runeSlotWidth, withAlpha(markerBase, markerAlpha));
                 }
             }
         } finally {
             GlStateManager.popMatrix();
         }
+    }
+
+    private void drawAwakeningMarker(int slotX, int slotY, int slotWidth, int color) {
+        int cx = slotX + slotWidth - 7;
+        int cy = slotY + 7;
+        GuiScreenEventAccessor.drawRect(cx - 1, cy - 5, cx + 2, cy + 6, color);
+        GuiScreenEventAccessor.drawRect(cx - 5, cy - 1, cx + 6, cy + 2, color);
+        GuiScreenEventAccessor.drawRect(cx - 3, cy - 3, cx + 4, cy + 4, color);
     }
 
     /** Keeps "+ CTRL" white while the neighboring action description remains muted. */
@@ -182,5 +198,12 @@ public final class RuneUxUiHandler {
 
     private static int withAlpha(int color, int alpha) {
         return (Math.max(0, Math.min(255, alpha)) << 24) | (color & 0x00FFFFFF);
+    }
+
+    /** Local bridge so the marker can use Minecraft's protected drawRect without changing GUI mechanics. */
+    private static final class GuiScreenEventAccessor extends net.minecraft.client.gui.Gui {
+        static void drawRect(int left, int top, int right, int bottom, int color) {
+            net.minecraft.client.gui.Gui.drawRect(left, top, right, bottom, color);
+        }
     }
 }
