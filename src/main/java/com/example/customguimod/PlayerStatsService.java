@@ -9,8 +9,16 @@ public final class PlayerStatsService {
 
     private PlayerStatsService() {}
 
+    /** Rounded compatibility value used by the existing integer HUD/network packet. */
     public static int getTotalDamageBonus(UUID uuid) {
-        int totalBonus = 0;
+        double value = getTotalDamageBonusValue(uuid);
+        if (value >= Integer.MAX_VALUE) return Integer.MAX_VALUE;
+        return (int) Math.round(Math.max(0.0D, value));
+    }
+
+    /** Exact combat value. Rune enhancement multiplies the base contribution of its occupied slot. */
+    public static double getTotalDamageBonusValue(UUID uuid) {
+        double totalBonus = 0.0D;
         int deckCount = MongoManager.getDeckNames(uuid).size();
 
         for (int deckIndex = 0; deckIndex < deckCount; deckIndex++) {
@@ -28,9 +36,13 @@ public final class PlayerStatsService {
                 bestRanks[card.cardIndex] = Math.max(bestRanks[card.cardIndex], card.layer);
             }
 
-            for (int rank : bestRanks) {
+            int[] enhancements = RuneEnhancementManager.getLevels(uuid, deckIndex);
+            for (int rune = 0; rune < bestRanks.length; rune++) {
+                int rank = bestRanks[rune];
                 if (rank <= 0) continue;
-                totalBonus += rankMultiplier(rank);
+                double basePower = rankMultiplier(rank);
+                double multiplier = RuneEconomyConfig.enhancementPowerMultiplier(statusId, enhancements[rune]);
+                totalBonus += basePower * multiplier;
             }
         }
 
