@@ -17,7 +17,7 @@ import static com.example.customguimod.GuiTheme.*;
 /**
  * v1.2.9 visual feedback for rune progression.
  * Purchase and duplicate rolls use a short soft border pulse, random enhancement rolls use a pale
- * accent pulse on every changed slot, while awakening eligibility uses a stronger slow persistent
+ * neutral pulse on every changed slot, while awakening eligibility uses a stronger slow persistent
  * border breath. Tooltip rendering stays compact and final-value only.
  */
 @SideOnly(Side.CLIENT)
@@ -58,7 +58,7 @@ public final class RuneUxUiHandler {
         int awakeningAlpha = 135 + (int) Math.round(wave * 100.0D);
         int awakeningColor = withAlpha(SELECTED_COLOR, awakeningAlpha);
         int purchaseColor = withAlpha(TEXT_COLOR, 215);
-        int enhancementColor = withAlpha(SELECTED_COLOR, 150);
+        int enhancementColor = withAlpha(TEXT_COLOR, 150);
 
         GlStateManager.pushMatrix();
         GlStateManager.translate(layout.canvasX, layout.canvasY, 0.0F);
@@ -66,16 +66,19 @@ public final class RuneUxUiHandler {
         try {
             for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
                 int rank = ClientRuneRanks.rankOf(rune);
-                if (rank <= 0) continue;
                 int[] pos = layout.runeSlotPosition(rune);
 
-                if (PURCHASE_PULSE_UNTIL[rune] > now) {
-                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, purchaseColor);
+                // Enhancement belongs to the fixed slot, not to the currently owned rune.
+                // Therefore an empty slot may pulse when it receives a stored +N level.
+                if (ENHANCEMENT_PULSE_UNTIL[rune] > now) {
+                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, enhancementColor);
                     continue;
                 }
 
-                if (ENHANCEMENT_PULSE_UNTIL[rune] > now) {
-                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, enhancementColor);
+                if (rank <= 0) continue;
+
+                if (PURCHASE_PULSE_UNTIL[rune] > now) {
+                    drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight, 0, purchaseColor);
                     continue;
                 }
 
