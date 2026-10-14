@@ -10,7 +10,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.input.Mouse;
 
 import java.util.List;
-import java.util.Random;
 
 @SideOnly(Side.CLIENT)
 public class RunePurchaseUiHandler {
@@ -18,8 +17,7 @@ public class RunePurchaseUiHandler {
     private static final int ENHANCE_BUTTON_ID = 2;
     private static final int ENHANCE_AMOUNT_BUTTON_ID = 3;
     private static final int STATUS_BUTTON_GAP = 2;
-    private static final int ENHANCE_AMOUNT_MIN_WIDTH = 42;
-    private static final Random RANDOM = new Random();
+    private static final int AMOUNT_MIN_WIDTH = 42;
 
     private GuiScreen trackedScreen;
     private List<GuiButton> trackedButtons;
@@ -67,12 +65,11 @@ public class RunePurchaseUiHandler {
             return;
         }
 
-        if (button.id == ENHANCE_BUTTON_ID) {
-            int rune = randomOwnedRune();
-            if (rune >= 0) {
-                NetworkHandler.INSTANCE.sendToServer(new PingPacket(
-                        "enhance_rune:" + rune + ":" + enhancementAmount));
-            }
+        if (button.id == ENHANCE_BUTTON_ID && usesStatusPurchaseEconomy()) {
+            // The server chooses every target. The encoded slot is retained only for transport
+            // compatibility and is intentionally ignored by the authoritative enhancement logic.
+            NetworkHandler.INSTANCE.sendToServer(new PingPacket(
+                    "enhance_rune:0:" + enhancementAmount));
         }
     }
 
@@ -116,7 +113,10 @@ public class RunePurchaseUiHandler {
         GuiButton purchaseAmount = findButton(buttons, GuiControls.AMOUNT_BUTTON_START_ID);
         if (enhance == null || purchaseAmount == null) return;
 
-        int amountWidth = Math.max(purchaseAmount.width, ENHANCE_AMOUNT_MIN_WIDTH);
+        // Keep both quantity selectors equally wide so x10/x100 stay readable and aligned.
+        int amountWidth = Math.max(purchaseAmount.width, AMOUNT_MIN_WIDTH);
+        purchaseAmount.width = amountWidth;
+
         GuiButton amount = findButton(buttons, ENHANCE_AMOUNT_BUTTON_ID);
         if (amount == null) {
             amount = new GuiControls.PanelButton(
@@ -139,25 +139,19 @@ public class RunePurchaseUiHandler {
         if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
 
         boolean statusEconomy = usesStatusPurchaseEconomy();
-        boolean hasRune = ownedRuneCount() > 0;
 
         GuiButton enhance = findButton(buttons, ENHANCE_BUTTON_ID);
         GuiButton amount = findButton(buttons, ENHANCE_AMOUNT_BUTTON_ID);
         if (amount != null) {
             amount.displayString = "x" + enhancementAmount;
             amount.visible = statusEconomy;
-            amount.enabled = amount.visible && hasRune;
+            amount.enabled = amount.visible;
         }
         if (enhance == null) return;
 
         if (!statusEconomy) {
             enhance.enabled = false;
             enhance.displayString = "Усиление:\nНедоступно";
-            return;
-        }
-        if (!hasRune) {
-            enhance.enabled = false;
-            enhance.displayString = "Случайное усиление:\nПолучите руну";
             return;
         }
 
@@ -176,7 +170,7 @@ public class RunePurchaseUiHandler {
                 ? String.valueOf(costs.maximum)
                 : costs.minimum + "–" + costs.maximum;
         enhance.displayString = "Случайное усиление:\n" + costText + " " + resourceName;
-        // With non-linear future pricing we require enough for any random owned target.
+        // Every one of the 26 fixed slots is a valid random target, including empty slots.
         enhance.enabled = balance >= costs.maximum;
     }
 
@@ -186,7 +180,6 @@ public class RunePurchaseUiHandler {
         boolean found = false;
 
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-            if (ClientRuneRanks.rankOf(rune) <= 0) continue;
             int cost = ClientRuneEnhancements.costOf(rune, amount);
             if (cost <= 0) return CostRange.invalid();
             minimum = Math.min(minimum, cost);
@@ -194,25 +187,6 @@ public class RunePurchaseUiHandler {
             found = true;
         }
         return found ? new CostRange(true, minimum, maximum) : CostRange.invalid();
-    }
-
-    private int ownedRuneCount() {
-        int count = 0;
-        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-            if (ClientRuneRanks.rankOf(rune) > 0) count++;
-        }
-        return count;
-    }
-
-    private int randomOwnedRune() {
-        int count = ownedRuneCount();
-        if (count <= 0) return -1;
-        int target = RANDOM.nextInt(count);
-        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-            if (ClientRuneRanks.rankOf(rune) <= 0) continue;
-            if (target-- == 0) return rune;
-        }
-        return -1;
     }
 
     private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
