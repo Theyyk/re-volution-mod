@@ -31,10 +31,6 @@ final class EarthRuneCatalog {
         return RuneStat.scaled(RuneStatType.COIN_REWARD_PERCENT, 1.0D);
     }
 
-    private static RuneStat resourceReward() {
-        return RuneStat.scaled(RuneStatType.RESOURCE_REWARD_PERCENT, 1.0D);
-    }
-
     private static final Definition[] RUNES = {
         new Definition("Кинжал убийцы", "Клик", "killer_dagger.png", clickDamage()),
         new Definition("Кинжал убийцы", "Клик", "killer_dagger.png", clickDamage()),
@@ -61,7 +57,7 @@ final class EarthRuneCatalog {
         new Definition("Метка заражения", "Яд", "infection_mark.png", poisonDamage()),
         new Definition("Метка заражения", "Яд", "infection_mark.png", poisonDamage()),
         new Definition("Метка заражения", "Яд", "infection_mark.png", poisonDamage()),
-        new Definition("Реликвия охотника", "Ресурс", "hunter_relic.png", coinReward(), resourceReward())
+        new Definition("Реликвия охотника", "Ресурс", "hunter_relic.png", coinReward())
     };
 
     // Legacy icon indices are retained for compatibility; PNG paths live in each definition.
