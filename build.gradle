@@ -75,12 +75,6 @@ dependencies {
     // compile 'com.mod-buildcraft:buildcraft:6.0.8:dev'  // adds buildcraft to the dev env
     // compile 'com.googlecode.efficient-java-matrix-library:ejml:0.24' // adds ejml to the dev env
 
-    // This dependency is provided at compile time and not bundled.
-    // provided 'com.mod-buildcraft:buildcraft:6.0.8:dev'
-
-    // These dependencies get remapped to your current MCP mappings
-    // deobf 'some.mod:example:1.0.0'
-
     // For more info...
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
 
@@ -164,6 +158,14 @@ tasks.register('runeTooltipContentRegression', JavaExec) {
     mainClass = 'com.example.customguimod.RuneTooltipContentTest'
 }
 check.dependsOn runeTooltipContentRegression
+
+// Keep reference-backed scalar stat types and structured multi-line effects under CI.
+tasks.register('runeStatContentRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.RuneStatContentTest'
+}
+check.dependsOn runeStatContentRegression
 
 // Mob reward stats apply only to coins and the three rune resources; crystals/compensation stay untouched.
 tasks.register('mobRewardBonusRegression', JavaExec) {
