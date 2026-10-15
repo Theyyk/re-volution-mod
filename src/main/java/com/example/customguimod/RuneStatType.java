@@ -12,7 +12,7 @@ enum RuneStatType {
     CLICK_DAMAGE_FLAT("Урон Клика", DisplayKind.FLAT),
     POISON_DAMAGE_FLAT("Урон Яда", DisplayKind.FLAT),
     COIN_REWARD_PERCENT("Добыча монет", DisplayKind.PERCENT),
-    RESOURCE_REWARD_PERCENT("Добыча ресурсов рун", DisplayKind.PERCENT);
+    RESOURCE_REWARD_PERCENT("Добыча ресурса", DisplayKind.PERCENT);
 
     enum DisplayKind {
         FLAT,
