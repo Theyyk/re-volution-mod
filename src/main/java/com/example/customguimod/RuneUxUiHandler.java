@@ -3,6 +3,7 @@ package com.example.customguimod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.GuiScreenEvent;
+import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -37,6 +38,28 @@ public final class RuneUxUiHandler {
     static void noteEnhancement(int rune) {
         if (rune < 0 || rune >= ENHANCEMENT_PULSE_UNTIL.length) return;
         ENHANCEMENT_PULSE_UNTIL[rune] = System.currentTimeMillis() + ENHANCEMENT_PULSE_MS;
+    }
+
+    @SubscribeEvent
+    public void onLegacyRuneTooltip(RenderTooltipEvent.Pre event) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (!(mc.currentScreen instanceof CardsGuiScreen)) return;
+        if (ClientPlayerStats.getActiveRuneStatusId() != RuneStatusRegistry.STATUS_POISON) return;
+
+        List<String> lines = event.getLines();
+        if (lines == null || lines.isEmpty()) return;
+
+        boolean hasRank = false;
+        boolean hasType = false;
+        for (String line : lines) {
+            if (line == null) continue;
+            if (line.contains("Ранг:")) hasRank = true;
+            if (line.contains("Тип:")) hasType = true;
+        }
+
+        if (hasRank && hasType) {
+            event.setCanceled(true);
+        }
     }
 
     @SubscribeEvent
