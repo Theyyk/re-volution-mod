@@ -11,8 +11,8 @@ final class RuneTooltipRenderer {
     private static final int BACKGROUND = 0xFF1A1C20;
     private static final int NORMAL_BORDER = 0xFF555A61;
     private static final int NORMAL_ACCENT = 0xFF747A82;
-    private static final int IMPROVED_BORDER = 0xFFC9CDD2;
-    private static final int IMPROVED_ACCENT = 0xFFE4E8EF;
+    private static final int IMPROVED_BORDER = 0xFFADB3BB;
+    private static final int IMPROVED_ACCENT = 0xFFCDD2DA;
     private static final int ADVANCED_BORDER = 0xFFE0B64A;
     private static final int ADVANCED_ACCENT = 0xFFF7D477;
     private static final int PADDING_X = 8;
