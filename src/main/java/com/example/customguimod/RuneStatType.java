@@ -4,13 +4,15 @@ import java.util.Locale;
 
 /**
  * Stable identifiers for player-facing rune stat categories.
- * v1.2.10 expands the original click/poison foundation with coin-reward content
- * while keeping formatting rules centralized and independent from GUI rendering.
+ * v1.2.10 expands the original click/poison foundation with separate
+ * coin-reward and rune-resource reward content while keeping formatting rules
+ * centralized and independent from GUI rendering.
  */
 enum RuneStatType {
     CLICK_DAMAGE_FLAT("Урон Клика", DisplayKind.FLAT),
     POISON_DAMAGE_FLAT("Урон Яда", DisplayKind.FLAT),
-    COIN_REWARD_PERCENT("Добыча монет", DisplayKind.PERCENT);
+    COIN_REWARD_PERCENT("Добыча монет", DisplayKind.PERCENT),
+    RESOURCE_REWARD_PERCENT("Добыча ресурсов рун", DisplayKind.PERCENT);
 
     enum DisplayKind {
         FLAT,
