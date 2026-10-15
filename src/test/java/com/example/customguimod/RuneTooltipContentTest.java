@@ -38,8 +38,8 @@ final class RuneTooltipContentTest {
         );
         check(resource.size() == 6, "Resource rune should expose its stat in the standard tooltip layout");
         check(resource.get(2).equals("§7Тип: §fРесурс"), "Resource rune type should remain visible");
-        check(resource.get(5).equals("§fДобыча ресурсов +1.4%"),
-                "Resource reward should render as a percent final value");
+        check(resource.get(5).equals("§fДобыча монет +1.4%"),
+                "Hunter relic should render a coin-specific percent final value");
 
         EarthRuneCatalog.Definition noStatDefinition = new EarthRuneCatalog.Definition(
                 "Без эффекта", "Тест", "hunter_relic.png"
