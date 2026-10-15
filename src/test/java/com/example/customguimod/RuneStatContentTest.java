@@ -52,11 +52,20 @@ final class RuneStatContentTest {
                 "Урон Яда ×3"
         )), "Delayed damage tooltip should stay compact and channel-specific");
 
-        RuneCompositeEffect temporary = RuneCompositeEffect.temporaryAllDamage(1.45D);
+        RuneCompositeEffect temporary = RuneCompositeEffect.temporaryAllDamage(1.45D, 1);
+        check(temporary.maxStacks == 1, "Rage amulet temporary all-damage effect should currently allow exactly one stack");
         check(temporary.tooltipLines().equals(Arrays.asList(
                 "Клики временно увеличивают",
                 "Весь урон ×1.45"
         )), "Temporary all-damage reference effect should wrap to two lines");
+
+        boolean rejectedZeroStacks = false;
+        try {
+            RuneCompositeEffect.temporaryAllDamage(1.45D, 0);
+        } catch (IllegalArgumentException expected) {
+            rejectedZeroStacks = true;
+        }
+        check(rejectedZeroStacks, "Temporary all-damage effect must reject a zero stack limit");
 
         RuneCompositeEffect effectiveness = RuneCompositeEffect.enhancementsMoreEffective();
         check(effectiveness.tooltipLines().equals(Arrays.asList("Усиления эффективнее")),
