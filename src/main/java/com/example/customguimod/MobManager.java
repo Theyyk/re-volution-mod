@@ -141,10 +141,12 @@ public class MobManager {
             if (spawn.entity == event.getEntityLiving()) {
                 if (event.getSource().getTrueSource() instanceof EntityPlayerMP) {
                     EntityPlayerMP player = (EntityPlayerMP) event.getSource().getTrueSource();
-                    if (ResourceManager.grantPlayerResource(player.getUniqueID(), spawn.resource, spawn.amount)) {
+                    double rewardBonusPercent = RuneRewardBonusService.percentFor(player.getUniqueID(), spawn.resource);
+                    int rewardAmount = MobRewardBonus.apply(spawn.amount, rewardBonusPercent);
+                    if (ResourceManager.grantPlayerResource(player.getUniqueID(), spawn.resource, rewardAmount)) {
                         int newBalance = ResourceManager.getPlayerResource(player.getUniqueID(), spawn.resource);
                         player.sendMessage(new TextComponentString(
-                                "§6+" + spawn.amount + " " + ResourceManager.getDisplayName(spawn.resource)
+                                "§6+" + rewardAmount + " " + ResourceManager.getDisplayName(spawn.resource)
                                         + "! Баланс: " + newBalance));
                         PlayerStatsService.sendTo(player);
                     } else {
