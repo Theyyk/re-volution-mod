@@ -3,13 +3,14 @@ package com.example.customguimod;
 import java.util.Locale;
 
 /**
- * Stable identifiers for rune stat categories.
- * v1.2.9 intentionally starts with only the stat types used by the current
- * Poison collection; the registry is designed to be extended in later versions.
+ * Stable identifiers for player-facing rune stat categories.
+ * v1.2.10 expands the original click/poison foundation with resource content
+ * while keeping formatting rules centralized and independent from GUI rendering.
  */
 enum RuneStatType {
     CLICK_DAMAGE_FLAT("Урон Клика", DisplayKind.FLAT),
-    POISON_DAMAGE_FLAT("Урон Яда", DisplayKind.FLAT);
+    POISON_DAMAGE_FLAT("Урон Яда", DisplayKind.FLAT),
+    RESOURCE_REWARD_PERCENT("Добыча ресурсов", DisplayKind.PERCENT);
 
     enum DisplayKind {
         FLAT,
