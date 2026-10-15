@@ -10,13 +10,14 @@ final class RuneTooltipContentTest {
                 5,
                 1.5D
         );
-        check(single.size() == 5, "Single-stat tooltip should stay compact");
+        check(single.size() == 6, "Single-stat tooltip should keep the effect value on its own line");
         check(single.get(0).equals("§bКинжал убийцы"), "Tooltip should start with the rune name");
         check(single.get(1).equals("§7Ранг: §fУлучшенная"), "Rank should follow the name");
         check(single.get(2).equals("§7Тип: §fКлик"), "Type should follow the rank");
         check(single.get(3).equals("§7Улучшение: §f+5"), "Enhancement should precede effects");
-        check(single.get(4).equals("§7Эффекты: §fУрон Клика +4.5"),
-                "Single final stat should remain on the effects line");
+        check(single.get(4).equals("§7Эффекты:"), "Single-stat tooltip needs the same effects heading as multi-stat tooltips");
+        check(single.get(5).equals("§fУрон Клика +4.5"),
+                "Single final stat should render below the effects heading");
 
         List<String> hybrid = RuneTooltipContent.lines(
                 EarthRuneCatalog.at(11),
