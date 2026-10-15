@@ -48,10 +48,10 @@ final class EarthRuneCatalogTest {
                 "Poison rune should use the data-driven stat model");
         check(EarthRuneCatalog.at(25).type.equals("Ресурс"), "Hunter relic belongs to resources");
         check(EarthRuneCatalog.at(25).stats.length == 1,
-                "Hunter relic should expose its v1.2.10 resource stat");
-        check(EarthRuneCatalog.at(25).stats[0].type == RuneStatType.RESOURCE_REWARD_PERCENT,
-                "Hunter relic should use the resource reward stat type");
-        check(RuneStatType.RESOURCE_REWARD_PERCENT.format(1.25D).equals("+1.25%"),
+                "Hunter relic should expose its v1.2.10 coin stat");
+        check(EarthRuneCatalog.at(25).stats[0].type == RuneStatType.COIN_REWARD_PERCENT,
+                "Hunter relic should use the coin reward stat type");
+        check(RuneStatType.COIN_REWARD_PERCENT.format(1.25D).equals("+1.25%"),
                 "Percent stats should use percent formatting");
 
         RuneStat sample = RuneStat.scaled(RuneStatType.CLICK_DAMAGE_FLAT, 2.0D);
@@ -77,14 +77,14 @@ final class EarthRuneCatalogTest {
         check(compactLines.get(0).equals("Урон Клика +4.5"), "Compact tooltip must show final click value only");
         check(compactLines.get(1).equals("Урон Яда +4.5"), "Compact tooltip must show final poison value only");
 
-        List<String> resourceLines = RuneStatDisplay.finalValueLines(
+        List<String> coinLines = RuneStatDisplay.finalValueLines(
                 EarthRuneCatalog.at(25).stats,
                 RuneInventory.IMPROVED_RANK,
                 1.5D
         );
-        check(resourceLines.size() == 1, "Resource rune should expose one final stat line");
-        check(resourceLines.get(0).equals("Добыча ресурсов +4.5%"),
-                "Resource rune final value should use percent formatting");
+        check(coinLines.size() == 1, "Coin rune should expose one final stat line");
+        check(coinLines.get(0).equals("Добыча монет +4.5%"),
+                "Hunter relic final value should be explicitly coin-specific");
 
         System.out.println("Fixed 26-position poison status catalog and v1.2.10 stat content regression checks passed");
     }
