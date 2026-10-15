@@ -36,13 +36,11 @@ final class RuneTooltipContentTest {
                 4,
                 1.4D
         );
-        check(resource.size() == 7, "Resource rune should expose both reward stats in the standard tooltip layout");
+        check(resource.size() == 6, "Resource rune should expose its coin stat in the standard tooltip layout");
         check(resource.get(2).equals("§7Тип: §fРесурс"), "Resource rune type should remain visible");
         check(resource.get(4).equals("§7Эффекты:"), "Resource rune should keep the shared effects heading");
         check(resource.get(5).equals("§fДобыча монет +1.4%"),
-                "Hunter relic should render a coin-specific percent final value");
-        check(resource.get(6).equals("§fДобыча ресурса +1.4%"),
-                "Hunter relic should render a separate rune-resource percent final value");
+                "Hunter relic should render only its coin-specific percent final value");
 
         EarthRuneCatalog.Definition noStatDefinition = new EarthRuneCatalog.Definition(
                 "Без эффекта", "Тест", "hunter_relic.png"
