@@ -20,26 +20,30 @@ final class RuneCompositeEffect {
     final double primaryValue;
     final double secondaryValue;
     final RuneStatType damageType;
+    final int maxStacks;
 
     private RuneCompositeEffect(Kind kind,
                                 double primaryValue,
                                 double secondaryValue,
-                                RuneStatType damageType) {
+                                RuneStatType damageType,
+                                int maxStacks) {
         if (kind == null) throw new IllegalArgumentException("Composite effect kind is required");
         if (!Double.isFinite(primaryValue) || !Double.isFinite(secondaryValue)) {
             throw new IllegalArgumentException("Composite effect values must be finite");
         }
+        if (maxStacks < 0) throw new IllegalArgumentException("Composite effect max stacks cannot be negative");
         this.kind = kind;
         this.primaryValue = primaryValue;
         this.secondaryValue = secondaryValue;
         this.damageType = damageType;
+        this.maxStacks = maxStacks;
     }
 
     static RuneCompositeEffect clickDamageProc(double chancePercent, double damageMultiplier) {
         if (chancePercent < 0.0D || damageMultiplier < 0.0D) {
             throw new IllegalArgumentException("Proc values cannot be negative");
         }
-        return new RuneCompositeEffect(Kind.CLICK_DAMAGE_PROC, chancePercent, damageMultiplier, null);
+        return new RuneCompositeEffect(Kind.CLICK_DAMAGE_PROC, chancePercent, damageMultiplier, null, 0);
     }
 
     static RuneCompositeEffect delayedDamage(double delaySeconds,
@@ -55,17 +59,25 @@ final class RuneCompositeEffect {
                 Kind.DELAYED_DAMAGE_MULTIPLIER,
                 delaySeconds,
                 multiplier,
-                damageMultiplierType
+                damageMultiplierType,
+                0
         );
     }
 
-    static RuneCompositeEffect temporaryAllDamage(double multiplier) {
+    static RuneCompositeEffect temporaryAllDamage(double multiplier, int maxStacks) {
         if (multiplier < 0.0D) throw new IllegalArgumentException("Temporary damage multiplier cannot be negative");
-        return new RuneCompositeEffect(Kind.TEMPORARY_ALL_DAMAGE_MULTIPLIER, multiplier, 0.0D, null);
+        if (maxStacks < 1) throw new IllegalArgumentException("Temporary all-damage effect must allow at least one stack");
+        return new RuneCompositeEffect(
+                Kind.TEMPORARY_ALL_DAMAGE_MULTIPLIER,
+                multiplier,
+                0.0D,
+                null,
+                maxStacks
+        );
     }
 
     static RuneCompositeEffect enhancementsMoreEffective() {
-        return new RuneCompositeEffect(Kind.ENHANCEMENTS_MORE_EFFECTIVE, 0.0D, 0.0D, null);
+        return new RuneCompositeEffect(Kind.ENHANCEMENTS_MORE_EFFECTIVE, 0.0D, 0.0D, null, 0);
     }
 
     List<String> tooltipLines() {
