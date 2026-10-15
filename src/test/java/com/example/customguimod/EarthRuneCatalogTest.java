@@ -37,25 +37,29 @@ final class EarthRuneCatalogTest {
         check(inventory.ownedCatalogSlotCount() == 0, "Changing statuses must clear owned positions");
         check(EarthRuneCatalog.at(0).name.equals("Кинжал убийцы"), "Definitions must remain visible without ownership");
         check(EarthRuneCatalog.at(11).type.equals("Клик / Яд"), "Hybrid rune type must combine click and poison");
-        check(EarthRuneCatalog.at(11).stats.length == 2, "Hybrid rune should demonstrate multiple stats in v1.2.9");
+        check(EarthRuneCatalog.at(11).stats.length == 2, "Hybrid rune should expose both click and poison stats");
         check(EarthRuneCatalog.at(11).stats[0].type == RuneStatType.CLICK_DAMAGE_FLAT,
                 "Hybrid rune should expose click damage through RuneStatType");
         check(EarthRuneCatalog.at(11).stats[1].type == RuneStatType.POISON_DAMAGE_FLAT,
                 "Hybrid rune should expose poison damage through RuneStatType");
-        check(EarthRuneCatalog.at(17).type.equals("Яд"), "Poison multiplier belongs to poison damage");
+        check(EarthRuneCatalog.at(17).type.equals("Яд"), "Poison rune type must remain poison");
         check(EarthRuneCatalog.at(17).stats.length == 1
                         && EarthRuneCatalog.at(17).stats[0].type == RuneStatType.POISON_DAMAGE_FLAT,
                 "Poison rune should use the data-driven stat model");
         check(EarthRuneCatalog.at(25).type.equals("Ресурс"), "Hunter relic belongs to resources");
-        check(EarthRuneCatalog.at(25).stats.length == 0,
-                "Full resource-stat content remains deferred to v1.2.10");
+        check(EarthRuneCatalog.at(25).stats.length == 1,
+                "Hunter relic should expose its v1.2.10 resource stat");
+        check(EarthRuneCatalog.at(25).stats[0].type == RuneStatType.RESOURCE_REWARD_PERCENT,
+                "Hunter relic should use the resource reward stat type");
+        check(RuneStatType.RESOURCE_REWARD_PERCENT.format(1.25D).equals("+1.25%"),
+                "Percent stats should use percent formatting");
 
         RuneStat sample = RuneStat.scaled(RuneStatType.CLICK_DAMAGE_FLAT, 2.0D);
         RuneStat.Breakdown normal = sample.resolve(RuneInventory.NORMAL_RANK, 1.5D);
         check(close(normal.baseValue, 2.0D), "Normal stat base value must stay explicit");
         check(close(normal.awakeningBonus, 0.0D), "Normal rank has no awakening bonus");
         check(close(normal.enhancementBonus, 1.0D), "Enhancement bonus must be tracked separately");
-        check(close(normal.otherBonus, 0.0D), "Other bonus is reserved but zero in v1.2.9");
+        check(close(normal.otherBonus, 0.0D), "Other bonus is reserved but zero");
         check(close(normal.finalValue, 3.0D), "Final value must include enhancement");
 
         RuneStat.Breakdown improved = sample.resolve(RuneInventory.IMPROVED_RANK, 1.5D);
@@ -73,7 +77,16 @@ final class EarthRuneCatalogTest {
         check(compactLines.get(0).equals("Урон Клика +4.5"), "Compact tooltip must show final click value only");
         check(compactLines.get(1).equals("Урон Яда +4.5"), "Compact tooltip must show final poison value only");
 
-        System.out.println("Fixed 26-position poison status catalog and stat framework regression checks passed");
+        List<String> resourceLines = RuneStatDisplay.finalValueLines(
+                EarthRuneCatalog.at(25).stats,
+                RuneInventory.IMPROVED_RANK,
+                1.5D
+        );
+        check(resourceLines.size() == 1, "Resource rune should expose one final stat line");
+        check(resourceLines.get(0).equals("Добыча ресурсов +4.5%"),
+                "Resource rune final value should use percent formatting");
+
+        System.out.println("Fixed 26-position poison status catalog and v1.2.10 stat content regression checks passed");
     }
 
     public static void main(String[] args) {
