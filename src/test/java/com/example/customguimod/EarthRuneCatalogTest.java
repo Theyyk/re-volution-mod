@@ -51,8 +51,16 @@ final class EarthRuneCatalogTest {
                 "Hunter relic should expose its v1.2.10 coin stat");
         check(EarthRuneCatalog.at(25).stats[0].type == RuneStatType.COIN_REWARD_PERCENT,
                 "Hunter relic should use the coin reward stat type");
+        check(RuneStatType.COIN_REWARD_PERCENT != RuneStatType.RESOURCE_REWARD_PERCENT,
+                "Coin reward and rune-resource reward must remain independent stats");
+        check(RuneStatType.COIN_REWARD_PERCENT.displayName.equals("Добыча монет"),
+                "Coin reward must have its own player-facing label");
+        check(RuneStatType.RESOURCE_REWARD_PERCENT.displayName.equals("Добыча ресурсов рун"),
+                "Rune-resource reward must have its own player-facing label");
         check(RuneStatType.COIN_REWARD_PERCENT.format(1.25D).equals("+1.25%"),
-                "Percent stats should use percent formatting");
+                "Coin percent stat should use percent formatting");
+        check(RuneStatType.RESOURCE_REWARD_PERCENT.format(1.25D).equals("+1.25%"),
+                "Rune-resource percent stat should use percent formatting");
 
         RuneStat sample = RuneStat.scaled(RuneStatType.CLICK_DAMAGE_FLAT, 2.0D);
         RuneStat.Breakdown normal = sample.resolve(RuneInventory.NORMAL_RANK, 1.5D);
@@ -85,6 +93,16 @@ final class EarthRuneCatalogTest {
         check(coinLines.size() == 1, "Coin rune should expose one final stat line");
         check(coinLines.get(0).equals("Добыча монет +4.5%"),
                 "Hunter relic final value should be explicitly coin-specific");
+
+        RuneStat runeResourceSample = RuneStat.scaled(RuneStatType.RESOURCE_REWARD_PERCENT, 1.0D);
+        List<String> runeResourceLines = RuneStatDisplay.finalValueLines(
+                new RuneStat[]{runeResourceSample},
+                RuneInventory.IMPROVED_RANK,
+                1.5D
+        );
+        check(runeResourceLines.size() == 1, "Rune-resource stat should render independently");
+        check(runeResourceLines.get(0).equals("Добыча ресурсов рун +4.5%"),
+                "Rune-resource stat must not be conflated with coin reward");
 
         System.out.println("Fixed 26-position poison status catalog and v1.2.10 stat content regression checks passed");
     }
