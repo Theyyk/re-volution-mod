@@ -47,14 +47,12 @@ final class EarthRuneCatalogTest {
                         && EarthRuneCatalog.at(17).stats[0].type == RuneStatType.POISON_DAMAGE_FLAT,
                 "Poison rune should use the data-driven stat model");
         check(EarthRuneCatalog.at(25).type.equals("Ресурс"), "Hunter relic belongs to resources");
-        check(EarthRuneCatalog.at(25).stats.length == 2,
-                "Hunter relic should expose independent coin and rune-resource stats");
+        check(EarthRuneCatalog.at(25).stats.length == 1,
+                "Hunter relic should expose only its coin reward stat");
         check(EarthRuneCatalog.at(25).stats[0].type == RuneStatType.COIN_REWARD_PERCENT,
                 "Hunter relic should use the coin reward stat type");
-        check(EarthRuneCatalog.at(25).stats[1].type == RuneStatType.RESOURCE_REWARD_PERCENT,
-                "Hunter relic should use the rune-resource reward stat type independently");
         check(RuneStatType.COIN_REWARD_PERCENT != RuneStatType.RESOURCE_REWARD_PERCENT,
-                "Coin reward and resource reward must remain independent stats");
+                "Coin reward and resource reward must remain independent stat types");
         check(RuneStatType.COIN_REWARD_PERCENT.displayName.equals("Добыча монет"),
                 "Coin reward must have its own player-facing label");
         check(RuneStatType.RESOURCE_REWARD_PERCENT.displayName.equals("Добыча ресурса"),
@@ -87,16 +85,24 @@ final class EarthRuneCatalogTest {
         check(compactLines.get(0).equals("Урон Клика +4.5"), "Compact tooltip must show final click value only");
         check(compactLines.get(1).equals("Урон Яда +4.5"), "Compact tooltip must show final poison value only");
 
-        List<String> rewardLines = RuneStatDisplay.finalValueLines(
+        List<String> coinLines = RuneStatDisplay.finalValueLines(
                 EarthRuneCatalog.at(25).stats,
                 RuneInventory.IMPROVED_RANK,
                 1.5D
         );
-        check(rewardLines.size() == 2, "Hunter relic should expose both reward lines");
-        check(rewardLines.get(0).equals("Добыча монет +4.5%"),
-                "Hunter relic final coin value should stay coin-specific");
-        check(rewardLines.get(1).equals("Добыча ресурса +4.5%"),
-                "Hunter relic final resource value should stay rune-resource-specific");
+        check(coinLines.size() == 1, "Hunter relic should expose one reward line");
+        check(coinLines.get(0).equals("Добыча монет +4.5%"),
+                "Hunter relic final value should stay coin-specific");
+
+        RuneStat resourceSample = RuneStat.scaled(RuneStatType.RESOURCE_REWARD_PERCENT, 1.0D);
+        List<String> resourceLines = RuneStatDisplay.finalValueLines(
+                new RuneStat[]{resourceSample},
+                RuneInventory.IMPROVED_RANK,
+                1.5D
+        );
+        check(resourceLines.size() == 1, "Resource stat type should still render independently");
+        check(resourceLines.get(0).equals("Добыча ресурса +4.5%"),
+                "Resource stat type must remain separate from the hunter relic coin stat");
 
         System.out.println("Fixed 26-position poison status catalog and v1.2.10 stat content regression checks passed");
     }
