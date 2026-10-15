@@ -30,13 +30,27 @@ final class RuneTooltipContentTest {
         check(hybrid.get(5).equals("§fУрон Клика +6"), "Click final value should be formatted through RuneStatDisplay");
         check(hybrid.get(6).equals("§fУрон Яда +6"), "Poison final value should be formatted through RuneStatDisplay");
 
-        List<String> noStats = RuneTooltipContent.lines(
+        List<String> resource = RuneTooltipContent.lines(
                 EarthRuneCatalog.at(25),
+                RuneInventory.NORMAL_RANK,
+                4,
+                1.4D
+        );
+        check(resource.size() == 6, "Resource rune should expose its stat in the standard tooltip layout");
+        check(resource.get(2).equals("§7Тип: §fРесурс"), "Resource rune type should remain visible");
+        check(resource.get(5).equals("§fДобыча ресурсов +1.4%"),
+                "Resource reward should render as a percent final value");
+
+        EarthRuneCatalog.Definition noStatDefinition = new EarthRuneCatalog.Definition(
+                "Без эффекта", "Тест", "hunter_relic.png"
+        );
+        List<String> noStats = RuneTooltipContent.lines(
+                noStatDefinition,
                 RuneInventory.NORMAL_RANK,
                 -4,
                 1.0D
         );
-        check(noStats.size() == 4, "A rune without stats should omit the effects section");
+        check(noStats.size() == 4, "A definition without stats should omit the effects section");
         check(noStats.get(3).equals("§7Улучшение: §f+0"), "Negative enhancement input must not leak into the tooltip");
         check(RuneTooltipContent.lines(null, 1, 0, 1.0D).isEmpty(), "Missing definitions should produce no tooltip");
 
