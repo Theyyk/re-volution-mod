@@ -3,7 +3,6 @@ package com.example.customguimod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.GuiScreenEvent;
-import net.minecraftforge.fml.client.config.GuiUtils;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -70,14 +69,10 @@ public final class RuneUxUiHandler {
                 int rank = ClientRuneRanks.rankOf(rune);
                 int[] pos = layout.runeSlotPosition(rune);
 
-                // Remove the old top-left rank corner. It was drawn with a solid rank color,
-                // so use an opaque slot-background repaint here instead of the translucent slot fill.
                 if (rank >= RuneInventory.IMPROVED_RANK) {
                     eraseLegacyRankCorner(pos[0], pos[1], layout.runeSlotWidth, layout);
                 }
 
-                // Persistent slot color shows the awakening rank already reached, deliberately softer
-                // than the temporary action pulses and the blinking next-awakening marker.
                 if (rank >= RuneInventory.ADVANCED_RANK) {
                     drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
                             0, withAlpha(ADVANCED_GOLD, 165));
@@ -86,8 +81,6 @@ public final class RuneUxUiHandler {
                             0, withAlpha(IMPROVED_SILVER, 150));
                 }
 
-                // Enhancement belongs to the fixed slot, not to the currently owned rune.
-                // Therefore an empty slot may pulse when it receives a stored +N level.
                 if (ENHANCEMENT_PULSE_UNTIL[rune] > now) {
                     drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
                             0, enhancementColor);
@@ -96,8 +89,6 @@ public final class RuneUxUiHandler {
                             0, purchaseColor);
                 }
 
-                // The blinking marker means "this rune can be awakened and paid for now".
-                // Normal -> Improved uses silver; Improved -> Advanced uses gold.
                 if (rank > 0 && eligibleRank > 0 && rank == eligibleRank && canAffordAwakening(rank)) {
                     int markerBase = rank >= RuneInventory.IMPROVED_RANK ? ADVANCED_GOLD : IMPROVED_SILVER;
                     drawAwakeningMarker(pos[0], pos[1], withAlpha(markerBase, markerAlpha));
@@ -128,15 +119,11 @@ public final class RuneUxUiHandler {
     private boolean canAffordAwakening(int rank) {
         String resource = ClientPlayerStats.getAwakeningResource();
         int cost = ClientPlayerStats.getAwakeningCostForRank(rank);
-
-        // This mirrors the server's "payment not configured = free awakening" rule.
         if (resource == null || resource.trim().isEmpty() || cost <= 0) return true;
-
         int balance = ClientPlayerStats.getResourceBalance(resource);
         return balance >= 0 && balance >= cost;
     }
 
-    /** Keeps "+ CTRL" white while the neighboring action description remains muted. */
     private void overlayWhiteCtrlHints(GuiLayout layout) {
         net.minecraft.client.gui.FontRenderer font = GuiFontRenderer.get(Minecraft.getMinecraft());
         String[] labels = {"Пробудить", "+ CTRL Поделиться в чате", "+ CTRL Ослабить"};
@@ -198,13 +185,12 @@ public final class RuneUxUiHandler {
             List<String> lines = RuneTooltipContent.lines(definition, rank, enhancement, multiplier);
             if (lines.isEmpty()) return;
 
-            GuiUtils.drawHoveringText(
+            RuneTooltipRenderer.draw(
                     lines,
                     mouseX,
                     mouseY,
                     screen.width,
                     screen.height,
-                    -1,
                     GuiFontRenderer.get(Minecraft.getMinecraft())
             );
             return;
