@@ -9,8 +9,8 @@ import java.util.List;
 /** Draws rune tooltips as a compact framed card instead of the vanilla tooltip box. */
 final class RuneTooltipRenderer {
     private static final int BACKGROUND = 0xF21A1C20;
-    private static final int NORMAL_BORDER = 0xFF315F9B;
-    private static final int NORMAL_ACCENT = 0xFF3B82D0;
+    private static final int NORMAL_BORDER = 0xFF555A61;
+    private static final int NORMAL_ACCENT = 0xFF747A82;
     private static final int IMPROVED_BORDER = 0xFFC9CDD2;
     private static final int IMPROVED_ACCENT = 0xFFE4E8EF;
     private static final int ADVANCED_BORDER = 0xFFE0B64A;
