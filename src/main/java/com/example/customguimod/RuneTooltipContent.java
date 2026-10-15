@@ -32,9 +32,7 @@ final class RuneTooltipContent {
                 rank,
                 enhancementMultiplier
         );
-        if (stats.size() == 1) {
-            lines.add("§7Эффекты: §f" + stats.get(0));
-        } else if (!stats.isEmpty()) {
+        if (!stats.isEmpty()) {
             lines.add("§7Эффекты:");
             for (String stat : stats) {
                 lines.add("§f" + stat);
