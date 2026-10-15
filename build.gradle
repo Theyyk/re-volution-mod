@@ -30,7 +30,7 @@ minecraft {
     // snapshot_YYYYMMDD   Snapshot are built nightly.
     // stable_#            Stables are built at the discretion of the MCP team.
     // Use non-default mappings at your own risk. they may not always work.
-    // Simply re-run your setup task after changing your workspace.
+    // Simply re-run your setup task if you change the mappings.
     //mappings channel: 'snapshot', version: '20171003-1.12'
     mappings channel: 'snapshot', version: '20171003-1.12'
     // makeObfSourceJar = false // An Srg named sources jar is made by default. uncomment this to disable.
@@ -164,6 +164,14 @@ tasks.register('runeTooltipContentRegression', JavaExec) {
     mainClass = 'com.example.customguimod.RuneTooltipContentTest'
 }
 check.dependsOn runeTooltipContentRegression
+
+// Mob reward stats apply only to coins and the three rune resources; crystals/compensation stay untouched.
+tasks.register('mobRewardBonusRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.MobRewardBonusTest'
+}
+check.dependsOn mobRewardBonusRegression
 
 // Keep server-authored enhancement metadata ready for the GUI contract.
 tasks.register('runeEnhancementPacketRegression', JavaExec) {
