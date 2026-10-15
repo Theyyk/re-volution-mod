@@ -187,6 +187,7 @@ public final class RuneUxUiHandler {
 
             RuneTooltipRenderer.draw(
                     lines,
+                    rank,
                     mouseX,
                     mouseY,
                     screen.width,
