@@ -46,7 +46,7 @@ minecraft {
             // Recommended logging data for the console
             property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
 
-            // Recommended logging level for the console
+            // Recommended logging level
             property 'forge.logging.console.level', 'debug'
         }
 
@@ -55,7 +55,7 @@ minecraft {
             // Recommended logging data for the console.
             property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
 
-            // Recommended logging level for the console
+            // Recommended logging level
             property 'forge.logging.console.level', 'debug'
         }
     }
@@ -63,7 +63,7 @@ minecraft {
 
 dependencies {
     // Specify the version of Minecraft to use, if this is any group other then 'net.minecraft' it is assumed
-    // that the dep is a special name supplied by Forge, and its access transformer will be applied.
+    // that the dep is a special dependency, and a custom Download task will be run.
     minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2859'
 	implementation 'org.mongodb:mongodb-driver-sync:4.5.1'
 
@@ -83,7 +83,6 @@ dependencies {
 
     // For more info...
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-    // http://www.gradle.org/docs/current/userguide/dependency_management.html
 
 }
 configurations.configureEach {
@@ -150,13 +149,21 @@ tasks.register('runeEconomyRegression', JavaExec) {
 }
 check.dependsOn runeEconomyRegression
 
-// Keep the fixed poison catalog and v1.2.9 stat framework under CI.
+// Keep the fixed poison catalog and rune stat content under CI.
 tasks.register('earthRuneCatalogRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.example.customguimod.EarthRuneCatalogTest'
 }
 check.dependsOn earthRuneCatalogRegression
+
+// Keep player-facing tooltip composition and stat formatting under CI.
+tasks.register('runeTooltipContentRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.RuneTooltipContentTest'
+}
+check.dependsOn runeTooltipContentRegression
 
 // Keep server-authored enhancement metadata ready for the GUI contract.
 tasks.register('runeEnhancementPacketRegression', JavaExec) {
