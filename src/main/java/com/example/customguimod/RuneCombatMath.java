@@ -19,21 +19,31 @@ final class RuneCombatMath {
         double rageMultiplier = 1.0D;
     }
 
-    static double totalDamage(double vanillaClickDamage, Snapshot snapshot, boolean procTriggered) {
+    static double clickDamage(double vanillaClickDamage, Snapshot snapshot, boolean procTriggered) {
         if (snapshot == null) return sanitize(vanillaClickDamage);
 
         double click = Math.max(0.0D, sanitize(vanillaClickDamage) + nonNegative(snapshot.clickFlat));
         click *= safeMultiplier(snapshot.clickMultiplier);
         click *= vulnerabilityMultiplier(snapshot.clickVulnerabilityPercent + snapshot.allDamageVulnerabilityPercent);
         if (procTriggered) click *= safeMultiplier(snapshot.procDamageMultiplier);
+        click *= safeMultiplier(snapshot.allDamageMultiplier);
+        if (snapshot.rageActive) click *= safeMultiplier(snapshot.rageMultiplier);
+        return sanitize(click);
+    }
+
+    static double poisonDamage(Snapshot snapshot) {
+        if (snapshot == null) return 0.0D;
 
         double poison = nonNegative(snapshot.poisonFlat);
         poison *= safeMultiplier(snapshot.poisonMultiplier);
         poison *= vulnerabilityMultiplier(snapshot.poisonVulnerabilityPercent + snapshot.allDamageVulnerabilityPercent);
+        poison *= safeMultiplier(snapshot.allDamageMultiplier);
+        if (snapshot.rageActive) poison *= safeMultiplier(snapshot.rageMultiplier);
+        return sanitize(poison);
+    }
 
-        double total = (click + poison) * safeMultiplier(snapshot.allDamageMultiplier);
-        if (snapshot.rageActive) total *= safeMultiplier(snapshot.rageMultiplier);
-        return sanitize(total);
+    static double totalDamage(double vanillaClickDamage, Snapshot snapshot, boolean procTriggered) {
+        return sanitize(clickDamage(vanillaClickDamage, snapshot, procTriggered) + poisonDamage(snapshot));
     }
 
     private static double vulnerabilityMultiplier(double percent) {
