@@ -118,8 +118,8 @@ final class EarthRuneCatalogTest {
                 2.0D
         );
         check(compactLines.size() == 2, "Hybrid rune tooltip should expose two compact stat lines");
-        check(compactLines.get(0).equals("Урон Клика ×6"), "Hybrid click multiplier should render as a multiplier");
-        check(compactLines.get(1).equals("Урон Яда ×6"), "Hybrid poison multiplier should render as a multiplier");
+        check(compactLines.get(0).equals("Урон Клика x6"), "Hybrid click multiplier should render as a font-safe multiplier");
+        check(compactLines.get(1).equals("Урон Яда x6"), "Hybrid poison multiplier should render as a font-safe multiplier");
 
         List<String> coinLines = RuneStatDisplay.finalValueLines(
                 EarthRuneCatalog.at(25).stats,
