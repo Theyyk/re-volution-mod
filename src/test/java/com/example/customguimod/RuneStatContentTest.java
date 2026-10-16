@@ -8,10 +8,10 @@ final class RuneStatContentTest {
         check(RuneStatType.values().length == 30, "v1.2.10 scalar stat catalog should contain 30 reference-backed types");
 
         check(RuneStatType.CLICK_DAMAGE_FLAT.format(12.5D).equals("+12.5"), "Flat click damage formatting changed");
-        check(RuneStatType.POISON_DAMAGE_MULTIPLIER.format(3.0D).equals("×3"), "Damage multiplier formatting changed");
+        check(RuneStatType.POISON_DAMAGE_MULTIPLIER.format(3.0D).equals("x3"), "Damage multiplier formatting changed");
         check(RuneStatType.POISON_VULNERABILITY.format(25.0D).equals("+25%"), "Vulnerability should be percent-based");
         check(RuneStatType.CLICK_CRIT_CHANCE.format(9.0D).equals("+9%"), "Crit chance should be percent-based");
-        check(RuneStatType.CLICK_CRIT_DAMAGE_MULTIPLIER.format(5.1D).equals("×5.1"), "Crit damage should be multiplier-based");
+        check(RuneStatType.CLICK_CRIT_DAMAGE_MULTIPLIER.format(5.1D).equals("x5.1"), "Crit damage should be multiplier-based");
         check(RuneStatType.MAGIC_SPHERE_DURATION.format(3.0D).equals("+3 сек"), "Sphere duration should render seconds");
         check(RuneStatType.COIN_REWARD_PERCENT.displayName.equals("Добыча монет"), "Coin reward label changed");
         check(RuneStatType.RESOURCE_REWARD_PERCENT.displayName.equals("Добыча ресурса"), "Resource reward label changed");
@@ -41,7 +41,7 @@ final class RuneStatContentTest {
                 "Click proc must be tied to an actual mob hit");
         check(proc.tooltipLines().equals(Arrays.asList(
                 "15% шанс нанести",
-                "×5.1 урона при клике"
+                "x5.1 урона при клике"
         )), "Click proc tooltip must use the approved two-line layout");
 
         RuneCompositeEffect delayed = RuneCompositeEffect.delayedDamage(
@@ -51,7 +51,7 @@ final class RuneStatContentTest {
         );
         check(delayed.tooltipLines().equals(Arrays.asList(
                 "Через 15 сек:",
-                "Урон Яда ×3"
+                "Урон Яда x3"
         )), "Delayed damage tooltip should stay compact and channel-specific");
 
         RuneCompositeEffect temporary = RuneCompositeEffect.temporaryAllDamage(1.45D, 5.0D, 1);
@@ -61,7 +61,7 @@ final class RuneStatContentTest {
                 "Rage amulet must activate on a click hit against a mob, not an empty click");
         check(temporary.tooltipLines().equals(Arrays.asList(
                 "Попадание кликом увеличивает",
-                "Весь урон ×1.45 на 5 сек"
+                "Весь урон x1.45 на 5 сек"
         )), "Temporary all-damage reference effect should wrap to two lines");
 
         boolean rejectedZeroStacks = false;
@@ -78,9 +78,9 @@ final class RuneStatContentTest {
 
         RuneTargetedPower targeted = new RuneTargetedPower("mace", "Булава", 5.6D);
         check(targeted.type() == RuneStatType.CARD_POWER_FLAT, "Targeted power must stay distinct from channel multipliers");
-        check(targeted.tooltipLine(RuneInventory.NORMAL_RANK, 1.0D).equals("+5.6 к силе рун: Булава"),
-                "Targeted power tooltip should preserve the reference meaning");
-        check(targeted.tooltipLine(RuneInventory.IMPROVED_RANK, 1.5D).equals("+25.2 к силе рун: Булава"),
+        check(targeted.tooltipLine(RuneInventory.NORMAL_RANK, 1.0D).equals("+5.6 к силе Булава"),
+                "Targeted power tooltip should preserve the approved compact wording");
+        check(targeted.tooltipLine(RuneInventory.IMPROVED_RANK, 1.5D).equals("+25.2 к силе Булава"),
                 "Targeted power should scale with the owning rune rank and enhancement");
 
         System.out.println("v1.2.10 rune stat types and composite reference effects regression checks passed");
