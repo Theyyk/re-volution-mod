@@ -38,7 +38,7 @@ minecraft {
     // accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
 
     // Default run configurations.
-    // These can be tweaked, removed, or duplicated as needed.
+    // These can be tweaked, removed, duplicated as needed.
     runs {
         client {
             workingDirectory project.file('run')
@@ -166,6 +166,14 @@ tasks.register('runeStatContentRegression', JavaExec) {
     mainClass = 'com.example.customguimod.RuneStatContentTest'
 }
 check.dependsOn runeStatContentRegression
+
+// Keep v1.2.10 click/poison combat channel math and targeted-power ordering under CI.
+tasks.register('runeCombatMathRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.RuneCombatMathTest'
+}
+check.dependsOn runeCombatMathRegression
 
 // Mob reward stats apply only to coins and the three rune resources; crystals/compensation stay untouched.
 tasks.register('mobRewardBonusRegression', JavaExec) {
