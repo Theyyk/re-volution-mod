@@ -37,6 +37,6 @@ final class RuneTargetedPower {
 
     String tooltipLine(int rank, double enhancementMultiplier) {
         return RuneStatType.CARD_POWER_FLAT.format(resolve(rank, enhancementMultiplier))
-                + " к силе рун: " + targetDisplayName;
+                + " к силе " + targetDisplayName;
     }
 }
