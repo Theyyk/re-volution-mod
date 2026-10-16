@@ -16,26 +16,39 @@ final class RuneCompositeEffect {
         ENHANCEMENTS_MORE_EFFECTIVE
     }
 
+    enum Activation {
+        NONE,
+        CLICK_HIT_MOB
+    }
+
     final Kind kind;
     final double primaryValue;
     final double secondaryValue;
+    final double durationSeconds;
     final RuneStatType damageType;
+    final Activation activation;
     final int maxStacks;
 
     private RuneCompositeEffect(Kind kind,
                                 double primaryValue,
                                 double secondaryValue,
+                                double durationSeconds,
                                 RuneStatType damageType,
+                                Activation activation,
                                 int maxStacks) {
         if (kind == null) throw new IllegalArgumentException("Composite effect kind is required");
-        if (!Double.isFinite(primaryValue) || !Double.isFinite(secondaryValue)) {
+        if (!Double.isFinite(primaryValue) || !Double.isFinite(secondaryValue) || !Double.isFinite(durationSeconds)) {
             throw new IllegalArgumentException("Composite effect values must be finite");
         }
+        if (durationSeconds < 0.0D) throw new IllegalArgumentException("Composite effect duration cannot be negative");
+        if (activation == null) throw new IllegalArgumentException("Composite effect activation is required");
         if (maxStacks < 0) throw new IllegalArgumentException("Composite effect max stacks cannot be negative");
         this.kind = kind;
         this.primaryValue = primaryValue;
         this.secondaryValue = secondaryValue;
+        this.durationSeconds = durationSeconds;
         this.damageType = damageType;
+        this.activation = activation;
         this.maxStacks = maxStacks;
     }
 
@@ -43,7 +56,15 @@ final class RuneCompositeEffect {
         if (chancePercent < 0.0D || damageMultiplier < 0.0D) {
             throw new IllegalArgumentException("Proc values cannot be negative");
         }
-        return new RuneCompositeEffect(Kind.CLICK_DAMAGE_PROC, chancePercent, damageMultiplier, null, 0);
+        return new RuneCompositeEffect(
+                Kind.CLICK_DAMAGE_PROC,
+                chancePercent,
+                damageMultiplier,
+                0.0D,
+                null,
+                Activation.CLICK_HIT_MOB,
+                0
+        );
     }
 
     static RuneCompositeEffect delayedDamage(double delaySeconds,
@@ -59,25 +80,38 @@ final class RuneCompositeEffect {
                 Kind.DELAYED_DAMAGE_MULTIPLIER,
                 delaySeconds,
                 multiplier,
+                0.0D,
                 damageMultiplierType,
+                Activation.NONE,
                 0
         );
     }
 
-    static RuneCompositeEffect temporaryAllDamage(double multiplier, int maxStacks) {
+    static RuneCompositeEffect temporaryAllDamage(double multiplier, double durationSeconds, int maxStacks) {
         if (multiplier < 0.0D) throw new IllegalArgumentException("Temporary damage multiplier cannot be negative");
+        if (durationSeconds <= 0.0D) throw new IllegalArgumentException("Temporary all-damage effect needs a positive duration");
         if (maxStacks < 1) throw new IllegalArgumentException("Temporary all-damage effect must allow at least one stack");
         return new RuneCompositeEffect(
                 Kind.TEMPORARY_ALL_DAMAGE_MULTIPLIER,
                 multiplier,
                 0.0D,
+                durationSeconds,
                 null,
+                Activation.CLICK_HIT_MOB,
                 maxStacks
         );
     }
 
     static RuneCompositeEffect enhancementsMoreEffective() {
-        return new RuneCompositeEffect(Kind.ENHANCEMENTS_MORE_EFFECTIVE, 0.0D, 0.0D, null, 0);
+        return new RuneCompositeEffect(
+                Kind.ENHANCEMENTS_MORE_EFFECTIVE,
+                0.0D,
+                0.0D,
+                0.0D,
+                null,
+                Activation.NONE,
+                0
+        );
     }
 
     List<String> tooltipLines() {
@@ -92,8 +126,9 @@ final class RuneCompositeEffect {
                 lines.add(damageType.displayName + " ×" + RuneStatType.compact(secondaryValue));
                 break;
             case TEMPORARY_ALL_DAMAGE_MULTIPLIER:
-                lines.add("Клики временно увеличивают");
-                lines.add("Весь урон ×" + RuneStatType.compact(primaryValue));
+                lines.add("Попадание кликом увеличивает");
+                lines.add("Весь урон ×" + RuneStatType.compact(primaryValue)
+                        + " на " + RuneStatType.compact(durationSeconds) + " сек");
                 break;
             case ENHANCEMENTS_MORE_EFFECTIVE:
                 lines.add("Усиления эффективнее");
