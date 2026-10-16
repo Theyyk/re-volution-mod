@@ -19,6 +19,14 @@ final class RuneTooltipContent {
                               int rank,
                               int enhancementLevel,
                               double enhancementMultiplier) {
+        return lines(definition, rank, enhancementLevel, enhancementMultiplier, 0.0D);
+    }
+
+    static List<String> lines(EarthRuneCatalog.Definition definition,
+                              int rank,
+                              int enhancementLevel,
+                              double enhancementMultiplier,
+                              double targetedBasePowerBonus) {
         if (definition == null) return Collections.emptyList();
 
         List<String> lines = new ArrayList<>();
@@ -31,7 +39,8 @@ final class RuneTooltipContent {
         effects.addAll(RuneStatDisplay.finalValueLines(
                 definition.stats,
                 rank,
-                enhancementMultiplier
+                enhancementMultiplier,
+                targetedBasePowerBonus
         ));
 
         for (RuneTargetedPower targetedPower : definition.targetedPowers) {
