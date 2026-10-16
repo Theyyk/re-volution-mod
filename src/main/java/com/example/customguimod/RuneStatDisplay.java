@@ -13,6 +13,13 @@ final class RuneStatDisplay {
     private RuneStatDisplay() {}
 
     static List<String> finalValueLines(RuneStat[] stats, int rank, double enhancementMultiplier) {
+        return finalValueLines(stats, rank, enhancementMultiplier, 0.0D);
+    }
+
+    static List<String> finalValueLines(RuneStat[] stats,
+                                        int rank,
+                                        double enhancementMultiplier,
+                                        double targetedBasePowerBonus) {
         if (stats == null || stats.length == 0) return Collections.emptyList();
 
         List<String> lines = new ArrayList<>();
@@ -20,7 +27,13 @@ final class RuneStatDisplay {
         for (int i = 0; i < limit; i++) {
             RuneStat stat = stats[i];
             if (stat == null || stat.type == null) continue;
-            RuneStat.Breakdown breakdown = stat.resolve(rank, enhancementMultiplier);
+            boolean targetedFlat = stat.type == RuneStatType.CLICK_DAMAGE_FLAT
+                    || stat.type == RuneStatType.POISON_DAMAGE_FLAT;
+            RuneStat.Breakdown breakdown = stat.resolve(
+                    rank,
+                    enhancementMultiplier,
+                    targetedFlat ? targetedBasePowerBonus : 0.0D
+            );
             lines.add(stat.type.displayName + " " + stat.type.format(breakdown.finalValue));
         }
         return lines;

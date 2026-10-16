@@ -24,9 +24,20 @@ final class RuneStat {
     }
 
     Breakdown resolve(int rank, double enhancementMultiplier) {
+        return resolve(rank, enhancementMultiplier, 0.0D);
+    }
+
+    /**
+     * Targeted power is added to the rune's starting value before rank and
+     * enhancement scaling, matching the reference "+N to the power of <rune>" mechanic.
+     */
+    Breakdown resolve(int rank, double enhancementMultiplier, double basePowerBonus) {
+        double safeBasePowerBonus = Double.isFinite(basePowerBonus) ? basePowerBonus : 0.0D;
+        double startingValue = baseValue + safeBasePowerBonus;
+
         double awakeningMultiplier = scalesWithAwakening ? rankMultiplier(rank) : 1.0D;
-        double awakenedValue = baseValue * awakeningMultiplier;
-        double awakeningBonus = awakenedValue - baseValue;
+        double awakenedValue = startingValue * awakeningMultiplier;
+        double awakeningBonus = awakenedValue - startingValue;
 
         double safeEnhancementMultiplier = Double.isFinite(enhancementMultiplier)
                 ? Math.max(1.0D, enhancementMultiplier)
@@ -36,10 +47,10 @@ final class RuneStat {
                 : awakenedValue;
         double enhancementBonus = enhancedValue - awakenedValue;
 
-        // Reserved for future sets, temporary effects and external modifiers.
+        // Reserved for future sets and external post-scaling modifiers.
         double otherBonus = 0.0D;
         double finalValue = enhancedValue + otherBonus;
-        return new Breakdown(baseValue, awakeningBonus, enhancementBonus, otherBonus, finalValue);
+        return new Breakdown(startingValue, awakeningBonus, enhancementBonus, otherBonus, finalValue);
     }
 
     private static double rankMultiplier(int rank) {

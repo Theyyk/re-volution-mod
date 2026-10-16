@@ -73,6 +73,12 @@ public final class AdminPanelRequestPacket implements IMessage {
                         MongoManager.addCardToDeck(target.getUniqueID(), 0, rune, rune, rank, 1);
                     }
                     syncRunes(target);
+                } else if ("runes_reset_enhancements".equals(parts[0]) && parts.length >= 2) {
+                    EntityPlayerMP target = target(admin, parts[1]);
+                    if (target == null) return;
+                    ensureDeckZero(target);
+                    RuneEnhancementManager.resetDeck(target.getUniqueID(), 0);
+                    syncRunes(target);
                 } else if ("resource_set".equals(parts[0]) && parts.length >= 4) {
                     EntityPlayerMP target = target(admin, parts[1]);
                     if (target == null) return;
@@ -150,6 +156,12 @@ public final class AdminPanelRequestPacket implements IMessage {
             NetworkHandler.INSTANCE.sendTo(new CardPacket(-1, 0, 0, false), target);
             for (MongoManager.SavedCard card : MongoManager.getCardsInDeck(target.getUniqueID(), 0)) {
                 NetworkHandler.INSTANCE.sendTo(new CardPacket(card.slot, card.cardIndex, card.layer, false), target);
+            }
+            if (MongoManager.getActiveDeck(target.getUniqueID()) == 0) {
+                NetworkHandler.INSTANCE.sendTo(
+                        new RuneEnhancementPacket(RuneEnhancementManager.getLevels(target.getUniqueID(), 0)),
+                        target
+                );
             }
             PlayerStatsService.sendTo(target);
         }

@@ -94,11 +94,15 @@ public final class AdminPanelScreen extends GuiScreen {
     private GuiControls.PanelButton tabBtn(int id, int x, int y, int w, String text, boolean selected) { return btn(id, x, y, w, text, selected); }
 
     private void buildRunes(int x, int y) {
-        boolean c = confirming(20);
-        buttonList.add(btn(20, x, y, 175, c ? "Повторить: очистить" : "Очистить все", c));
+        boolean clear = confirming(20);
+        buttonList.add(btn(20, x, y, 175, clear ? "Повторить: очистить" : "Очистить все", clear));
         buttonList.add(btn(21, x + 185, y, 175, "Все NORMAL"));
         buttonList.add(btn(22, x, y + 26, 175, "Все SILVER"));
         buttonList.add(btn(23, x + 185, y + 26, 175, "Все GOLD"));
+        boolean resetEnhancements = confirming(24);
+        buttonList.add(btn(24, x, y + 52, W,
+                resetEnhancements ? "Повторить: сбросить усиления" : "Сбросить усиления рун",
+                resetEnhancements));
     }
 
     private void buildResources(int x, int y) {
@@ -197,6 +201,7 @@ public final class AdminPanelScreen extends GuiScreen {
         if (b.id == 5) { closeDropdowns(); send("refresh"); return; }
         if (b.id == 20) { if (!confirm(20)) return; send("runes_clear\t" + playerUuid()); }
         else if (b.id >= 21 && b.id <= 23) { clearConfirm(); send("runes_fill\t" + playerUuid() + "\t" + (b.id - 20)); }
+        else if (b.id == 24) { if (!confirm(24)) return; send("runes_reset_enhancements\t" + playerUuid()); }
         else if (b.id == 30 || b.id == 41) { toggle(1); return; }
         else if (b.id == 32) { clearConfirm(); resourceAction("resource_add"); }
         else if (b.id == 33) { clearConfirm(); resourceAction("resource_set"); }
@@ -286,7 +291,7 @@ public final class AdminPanelScreen extends GuiScreen {
         boolean details = height >= 340;
 
         int bottom;
-        if (tab == 0) bottom = cy + 62;
+        if (tab == 0) bottom = cy + 88;
         else if (tab == 1) bottom = resourceFormY(cy) + 84;
         else bottom = mobActionsY(cy) + (details ? 64 : 34);
 

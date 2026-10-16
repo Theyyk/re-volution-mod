@@ -12,16 +12,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class CustomDeckCommand extends AdminOnlyCommand {
+public class CustomStatusCommand extends AdminOnlyCommand {
 
     @Override
     public String getName() {
-        return "customdeck";
+        return "customstatus";
     }
 
     @Override
     public String getUsage(ICommandSender sender) {
-        return "/customdeck create|switch|list|delete";
+        return "/customstatus create|switch|list|delete";
     }
 
     @Override
@@ -37,8 +37,8 @@ public class CustomDeckCommand extends AdminOnlyCommand {
             }
             if (args[0].equalsIgnoreCase("switch") || args[0].equalsIgnoreCase("delete")) {
                 List<String> indexes = new ArrayList<>();
-                List<String> decks = MongoManager.getDeckNames(player.getUniqueID());
-                for (int i = 0; i < decks.size(); i++) indexes.add(String.valueOf(i));
+                List<String> statuses = MongoManager.getDeckNames(player.getUniqueID());
+                for (int i = 0; i < statuses.size(); i++) indexes.add(String.valueOf(i));
                 return getListOfStringsMatchingLastWord(args, indexes);
             }
         }
@@ -56,78 +56,79 @@ public class CustomDeckCommand extends AdminOnlyCommand {
         EntityPlayerMP player = (EntityPlayerMP) sender;
 
         if (args.length == 0) {
-            player.sendMessage(new TextComponentString("§e/customdeck create <name>"));
-            player.sendMessage(new TextComponentString("§e/customdeck switch <index>"));
-            player.sendMessage(new TextComponentString("§e/customdeck list"));
-            player.sendMessage(new TextComponentString("§e/customdeck delete <index>"));
+            player.sendMessage(new TextComponentString("§e/customstatus create <name>"));
+            player.sendMessage(new TextComponentString("§e/customstatus switch <index>"));
+            player.sendMessage(new TextComponentString("§e/customstatus list"));
+            player.sendMessage(new TextComponentString("§e/customstatus delete <index>"));
             return;
         }
 
         if (args[0].equalsIgnoreCase("create")) {
             if (args.length < 2) {
-                player.sendMessage(new TextComponentString("§c/customdeck create <name>"));
+                player.sendMessage(new TextComponentString("§c/customstatus create <name>"));
                 return;
             }
 
             List<String> existing = MongoManager.getDeckNames(player.getUniqueID());
             if (existing.contains(args[1])) {
-                player.sendMessage(new TextComponentString("§cКолода с таким именем уже существует"));
+                player.sendMessage(new TextComponentString("§cСтатус с таким именем уже существует"));
                 return;
             }
             if (existing.size() >= 9) {
-                player.sendMessage(new TextComponentString("§cМаксимум 9 колод"));
+                player.sendMessage(new TextComponentString("§cМаксимум 9 статусов"));
                 return;
             }
 
             MongoManager.addDeck(player.getUniqueID(), args[1]);
-            player.sendMessage(new TextComponentString("§aКолода " + args[1] + " создана"));
+            player.sendMessage(new TextComponentString("§aСтатус " + args[1] + " создан"));
         } else if (args[0].equalsIgnoreCase("switch")) {
             if (args.length < 2) {
-                player.sendMessage(new TextComponentString("§c/customdeck switch <index>"));
+                player.sendMessage(new TextComponentString("§c/customstatus switch <index>"));
                 return;
             }
 
             try {
                 int index = Integer.parseInt(args[1]);
-                List<String> decks = MongoManager.getDeckNames(player.getUniqueID());
+                List<String> statuses = MongoManager.getDeckNames(player.getUniqueID());
 
-                if (index < 0 || index >= decks.size()) {
-                    player.sendMessage(new TextComponentString("§cКолоды с номером " + index + " не существует"));
+                if (index < 0 || index >= statuses.size()) {
+                    player.sendMessage(new TextComponentString("§cСтатуса с номером " + index + " не существует"));
                     return;
                 }
 
                 MongoManager.setActiveDeck(player.getUniqueID(), index);
                 player.sendMessage(new TextComponentString(
-                        "§aАктивная колода: §e" + decks.get(index) + " §7[" + index + "]"));
+                        "§aАктивный статус: §e" + statuses.get(index) + " §7[" + index + "]"));
+                PlayerStatsService.sendTo(player);
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНомер должен быть числом"));
             }
         } else if (args[0].equalsIgnoreCase("list")) {
-            List<String> decks = MongoManager.getDeckNames(player.getUniqueID());
+            List<String> statuses = MongoManager.getDeckNames(player.getUniqueID());
             int active = MongoManager.getActiveDeck(player.getUniqueID());
-            player.sendMessage(new TextComponentString("§6Колоды (" + decks.size() + "):"));
-            for (int i = 0; i < decks.size(); i++) {
-                String marker = (i == active) ? " §a← активная" : "";
-                player.sendMessage(new TextComponentString("§7[" + i + "] " + decks.get(i) + marker));
+            player.sendMessage(new TextComponentString("§6Статусы (" + statuses.size() + "):"));
+            for (int i = 0; i < statuses.size(); i++) {
+                String marker = (i == active) ? " §a← активный" : "";
+                player.sendMessage(new TextComponentString("§7[" + i + "] " + statuses.get(i) + marker));
             }
         } else if (args[0].equalsIgnoreCase("delete")) {
             if (args.length < 2) {
-                player.sendMessage(new TextComponentString("§c/customdeck delete <index>"));
+                player.sendMessage(new TextComponentString("§c/customstatus delete <index>"));
                 return;
             }
 
             try {
                 int index = Integer.parseInt(args[1]);
-                List<String> decks = MongoManager.getDeckNames(player.getUniqueID());
+                List<String> statuses = MongoManager.getDeckNames(player.getUniqueID());
 
-                if (index < 0 || index >= decks.size()) {
-                    player.sendMessage(new TextComponentString("§cКолоды с номером " + index + " не существует"));
+                if (index < 0 || index >= statuses.size()) {
+                    player.sendMessage(new TextComponentString("§cСтатуса с номером " + index + " не существует"));
                     return;
                 }
 
-                String deckName = decks.get(index);
+                String statusName = statuses.get(index);
                 MongoManager.deleteDeck(player.getUniqueID(), index);
-                player.sendMessage(new TextComponentString("§cКолода " + deckName + " удалена"));
+                player.sendMessage(new TextComponentString("§cСтатус " + statusName + " удалён"));
                 PlayerStatsService.sendTo(player);
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНомер должен быть числом"));

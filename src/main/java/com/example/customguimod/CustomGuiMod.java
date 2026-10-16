@@ -61,8 +61,8 @@ public class CustomGuiMod {
     @Mod.EventHandler
     public void serverStarting(FMLServerStartingEvent event) {
         event.registerServerCommand(new CustomMobCommand());
-        event.registerServerCommand(new CustomCardsCommand());
-        event.registerServerCommand(new CustomDeckCommand());
+        event.registerServerCommand(new CustomRunesCommand());
+        event.registerServerCommand(new CustomStatusCommand());
         event.registerServerCommand(new CustomResourceCommand());
         event.registerServerCommand(new AdminPanelCommand());
 

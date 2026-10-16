@@ -3,12 +3,11 @@ package com.example.customguimod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.GuiScreenEvent;
-import net.minecraftforge.fml.client.config.GuiUtils;
+import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.example.customguimod.GuiDrawing.drawSurface;
@@ -42,6 +41,28 @@ public final class RuneUxUiHandler {
     }
 
     @SubscribeEvent
+    public void onLegacyRuneTooltip(RenderTooltipEvent.Pre event) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (!(mc.currentScreen instanceof CardsGuiScreen)) return;
+        if (ClientPlayerStats.getActiveRuneStatusId() != RuneStatusRegistry.STATUS_POISON) return;
+
+        List<String> lines = event.getLines();
+        if (lines == null || lines.isEmpty()) return;
+
+        boolean hasRank = false;
+        boolean hasType = false;
+        for (String line : lines) {
+            if (line == null) continue;
+            if (line.contains("Ранг:")) hasRank = true;
+            if (line.contains("Тип:")) hasType = true;
+        }
+
+        if (hasRank && hasType) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
     public void onDrawPost(GuiScreenEvent.DrawScreenEvent.Post event) {
         if (!(event.getGui() instanceof CardsGuiScreen)) return;
         if (!RuneStatusRegistry.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())) return;
@@ -71,14 +92,10 @@ public final class RuneUxUiHandler {
                 int rank = ClientRuneRanks.rankOf(rune);
                 int[] pos = layout.runeSlotPosition(rune);
 
-                // Remove the old top-left rank corner. It was drawn with a solid rank color,
-                // so use an opaque slot-background repaint here instead of the translucent slot fill.
                 if (rank >= RuneInventory.IMPROVED_RANK) {
                     eraseLegacyRankCorner(pos[0], pos[1], layout.runeSlotWidth, layout);
                 }
 
-                // Persistent slot color shows the awakening rank already reached, deliberately softer
-                // than the temporary action pulses and the blinking next-awakening marker.
                 if (rank >= RuneInventory.ADVANCED_RANK) {
                     drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
                             0, withAlpha(ADVANCED_GOLD, 165));
@@ -87,8 +104,6 @@ public final class RuneUxUiHandler {
                             0, withAlpha(IMPROVED_SILVER, 150));
                 }
 
-                // Enhancement belongs to the fixed slot, not to the currently owned rune.
-                // Therefore an empty slot may pulse when it receives a stored +N level.
                 if (ENHANCEMENT_PULSE_UNTIL[rune] > now) {
                     drawSurface(pos[0], pos[1], layout.runeSlotWidth, layout.runeSlotHeight,
                             0, enhancementColor);
@@ -97,8 +112,6 @@ public final class RuneUxUiHandler {
                             0, purchaseColor);
                 }
 
-                // The blinking marker means "this rune can be awakened and paid for now".
-                // Normal -> Improved uses silver; Improved -> Advanced uses gold.
                 if (rank > 0 && eligibleRank > 0 && rank == eligibleRank && canAffordAwakening(rank)) {
                     int markerBase = rank >= RuneInventory.IMPROVED_RANK ? ADVANCED_GOLD : IMPROVED_SILVER;
                     drawAwakeningMarker(pos[0], pos[1], withAlpha(markerBase, markerAlpha));
@@ -129,15 +142,11 @@ public final class RuneUxUiHandler {
     private boolean canAffordAwakening(int rank) {
         String resource = ClientPlayerStats.getAwakeningResource();
         int cost = ClientPlayerStats.getAwakeningCostForRank(rank);
-
-        // This mirrors the server's "payment not configured = free awakening" rule.
         if (resource == null || resource.trim().isEmpty() || cost <= 0) return true;
-
         int balance = ClientPlayerStats.getResourceBalance(resource);
         return balance >= 0 && balance >= cost;
     }
 
-    /** Keeps "+ CTRL" white while the neighboring action description remains muted. */
     private void overlayWhiteCtrlHints(GuiLayout layout) {
         net.minecraft.client.gui.FontRenderer font = GuiFontRenderer.get(Minecraft.getMinecraft());
         String[] labels = {"Пробудить", "+ CTRL Поделиться в чате", "+ CTRL Ослабить"};
@@ -196,31 +205,53 @@ public final class RuneUxUiHandler {
 
             int enhancement = ClientRuneEnhancements.levelOf(rune);
             double multiplier = ClientRuneEnhancements.multiplierOf(rune);
-            List<String> lines = new ArrayList<>();
-            lines.add("§b" + definition.name);
-            lines.add("§7Ранг: §f" + RuneProgression.rankName(rank));
-            lines.add("§7Тип: §f" + definition.type);
-            lines.add("§7Улучшение: §f+" + enhancement);
+            double targetedPower = targetedPowerForSlot(rune);
+            List<String> lines = RuneTooltipContent.lines(
+                    definition,
+                    rank,
+                    enhancement,
+                    multiplier,
+                    targetedPower
+            );
+            if (lines.isEmpty()) return;
 
-            List<String> stats = RuneStatDisplay.finalValueLines(definition.stats, rank, multiplier);
-            if (stats.size() == 1) {
-                lines.add("§7Эффекты: §f" + stats.get(0));
-            } else if (!stats.isEmpty()) {
-                lines.add("§7Эффекты:");
-                for (String stat : stats) lines.add("§f" + stat);
-            }
-
-            GuiUtils.drawHoveringText(
+            RuneTooltipRenderer.draw(
                     lines,
+                    rank,
                     mouseX,
                     mouseY,
                     screen.width,
                     screen.height,
-                    -1,
                     GuiFontRenderer.get(Minecraft.getMinecraft())
             );
             return;
         }
+    }
+
+    private double targetedPowerForSlot(int targetSlot) {
+        String targetKey = targetKeyForSlot(targetSlot);
+        if (targetKey.isEmpty()) return 0.0D;
+
+        double total = 0.0D;
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            int rank = ClientRuneRanks.rankOf(rune);
+            if (rank <= 0) continue;
+
+            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(rune);
+            if (definition == null) continue;
+            double multiplier = ClientRuneEnhancements.multiplierOf(rune);
+            for (RuneTargetedPower power : definition.targetedPowers) {
+                if (power == null || !targetKey.equals(power.targetKey)) continue;
+                total += Math.max(0.0D, power.resolve(rank, multiplier));
+            }
+        }
+        return Double.isFinite(total) ? total : 0.0D;
+    }
+
+    private static String targetKeyForSlot(int slot) {
+        if (slot >= 0 && slot <= 3) return "killer_dagger";
+        if (slot >= 13 && slot <= 16) return "snake_fang";
+        return "";
     }
 
     private static int withAlpha(int color, int alpha) {
