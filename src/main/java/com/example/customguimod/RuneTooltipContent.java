@@ -51,7 +51,7 @@ final class RuneTooltipContent {
 
         for (RuneCompositeEffect compositeEffect : definition.compositeEffects) {
             if (compositeEffect != null) {
-                effects.addAll(compositeEffect.tooltipLines());
+                effects.addAll(compositeEffect.tooltipLines(rank, enhancementMultiplier));
             }
         }
 
