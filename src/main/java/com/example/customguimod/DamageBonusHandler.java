@@ -1,6 +1,5 @@
 package com.example.customguimod;
 
-import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -22,9 +21,6 @@ public class DamageBonusHandler {
             long worldTick = player.getServerWorld().getTotalWorldTime();
             RuneCombatMath.Snapshot snapshot = RuneCombatService.resolve(player.getUniqueID(), worldTick);
             if (snapshot != null) {
-                if (event.getEntityLiving() instanceof EntityLiving) {
-                    MobManager.selectPoisonTarget(player.getUniqueID(), (EntityLiving) event.getEntityLiving());
-                }
                 boolean procTriggered = RuneCombatService.rollProc(snapshot);
                 double damage = RuneCombatMath.clickDamage(event.getAmount(), snapshot, procTriggered);
                 event.setAmount((float) damage);
