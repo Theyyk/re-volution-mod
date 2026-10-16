@@ -72,10 +72,16 @@ final class RuneCombatService {
                 switch (effect.kind) {
                     case CLICK_DAMAGE_PROC:
                         snapshot.procChancePercent = Math.max(snapshot.procChancePercent, effect.primaryValue);
-                        snapshot.procDamageMultiplier = Math.max(snapshot.procDamageMultiplier, effect.secondaryValue);
+                        snapshot.procDamageMultiplier = Math.max(
+                                snapshot.procDamageMultiplier,
+                                effect.resolvedProcDamageMultiplier(owned.layer, enhancementMultiplier)
+                        );
                         break;
                     case TEMPORARY_ALL_DAMAGE_MULTIPLIER:
-                        snapshot.rageMultiplier = Math.max(snapshot.rageMultiplier, effect.primaryValue);
+                        snapshot.rageMultiplier = Math.max(
+                                snapshot.rageMultiplier,
+                                effect.resolvedTemporaryAllDamageMultiplier(owned.layer, enhancementMultiplier)
+                        );
                         if (isRageActive(uuid, worldTick)) snapshot.rageActive = true;
                         break;
                     default:
