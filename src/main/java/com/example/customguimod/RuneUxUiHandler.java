@@ -205,7 +205,14 @@ public final class RuneUxUiHandler {
 
             int enhancement = ClientRuneEnhancements.levelOf(rune);
             double multiplier = ClientRuneEnhancements.multiplierOf(rune);
-            List<String> lines = RuneTooltipContent.lines(definition, rank, enhancement, multiplier);
+            double targetedPower = targetedPowerForSlot(rune);
+            List<String> lines = RuneTooltipContent.lines(
+                    definition,
+                    rank,
+                    enhancement,
+                    multiplier,
+                    targetedPower
+            );
             if (lines.isEmpty()) return;
 
             RuneTooltipRenderer.draw(
@@ -219,6 +226,32 @@ public final class RuneUxUiHandler {
             );
             return;
         }
+    }
+
+    private double targetedPowerForSlot(int targetSlot) {
+        String targetKey = targetKeyForSlot(targetSlot);
+        if (targetKey.isEmpty()) return 0.0D;
+
+        double total = 0.0D;
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            int rank = ClientRuneRanks.rankOf(rune);
+            if (rank <= 0) continue;
+
+            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(rune);
+            if (definition == null) continue;
+            double multiplier = ClientRuneEnhancements.multiplierOf(rune);
+            for (RuneTargetedPower power : definition.targetedPowers) {
+                if (power == null || !targetKey.equals(power.targetKey)) continue;
+                total += Math.max(0.0D, power.resolve(rank, multiplier));
+            }
+        }
+        return Double.isFinite(total) ? total : 0.0D;
+    }
+
+    private static String targetKeyForSlot(int slot) {
+        if (slot >= 0 && slot <= 3) return "killer_dagger";
+        if (slot >= 13 && slot <= 16) return "snake_fang";
+        return "";
     }
 
     private static int withAlpha(int color, int alpha) {
