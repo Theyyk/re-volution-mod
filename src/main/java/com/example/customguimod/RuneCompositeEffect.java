@@ -119,15 +119,15 @@ final class RuneCompositeEffect {
         switch (kind) {
             case CLICK_DAMAGE_PROC:
                 lines.add(RuneStatType.compact(primaryValue) + "% шанс нанести");
-                lines.add("×" + RuneStatType.compact(secondaryValue) + " урона при клике");
+                lines.add("x" + RuneStatType.compact(secondaryValue) + " урона при клике");
                 break;
             case DELAYED_DAMAGE_MULTIPLIER:
                 lines.add("Через " + RuneStatType.compact(primaryValue) + " сек:");
-                lines.add(damageType.displayName + " ×" + RuneStatType.compact(secondaryValue));
+                lines.add(damageType.displayName + " x" + RuneStatType.compact(secondaryValue));
                 break;
             case TEMPORARY_ALL_DAMAGE_MULTIPLIER:
                 lines.add("Попадание кликом увеличивает");
-                lines.add("Весь урон ×" + RuneStatType.compact(primaryValue)
+                lines.add("Весь урон x" + RuneStatType.compact(primaryValue)
                         + " на " + RuneStatType.compact(durationSeconds) + " сек");
                 break;
             case ENHANCEMENTS_MORE_EFFECTIVE:
