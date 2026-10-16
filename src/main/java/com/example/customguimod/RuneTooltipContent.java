@@ -27,15 +27,29 @@ final class RuneTooltipContent {
         lines.add("§7Тип: §f" + definition.type);
         lines.add("§7Улучшение: §f+" + Math.max(0, enhancementLevel));
 
-        List<String> stats = RuneStatDisplay.finalValueLines(
+        List<String> effects = new ArrayList<>();
+        effects.addAll(RuneStatDisplay.finalValueLines(
                 definition.stats,
                 rank,
                 enhancementMultiplier
-        );
-        if (!stats.isEmpty()) {
+        ));
+
+        for (RuneTargetedPower targetedPower : definition.targetedPowers) {
+            if (targetedPower != null) {
+                effects.add(targetedPower.tooltipLine(rank, enhancementMultiplier));
+            }
+        }
+
+        for (RuneCompositeEffect compositeEffect : definition.compositeEffects) {
+            if (compositeEffect != null) {
+                effects.addAll(compositeEffect.tooltipLines());
+            }
+        }
+
+        if (!effects.isEmpty()) {
             lines.add("§7Эффекты:");
-            for (String stat : stats) {
-                lines.add("§f" + stat);
+            for (String effect : effects) {
+                lines.add("§f" + effect);
             }
         }
 
