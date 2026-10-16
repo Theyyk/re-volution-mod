@@ -67,7 +67,9 @@ enum RuneStatType {
     String format(double value) {
         switch (displayKind) {
             case MULTIPLIER:
-                return "×" + compact(value);
+                // ASCII x is used deliberately: the active 1.12.2 GUI font renders
+                // the Unicode multiplication sign as '?'.
+                return "x" + compact(value);
             case PERCENT:
                 return "+" + compact(value) + "%";
             case SECONDS:
