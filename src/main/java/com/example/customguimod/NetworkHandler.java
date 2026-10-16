@@ -1,8 +1,13 @@
 package com.example.customguimod;
 
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
+import net.minecraftforge.fml.common.network.handshake.NetworkDispatcher;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import net.minecraftforge.fml.relauncher.Side;
+
+import java.util.Map;
 
 public class NetworkHandler {
 
@@ -29,5 +34,28 @@ public class NetworkHandler {
         INSTANCE.registerMessage(AdminPanelRequestClientHandler.class, AdminPanelRequestPacket.class, 5, Side.SERVER);
         INSTANCE.registerMessage(AdminPanelStateClientHandler.class, AdminPanelStatePacket.class, 6, Side.CLIENT);
         INSTANCE.registerMessage(RuneEnhancementPacketHandler.class, RuneEnhancementPacket.class, 7, Side.CLIENT);
+    }
+
+    /**
+     * Returns true only when the connecting client advertised this mod during the Forge handshake.
+     * Vanilla/no-mod clients are intentionally allowed to join, but must never receive custom packets.
+     */
+    public static boolean clientHasCustomGuiMod(EntityPlayerMP player) {
+        if (player == null || player.connection == null || player.connection.netManager == null) return false;
+        try {
+            NetworkDispatcher dispatcher = NetworkDispatcher.get(player.connection.netManager);
+            if (dispatcher == null) return false;
+            Map<String, String> modList = dispatcher.getModList();
+            return modList != null && modList.containsKey(CustomGuiMod.MODID);
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    /** Safely sends a custom packet only to clients that actually have CustomGuiMod installed. */
+    public static boolean sendToClient(IMessage message, EntityPlayerMP player) {
+        if (message == null || !clientHasCustomGuiMod(player)) return false;
+        INSTANCE.sendTo(message, player);
+        return true;
     }
 }
