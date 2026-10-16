@@ -19,6 +19,16 @@ final class RuneTooltipContentTest {
         check(single.get(5).equals("§fУрон Клика +4.5"),
                 "Single final stat should render below the effects heading");
 
+        List<String> boostedTarget = RuneTooltipContent.lines(
+                EarthRuneCatalog.at(0),
+                RuneInventory.IMPROVED_RANK,
+                5,
+                1.5D,
+                2.0D
+        );
+        check(boostedTarget.get(5).equals("§fУрон Клика +13.5"),
+                "Target rune tooltip must visibly include power granted by another rune before rank and enhancement scaling");
+
         List<String> hybrid = RuneTooltipContent.lines(
                 EarthRuneCatalog.at(11),
                 RuneInventory.IMPROVED_RANK,
