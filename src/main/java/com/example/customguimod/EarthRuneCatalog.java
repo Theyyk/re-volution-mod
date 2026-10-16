@@ -68,13 +68,13 @@ final class EarthRuneCatalog {
     }
 
     private static RuneCompositeEffect hiddenStrikeProc() {
-        // Placeholder values only; proc balance is intentionally deferred.
-        return RuneCompositeEffect.clickDamageProc(1.0D, 1.0D);
+        // Approved base test values; rank and +N enhancement scale the proc damage multiplier, not its chance.
+        return RuneCompositeEffect.clickDamageProc(15.0D, 2.0D);
     }
 
     private static RuneCompositeEffect rageBuff() {
-        // Neutral placeholder multiplier until balance; duration and one-stack rule are approved content.
-        return RuneCompositeEffect.temporaryAllDamage(1.0D, 5.0D, 1);
+        // Approved base test value. Rank and +N enhancement scale the damage multiplier.
+        return RuneCompositeEffect.temporaryAllDamage(2.0D, 5.0D, 1);
     }
 
     private static Definition targeted(String name,
