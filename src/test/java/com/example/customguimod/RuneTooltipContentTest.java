@@ -27,8 +27,40 @@ final class RuneTooltipContentTest {
         );
         check(hybrid.size() == 7, "Multi-stat tooltip should render effects vertically");
         check(hybrid.get(4).equals("§7Эффекты:"), "Multi-stat tooltip needs an effects heading");
-        check(hybrid.get(5).equals("§fУрон Клика +6"), "Click final value should be formatted through RuneStatDisplay");
-        check(hybrid.get(6).equals("§fУрон Яда +6"), "Poison final value should be formatted through RuneStatDisplay");
+        check(hybrid.get(5).equals("§fУрон Клика ×6"), "Toxic shard click effect should render as a multiplier");
+        check(hybrid.get(6).equals("§fУрон Яда ×6"), "Toxic shard poison effect should render as a multiplier");
+
+        List<String> targeted = RuneTooltipContent.lines(
+                EarthRuneCatalog.at(8),
+                RuneInventory.IMPROVED_RANK,
+                5,
+                1.5D
+        );
+        check(targeted.size() == 6, "Targeted power should use the shared effects section");
+        check(targeted.get(5).equals("§f+4.5 к силе рун: Кинжал убийцы"),
+                "Sharpening stone should visibly target Killer Dagger power");
+
+        List<String> proc = RuneTooltipContent.lines(
+                EarthRuneCatalog.at(7),
+                RuneInventory.NORMAL_RANK,
+                0,
+                1.0D
+        );
+        check(proc.size() == 7, "Proc tooltip should keep the approved compact two-line effect");
+        check(proc.get(5).equals("§f1% шанс нанести"), "Proc chance should be on the first effect row");
+        check(proc.get(6).equals("§f×1 урона при клике"), "Proc damage should be on the second effect row");
+
+        List<String> rage = RuneTooltipContent.lines(
+                EarthRuneCatalog.at(10),
+                RuneInventory.NORMAL_RANK,
+                0,
+                1.0D
+        );
+        check(rage.size() == 7, "Rage tooltip should remain two compact effect rows");
+        check(rage.get(5).equals("§fПопадание кликом увеличивает"),
+                "Rage tooltip should communicate the real mob-hit trigger");
+        check(rage.get(6).equals("§fВесь урон ×1 на 5 сек"),
+                "Rage tooltip should show the current five-second duration");
 
         List<String> resource = RuneTooltipContent.lines(
                 EarthRuneCatalog.at(25),
@@ -51,7 +83,7 @@ final class RuneTooltipContentTest {
                 -4,
                 1.0D
         );
-        check(noStats.size() == 4, "A definition without stats should omit the effects section");
+        check(noStats.size() == 4, "A definition without effects should omit the effects section");
         check(noStats.get(3).equals("§7Улучшение: §f+0"), "Negative enhancement input must not leak into the tooltip");
         check(RuneTooltipContent.lines(null, 1, 0, 1.0D).isEmpty(), "Missing definitions should produce no tooltip");
 
