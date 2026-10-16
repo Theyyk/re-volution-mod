@@ -21,13 +21,13 @@ public class CustomCardsCommand extends AdminOnlyCommand {
 
     @Override
     public String getUsage(ICommandSender sender) {
-        return "/customcards clear";
+        return "/customcards <clear|resetenhancements>";
     }
 
     @Override
     public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, Arrays.asList("clear"));
+            return getListOfStringsMatchingLastWord(args, Arrays.asList("clear", "resetenhancements"));
         }
         return new ArrayList<>();
     }
@@ -41,7 +41,7 @@ public class CustomCardsCommand extends AdminOnlyCommand {
         EntityPlayerMP player = (EntityPlayerMP) sender;
 
         if (args.length == 0) {
-            player.sendMessage(new TextComponentString("§e/customcards clear"));
+            player.sendMessage(new TextComponentString("§e/customcards <clear|resetenhancements>"));
             return;
         }
 
@@ -53,6 +53,27 @@ public class CustomCardsCommand extends AdminOnlyCommand {
             CardPacket msg = new CardPacket(-1, -1, -1, false);
             NetworkHandler.INSTANCE.sendTo(msg, player);
             PlayerStatsService.sendTo(player);
+            return;
         }
+
+        if (args[0].equalsIgnoreCase("resetenhancements")) {
+            int deckIndex = MongoManager.getActiveDeck(player.getUniqueID());
+            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+            if (!RuneStatusRegistry.isRuneStatus(statusId)) {
+                player.sendMessage(new TextComponentString("§cАктивная колода не является колодой рун"));
+                return;
+            }
+
+            RuneEnhancementManager.resetDeck(player.getUniqueID(), deckIndex);
+            NetworkHandler.INSTANCE.sendTo(
+                    new RuneEnhancementPacket(RuneEnhancementManager.getLevels(player.getUniqueID(), deckIndex)),
+                    player
+            );
+            PlayerStatsService.sendTo(player);
+            player.sendMessage(new TextComponentString("§aУсиления рун в активной колоде сброшены до +0"));
+            return;
+        }
+
+        player.sendMessage(new TextComponentString("§e/customcards <clear|resetenhancements>"));
     }
 }
