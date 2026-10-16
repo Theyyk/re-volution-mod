@@ -37,6 +37,8 @@ final class RuneStatContentTest {
         check(!RuneStatType.ALL_DAMAGE_MULTIPLIER.isDamageMultiplier(), "Delayed channel damage must name a concrete channel");
 
         RuneCompositeEffect proc = RuneCompositeEffect.clickDamageProc(15.0D, 5.1D);
+        check(proc.activation == RuneCompositeEffect.Activation.CLICK_HIT_MOB,
+                "Click proc must be tied to an actual mob hit");
         check(proc.tooltipLines().equals(Arrays.asList(
                 "15% шанс нанести",
                 "×5.1 урона при клике"
@@ -52,16 +54,19 @@ final class RuneStatContentTest {
                 "Урон Яда ×3"
         )), "Delayed damage tooltip should stay compact and channel-specific");
 
-        RuneCompositeEffect temporary = RuneCompositeEffect.temporaryAllDamage(1.45D, 1);
+        RuneCompositeEffect temporary = RuneCompositeEffect.temporaryAllDamage(1.45D, 5.0D, 1);
         check(temporary.maxStacks == 1, "Rage amulet temporary all-damage effect should currently allow exactly one stack");
+        check(temporary.durationSeconds == 5.0D, "Rage amulet should currently use a five-second duration");
+        check(temporary.activation == RuneCompositeEffect.Activation.CLICK_HIT_MOB,
+                "Rage amulet must activate on a click hit against a mob, not an empty click");
         check(temporary.tooltipLines().equals(Arrays.asList(
-                "Клики временно увеличивают",
-                "Весь урон ×1.45"
+                "Попадание кликом увеличивает",
+                "Весь урон ×1.45 на 5 сек"
         )), "Temporary all-damage reference effect should wrap to two lines");
 
         boolean rejectedZeroStacks = false;
         try {
-            RuneCompositeEffect.temporaryAllDamage(1.45D, 0);
+            RuneCompositeEffect.temporaryAllDamage(1.45D, 5.0D, 0);
         } catch (IllegalArgumentException expected) {
             rejectedZeroStacks = true;
         }
@@ -73,7 +78,10 @@ final class RuneStatContentTest {
 
         RuneTargetedPower targeted = new RuneTargetedPower("mace", "Булава", 5.6D);
         check(targeted.type() == RuneStatType.CARD_POWER_FLAT, "Targeted power must stay distinct from channel multipliers");
-        check(targeted.tooltipLine().equals("+5.6 к силе рун: Булава"), "Targeted power tooltip should preserve the reference meaning");
+        check(targeted.tooltipLine(RuneInventory.NORMAL_RANK, 1.0D).equals("+5.6 к силе рун: Булава"),
+                "Targeted power tooltip should preserve the reference meaning");
+        check(targeted.tooltipLine(RuneInventory.IMPROVED_RANK, 1.5D).equals("+25.2 к силе рун: Булава"),
+                "Targeted power should scale with the owning rune rank and enhancement");
 
         System.out.println("v1.2.10 rune stat types and composite reference effects regression checks passed");
     }
