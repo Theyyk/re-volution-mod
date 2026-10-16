@@ -29,7 +29,14 @@ final class RuneTargetedPower {
         return RuneStatType.CARD_POWER_FLAT;
     }
 
-    String tooltipLine() {
-        return RuneStatType.CARD_POWER_FLAT.format(flatBonus) + " к силе рун: " + targetDisplayName;
+    double resolve(int rank, double enhancementMultiplier) {
+        return RuneStat.scaled(RuneStatType.CARD_POWER_FLAT, flatBonus)
+                .resolve(rank, enhancementMultiplier)
+                .finalValue;
+    }
+
+    String tooltipLine(int rank, double enhancementMultiplier) {
+        return RuneStatType.CARD_POWER_FLAT.format(resolve(rank, enhancementMultiplier))
+                + " к силе рун: " + targetDisplayName;
     }
 }
