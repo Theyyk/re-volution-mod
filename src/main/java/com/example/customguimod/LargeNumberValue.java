@@ -6,6 +6,8 @@ import java.util.List;
 
 /** Shared arbitrary-precision value helpers for compact large-number input. */
 final class LargeNumberValue {
+    private static final int MAX_UNIT_INDEX = 4095;
+    private static final int CENTILLION_INDEX = 101;
     private static final String[] SUFFIXES = buildSuffixes();
 
     private LargeNumberValue() {}
@@ -68,6 +70,13 @@ final class LargeNumberValue {
         values.add("Nog");
         addDecade(values, "Nog");
         values.add("Ce");
+
+        // Keep all established names through centillion, then continue with a compact,
+        // deterministic namespace. Ce is Ce1, the next 1000x step is Ce2, etc.
+        // This keeps dropdown labels short while allowing values far beyond 1E1233.
+        for (int index = CENTILLION_INDEX + 1; index <= MAX_UNIT_INDEX; index++) {
+            values.add("Ce" + (index - CENTILLION_INDEX + 1));
+        }
 
         return values.toArray(new String[0]);
     }
