@@ -6,11 +6,11 @@ import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 public class PlayerStatsPacket implements IMessage {
 
-    private int coins;
-    private int crystals;
-    private int runeDust;
-    private int runeShards;
-    private int runeCores;
+    private long coins;
+    private long crystals;
+    private long runeDust;
+    private long runeShards;
+    private long runeCores;
     private int totalDamage;
     private int activeRuneStatusId;
     private String purchaseResource;
@@ -21,8 +21,8 @@ public class PlayerStatsPacket implements IMessage {
 
     public PlayerStatsPacket() {}
 
-    public PlayerStatsPacket(int coins, int crystals, int runeDust,
-                             int runeShards, int runeCores, int totalDamage,
+    public PlayerStatsPacket(long coins, long crystals, long runeDust,
+                             long runeShards, long runeCores, int totalDamage,
                              int activeRuneStatusId,
                              String purchaseResource, int purchaseUnitCost,
                              String awakeningResource, int awakeningNormalCost,
@@ -43,11 +43,11 @@ public class PlayerStatsPacket implements IMessage {
 
     @Override
     public void fromBytes(ByteBuf buf) {
-        coins = buf.readInt();
-        crystals = buf.readInt();
-        runeDust = buf.readInt();
-        runeShards = buf.readInt();
-        runeCores = buf.readInt();
+        coins = buf.readLong();
+        crystals = buf.readLong();
+        runeDust = buf.readLong();
+        runeShards = buf.readLong();
+        runeCores = buf.readLong();
         totalDamage = buf.readInt();
         activeRuneStatusId = buf.readInt();
         purchaseResource = ByteBufUtils.readUTF8String(buf);
@@ -59,11 +59,11 @@ public class PlayerStatsPacket implements IMessage {
 
     @Override
     public void toBytes(ByteBuf buf) {
-        buf.writeInt(coins);
-        buf.writeInt(crystals);
-        buf.writeInt(runeDust);
-        buf.writeInt(runeShards);
-        buf.writeInt(runeCores);
+        buf.writeLong(coins);
+        buf.writeLong(crystals);
+        buf.writeLong(runeDust);
+        buf.writeLong(runeShards);
+        buf.writeLong(runeCores);
         buf.writeInt(totalDamage);
         buf.writeInt(activeRuneStatusId);
         ByteBufUtils.writeUTF8String(buf, purchaseResource == null ? "coins" : purchaseResource);
@@ -73,11 +73,11 @@ public class PlayerStatsPacket implements IMessage {
         buf.writeInt(awakeningImprovedCost);
     }
 
-    public int getCoins() { return coins; }
-    public int getCrystals() { return crystals; }
-    public int getRuneDust() { return runeDust; }
-    public int getRuneShards() { return runeShards; }
-    public int getRuneCores() { return runeCores; }
+    public long getCoins() { return coins; }
+    public long getCrystals() { return crystals; }
+    public long getRuneDust() { return runeDust; }
+    public long getRuneShards() { return runeShards; }
+    public long getRuneCores() { return runeCores; }
     public int getTotalDamage() { return totalDamage; }
     public int getActiveRuneStatusId() { return activeRuneStatusId; }
     public String getPurchaseResource() { return purchaseResource; }
