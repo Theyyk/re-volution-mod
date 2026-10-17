@@ -6,6 +6,7 @@ import java.util.List;
 
 /** Shared arbitrary-precision value helpers for compact large-number input. */
 final class LargeNumberValue {
+    static final int CENTILLION_UNIT_INDEX = 101;
     private static final int MAX_ILLION_INDEX = 999;
     private static final String[] UNIT_PREFIXES = {"", "U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
     private static final String[] TENS_SUFFIXES = {"", "Dc", "Vg", "Tg", "Qag", "Qig", "Sxg", "Spg", "Ocg", "Nog"};
@@ -19,8 +20,31 @@ final class LargeNumberValue {
     }
 
     static String unitSuffix(int index) {
+        return unitSuffix(index, LargeNumberDisplayMode.FULL);
+    }
+
+    static String unitSuffix(int index, LargeNumberDisplayMode mode) {
         if (index < 0 || index >= SUFFIXES.length) return "";
-        return SUFFIXES[index];
+        if (index <= CENTILLION_UNIT_INDEX || mode == null || mode == LargeNumberDisplayMode.FULL) {
+            return SUFFIXES[index];
+        }
+        if (mode == LargeNumberDisplayMode.SCIENTIFIC) return "";
+
+        int illionIndex = index - 1;
+        int hundreds = illionIndex / 100;
+        int remainder = illionIndex % 100;
+        int tens = remainder / 10;
+        int ones = remainder % 10;
+
+        StringBuilder result = new StringBuilder();
+        if (ones > 0) result.append(componentInitial(UNIT_PREFIXES[ones]));
+        if (tens > 0) result.append(componentInitial(TENS_SUFFIXES[tens]));
+        if (hundreds > 0) {
+            String hundredsSuffix = HUNDREDS_SUFFIXES[hundreds];
+            result.append(mode == LargeNumberDisplayMode.ABBREVIATED
+                    ? hundredsSuffix : componentInitial(hundredsSuffix));
+        }
+        return result.toString();
     }
 
     static BigDecimal parseWithUnit(String rawMantissa, int unitIndex) {
@@ -74,7 +98,7 @@ final class LargeNumberValue {
         values.add("Ce");
 
         // Keep the established compact naming unchanged through Ce (1E303).
-        // From UCe onward, extend with our Latin-style compositional suffixes.
+        // From UCe onward, extend with our compositional suffixes.
         for (int illionIndex = 101; illionIndex <= MAX_ILLION_INDEX; illionIndex++) {
             values.add(extendedIllionSuffix(illionIndex));
         }
@@ -93,6 +117,10 @@ final class LargeNumberValue {
         int tens = value / 10;
         int ones = value % 10;
         return UNIT_PREFIXES[ones] + TENS_SUFFIXES[tens];
+    }
+
+    private static String componentInitial(String component) {
+        return component == null || component.isEmpty() ? "" : component.substring(0, 1);
     }
 
     private static void addDecade(List<String> values, String base) {
