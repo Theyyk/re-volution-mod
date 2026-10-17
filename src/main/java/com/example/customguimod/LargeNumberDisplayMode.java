@@ -1,11 +1,9 @@
 package com.example.customguimod;
 
-/** Client-selectable presentation mode for values above centillion. */
+/** Client-selectable presentation mode for large numeric values. */
 enum LargeNumberDisplayMode {
-    FULL("Полный"),
-    ABBREVIATED("Укороченный"),
-    SHORT("Короткий"),
-    SCIENTIFIC("Научный");
+    LETTER("Буквенный"),
+    ENGINEERING("Инженерный");
 
     private final String displayName;
 
