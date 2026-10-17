@@ -9,8 +9,10 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
+import net.minecraftforge.event.entity.living.LivingExperienceDropEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -31,6 +33,7 @@ public class MobManager {
     private static final BigDecimal VANILLA_MAX_HEALTH = new BigDecimal("1024");
     private static final List<MobSpawn> spawns = new ArrayList<>();
     private static final Set<UUID> poisonDamagePlayers = new HashSet<>();
+    private static final Set<UUID> spawningManagedEntityIds = new HashSet<>();
     private static World serverWorld;
     private static int poisonTickCounter;
 
@@ -65,6 +68,7 @@ public class MobManager {
     public static void loadFromDatabase(World world) {
         serverWorld = world;
         poisonDamagePlayers.clear();
+        spawningManagedEntityIds.clear();
         poisonTickCounter = 0;
 
         for (Entity entity : new ArrayList<>(world.loadedEntityList)) {
@@ -169,7 +173,16 @@ public class MobManager {
         entity.setNoAI(true);
         entity.forceSpawn = true;
 
-        if (!serverWorld.spawnEntity(entity)) {
+        UUID entityId = entity.getUniqueID();
+        boolean spawned;
+        spawningManagedEntityIds.add(entityId);
+        try {
+            spawned = serverWorld.spawnEntity(entity);
+        } finally {
+            spawningManagedEntityIds.remove(entityId);
+        }
+
+        if (!spawned) {
             spawn.entity = null;
             spawn.respawnTimer = 20;
             if (!spawn.spawnFailureLogged) {
@@ -193,6 +206,20 @@ public class MobManager {
                 + "|" + LargeNumberValue.canonical(spawn.hp)
                 + "|" + spawn.resource
                 + "|" + spawn.amount);
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onEntityJoinWorld(EntityJoinWorldEvent event) {
+        if (event.getWorld().isRemote) return;
+        Entity entity = event.getEntity();
+        if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) return;
+        if (!entity.hasCustomName() || !isCustomMobName(entity.getCustomNameTag())) return;
+        if (spawningManagedEntityIds.contains(entity.getUniqueID())) return;
+
+        event.setCanceled(true);
+        entity.setDead();
+        CustomGuiMod.logger.info("Prevented stale persisted custom mob from rejoining world: "
+                + entity.getCustomNameTag());
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
@@ -284,6 +311,16 @@ public class MobManager {
         if (!isCustomMobName(entity.getCustomNameTag())) return;
         event.getDrops().clear();
         event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public void onMobExperience(LivingExperienceDropEvent event) {
+        if (!(event.getEntityLiving() instanceof EntityZombie)
+                && !(event.getEntityLiving() instanceof EntitySkeleton)) return;
+        EntityLiving entity = (EntityLiving) event.getEntityLiving();
+        if (!entity.hasCustomName()) return;
+        if (!isCustomMobName(entity.getCustomNameTag())) return;
+        event.setDroppedExperience(0);
     }
 
     private static boolean isCustomMobName(String rawName) {
