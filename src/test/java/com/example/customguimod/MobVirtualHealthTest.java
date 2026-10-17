@@ -13,7 +13,7 @@ final class MobVirtualHealthTest {
 
         BigDecimal huge = new BigDecimal("1000000000000000000000000000000000000000000");
         BigDecimal remaining = MobManager.remainingHealthAfterDamage(huge, 90.0D);
-        check(remaining.equals(new BigDecimal("999999999999999999999999999999999999999910")),
+        check(remaining.compareTo(new BigDecimal("999999999999999999999999999999999999999910")) == 0,
                 "Virtual HP must preserve values beyond long range exactly");
         check(MobManager.remainingHealthAfterDamage(new BigDecimal("100"), 150.0D).signum() == 0,
                 "Virtual HP must clamp lethal damage at zero");
