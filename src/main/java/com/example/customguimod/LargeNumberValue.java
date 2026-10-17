@@ -1,12 +1,12 @@
 package com.example.customguimod;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Shared arbitrary-precision value helpers for compact large-number input. */
 final class LargeNumberValue {
-    private static final String[] SUFFIXES = {
-            "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"
-    };
+    private static final String[] SUFFIXES = buildSuffixes();
 
     private LargeNumberValue() {}
 
@@ -42,5 +42,38 @@ final class LargeNumberValue {
     static BigDecimal normalize(BigDecimal value) {
         if (value == null || value.signum() == 0) return BigDecimal.ZERO;
         return value.stripTrailingZeros();
+    }
+
+    private static String[] buildSuffixes() {
+        List<String> values = new ArrayList<>();
+        String[] base = {
+                "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
+                "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg"
+        };
+        for (String suffix : base) values.add(suffix);
+
+        addDecade(values, "Vg");
+        values.add("Tg");
+        addDecade(values, "Tg");
+        values.add("Qag");
+        addDecade(values, "Qag");
+        values.add("Qig");
+        addDecade(values, "Qig");
+        values.add("Sxg");
+        addDecade(values, "Sxg");
+        values.add("Spg");
+        addDecade(values, "Spg");
+        values.add("Ocg");
+        addDecade(values, "Ocg");
+        values.add("Nog");
+        addDecade(values, "Nog");
+        values.add("Ce");
+
+        return values.toArray(new String[0]);
+    }
+
+    private static void addDecade(List<String> values, String base) {
+        String[] prefixes = {"U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
+        for (String prefix : prefixes) values.add(prefix + base);
     }
 }
