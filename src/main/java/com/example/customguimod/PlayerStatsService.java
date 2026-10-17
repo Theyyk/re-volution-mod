@@ -59,11 +59,11 @@ public final class PlayerStatsService {
         if (!NetworkHandler.clientHasCustomGuiMod(player)) return;
 
         UUID uuid = player.getUniqueID();
-        int coins = MongoManager.getBalance(uuid);
-        int crystals = MongoManager.getCrystals(uuid);
-        int runeDust = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_DUST);
-        int runeShards = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_SHARDS);
-        int runeCores = ResourceManager.getPlayerResource(uuid, ResourceManager.RUNE_CORES);
+        long coins = ResourceManager.getPlayerResourceLong(uuid, "coins");
+        long crystals = ResourceManager.getPlayerResourceLong(uuid, "crystals");
+        long runeDust = ResourceManager.getPlayerResourceLong(uuid, ResourceManager.RUNE_DUST);
+        long runeShards = ResourceManager.getPlayerResourceLong(uuid, ResourceManager.RUNE_SHARDS);
+        long runeCores = ResourceManager.getPlayerResourceLong(uuid, ResourceManager.RUNE_CORES);
         int totalDamage = getTotalDamageBonus(uuid);
         int activeDeck = MongoManager.getActiveDeck(uuid);
         int statusId = RuneStatusRegistry.statusForDeck(activeDeck);
