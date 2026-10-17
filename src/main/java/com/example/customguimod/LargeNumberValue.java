@@ -15,34 +15,25 @@ final class LargeNumberValue {
 
     private LargeNumberValue() {}
 
-    static int unitCount() {
-        return SUFFIXES.length;
-    }
+    static int unitCount() { return SUFFIXES.length; }
 
-    static String unitSuffix(int index) {
-        return unitSuffix(index, LargeNumberDisplayMode.FULL);
-    }
+    static String unitSuffix(int index) { return unitSuffix(index, LargeNumberDisplayMode.FULL); }
 
     static String unitSuffix(int index, LargeNumberDisplayMode mode) {
         if (index < 0 || index >= SUFFIXES.length) return "";
-        if (index <= CENTILLION_UNIT_INDEX || mode == null || mode == LargeNumberDisplayMode.FULL) {
-            return SUFFIXES[index];
-        }
+        if (index <= CENTILLION_UNIT_INDEX || mode == null || mode == LargeNumberDisplayMode.FULL) return SUFFIXES[index];
         if (mode == LargeNumberDisplayMode.SCIENTIFIC) return "";
-
         int illionIndex = index - 1;
         int hundreds = illionIndex / 100;
         int remainder = illionIndex % 100;
         int tens = remainder / 10;
         int ones = remainder % 10;
-
         StringBuilder result = new StringBuilder();
         if (ones > 0) result.append(componentInitial(UNIT_PREFIXES[ones]));
         if (tens > 0) result.append(componentInitial(TENS_SUFFIXES[tens]));
         if (hundreds > 0) {
             String hundredsSuffix = HUNDREDS_SUFFIXES[hundreds];
-            result.append(mode == LargeNumberDisplayMode.ABBREVIATED
-                    ? hundredsSuffix : componentInitial(hundredsSuffix));
+            result.append(mode == LargeNumberDisplayMode.ABBREVIATED ? hundredsSuffix : componentInitial(hundredsSuffix));
         }
         return result.toString();
     }
@@ -55,6 +46,23 @@ final class LargeNumberValue {
         return normalize(mantissa.movePointRight(unitIndex * 3));
     }
 
+    /** Accepts plain/scientific numbers and full compact suffixes such as 1T, 1Ce or 1QaQagQe. */
+    static BigDecimal parseFlexible(String raw) {
+        String value = raw == null ? "" : raw.trim().replace(',', '.');
+        if (value.isEmpty()) throw new NumberFormatException("empty value");
+        try {
+            return normalize(new BigDecimal(value));
+        } catch (NumberFormatException ignored) {
+            for (int i = SUFFIXES.length - 1; i >= 1; i--) {
+                String suffix = SUFFIXES[i];
+                if (!value.endsWith(suffix) || value.length() <= suffix.length()) continue;
+                String mantissa = value.substring(0, value.length() - suffix.length()).trim();
+                return parseWithUnit(mantissa, i);
+            }
+            throw new NumberFormatException("invalid large number: " + raw);
+        }
+    }
+
     static BigDecimal parseExact(String raw) {
         String value = raw == null ? "" : raw.trim().replace(',', '.');
         if (value.isEmpty()) throw new NumberFormatException("empty value");
@@ -63,8 +71,7 @@ final class LargeNumberValue {
 
     static String canonical(BigDecimal value) {
         if (value == null) return "0";
-        BigDecimal normalized = normalize(value);
-        return normalized.toPlainString();
+        return normalize(value).toPlainString();
     }
 
     static BigDecimal normalize(BigDecimal value) {
@@ -74,35 +81,14 @@ final class LargeNumberValue {
 
     private static String[] buildSuffixes() {
         List<String> values = new ArrayList<>();
-        String[] standard = {
-                "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
-                "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg"
-        };
+        String[] standard = {"", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
+                "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg"};
         for (String suffix : standard) values.add(suffix);
-
-        addDecade(values, "Vg");
-        values.add("Tg");
-        addDecade(values, "Tg");
-        values.add("Qag");
-        addDecade(values, "Qag");
-        values.add("Qig");
-        addDecade(values, "Qig");
-        values.add("Sxg");
-        addDecade(values, "Sxg");
-        values.add("Spg");
-        addDecade(values, "Spg");
-        values.add("Ocg");
-        addDecade(values, "Ocg");
-        values.add("Nog");
-        addDecade(values, "Nog");
-        values.add("Ce");
-
-        // Keep the established compact naming unchanged through Ce (1E303).
-        // From UCe onward, extend with our compositional suffixes.
-        for (int illionIndex = 101; illionIndex <= MAX_ILLION_INDEX; illionIndex++) {
-            values.add(extendedIllionSuffix(illionIndex));
-        }
-
+        addDecade(values, "Vg"); values.add("Tg"); addDecade(values, "Tg");
+        values.add("Qag"); addDecade(values, "Qag"); values.add("Qig"); addDecade(values, "Qig");
+        values.add("Sxg"); addDecade(values, "Sxg"); values.add("Spg"); addDecade(values, "Spg");
+        values.add("Ocg"); addDecade(values, "Ocg"); values.add("Nog"); addDecade(values, "Nog"); values.add("Ce");
+        for (int illionIndex = 101; illionIndex <= MAX_ILLION_INDEX; illionIndex++) values.add(extendedIllionSuffix(illionIndex));
         return values.toArray(new String[0]);
     }
 
@@ -114,14 +100,11 @@ final class LargeNumberValue {
 
     private static String belowHundredExtendedSuffix(int value) {
         if (value <= 0) return "";
-        int tens = value / 10;
-        int ones = value % 10;
+        int tens = value / 10, ones = value % 10;
         return UNIT_PREFIXES[ones] + TENS_SUFFIXES[tens];
     }
 
-    private static String componentInitial(String component) {
-        return component == null || component.isEmpty() ? "" : component.substring(0, 1);
-    }
+    private static String componentInitial(String component) { return component == null || component.isEmpty() ? "" : component.substring(0, 1); }
 
     private static void addDecade(List<String> values, String base) {
         String[] prefixes = {"U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
