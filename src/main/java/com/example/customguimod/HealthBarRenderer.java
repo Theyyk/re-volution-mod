@@ -84,7 +84,8 @@ public class HealthBarRenderer {
 
         FontRenderer font = Minecraft.getMinecraft().fontRenderer;
 
-        String hpText = (int) Math.ceil(currentHp) + " / " + (int) Math.ceil(maxHp);
+        String hpText = LargeNumberFormatter.format(Math.ceil(currentHp))
+                + " / " + LargeNumberFormatter.format(Math.ceil(maxHp));
         int hpWidth = font.getStringWidth(hpText);
         GlStateManager.pushMatrix();
         GlStateManager.scale(0.5f, 0.5f, 0.5f);
@@ -94,12 +95,21 @@ public class HealthBarRenderer {
         int nameWidth = font.getStringWidth(mobName);
         font.drawString("§c" + mobName, -nameWidth / 2, -10, 0xFFFFFF);
 
-        String resourceText = getDisplayResource(resource) + " x" + resourceAmount;
+        String resourceText = getDisplayResource(resource) + " x" + compactResourceAmount(resourceAmount);
         int resWidth = font.getStringWidth(resourceText);
         font.drawString("§e" + resourceText, -resWidth / 2, barHeight + 1, 0xFFFFFF);
 
         GlStateManager.popAttrib();
         GlStateManager.popMatrix();
+    }
+
+    private String compactResourceAmount(String rawAmount) {
+        if (rawAmount == null || rawAmount.trim().isEmpty()) return "0";
+        try {
+            return LargeNumberFormatter.format(Double.parseDouble(rawAmount.trim()));
+        } catch (NumberFormatException ignored) {
+            return rawAmount;
+        }
     }
 
     private String getDisplayResource(String resource) {
