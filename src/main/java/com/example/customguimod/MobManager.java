@@ -6,6 +6,8 @@ import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.monster.EntitySkeleton;
 import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
@@ -14,6 +16,7 @@ import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingExperienceDropEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.world.ChunkDataEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -74,12 +77,9 @@ public class MobManager {
 
         for (Entity entity : new ArrayList<>(world.loadedEntityList)) {
             if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) continue;
-            if (!entity.hasCustomName()) continue;
-            String rawName = entity.getCustomNameTag();
-            if (isCustomMobName(rawName)) {
-                entity.setDead();
-                CustomGuiMod.logger.info("Removed old persisted custom mob: " + rawName);
-            }
+            if (!isManagedOrLegacyCustomMob(entity)) continue;
+            entity.setDead();
+            CustomGuiMod.logger.info("Removed old persisted managed mob: " + entity.getUniqueID());
         }
 
         spawns.clear();
@@ -206,15 +206,39 @@ public class MobManager {
         if (event.getWorld().isRemote) return;
         Entity entity = event.getEntity();
         if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) return;
-        if (!entity.hasCustomName() || !isCustomMobName(entity.getCustomNameTag())) return;
+        if (!isManagedOrLegacyCustomMob(entity)) return;
 
         String entitySessionId = entity.getEntityData().getString(SESSION_TAG);
         if (managedSessionId.equals(entitySessionId)) return;
 
         event.setCanceled(true);
         entity.setDead();
-        CustomGuiMod.logger.info("Prevented stale persisted custom mob from rejoining world: "
-                + entity.getCustomNameTag());
+        CustomGuiMod.logger.info("Prevented stale persisted managed mob from rejoining world: "
+                + entity.getUniqueID());
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onChunkSave(ChunkDataEvent.Save event) {
+        NBTTagCompound root = event.getData();
+        if (root == null || !root.hasKey("Level", 10)) return;
+        NBTTagCompound level = root.getCompoundTag("Level");
+        if (!level.hasKey("Entities", 9)) return;
+
+        NBTTagList entities = level.getTagList("Entities", 10);
+        int removed = 0;
+        for (int i = entities.tagCount() - 1; i >= 0; i--) {
+            NBTTagCompound entityTag = entities.getCompoundTagAt(i);
+            if (!isManagedOrLegacyCustomMobNbt(entityTag)) continue;
+            entities.removeTag(i);
+            removed++;
+        }
+
+        if (removed > 0) {
+            level.setTag("Entities", entities);
+            root.setTag("Level", level);
+            CustomGuiMod.logger.info("Skipped persisting " + removed + " managed mob(s) in chunk "
+                    + event.getChunk().x + ", " + event.getChunk().z);
+        }
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
@@ -302,8 +326,7 @@ public class MobManager {
         if (!(event.getEntityLiving() instanceof EntityZombie)
                 && !(event.getEntityLiving() instanceof EntitySkeleton)) return;
         EntityLiving entity = (EntityLiving) event.getEntityLiving();
-        if (!entity.hasCustomName()) return;
-        if (!isCustomMobName(entity.getCustomNameTag())) return;
+        if (!isManagedOrLegacyCustomMob(entity)) return;
         event.getDrops().clear();
         event.setCanceled(true);
     }
@@ -313,9 +336,23 @@ public class MobManager {
         if (!(event.getEntityLiving() instanceof EntityZombie)
                 && !(event.getEntityLiving() instanceof EntitySkeleton)) return;
         EntityLiving entity = (EntityLiving) event.getEntityLiving();
-        if (!entity.hasCustomName()) return;
-        if (!isCustomMobName(entity.getCustomNameTag())) return;
+        if (!isManagedOrLegacyCustomMob(entity)) return;
         event.setDroppedExperience(0);
+    }
+
+    private static boolean isManagedOrLegacyCustomMob(Entity entity) {
+        if (entity == null) return false;
+        if (!entity.getEntityData().getString(SESSION_TAG).isEmpty()) return true;
+        return entity.hasCustomName() && isCustomMobName(entity.getCustomNameTag());
+    }
+
+    private static boolean isManagedOrLegacyCustomMobNbt(NBTTagCompound entityTag) {
+        if (entityTag == null) return false;
+        if (entityTag.hasKey("ForgeData", 10)) {
+            String session = entityTag.getCompoundTag("ForgeData").getString(SESSION_TAG);
+            if (!session.isEmpty()) return true;
+        }
+        return entityTag.hasKey("CustomName", 8) && isCustomMobName(entityTag.getString("CustomName"));
     }
 
     private static boolean isCustomMobName(String rawName) {
