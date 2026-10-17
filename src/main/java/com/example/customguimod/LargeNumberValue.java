@@ -8,8 +8,16 @@ import java.util.List;
 final class LargeNumberValue {
     static final int CENTILLION_UNIT_INDEX = 101;
     private static final int MAX_ILLION_INDEX = 999;
-    private static final String[] UNIT_PREFIXES = {"", "U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
-    private static final String[] TENS_SUFFIXES = {"", "Dc", "Vg", "Tg", "Qag", "Qig", "Sxg", "Spg", "Ocg", "Nog"};
+
+    // Fixed abbreviations through centillion are based on short-scale names.
+    // Examples: undecillion -> UDc, unvigintillion -> UVg,
+    // nonagintillion -> Ng, novemnonagintillion -> NNg, centillion -> Ce.
+    private static final String[] STANDARD_UNIT_PREFIXES = {"", "U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "N"};
+    private static final String[] STANDARD_TENS_SUFFIXES = {"", "Dc", "Vg", "Tg", "Qag", "Qig", "Sxg", "Spg", "Ocg", "Ng"};
+
+    // Post-centillion FULL mode keeps the custom compositional RE:volution scheme.
+    private static final String[] EXTENDED_UNIT_PREFIXES = {"", "U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
+    private static final String[] EXTENDED_TENS_SUFFIXES = {"", "Dc", "Vg", "Tg", "Qag", "Qig", "Sxg", "Spg", "Ocg", "Nog"};
     private static final String[] HUNDREDS_SUFFIXES = {"", "Ce", "Du", "Tr", "Qe", "Qn", "Ses", "Sts", "Ot", "Nt"};
     private static final String[] SUFFIXES = buildSuffixes();
 
@@ -30,8 +38,8 @@ final class LargeNumberValue {
         int tens = remainder / 10;
         int ones = remainder % 10;
         StringBuilder result = new StringBuilder();
-        if (ones > 0) result.append(componentInitial(UNIT_PREFIXES[ones]));
-        if (tens > 0) result.append(componentInitial(TENS_SUFFIXES[tens]));
+        if (ones > 0) result.append(componentInitial(EXTENDED_UNIT_PREFIXES[ones]));
+        if (tens > 0) result.append(componentInitial(EXTENDED_TENS_SUFFIXES[tens]));
         if (hundreds > 0) {
             String hundredsSuffix = HUNDREDS_SUFFIXES[hundreds];
             result.append(mode == LargeNumberDisplayMode.ABBREVIATED ? hundredsSuffix : componentInitial(hundredsSuffix));
@@ -82,15 +90,24 @@ final class LargeNumberValue {
 
     private static String[] buildSuffixes() {
         List<String> values = new ArrayList<>();
-        String[] standard = {"", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
-                "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg"};
-        for (String suffix : standard) values.add(suffix);
-        addDecade(values, "Vg"); values.add("Tg"); addDecade(values, "Tg");
-        values.add("Qag"); addDecade(values, "Qag"); values.add("Qig"); addDecade(values, "Qig");
-        values.add("Sxg"); addDecade(values, "Sxg"); values.add("Spg"); addDecade(values, "Spg");
-        values.add("Ocg"); addDecade(values, "Ocg"); values.add("Nog"); addDecade(values, "Nog"); values.add("Ce");
-        for (int illionIndex = 101; illionIndex <= MAX_ILLION_INDEX; illionIndex++) values.add(extendedIllionSuffix(illionIndex));
+        String[] base = {"", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
+        for (String suffix : base) values.add(suffix);
+
+        for (int illionIndex = 10; illionIndex < 100; illionIndex++) {
+            values.add(standardIllionSuffix(illionIndex));
+        }
+        values.add("Ce");
+
+        for (int illionIndex = 101; illionIndex <= MAX_ILLION_INDEX; illionIndex++) {
+            values.add(extendedIllionSuffix(illionIndex));
+        }
         return values.toArray(new String[0]);
+    }
+
+    private static String standardIllionSuffix(int illionIndex) {
+        int tens = illionIndex / 10;
+        int ones = illionIndex % 10;
+        return STANDARD_UNIT_PREFIXES[ones] + STANDARD_TENS_SUFFIXES[tens];
     }
 
     private static String extendedIllionSuffix(int illionIndex) {
@@ -102,13 +119,8 @@ final class LargeNumberValue {
     private static String belowHundredExtendedSuffix(int value) {
         if (value <= 0) return "";
         int tens = value / 10, ones = value % 10;
-        return UNIT_PREFIXES[ones] + TENS_SUFFIXES[tens];
+        return EXTENDED_UNIT_PREFIXES[ones] + EXTENDED_TENS_SUFFIXES[tens];
     }
 
     private static String componentInitial(String component) { return component == null || component.isEmpty() ? "" : component.substring(0, 1); }
-
-    private static void addDecade(List<String> values, String base) {
-        String[] prefixes = {"U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
-        for (String prefix : prefixes) values.add(prefix + base);
-    }
 }
