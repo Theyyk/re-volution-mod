@@ -33,12 +33,13 @@ final class LargeNumberFormatterTest {
                 "Unit input should display only two decimal places");
 
         check(LargeNumberValue.unitSuffix(11, LargeNumberDisplayMode.FULL).equals("Dc"), "Decillion unit index changed");
-        check(LargeNumberValue.unitSuffix(12, LargeNumberDisplayMode.FULL).equals("Ud"), "Standard undecillion suffix changed");
-        check(LargeNumberValue.unitSuffix(13, LargeNumberDisplayMode.FULL).equals("Dd"), "Standard duodecillion suffix changed");
+        check(LargeNumberValue.unitSuffix(12, LargeNumberDisplayMode.FULL).equals("UDc"), "Undecillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(13, LargeNumberDisplayMode.FULL).equals("DDc"), "Duodecillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(20, LargeNumberDisplayMode.FULL).equals("NDc"), "Novemdecillion abbreviation changed");
         check(LargeNumberValue.unitSuffix(21, LargeNumberDisplayMode.FULL).equals("Vg"), "Vigintillion unit mapping changed");
-        check(LargeNumberValue.unitSuffix(22, LargeNumberDisplayMode.FULL).equals("UVg"), "Standard post-vigintillion suffix changed");
-        check(LargeNumberValue.unitSuffix(91, LargeNumberDisplayMode.FULL).equals("Nog"), "Nonagintillion unit mapping changed");
-        check(LargeNumberValue.unitSuffix(100, LargeNumberDisplayMode.FULL).equals("NoNog"), "Novemnonagintillion unit mapping changed");
+        check(LargeNumberValue.unitSuffix(22, LargeNumberDisplayMode.FULL).equals("UVg"), "Unvigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(91, LargeNumberDisplayMode.FULL).equals("Ng"), "Nonagintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(100, LargeNumberDisplayMode.FULL).equals("NNg"), "Novemnonagintillion abbreviation changed");
         check(LargeNumberValue.unitSuffix(101, LargeNumberDisplayMode.FULL).equals("Ce"), "Centillion unit mapping changed");
         check(LargeNumberValue.unitSuffix(102, LargeNumberDisplayMode.FULL).equals("UCe"), "Custom continuation should start after centillion");
         check(LargeNumberValue.unitSuffix(190, LargeNumberDisplayMode.FULL).equals("NoOcgCe"), "1E570 full suffix mapping changed");
@@ -58,8 +59,8 @@ final class LargeNumberFormatterTest {
                 "1E1236 short suffix mapping changed");
         check(LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.SHORT).equals("QQQ"),
                 "1E1335 short suffix mapping changed");
-        check(LargeNumberValue.unitSuffix(100, LargeNumberDisplayMode.SCIENTIFIC).equals("NoNog"),
-                "Scientific mode must keep the established suffixes through centillion");
+        check(LargeNumberValue.unitSuffix(100, LargeNumberDisplayMode.SCIENTIFIC).equals("NNg"),
+                "Scientific mode must keep the fixed suffixes through centillion");
         check(LargeNumberValue.unitSuffix(101, LargeNumberDisplayMode.SCIENTIFIC).equals("Ce"),
                 "Scientific mode must keep centillion unchanged");
         check(LargeNumberValue.unitSuffix(102, LargeNumberDisplayMode.SCIENTIFIC).equals("E306"),
@@ -67,8 +68,8 @@ final class LargeNumberFormatterTest {
         check(LargeNumberValue.unitSuffix(190, LargeNumberDisplayMode.SCIENTIFIC).equals("E570"),
                 "Scientific unit selector exponent mapping changed");
 
-        check(LargeNumberFormatter.format(new BigDecimal("1E300"), LargeNumberDisplayMode.FULL).equals("1NoNog"),
-                "The unit immediately before centillion should remain 1NoNog");
+        check(LargeNumberFormatter.format(new BigDecimal("1E300"), LargeNumberDisplayMode.FULL).equals("1NNg"),
+                "The unit immediately before centillion should be 1NNg");
         check(LargeNumberFormatter.format(new BigDecimal("1E303"), LargeNumberDisplayMode.SHORT).equals("1Ce"),
                 "Values through centillion must ignore the post-Ce display mode");
         check(LargeNumberFormatter.format(new BigDecimal("1E570"), LargeNumberDisplayMode.FULL).equals("1NoOcgCe"),
@@ -91,8 +92,8 @@ final class LargeNumberFormatterTest {
                 "The extended compact suffix range should reach 1E3000");
         check(LargeNumberFormatter.format(new BigDecimal("1E3003"), LargeNumberDisplayMode.FULL).equals("1E3003"),
                 "Values beyond the configured compact suffix range should fall back to scientific notation");
-        check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1000", 11)).equals("1Ud"),
-                "1000 Dc should roll over to the standard next named unit");
+        check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1000", 11)).equals("1UDc"),
+                "1000 Dc should roll over to undecillion");
 
         check(RuneStatType.CLICK_DAMAGE_FLAT.format(40_015.5D).equals("+40.02K"),
                 "Rune stat display should use the shared large number formatter");
