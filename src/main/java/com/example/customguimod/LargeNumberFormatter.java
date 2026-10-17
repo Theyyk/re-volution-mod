@@ -1,7 +1,6 @@
 package com.example.customguimod;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 
 /** Shared presentation-only formatter for large numeric values. */
@@ -31,28 +30,22 @@ final class LargeNumberFormatter {
         if (abs.compareTo(THOUSAND) < 0) return compactPlain(normalized);
 
         int integerDigits = normalized.precision() - normalized.scale();
-        int suffixIndex = Math.max(0, (integerDigits - 1) / 3);
-
-        if (suffixIndex > LargeNumberValue.CENTILLION_UNIT_INDEX
-                && mode == LargeNumberDisplayMode.SCIENTIFIC) {
-            return scientific(normalized);
+        int unitIndex = Math.max(0, (integerDigits - 1) / 3);
+        if (mode == LargeNumberDisplayMode.ENGINEERING) {
+            return engineering(normalized, unitIndex);
         }
 
-        if (suffixIndex < LargeNumberValue.unitCount()) {
-            BigDecimal scaled = normalized.movePointLeft(suffixIndex * 3);
+        if (unitIndex < LargeNumberValue.unitCount()) {
+            BigDecimal scaled = normalized.movePointLeft(unitIndex * 3);
             BigDecimal rounded = scaled.setScale(2, RoundingMode.HALF_UP);
-            if (rounded.abs().compareTo(THOUSAND) >= 0 && suffixIndex + 1 < LargeNumberValue.unitCount()) {
-                suffixIndex++;
-                scaled = normalized.movePointLeft(suffixIndex * 3);
-                if (suffixIndex > LargeNumberValue.CENTILLION_UNIT_INDEX
-                        && mode == LargeNumberDisplayMode.SCIENTIFIC) {
-                    return scientific(normalized);
-                }
+            if (rounded.abs().compareTo(THOUSAND) >= 0 && unitIndex + 1 < LargeNumberValue.unitCount()) {
+                unitIndex++;
+                scaled = normalized.movePointLeft(unitIndex * 3);
             }
-            return compactPlain(scaled) + LargeNumberValue.unitSuffix(suffixIndex, mode);
+            return compactPlain(scaled) + LargeNumberValue.unitSuffix(unitIndex, LargeNumberDisplayMode.LETTER);
         }
 
-        return scientific(normalized);
+        return engineering(normalized, unitIndex);
     }
 
     static String compactPlain(double value) {
@@ -65,14 +58,14 @@ final class LargeNumberFormatter {
         return value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
     }
 
-    private static String scientific(BigDecimal value) {
-        BigDecimal rounded = value.round(new MathContext(3, RoundingMode.HALF_UP));
-        String text = rounded.toString();
-        if (!text.contains("E")) {
-            int exponent = value.precision() - value.scale() - 1;
-            BigDecimal mantissa = value.movePointLeft(exponent).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
-            text = mantissa.toPlainString() + "E" + exponent;
+    private static String engineering(BigDecimal value, int unitIndex) {
+        int exponent = Math.max(0, unitIndex * 3);
+        BigDecimal mantissa = value.movePointLeft(exponent);
+        BigDecimal rounded = mantissa.setScale(2, RoundingMode.HALF_UP);
+        if (rounded.abs().compareTo(THOUSAND) >= 0) {
+            exponent += 3;
+            mantissa = value.movePointLeft(exponent);
         }
-        return text.replace("E+", "E");
+        return compactPlain(mantissa) + "E" + exponent;
     }
 }
