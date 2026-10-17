@@ -31,11 +31,12 @@ public class MobManager {
     private static final double STATUS_EFFECT_RADIUS = 2.0D;
     private static final double STATUS_EFFECT_RADIUS_SQ = STATUS_EFFECT_RADIUS * STATUS_EFFECT_RADIUS;
     private static final BigDecimal VANILLA_MAX_HEALTH = new BigDecimal("1024");
+    private static final String SESSION_TAG = "revolutionManagedSession";
     private static final List<MobSpawn> spawns = new ArrayList<>();
     private static final Set<UUID> poisonDamagePlayers = new HashSet<>();
-    private static final Set<UUID> spawningManagedEntityIds = new HashSet<>();
     private static World serverWorld;
     private static int poisonTickCounter;
+    private static String managedSessionId = UUID.randomUUID().toString();
 
     public static class MobSpawn {
         public String name;
@@ -68,8 +69,8 @@ public class MobManager {
     public static void loadFromDatabase(World world) {
         serverWorld = world;
         poisonDamagePlayers.clear();
-        spawningManagedEntityIds.clear();
         poisonTickCounter = 0;
+        managedSessionId = UUID.randomUUID().toString();
 
         for (Entity entity : new ArrayList<>(world.loadedEntityList)) {
             if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) continue;
@@ -161,6 +162,7 @@ public class MobManager {
         spawn.currentHp = spawn.hp;
         entity.setPosition(spawn.x, spawn.y, spawn.z);
         syncMobMetadata(spawn, entity);
+        entity.getEntityData().setString(SESSION_TAG, managedSessionId);
         entity.setAlwaysRenderNameTag(true);
         entity.setFire(0);
 
@@ -173,16 +175,7 @@ public class MobManager {
         entity.setNoAI(true);
         entity.forceSpawn = true;
 
-        UUID entityId = entity.getUniqueID();
-        boolean spawned;
-        spawningManagedEntityIds.add(entityId);
-        try {
-            spawned = serverWorld.spawnEntity(entity);
-        } finally {
-            spawningManagedEntityIds.remove(entityId);
-        }
-
-        if (!spawned) {
+        if (!serverWorld.spawnEntity(entity)) {
             spawn.entity = null;
             spawn.respawnTimer = 20;
             if (!spawn.spawnFailureLogged) {
@@ -214,7 +207,9 @@ public class MobManager {
         Entity entity = event.getEntity();
         if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) return;
         if (!entity.hasCustomName() || !isCustomMobName(entity.getCustomNameTag())) return;
-        if (spawningManagedEntityIds.contains(entity.getUniqueID())) return;
+
+        String entitySessionId = entity.getEntityData().getString(SESSION_TAG);
+        if (managedSessionId.equals(entitySessionId)) return;
 
         event.setCanceled(true);
         entity.setDead();
