@@ -1,77 +1,66 @@
 package com.example.customguimod;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.Locale;
 
-/**
- * Shared presentation-only formatter for large numeric values.
- * Gameplay/storage values stay untouched; only the text shown to the player is compacted.
- */
+/** Shared presentation-only formatter for large numeric values. */
 final class LargeNumberFormatter {
-    private static final double THOUSAND = 1000.0D;
-    private static final String[] SUFFIXES = {
-            "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"
-    };
+    private static final BigDecimal THOUSAND = new BigDecimal("1000");
 
     private LargeNumberFormatter() {}
 
     static String format(long value) {
-        return format((double) value);
+        return format(BigDecimal.valueOf(value));
     }
 
     static String format(double value) {
         if (!Double.isFinite(value)) return "0";
-        if (value == 0.0D) return "0";
+        return format(BigDecimal.valueOf(value));
+    }
 
-        double abs = Math.abs(value);
-        if (abs < THOUSAND) return compactPlain(value);
+    static String format(BigDecimal value) {
+        if (value == null || value.signum() == 0) return "0";
 
-        int suffixIndex = 0;
-        double scaled = value;
-        while (Math.abs(scaled) >= THOUSAND && suffixIndex < SUFFIXES.length - 1) {
-            scaled /= THOUSAND;
-            suffixIndex++;
+        BigDecimal normalized = LargeNumberValue.normalize(value);
+        BigDecimal abs = normalized.abs();
+        if (abs.compareTo(THOUSAND) < 0) return compactPlain(normalized);
+
+        int integerDigits = normalized.precision() - normalized.scale();
+        int suffixIndex = Math.max(0, (integerDigits - 1) / 3);
+
+        if (suffixIndex < LargeNumberValue.unitCount()) {
+            BigDecimal scaled = normalized.movePointLeft(suffixIndex * 3);
+            BigDecimal rounded = scaled.setScale(2, RoundingMode.HALF_UP);
+            if (rounded.abs().compareTo(THOUSAND) >= 0 && suffixIndex + 1 < LargeNumberValue.unitCount()) {
+                suffixIndex++;
+                scaled = normalized.movePointLeft(suffixIndex * 3);
+            }
+            return compactPlain(scaled) + LargeNumberValue.unitSuffix(suffixIndex);
         }
 
-        scaled = roundToTwoDecimals(scaled);
-        if (Math.abs(scaled) >= THOUSAND && suffixIndex < SUFFIXES.length - 1) {
-            scaled /= THOUSAND;
-            suffixIndex++;
-            scaled = roundToTwoDecimals(scaled);
-        }
-
-        if (suffixIndex == SUFFIXES.length - 1 && Math.abs(scaled) >= THOUSAND) {
-            return scientific(value);
-        }
-
-        return compactPlain(scaled) + SUFFIXES[suffixIndex];
+        return scientific(normalized);
     }
 
     static String compactPlain(double value) {
         if (!Double.isFinite(value)) return "0";
-        if (value == 0.0D) return "0";
-        if (value == Math.rint(value) && value >= Long.MIN_VALUE && value <= Long.MAX_VALUE) {
-            return String.valueOf((long) value);
+        return compactPlain(BigDecimal.valueOf(value));
+    }
+
+    static String compactPlain(BigDecimal value) {
+        if (value == null || value.signum() == 0) return "0";
+        return value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
+    }
+
+    private static String scientific(BigDecimal value) {
+        BigDecimal rounded = value.round(new MathContext(3, RoundingMode.HALF_UP));
+        String text = rounded.toString();
+        if (!text.contains("E")) {
+            int exponent = value.precision() - value.scale() - 1;
+            BigDecimal mantissa = value.movePointLeft(exponent).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
+            text = mantissa.toPlainString() + "E" + exponent;
         }
-
-        BigDecimal decimal = BigDecimal.valueOf(value)
-                .setScale(2, RoundingMode.HALF_UP)
-                .stripTrailingZeros();
-        return decimal.toPlainString();
-    }
-
-    private static double roundToTwoDecimals(double value) {
-        return BigDecimal.valueOf(value)
-                .setScale(2, RoundingMode.HALF_UP)
-                .doubleValue();
-    }
-
-    private static String scientific(double value) {
-        String text = String.format(Locale.ROOT, "%.2E", value);
-        text = text.replaceAll("\\.00E", "E");
-        text = text.replaceAll("(\\.[0-9])0E", "$1E");
-        text = text.replace("E+", "E");
-        return text;
+        return text.replace("E+", "E");
     }
 }
