@@ -9,42 +9,44 @@ final class LargeNumberValue {
     static final int CENTILLION_UNIT_INDEX = 101;
     private static final int MAX_ILLION_INDEX = 999;
 
-    // Fixed abbreviations through centillion are based on short-scale names.
-    // Examples: undecillion -> UDc, unvigintillion -> UVg,
-    // nonagintillion -> Ng, novemnonagintillion -> NNg, centillion -> Ce.
-    private static final String[] STANDARD_UNIT_PREFIXES = {"", "U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "N"};
-    private static final String[] STANDARD_TENS_SUFFIXES = {"", "Dc", "Vg", "Tg", "Qag", "Qig", "Sxg", "Spg", "Ocg", "Ng"};
+    private static final String[] SMALL_SUFFIXES = {
+            "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No",
+            "Dc", "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod"
+    };
 
-    // Post-centillion FULL mode keeps the custom compositional RE:volution scheme.
-    private static final String[] EXTENDED_UNIT_PREFIXES = {"", "U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
-    private static final String[] EXTENDED_TENS_SUFFIXES = {"", "Dc", "Vg", "Tg", "Qag", "Qig", "Sxg", "Spg", "Ocg", "Nog"};
-    private static final String[] HUNDREDS_SUFFIXES = {"", "Ce", "Du", "Tr", "Qe", "Qn", "Ses", "Sts", "Ot", "Nt"};
+    private static final String[] VIGINTILLION_BLOCK = {
+            "Vg", "Uvg", "Dvg", "Tvg", "Qavg", "Qivg", "Sxvg", "Spvg", "Ocvg", "Nov"
+    };
+
+    private static final String[] TRIGINTILLION_BLOCK = {
+            "Tt", "Unt", "Dtt", "Ttt", "Qut", "Qat", "Sst", "Spt", "Oct", "Nvt"
+    };
+
+    private static final String[] DECADE_ROOTS = {
+            "", "Dc", "Vg", "Tt", "Qdt", "Qqt", "Sxt", "Sgt", "Oi", "Noi"
+    };
+
+    private static final String[] GENERIC_PREFIXES = {
+            "", "U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "Nv"
+    };
+
+    private static final String[] HUNDREDS_ROOTS = {
+            "", "C", "Cnn", "Trcn", "Qdcn", "Qncn", "Sxcn", "Spcn", "Occn", "Nvcn"
+    };
+
     private static final String[] SUFFIXES = buildSuffixes();
 
     private LargeNumberValue() {}
 
     static int unitCount() { return SUFFIXES.length; }
 
-    /** Client-facing unit labels follow the player's selected post-Ce display mode. */
     static String unitSuffix(int index) { return unitSuffix(index, LargeNumberDisplaySettings.getMode()); }
 
     static String unitSuffix(int index, LargeNumberDisplayMode mode) {
         if (index < 0 || index >= SUFFIXES.length) return "";
-        if (index <= CENTILLION_UNIT_INDEX || mode == null || mode == LargeNumberDisplayMode.FULL) return SUFFIXES[index];
-        if (mode == LargeNumberDisplayMode.SCIENTIFIC) return "E" + (index * 3);
-        int illionIndex = index - 1;
-        int hundreds = illionIndex / 100;
-        int remainder = illionIndex % 100;
-        int tens = remainder / 10;
-        int ones = remainder % 10;
-        StringBuilder result = new StringBuilder();
-        if (ones > 0) result.append(componentInitial(EXTENDED_UNIT_PREFIXES[ones]));
-        if (tens > 0) result.append(componentInitial(EXTENDED_TENS_SUFFIXES[tens]));
-        if (hundreds > 0) {
-            String hundredsSuffix = HUNDREDS_SUFFIXES[hundreds];
-            result.append(mode == LargeNumberDisplayMode.ABBREVIATED ? hundredsSuffix : componentInitial(hundredsSuffix));
-        }
-        return result.toString();
+        if (index == 0) return "";
+        if (mode == LargeNumberDisplayMode.ENGINEERING) return "E" + (index * 3);
+        return SUFFIXES[index];
     }
 
     static BigDecimal parseWithUnit(String rawMantissa, int unitIndex) {
@@ -55,7 +57,7 @@ final class LargeNumberValue {
         return normalize(mantissa.movePointRight(unitIndex * 3));
     }
 
-    /** Accepts plain/scientific numbers and full compact suffixes such as 1T, 1Ce or 1QaQagQe. */
+    /** Accepts plain/scientific numbers and the canonical letter suffixes. */
     static BigDecimal parseFlexible(String raw) {
         String value = raw == null ? "" : raw.trim().replace(',', '.');
         if (value.isEmpty()) throw new NumberFormatException("empty value");
@@ -90,37 +92,41 @@ final class LargeNumberValue {
 
     private static String[] buildSuffixes() {
         List<String> values = new ArrayList<>();
-        String[] base = {"", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
-        for (String suffix : base) values.add(suffix);
+        for (String suffix : SMALL_SUFFIXES) values.add(suffix);
+        for (String suffix : VIGINTILLION_BLOCK) values.add(suffix);
+        for (String suffix : TRIGINTILLION_BLOCK) values.add(suffix);
 
-        for (int illionIndex = 10; illionIndex < 100; illionIndex++) {
-            values.add(standardIllionSuffix(illionIndex));
+        for (int illionIndex = 40; illionIndex < 100; illionIndex++) {
+            values.add(letterBelowHundred(illionIndex));
         }
-        values.add("Ce");
+        values.add("C");
 
         for (int illionIndex = 101; illionIndex <= MAX_ILLION_INDEX; illionIndex++) {
-            values.add(extendedIllionSuffix(illionIndex));
+            values.add(letterExtended(illionIndex));
         }
         return values.toArray(new String[0]);
     }
 
-    private static String standardIllionSuffix(int illionIndex) {
+    private static String letterBelowHundred(int illionIndex) {
         int tens = illionIndex / 10;
         int ones = illionIndex % 10;
-        return STANDARD_UNIT_PREFIXES[ones] + STANDARD_TENS_SUFFIXES[tens];
+        String root = DECADE_ROOTS[tens];
+        if (ones == 0) return root;
+        return GENERIC_PREFIXES[ones] + root.toLowerCase();
     }
 
-    private static String extendedIllionSuffix(int illionIndex) {
+    private static String letterExtended(int illionIndex) {
         int hundreds = illionIndex / 100;
         int remainder = illionIndex % 100;
-        return belowHundredExtendedSuffix(remainder) + HUNDREDS_SUFFIXES[hundreds];
+        String hundredRoot = HUNDREDS_ROOTS[Math.min(hundreds, HUNDREDS_ROOTS.length - 1)];
+        if (remainder == 0) return hundredRoot;
+        if (hundreds == 1 && remainder >= 20 && remainder < 30) {
+            int ones = remainder % 10;
+            if (ones == 0) return "Vgn";
+            String[] block = {"Vgn", "Uvgn", "Dvgn", "Tvgn", "Qavgn", "Qivgn", "Sxvgn", "Spvgn", "Ocvgn", "Nvgn"};
+            return block[ones];
+        }
+        String lower = remainder < 100 ? letterBelowHundred(remainder) : "";
+        return lower + hundredRoot;
     }
-
-    private static String belowHundredExtendedSuffix(int value) {
-        if (value <= 0) return "";
-        int tens = value / 10, ones = value % 10;
-        return EXTENDED_UNIT_PREFIXES[ones] + EXTENDED_TENS_SUFFIXES[tens];
-    }
-
-    private static String componentInitial(String component) { return component == null || component.isEmpty() ? "" : component.substring(0, 1); }
 }
