@@ -39,27 +39,45 @@ final class LargeNumberFormatterTest {
         check(LargeNumberValue.unitSuffix(22).equals("UVg"), "Standard post-vigintillion suffix changed");
         check(LargeNumberValue.unitSuffix(101).equals("Ce"), "Centillion unit mapping changed");
         check(LargeNumberValue.unitSuffix(102).equals("UCe"), "Custom continuation should start after centillion");
-        check(LargeNumberValue.unitSuffix(103).equals("DCe"), "Duocentillion continuation changed");
-        check(LargeNumberValue.unitSuffix(104).equals("TCe"), "Trescentillion continuation changed");
-        check(LargeNumberValue.unitSuffix(105).equals("QaCe"), "Quattuorcentillion continuation changed");
-        check(LargeNumberValue.unitSuffix(106).equals("QiCe"), "Quincentillion continuation changed");
-        check(LargeNumberValue.unitSuffix(107).equals("SxCe"), "Sexcentillion continuation changed");
-        check(LargeNumberValue.unitSuffix(108).equals("SpCe"), "Septencentillion continuation changed");
-        check(LargeNumberValue.unitSuffix(109).equals("OcCe"), "Octocentillion continuation changed");
-        check(LargeNumberValue.unitSuffix(110).equals("NoCe"), "Novemcentillion continuation changed");
-        check(LargeNumberValue.unitSuffix(111).equals("DcCe"), "Decicentillion continuation changed");
-        check(LargeNumberValue.unitSuffix(411).equals("DcQe"), "1E1233 compact unit mapping changed");
+        check(LargeNumberValue.unitSuffix(190).equals("NoOcgCe"), "1E570 full suffix mapping changed");
+        check(LargeNumberValue.unitSuffix(412).equals("UDcQe"), "1E1236 full suffix mapping changed");
+        check(LargeNumberValue.unitSuffix(445).equals("QaQagQe"), "1E1335 full suffix mapping changed");
         check(LargeNumberValue.unitCount() == 1001, "Compact units should extend through the 999th -illion");
 
-        check(LargeNumberFormatter.format(new BigDecimal("1E303")).equals("1Ce"),
-                "Centillion should remain compactly formatted");
-        check(LargeNumberFormatter.format(new BigDecimal("1E306")).equals("1UCe"),
-                "Values above centillion should continue with custom Latin-style suffixes");
-        check(LargeNumberFormatter.format(new BigDecimal("1E1233")).equals("1DcQe"),
-                "1E1233 should use the extended compact Latin-style suffix");
-        check(LargeNumberFormatter.format(new BigDecimal("1E3000")).equals("1NoNogNt"),
+        check(LargeNumberValue.unitSuffix(190, LargeNumberDisplayMode.ABBREVIATED).equals("NOCe"),
+                "1E570 abbreviated suffix mapping changed");
+        check(LargeNumberValue.unitSuffix(412, LargeNumberDisplayMode.ABBREVIATED).equals("UDQe"),
+                "1E1236 abbreviated suffix mapping changed");
+        check(LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.ABBREVIATED).equals("QQQe"),
+                "1E1335 abbreviated suffix mapping changed");
+        check(LargeNumberValue.unitSuffix(190, LargeNumberDisplayMode.SHORT).equals("NOC"),
+                "1E570 short suffix mapping changed");
+        check(LargeNumberValue.unitSuffix(412, LargeNumberDisplayMode.SHORT).equals("UDQ"),
+                "1E1236 short suffix mapping changed");
+        check(LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.SHORT).equals("QQQ"),
+                "1E1335 short suffix mapping changed");
+
+        check(LargeNumberFormatter.format(new BigDecimal("1E303"), LargeNumberDisplayMode.SHORT).equals("1Ce"),
+                "Values through centillion must ignore the post-Ce display mode");
+        check(LargeNumberFormatter.format(new BigDecimal("1E570"), LargeNumberDisplayMode.FULL).equals("1NoOcgCe"),
+                "Full mode should use compositional suffixes above centillion");
+        check(LargeNumberFormatter.format(new BigDecimal("1E570"), LargeNumberDisplayMode.ABBREVIATED).equals("1NOCe"),
+                "Abbreviated mode should shorten compositional suffixes");
+        check(LargeNumberFormatter.format(new BigDecimal("1E570"), LargeNumberDisplayMode.SHORT).equals("1NOC"),
+                "Short mode should use three-letter compositional suffixes");
+        check(LargeNumberFormatter.format(new BigDecimal("1E570"), LargeNumberDisplayMode.SCIENTIFIC).equals("1E570"),
+                "Scientific mode should switch only values above centillion to E notation");
+        check(LargeNumberFormatter.format(new BigDecimal("1E1335"), LargeNumberDisplayMode.FULL).equals("1QaQagQe"),
+                "1E1335 full mode mapping changed");
+        check(LargeNumberFormatter.format(new BigDecimal("1E1335"), LargeNumberDisplayMode.ABBREVIATED).equals("1QQQe"),
+                "1E1335 abbreviated mode mapping changed");
+        check(LargeNumberFormatter.format(new BigDecimal("1E1335"), LargeNumberDisplayMode.SHORT).equals("1QQQ"),
+                "1E1335 short mode mapping changed");
+        check(LargeNumberFormatter.format(new BigDecimal("1E1335"), LargeNumberDisplayMode.SCIENTIFIC).equals("1E1335"),
+                "1E1335 scientific mode mapping changed");
+        check(LargeNumberFormatter.format(new BigDecimal("1E3000"), LargeNumberDisplayMode.FULL).equals("1NoNogNt"),
                 "The extended compact suffix range should reach 1E3000");
-        check(LargeNumberFormatter.format(new BigDecimal("1E3003")).equals("1E3003"),
+        check(LargeNumberFormatter.format(new BigDecimal("1E3003"), LargeNumberDisplayMode.FULL).equals("1E3003"),
                 "Values beyond the configured compact suffix range should fall back to scientific notation");
         check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1000", 11)).equals("1Ud"),
                 "1000 Dc should roll over to the standard next named unit");
