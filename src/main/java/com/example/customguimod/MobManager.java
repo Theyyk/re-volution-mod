@@ -36,7 +36,7 @@ public class MobManager {
     public static class MobSpawn {
         public String name;
         public String type;
-        public int hp;
+        public long hp;
         public double currentHp;
         public String resource;
         public int amount;
@@ -45,11 +45,11 @@ public class MobManager {
         public int respawnTimer;
         public boolean spawnFailureLogged;
 
-        public MobSpawn(String name, String type, int hp, String resource, int amount, double x, double y, double z) {
+        public MobSpawn(String name, String type, long hp, String resource, int amount, double x, double y, double z) {
             this.name = name;
             this.type = type;
             this.hp = hp;
-            this.currentHp = Math.max(1, hp);
+            this.currentHp = Math.max(1.0D, hp);
             this.resource = resource;
             this.amount = amount;
             this.x = x;
@@ -96,8 +96,6 @@ public class MobManager {
                     mob.z
             );
 
-            // Spawn on the first completed server tick instead of FMLServerStarting.
-            // This avoids creating tracked entities before the world/entity tracker is fully ready.
             spawn.respawnTimer = 1;
             spawns.add(spawn);
         }
@@ -121,7 +119,7 @@ public class MobManager {
         return Double.isFinite(distanceSq) && distanceSq >= 0.0D && distanceSq <= STATUS_EFFECT_RADIUS_SQ;
     }
 
-    static double nativeHealthFor(int configuredHp) {
+    static double nativeHealthFor(long configuredHp) {
         return Math.max(1.0D, Math.min(VANILLA_MAX_HEALTH, configuredHp));
     }
 
@@ -175,9 +173,6 @@ public class MobManager {
         entity.setAlwaysRenderNameTag(true);
         entity.setFire(0);
 
-        // Minecraft 1.12.2 clamps generic.maxHealth to 1024. Keep the vanilla
-        // entity alive at a legal backing value while authoritative custom HP
-        // lives in MobSpawn.currentHp and is synchronized through the name tag.
         double nativeHealth = nativeHealthFor(spawn.hp);
         entity.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(nativeHealth);
         entity.setHealth((float) nativeHealth);
@@ -185,14 +180,10 @@ public class MobManager {
         entity.getEntityAttribute(SharedMonsterAttributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0D);
         entity.getEntityAttribute(SharedMonsterAttributes.ARMOR).setBaseValue(0.0D);
         entity.setNoAI(true);
-
-        // Spawn points may live in chunks that are not currently loaded. Vanilla
-        // World#spawnEntity rejects those entities unless forceSpawn is set.
         entity.forceSpawn = true;
 
         if (!serverWorld.spawnEntity(entity)) {
             spawn.entity = null;
-            // Retry at most once per second instead of hammering spawnEntity every tick.
             spawn.respawnTimer = 20;
             if (!spawn.spawnFailureLogged) {
                 spawn.spawnFailureLogged = true;
@@ -201,8 +192,8 @@ public class MobManager {
             return;
         }
 
-        spawn.entity = entity;
         spawn.spawnFailureLogged = false;
+        spawn.entity = entity;
         CustomGuiMod.logger.info("Spawned mob: " + spawn.name + " (" + spawn.type + ") at " + spawn.x + ", " + spawn.y + ", " + spawn.z
                 + " with custom HP " + spawn.hp + " (native backing HP " + nativeHealth + ")");
     }
@@ -244,7 +235,6 @@ public class MobManager {
                 finishManagedDeath(spawn, player);
             } else {
                 syncMobMetadata(spawn, spawn.entity);
-                // Keep native backing health full because virtual HP is authoritative.
                 spawn.entity.setHealth((float) nativeHealthFor(spawn.hp));
             }
             return;
