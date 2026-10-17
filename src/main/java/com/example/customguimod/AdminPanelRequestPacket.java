@@ -36,7 +36,6 @@ public final class AdminPanelRequestPacket implements IMessage {
         private static void handle(EntityPlayerMP admin, String action) {
             if (!AdminPanelAccess.isAllowed(admin.getUniqueID())) return;
             if (action.equals("open") || action.equals("refresh")) { sendState(admin); return; }
-
             String[] parts = action.split("\\t", -1);
             if (parts.length == 0) return;
             try {
@@ -45,12 +44,9 @@ public final class AdminPanelRequestPacket implements IMessage {
                     ensureDeckZero(target); MongoManager.clearDeck(target.getUniqueID(), 0); syncRunes(target);
                 } else if ("runes_fill".equals(parts[0]) && parts.length >= 3) {
                     EntityPlayerMP target = target(admin, parts[1]); if (target == null) return;
-                    int rank = Integer.parseInt(parts[2]);
-                    rank = Math.max(RuneInventory.NORMAL_RANK, Math.min(RuneInventory.ADVANCED_RANK, rank));
+                    int rank = Math.max(RuneInventory.NORMAL_RANK, Math.min(RuneInventory.ADVANCED_RANK, Integer.parseInt(parts[2])));
                     ensureDeckZero(target); MongoManager.clearDeck(target.getUniqueID(), 0);
-                    for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-                        MongoManager.addCardToDeck(target.getUniqueID(), 0, rune, rune, rank, 1);
-                    }
+                    for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) MongoManager.addCardToDeck(target.getUniqueID(), 0, rune, rune, rank, 1);
                     syncRunes(target);
                 } else if ("runes_reset_enhancements".equals(parts[0]) && parts.length >= 2) {
                     EntityPlayerMP target = target(admin, parts[1]); if (target == null) return;
@@ -72,13 +68,13 @@ public final class AdminPanelRequestPacket implements IMessage {
                     String name = parts[1].trim();
                     String type = parts[2].trim().toLowerCase(Locale.ROOT);
                     String resource = ResourceManager.findCanonicalName(parts[3]);
-                    int amount = Integer.parseInt(parts[4]);
+                    BigDecimal amount = LargeNumberValue.parseFlexible(parts[4]);
                     BigDecimal hp = LargeNumberValue.parseExact(parts[5]);
                     EntityPlayerMP target = target(admin, parts[6]);
                     if (target == null) return;
                     if (name.isEmpty() || name.contains("\t") || MongoManager.getMob(name) != null) return;
-                    if (!("zombie".equals(type) || "skeleton".equals(type)) || resource == null || amount <= 0 || hp.signum() <= 0) return;
-                    MongoManager.createMob(name, type, hp, amount);
+                    if (!("zombie".equals(type) || "skeleton".equals(type)) || resource == null || amount.signum() <= 0 || hp.signum() <= 0) return;
+                    MongoManager.createMob(name, type, hp, 1);
                     ResourceManager.setMobReward(name, resource, amount);
                     MongoManager.setMobSpawn(name, target.posX, target.posY, target.posZ);
                     MobManager.respawnAll();
@@ -111,12 +107,8 @@ public final class AdminPanelRequestPacket implements IMessage {
 
         private static void syncRunes(EntityPlayerMP target) {
             NetworkHandler.INSTANCE.sendTo(new CardPacket(-1, 0, 0, false), target);
-            for (MongoManager.SavedCard card : MongoManager.getCardsInDeck(target.getUniqueID(), 0)) {
-                NetworkHandler.INSTANCE.sendTo(new CardPacket(card.slot, card.cardIndex, card.layer, false), target);
-            }
-            if (MongoManager.getActiveDeck(target.getUniqueID()) == 0) {
-                NetworkHandler.INSTANCE.sendTo(new RuneEnhancementPacket(RuneEnhancementManager.getLevels(target.getUniqueID(), 0)), target);
-            }
+            for (MongoManager.SavedCard card : MongoManager.getCardsInDeck(target.getUniqueID(), 0)) NetworkHandler.INSTANCE.sendTo(new CardPacket(card.slot, card.cardIndex, card.layer, false), target);
+            if (MongoManager.getActiveDeck(target.getUniqueID()) == 0) NetworkHandler.INSTANCE.sendTo(new RuneEnhancementPacket(RuneEnhancementManager.getLevels(target.getUniqueID(), 0)), target);
             PlayerStatsService.sendTo(target);
         }
 
@@ -124,7 +116,6 @@ public final class AdminPanelRequestPacket implements IMessage {
             List<String> resources = ResourceManager.getResourceNames();
             List<String> players = new ArrayList<>();
             List<String> balances = new ArrayList<>();
-
             for (EntityPlayerMP player : admin.getServer().getPlayerList().getPlayers()) {
                 int[] bestRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
                 for (MongoManager.SavedCard card : MongoManager.getCardsInDeck(player.getUniqueID(), 0)) {
@@ -134,25 +125,17 @@ public final class AdminPanelRequestPacket implements IMessage {
                 int owned = 0, normal = 0, silver = 0, gold = 0;
                 for (int rank : bestRanks) {
                     if (rank <= 0) continue;
-                    owned++;
-                    if (rank >= RuneInventory.ADVANCED_RANK) gold++;
-                    else if (rank >= RuneInventory.IMPROVED_RANK) silver++;
-                    else normal++;
+                    owned++; if (rank >= RuneInventory.ADVANCED_RANK) gold++; else if (rank >= RuneInventory.IMPROVED_RANK) silver++; else normal++;
                 }
-                players.add(player.getUniqueID().toString() + "\t" + player.getName()
-                        + "\t" + player.dimension + "\t" + coordinate(player.posX) + "\t" + coordinate(player.posY)
+                players.add(player.getUniqueID().toString() + "\t" + player.getName() + "\t" + player.dimension + "\t" + coordinate(player.posX) + "\t" + coordinate(player.posY)
                         + "\t" + coordinate(player.posZ) + "\t" + owned + "\t" + normal + "\t" + silver + "\t" + gold);
-                for (String resource : resources) {
-                    balances.add(player.getUniqueID().toString() + "\t" + resource + "\t" + ResourceManager.getPlayerResource(player.getUniqueID(), resource));
-                }
+                for (String resource : resources) balances.add(player.getUniqueID().toString() + "\t" + resource + "\t" + LargeNumberValue.canonical(ResourceManager.getPlayerResourceValue(player.getUniqueID(), resource)));
             }
-
             List<String> mobs = new ArrayList<>();
             for (MongoManager.CustomMob mob : MongoManager.getAllMobs()) {
                 mobs.add(mob.name + "\t" + mob.type + "\t" + LargeNumberValue.canonical(mob.hp) + "\t"
-                        + ResourceManager.getMobResource(mob.name) + "\t" + ResourceManager.getMobAmount(mob.name)
-                        + "\t" + coordinate(mob.x) + "\t" + coordinate(mob.y) + "\t" + coordinate(mob.z)
-                        + "\t" + mob.enabled);
+                        + ResourceManager.getMobResource(mob.name) + "\t" + LargeNumberValue.canonical(ResourceManager.getMobAmountValue(mob.name))
+                        + "\t" + coordinate(mob.x) + "\t" + coordinate(mob.y) + "\t" + coordinate(mob.z) + "\t" + mob.enabled);
             }
             NetworkHandler.INSTANCE.sendTo(new AdminPanelStatePacket(players, resources, mobs, balances), admin);
         }
