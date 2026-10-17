@@ -14,7 +14,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.2.9'
+version = '1.2.10'
 group = 'com.example.customguimod'
 archivesBaseName = 'customguimod'
 
@@ -63,21 +63,9 @@ minecraft {
 
 dependencies {
     // Specify the version of Minecraft to use, if this is any group other then 'net.minecraft' it is assumed
-    // that the dep is a special dependency, and a custom Download task will be run.
+    // that the dep is a special dependency
     minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2859'
 	implementation 'org.mongodb:mongodb-driver-sync:4.5.1'
-
-    // You may put jars on which you depend on in ./libs or you may define them like so..
-    // compile "some.group:artifact:version:classifier"
-    // compile "some.group:artifact:version"
-
-    // Real examples
-    // compile 'com.mod-buildcraft:buildcraft:6.0.8:dev'  // adds buildcraft to the dev env
-    // compile 'com.googlecode.efficient-java-matrix-library:ejml:0.24' // adds ejml to the dev env
-
-    // For more info...
-    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-
 }
 configurations.configureEach {
     resolutionStrategy {
@@ -85,13 +73,12 @@ configurations.configureEach {
     }
 }
 
-// Example for how to get properties into the manifest for reading by the runtime..
 jar {
     manifest {
         attributes([
             "Specification-Title": "examplemod",
             "Specification-Vendor": "examplemodsareus",
-            "Specification-Version": "1", // We are version 1 of ourselves
+            "Specification-Version": "1",
             "Implementation-Title": project.name,
             "Implementation-Version": "${version}",
             "Implementation-Vendor" :"examplemodsareus",
@@ -100,11 +87,7 @@ jar {
     }
 }
 
-// Example configuration to allow publishing using the maven-publish task
-// This is the preferred method to reobfuscate your jar file
 jar.finalizedBy('reobfJar') 
-// However if you are in a multi-project build, dev time needs unobfed jar files, so you can delay the obfuscation until publishing by doing
-//publish.dependsOn('reobfJar')
 
 publishing {
     publications {
@@ -119,7 +102,6 @@ publishing {
     }
 }
 
-// Exercises physical-slot mirroring without starting Minecraft or MongoDB.
 tasks.register('runeInventoryRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -127,7 +109,6 @@ tasks.register('runeInventoryRegression', JavaExec) {
 }
 check.dependsOn runeInventoryRegression
 
-// Preserve viewport geometry and pointer mapping independently of Minecraft/OpenGL.
 tasks.register('guiLayoutRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -135,7 +116,6 @@ tasks.register('guiLayoutRegression', JavaExec) {
 }
 check.dependsOn guiLayoutRegression
 
-// Keep the existing configurable economy contract under CI rather than compile-only coverage.
 tasks.register('runeEconomyRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -143,7 +123,6 @@ tasks.register('runeEconomyRegression', JavaExec) {
 }
 check.dependsOn runeEconomyRegression
 
-// Keep the fixed poison catalog and rune stat content under CI.
 tasks.register('earthRuneCatalogRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -151,7 +130,6 @@ tasks.register('earthRuneCatalogRegression', JavaExec) {
 }
 check.dependsOn earthRuneCatalogRegression
 
-// Keep player-facing tooltip composition and stat formatting under CI.
 tasks.register('runeTooltipContentRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -159,7 +137,6 @@ tasks.register('runeTooltipContentRegression', JavaExec) {
 }
 check.dependsOn runeTooltipContentRegression
 
-// Keep reference-backed scalar stat types and structured multi-line effects under CI.
 tasks.register('runeStatContentRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -167,7 +144,6 @@ tasks.register('runeStatContentRegression', JavaExec) {
 }
 check.dependsOn runeStatContentRegression
 
-// Keep v1.2.10 click/poison combat channel math and targeted-power ordering under CI.
 tasks.register('runeCombatMathRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -175,7 +151,6 @@ tasks.register('runeCombatMathRegression', JavaExec) {
 }
 check.dependsOn runeCombatMathRegression
 
-// Mob reward stats apply only to coins and the three rune resources; crystals/compensation stay untouched.
 tasks.register('mobRewardBonusRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -183,7 +158,6 @@ tasks.register('mobRewardBonusRegression', JavaExec) {
 }
 check.dependsOn mobRewardBonusRegression
 
-// Keep server-authored enhancement metadata ready for the GUI contract.
 tasks.register('runeEnhancementPacketRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -191,7 +165,6 @@ tasks.register('runeEnhancementPacketRegression', JavaExec) {
 }
 check.dependsOn runeEnhancementPacketRegression
 
-// Prove that deck routing and economy configuration remain isolated across rune statuses.
 tasks.register('multiStatusRuneRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -206,7 +179,6 @@ tasks.register('multiStatusRuneEconomyRegression', JavaExec) {
 }
 check.dependsOn multiStatusRuneEconomyRegression
 
-// Keep the v1.2.8 resource-action contract and retired-resource policy under CI.
 tasks.register('resourceActionFoundationRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
