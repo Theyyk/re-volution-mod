@@ -37,14 +37,14 @@ public class HealthBarRenderer {
         String resource = parts[3];
         String resourceAmount = parts[4];
 
-        float currentHp = entity.getHealth();
-        float maxHp = entity.getMaxHealth();
+        double currentHp = parseHealth(parts[1], entity.getHealth());
+        double maxHp = parseHealth(parts[2], entity.getMaxHealth());
 
-        if (maxHp <= 0 || currentHp <= 0) return;
+        if (maxHp <= 0.0D || currentHp <= 0.0D) return;
         if (entity.getDistance(Minecraft.getMinecraft().player) > 32.0F) return;
 
-        float ratio = currentHp / maxHp;
-        ratio = Math.max(0.0F, Math.min(1.0F, ratio));
+        double ratio = currentHp / maxHp;
+        ratio = Math.max(0.0D, Math.min(1.0D, ratio));
 
         double x = event.getX();
         double y = event.getY() + entity.height + 0.5;
@@ -72,8 +72,8 @@ public class HealthBarRenderer {
 
         int fillWidth = (int) (barWidth * ratio);
         int color;
-        if (ratio > 0.6f) color = 0xFF00FF00;
-        else if (ratio > 0.3f) color = 0xFFFFFF00;
+        if (ratio > 0.6D) color = 0xFF00FF00;
+        else if (ratio > 0.3D) color = 0xFFFFFF00;
         else color = 0xFFFF0000;
         drawRect(-halfWidth, 0, -halfWidth + fillWidth, barHeight, color);
 
@@ -101,6 +101,16 @@ public class HealthBarRenderer {
 
         GlStateManager.popAttrib();
         GlStateManager.popMatrix();
+    }
+
+    private double parseHealth(String rawValue, double fallback) {
+        if (rawValue == null || rawValue.trim().isEmpty()) return fallback;
+        try {
+            double parsed = Double.parseDouble(rawValue.trim());
+            return Double.isFinite(parsed) ? parsed : fallback;
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
     private String compactResourceAmount(String rawAmount) {
