@@ -106,11 +106,11 @@ public final class AdminPanelRequestPacket implements IMessage {
                     String type = parts[2].trim().toLowerCase(Locale.ROOT);
                     String resource = ResourceManager.findCanonicalName(parts[3]);
                     int amount = Integer.parseInt(parts[4]);
-                    int hp = Integer.parseInt(parts[5]);
+                    long hp = Long.parseLong(parts[5]);
                     EntityPlayerMP target = target(admin, parts[6]);
                     if (target == null) return;
                     if (name.isEmpty() || name.contains("\t") || MongoManager.getMob(name) != null) return;
-                    if (!("zombie".equals(type) || "skeleton".equals(type)) || resource == null || amount <= 0 || hp <= 0) return;
+                    if (!("zombie".equals(type) || "skeleton".equals(type)) || resource == null || amount <= 0 || hp <= 0L) return;
                     MongoManager.createMob(name, type, hp, amount);
                     ResourceManager.setMobReward(name, resource, amount);
                     MongoManager.setMobSpawn(name, target.posX, target.posY, target.posZ);
