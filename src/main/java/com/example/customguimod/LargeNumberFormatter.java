@@ -3,7 +3,6 @@ package com.example.customguimod;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.util.Locale;
 
 /** Shared presentation-only formatter for large numeric values. */
 final class LargeNumberFormatter {
@@ -21,6 +20,10 @@ final class LargeNumberFormatter {
     }
 
     static String format(BigDecimal value) {
+        return format(value, LargeNumberDisplaySettings.getMode());
+    }
+
+    static String format(BigDecimal value, LargeNumberDisplayMode mode) {
         if (value == null || value.signum() == 0) return "0";
 
         BigDecimal normalized = LargeNumberValue.normalize(value);
@@ -30,14 +33,23 @@ final class LargeNumberFormatter {
         int integerDigits = normalized.precision() - normalized.scale();
         int suffixIndex = Math.max(0, (integerDigits - 1) / 3);
 
+        if (suffixIndex > LargeNumberValue.CENTILLION_UNIT_INDEX
+                && mode == LargeNumberDisplayMode.SCIENTIFIC) {
+            return scientific(normalized);
+        }
+
         if (suffixIndex < LargeNumberValue.unitCount()) {
             BigDecimal scaled = normalized.movePointLeft(suffixIndex * 3);
             BigDecimal rounded = scaled.setScale(2, RoundingMode.HALF_UP);
             if (rounded.abs().compareTo(THOUSAND) >= 0 && suffixIndex + 1 < LargeNumberValue.unitCount()) {
                 suffixIndex++;
                 scaled = normalized.movePointLeft(suffixIndex * 3);
+                if (suffixIndex > LargeNumberValue.CENTILLION_UNIT_INDEX
+                        && mode == LargeNumberDisplayMode.SCIENTIFIC) {
+                    return scientific(normalized);
+                }
             }
-            return compactPlain(scaled) + LargeNumberValue.unitSuffix(suffixIndex);
+            return compactPlain(scaled) + LargeNumberValue.unitSuffix(suffixIndex, mode);
         }
 
         return scientific(normalized);
