@@ -6,10 +6,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Properties;
 
-/** Local client preference for how values above centillion are displayed. */
+/** Local client preference for large-number presentation. */
 final class LargeNumberDisplaySettings {
     private static final String KEY_MODE = "mode";
-    private static final LargeNumberDisplayMode DEFAULT_MODE = LargeNumberDisplayMode.ABBREVIATED;
+    private static final LargeNumberDisplayMode DEFAULT_MODE = LargeNumberDisplayMode.LETTER;
     private static LargeNumberDisplayMode mode = DEFAULT_MODE;
     private static File configFile;
 
@@ -40,11 +40,20 @@ final class LargeNumberDisplaySettings {
         try (FileInputStream input = new FileInputStream(configFile)) {
             properties.load(input);
             String raw = properties.getProperty(KEY_MODE, DEFAULT_MODE.name());
-            mode = LargeNumberDisplayMode.valueOf(raw);
+            mode = parseMode(raw);
         } catch (IOException | IllegalArgumentException e) {
             mode = DEFAULT_MODE;
             CustomGuiMod.logger.warn("Could not load large number display preference; using " + DEFAULT_MODE.name(), e);
         }
+    }
+
+    private static LargeNumberDisplayMode parseMode(String raw) {
+        if (raw == null) return DEFAULT_MODE;
+        if ("SCIENTIFIC".equals(raw)) return LargeNumberDisplayMode.ENGINEERING;
+        if ("FULL".equals(raw) || "ABBREVIATED".equals(raw) || "SHORT".equals(raw)) {
+            return LargeNumberDisplayMode.LETTER;
+        }
+        return LargeNumberDisplayMode.valueOf(raw);
     }
 
     private static void save() {
