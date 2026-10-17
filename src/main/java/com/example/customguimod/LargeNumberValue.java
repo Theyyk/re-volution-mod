@@ -6,8 +6,6 @@ import java.util.List;
 
 /** Shared arbitrary-precision value helpers for compact large-number input. */
 final class LargeNumberValue {
-    private static final int MAX_UNIT_INDEX = 4095;
-    private static final int CENTILLION_INDEX = 101;
     private static final String[] SUFFIXES = buildSuffixes();
 
     private LargeNumberValue() {}
@@ -71,25 +69,7 @@ final class LargeNumberValue {
         addDecade(values, "Nog");
         values.add("Ce");
 
-        // Preserve the established names through centillion. Beyond Ce, keep the
-        // suffix namespace letters-only: CeA, CeB, ... CeZ, CeAA, CeAB, ...
-        for (int index = CENTILLION_INDEX + 1; index <= MAX_UNIT_INDEX; index++) {
-            values.add("Ce" + alphabeticSuffix(index - CENTILLION_INDEX));
-        }
-
         return values.toArray(new String[0]);
-    }
-
-    private static String alphabeticSuffix(int ordinal) {
-        if (ordinal <= 0) return "";
-        StringBuilder out = new StringBuilder();
-        int value = ordinal;
-        while (value > 0) {
-            value--;
-            out.append((char) ('A' + (value % 26)));
-            value /= 26;
-        }
-        return out.reverse().toString();
     }
 
     private static void addDecade(List<String> values, String base) {
