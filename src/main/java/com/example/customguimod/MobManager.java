@@ -12,6 +12,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
@@ -26,6 +27,7 @@ public class MobManager {
     private static final int POISON_TICK_INTERVAL = 20;
     private static final double STATUS_EFFECT_RADIUS = 2.0D;
     private static final double STATUS_EFFECT_RADIUS_SQ = STATUS_EFFECT_RADIUS * STATUS_EFFECT_RADIUS;
+    private static final double VANILLA_MAX_HEALTH = 1024.0D;
     private static final List<MobSpawn> spawns = new ArrayList<>();
     private static final Set<UUID> poisonDamagePlayers = new HashSet<>();
     private static World serverWorld;
@@ -35,6 +37,7 @@ public class MobManager {
         public String name;
         public String type;
         public int hp;
+        public double currentHp;
         public String resource;
         public int amount;
         public double x, y, z;
@@ -45,6 +48,7 @@ public class MobManager {
             this.name = name;
             this.type = type;
             this.hp = hp;
+            this.currentHp = Math.max(1, hp);
             this.resource = resource;
             this.amount = amount;
             this.x = x;
@@ -90,8 +94,10 @@ public class MobManager {
                     mob.z
             );
 
+            // Spawn on the first completed server tick instead of FMLServerStarting.
+            // This avoids creating tracked entities before the world/entity tracker is fully ready.
+            spawn.respawnTimer = 1;
             spawns.add(spawn);
-            spawnMob(spawn);
         }
     }
 
@@ -113,6 +119,16 @@ public class MobManager {
         return Double.isFinite(distanceSq) && distanceSq >= 0.0D && distanceSq <= STATUS_EFFECT_RADIUS_SQ;
     }
 
+    static double nativeHealthFor(int configuredHp) {
+        return Math.max(1.0D, Math.min(VANILLA_MAX_HEALTH, configuredHp));
+    }
+
+    static double remainingHealthAfterDamage(double currentHp, double damage) {
+        if (!Double.isFinite(currentHp) || currentHp <= 0.0D) return 0.0D;
+        if (!Double.isFinite(damage) || damage <= 0.0D) return currentHp;
+        return Math.max(0.0D, currentHp - damage);
+    }
+
     private static void applyPoisonTicks() {
         if (serverWorld == null || serverWorld.getMinecraftServer() == null) return;
         long worldTick = serverWorld.getTotalWorldTime();
@@ -127,7 +143,7 @@ public class MobManager {
             UUID playerUuid = player.getUniqueID();
             for (MobSpawn spawn : spawns) {
                 EntityLiving target = spawn.entity;
-                if (target == null || target.isDead || target.getHealth() <= 0.0F) continue;
+                if (target == null || target.isDead || spawn.currentHp <= 0.0D) continue;
                 if (!isWithinStatusRadiusSq(player.getDistanceSq(target))) continue;
 
                 poisonDamagePlayers.add(playerUuid);
@@ -141,6 +157,8 @@ public class MobManager {
     }
 
     private static void spawnMob(MobSpawn spawn) {
+        if (serverWorld == null) return;
+
         EntityLiving entity;
 
         if (spawn.type.equalsIgnoreCase("skeleton")) {
@@ -149,33 +167,76 @@ public class MobManager {
             entity = new EntityZombie(serverWorld);
         }
 
+        spawn.currentHp = Math.max(1.0D, spawn.hp);
         entity.setPosition(spawn.x, spawn.y, spawn.z);
-        entity.setCustomNameTag("§c" + spawn.name + "|" + spawn.hp + "|" + spawn.hp + "|" + spawn.resource + "|" + spawn.amount);
+        syncMobMetadata(spawn, entity);
         entity.setAlwaysRenderNameTag(true);
         entity.setFire(0);
-        entity.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(spawn.hp);
-        entity.setHealth(spawn.hp);
+
+        // Minecraft 1.12.2 clamps generic.maxHealth to 1024. Keep the vanilla
+        // entity alive at a legal backing value while authoritative custom HP
+        // lives in MobSpawn.currentHp and is synchronized through the name tag.
+        double nativeHealth = nativeHealthFor(spawn.hp);
+        entity.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(nativeHealth);
+        entity.setHealth((float) nativeHealth);
         entity.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.0D);
         entity.getEntityAttribute(SharedMonsterAttributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0D);
         entity.getEntityAttribute(SharedMonsterAttributes.ARMOR).setBaseValue(0.0D);
         entity.setNoAI(true);
 
-        serverWorld.spawnEntity(entity);
+        if (!serverWorld.spawnEntity(entity)) {
+            spawn.entity = null;
+            spawn.respawnTimer = 1;
+            CustomGuiMod.logger.warn("Could not spawn mob yet, retrying next tick: " + spawn.name);
+            return;
+        }
+
         spawn.entity = entity;
-        CustomGuiMod.logger.info("Spawned mob: " + spawn.name + " (" + spawn.type + ") at " + spawn.x + ", " + spawn.y + ", " + spawn.z);
+        CustomGuiMod.logger.info("Spawned mob: " + spawn.name + " (" + spawn.type + ") at " + spawn.x + ", " + spawn.y + ", " + spawn.z
+                + " with custom HP " + spawn.hp + " (native backing HP " + nativeHealth + ")");
     }
 
-    @SubscribeEvent
+    private static void syncMobMetadata(MobSpawn spawn, EntityLiving entity) {
+        if (spawn == null || entity == null) return;
+        entity.setCustomNameTag("§c" + spawn.name
+                + "|" + formatHealthMetadata(spawn.currentHp)
+                + "|" + spawn.hp
+                + "|" + spawn.resource
+                + "|" + spawn.amount);
+    }
+
+    private static String formatHealthMetadata(double value) {
+        if (!Double.isFinite(value) || value <= 0.0D) return "0";
+        if (value == Math.rint(value)) return String.valueOf((long) value);
+        return String.valueOf(value);
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onLivingHurt(LivingHurtEvent event) {
         if (!(event.getEntityLiving() instanceof EntityLiving)) return;
 
         for (MobSpawn spawn : spawns) {
-            if (spawn.entity == event.getEntityLiving()) {
-                net.minecraft.util.DamageSource source = event.getSource();
-                if (source.getTrueSource() instanceof EntityPlayerMP) return;
+            if (spawn.entity != event.getEntityLiving()) continue;
+
+            net.minecraft.util.DamageSource source = event.getSource();
+            if (!(source.getTrueSource() instanceof EntityPlayerMP)) {
                 event.setCanceled(true);
                 return;
             }
+
+            EntityPlayerMP player = (EntityPlayerMP) source.getTrueSource();
+            double damage = Math.max(0.0D, event.getAmount());
+            spawn.currentHp = remainingHealthAfterDamage(spawn.currentHp, damage);
+            event.setCanceled(true);
+
+            if (spawn.currentHp <= 0.0D) {
+                finishManagedDeath(spawn, player);
+            } else {
+                syncMobMetadata(spawn, spawn.entity);
+                // Keep native backing health full because virtual HP is authoritative.
+                spawn.entity.setHealth((float) nativeHealthFor(spawn.hp));
+            }
+            return;
         }
     }
 
@@ -184,29 +245,38 @@ public class MobManager {
         if (!(event.getEntityLiving() instanceof EntityLiving)) return;
 
         for (MobSpawn spawn : spawns) {
-            if (spawn.entity == event.getEntityLiving()) {
-                if (event.getSource().getTrueSource() instanceof EntityPlayerMP) {
-                    EntityPlayerMP player = (EntityPlayerMP) event.getSource().getTrueSource();
-                    double rewardBonusPercent = RuneRewardBonusService.percentFor(player.getUniqueID(), spawn.resource);
-                    int rewardAmount = MobRewardBonus.apply(spawn.amount, rewardBonusPercent);
-                    if (ResourceManager.grantPlayerResource(player.getUniqueID(), spawn.resource, rewardAmount)) {
-                        int newBalance = ResourceManager.getPlayerResource(player.getUniqueID(), spawn.resource);
-                        player.sendMessage(new TextComponentString(
-                                "§6+" + rewardAmount + " " + ResourceManager.getDisplayName(spawn.resource)
-                                        + "! Баланс: " + newBalance));
-                        PlayerStatsService.sendTo(player);
-                    } else {
-                        CustomGuiMod.logger.warn("Skipped invalid mob reward resource: " + spawn.resource);
-                    }
-                }
+            if (spawn.entity != event.getEntityLiving()) continue;
 
-                spawn.entity.setDead();
-                spawn.entity = null;
-                spawn.respawnTimer = 10;
-                CustomGuiMod.logger.info("Mob " + spawn.name + " killed. Respawn in 0.5s.");
-                break;
+            EntityPlayerMP player = event.getSource().getTrueSource() instanceof EntityPlayerMP
+                    ? (EntityPlayerMP) event.getSource().getTrueSource()
+                    : null;
+            finishManagedDeath(spawn, player);
+            break;
+        }
+    }
+
+    private static void finishManagedDeath(MobSpawn spawn, EntityPlayerMP player) {
+        if (spawn == null || spawn.entity == null) return;
+
+        if (player != null) {
+            double rewardBonusPercent = RuneRewardBonusService.percentFor(player.getUniqueID(), spawn.resource);
+            int rewardAmount = MobRewardBonus.apply(spawn.amount, rewardBonusPercent);
+            if (ResourceManager.grantPlayerResource(player.getUniqueID(), spawn.resource, rewardAmount)) {
+                int newBalance = ResourceManager.getPlayerResource(player.getUniqueID(), spawn.resource);
+                player.sendMessage(new TextComponentString(
+                        "§6+" + rewardAmount + " " + ResourceManager.getDisplayName(spawn.resource)
+                                + "! Баланс: " + newBalance));
+                PlayerStatsService.sendTo(player);
+            } else {
+                CustomGuiMod.logger.warn("Skipped invalid mob reward resource: " + spawn.resource);
             }
         }
+
+        spawn.currentHp = 0.0D;
+        spawn.entity.setDead();
+        spawn.entity = null;
+        spawn.respawnTimer = 10;
+        CustomGuiMod.logger.info("Mob " + spawn.name + " killed. Respawn in 0.5s.");
     }
 
     @SubscribeEvent
