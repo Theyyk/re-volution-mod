@@ -254,9 +254,10 @@ public final class AdminPanelScreen extends GuiScreen {
     private void clearConfirm() { confirmAction = -1; confirmUntil = 0L; }
     private void resourceAction(String action) { send(action + "\t" + playerUuid() + "\t" + resource() + "\t" + number(amountText)); }
     private void createMob() {
-        int hp = number(mobHpText), reward = number(mobRewardText);
+        long hp = longNumber(mobHpText);
+        int reward = number(mobRewardText);
         String name = mobNameText.trim();
-        if (name.isEmpty() || hp <= 0 || reward <= 0) return;
+        if (name.isEmpty() || hp <= 0L || reward <= 0) return;
         send("mob_create\t" + name + "\t" + (mobTypeIndex == 0 ? "zombie" : "skeleton") + "\t" + resource() + "\t" + reward + "\t" + hp + "\t" + playerUuid());
     }
     private void send(String action) {
@@ -346,9 +347,6 @@ public final class AdminPanelScreen extends GuiScreen {
             f.isFocused() ? GuiTheme.CRYSTAL_COLOR : GuiTheme.PANEL_BORDER_COLOR
         );
 
-        // GuiTextField removes its vanilla inner padding when
-        // background drawing is disabled. Move only the text/caret
-        // drawing area while keeping the real field bounds intact.
         f.x = originalX + 4;
         f.y = originalY + (f.height - 8) / 2;
         f.width = Math.max(1, originalWidth - 8);
@@ -385,6 +383,7 @@ public final class AdminPanelScreen extends GuiScreen {
     private String displayResource(String v) { return v == null ? "" : ResourceManager.getDisplayName(v); }
     private String split(String v, int i) { String[] p = v.split("\\t", -1); return i < p.length ? p[i] : ""; }
     private int number(String v) { try { return Integer.parseInt(v == null ? "0" : v.trim()); } catch (NumberFormatException e) { return 0; } }
+    private long longNumber(String v) { try { return Long.parseLong(v == null ? "0" : v.trim()); } catch (NumberFormatException e) { return 0L; } }
     private int findExact(List<String> values, String selected) {
         if (values.isEmpty() || selected == null || selected.isEmpty()) return 0;
         for (int i = 0; i < values.size(); i++) if (selected.equals(values.get(i))) return i;
