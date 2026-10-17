@@ -71,14 +71,25 @@ final class LargeNumberValue {
         addDecade(values, "Nog");
         values.add("Ce");
 
-        // Keep all established names through centillion, then continue with a compact,
-        // deterministic namespace. Ce is Ce1, the next 1000x step is Ce2, etc.
-        // This keeps dropdown labels short while allowing values far beyond 1E1233.
+        // Preserve the established names through centillion. Beyond Ce, keep the
+        // suffix namespace letters-only: CeA, CeB, ... CeZ, CeAA, CeAB, ...
         for (int index = CENTILLION_INDEX + 1; index <= MAX_UNIT_INDEX; index++) {
-            values.add("Ce" + (index - CENTILLION_INDEX + 1));
+            values.add("Ce" + alphabeticSuffix(index - CENTILLION_INDEX));
         }
 
         return values.toArray(new String[0]);
+    }
+
+    private static String alphabeticSuffix(int ordinal) {
+        if (ordinal <= 0) return "";
+        StringBuilder out = new StringBuilder();
+        int value = ordinal;
+        while (value > 0) {
+            value--;
+            out.append((char) ('A' + (value % 26)));
+            value /= 26;
+        }
+        return out.reverse().toString();
     }
 
     private static void addDecade(List<String> values, String base) {
