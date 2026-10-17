@@ -54,7 +54,6 @@ public final class ResourceManager {
                 new Document("$unset", new Document("resource", "").append("amount", ""))
         );
 
-        // One-way migration cleanup for databases created before the fixed resource catalog.
         database.getCollection("custom_resources").deleteMany(new Document("name", RETIRED_LIGHTNINGS));
     }
 
@@ -100,26 +99,29 @@ public final class ResourceManager {
     }
 
     public static int getPlayerResource(UUID uuid, String resource) {
-        ensureConnected();
-        String canonical = findCanonicalName(resource);
-        if (canonical == null) return 0;
-
-        Document doc = players.find(new Document("_id", uuid.toString())).first();
-        if (doc == null) return 0;
-
-        String normalized = normalize(canonical);
-        if (normalized.equals("coins")) return getInt(doc, "balance");
-        if (normalized.equals("crystals")) return getInt(doc, "crystals");
-
-        Document custom = doc.get("resources", Document.class);
-        if (custom == null) return 0;
-        return getInt(custom, normalized);
+        long value = getPlayerResourceLong(uuid, resource);
+        if (value >= Integer.MAX_VALUE) return Integer.MAX_VALUE;
+        if (value <= Integer.MIN_VALUE) return Integer.MIN_VALUE;
+        return (int) value;
     }
 
-    /**
-     * Generic signed adjustment kept for admin/migration compatibility.
-     * Gameplay code should prefer grantPlayerResource/spendPlayerResource.
-     */
+    public static long getPlayerResourceLong(UUID uuid, String resource) {
+        ensureConnected();
+        String canonical = findCanonicalName(resource);
+        if (canonical == null) return 0L;
+
+        Document doc = players.find(new Document("_id", uuid.toString())).first();
+        if (doc == null) return 0L;
+
+        String normalized = normalize(canonical);
+        if (normalized.equals("coins")) return getLong(doc, "balance");
+        if (normalized.equals("crystals")) return getLong(doc, "crystals");
+
+        Document custom = doc.get("resources", Document.class);
+        if (custom == null) return 0L;
+        return getLong(custom, normalized);
+    }
+
     public static int addPlayerResource(UUID uuid, String resource, int amount) {
         if (amount > 0) {
             grantPlayerResource(uuid, resource, amount);
@@ -134,7 +136,7 @@ public final class ResourceManager {
     public static boolean canAfford(UUID uuid, String resource, int amount) {
         if (amount < 0) return false;
         String canonical = findCanonicalName(resource);
-        return canonical != null && getPlayerResource(uuid, canonical) >= amount;
+        return canonical != null && getPlayerResourceLong(uuid, canonical) >= amount;
     }
 
     /** Grant a non-negative amount of a known fixed resource. */
@@ -218,11 +220,11 @@ public final class ResourceManager {
         Document doc = mobs.find(new Document("name", mobName)).first();
         if (doc == null) return 0;
 
-        Integer amount = doc.getInteger("amount");
-        if (amount != null) return amount;
+        Number amount = doc.get("amount", Number.class);
+        if (amount != null) return amount.intValue();
 
-        Integer oldMoney = doc.getInteger("money");
-        return oldMoney == null ? 0 : oldMoney;
+        Number oldMoney = doc.get("money", Number.class);
+        return oldMoney == null ? 0 : oldMoney.intValue();
     }
 
     private static String playerResourceField(String canonical) {
@@ -233,7 +235,14 @@ public final class ResourceManager {
     }
 
     private static int getInt(Document doc, String field) {
+        long value = getLong(doc, field);
+        if (value >= Integer.MAX_VALUE) return Integer.MAX_VALUE;
+        if (value <= Integer.MIN_VALUE) return Integer.MIN_VALUE;
+        return (int) value;
+    }
+
+    private static long getLong(Document doc, String field) {
         Number number = doc.get(field, Number.class);
-        return number == null ? 0 : number.intValue();
+        return number == null ? 0L : number.longValue();
     }
 }
