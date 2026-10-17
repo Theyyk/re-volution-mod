@@ -6,6 +6,7 @@ import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.monster.EntitySkeleton;
 import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.DamageSource;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -15,12 +16,20 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 public class MobManager {
 
+    private static final int POISON_TICK_INTERVAL = 20;
+    private static final double STATUS_EFFECT_RADIUS = 2.0D;
+    private static final double STATUS_EFFECT_RADIUS_SQ = STATUS_EFFECT_RADIUS * STATUS_EFFECT_RADIUS;
     private static final List<MobSpawn> spawns = new ArrayList<>();
+    private static final Set<UUID> poisonDamagePlayers = new HashSet<>();
     private static World serverWorld;
+    private static int poisonTickCounter;
 
     public static class MobSpawn {
         public String name;
@@ -48,6 +57,8 @@ public class MobManager {
 
     public static void loadFromDatabase(World world) {
         serverWorld = world;
+        poisonDamagePlayers.clear();
+        poisonTickCounter = 0;
 
         for (Entity entity : new ArrayList<>(world.loadedEntityList)) {
             if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) continue;
@@ -92,6 +103,41 @@ public class MobManager {
         }
         spawns.clear();
         if (serverWorld != null) loadFromDatabase(serverWorld);
+    }
+
+    static boolean isApplyingPoisonDamage(UUID playerUuid) {
+        return playerUuid != null && poisonDamagePlayers.contains(playerUuid);
+    }
+
+    static boolean isWithinStatusRadiusSq(double distanceSq) {
+        return Double.isFinite(distanceSq) && distanceSq >= 0.0D && distanceSq <= STATUS_EFFECT_RADIUS_SQ;
+    }
+
+    private static void applyPoisonTicks() {
+        if (serverWorld == null || serverWorld.getMinecraftServer() == null) return;
+        long worldTick = serverWorld.getTotalWorldTime();
+
+        for (EntityPlayerMP player : serverWorld.getMinecraftServer().getPlayerList().getPlayers()) {
+            RuneCombatMath.Snapshot snapshot = RuneCombatService.resolve(player.getUniqueID(), worldTick);
+            if (snapshot == null) continue;
+
+            double poisonDamage = RuneCombatMath.poisonDamage(snapshot);
+            if (poisonDamage <= 0.0D) continue;
+
+            UUID playerUuid = player.getUniqueID();
+            for (MobSpawn spawn : spawns) {
+                EntityLiving target = spawn.entity;
+                if (target == null || target.isDead || target.getHealth() <= 0.0F) continue;
+                if (!isWithinStatusRadiusSq(player.getDistanceSq(target))) continue;
+
+                poisonDamagePlayers.add(playerUuid);
+                try {
+                    target.attackEntityFrom(DamageSource.causePlayerDamage(player), (float) poisonDamage);
+                } finally {
+                    poisonDamagePlayers.remove(playerUuid);
+                }
+            }
+        }
     }
 
     private static void spawnMob(MobSpawn spawn) {
@@ -141,10 +187,12 @@ public class MobManager {
             if (spawn.entity == event.getEntityLiving()) {
                 if (event.getSource().getTrueSource() instanceof EntityPlayerMP) {
                     EntityPlayerMP player = (EntityPlayerMP) event.getSource().getTrueSource();
-                    if (ResourceManager.grantPlayerResource(player.getUniqueID(), spawn.resource, spawn.amount)) {
+                    double rewardBonusPercent = RuneRewardBonusService.percentFor(player.getUniqueID(), spawn.resource);
+                    int rewardAmount = MobRewardBonus.apply(spawn.amount, rewardBonusPercent);
+                    if (ResourceManager.grantPlayerResource(player.getUniqueID(), spawn.resource, rewardAmount)) {
                         int newBalance = ResourceManager.getPlayerResource(player.getUniqueID(), spawn.resource);
                         player.sendMessage(new TextComponentString(
-                                "§6+" + spawn.amount + " " + ResourceManager.getDisplayName(spawn.resource)
+                                "§6+" + rewardAmount + " " + ResourceManager.getDisplayName(spawn.resource)
                                         + "! Баланс: " + newBalance));
                         PlayerStatsService.sendTo(player);
                     } else {
@@ -176,6 +224,12 @@ public class MobManager {
             } else {
                 spawnMob(spawn);
             }
+        }
+
+        poisonTickCounter++;
+        if (poisonTickCounter >= POISON_TICK_INTERVAL) {
+            poisonTickCounter = 0;
+            applyPoisonTicks();
         }
     }
 

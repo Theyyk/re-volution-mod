@@ -83,6 +83,17 @@ final class RuneEnhancementManager {
         return getLevel(uuid, deckIndex, runeIndex);
     }
 
+    /** Resets every fixed-slot enhancement in one deck without touching owned runes or ranks. */
+    static void resetDeck(UUID uuid, int deckIndex) {
+        if (uuid == null || deckIndex < 0) return;
+        ensureConnected();
+        String field = "decks." + deckIndex + ".runeEnhancements";
+        players.updateOne(
+                new Document("_id", uuid.toString()),
+                new Document("$unset", new Document(field, ""))
+        );
+    }
+
     private static String runeKey(int runeIndex) {
         return Integer.toString(runeIndex);
     }

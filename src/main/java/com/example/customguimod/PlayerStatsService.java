@@ -56,6 +56,8 @@ public final class PlayerStatsService {
     }
 
     public static void sendTo(EntityPlayerMP player) {
+        if (!NetworkHandler.clientHasCustomGuiMod(player)) return;
+
         UUID uuid = player.getUniqueID();
         int coins = MongoManager.getBalance(uuid);
         int crystals = MongoManager.getCrystals(uuid);
@@ -77,7 +79,7 @@ public final class PlayerStatsService {
         int awakeningNormalCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.NORMAL_RANK);
         int awakeningImprovedCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.IMPROVED_RANK);
 
-        NetworkHandler.INSTANCE.sendTo(
+        NetworkHandler.sendToClient(
                 new PlayerStatsPacket(
                         coins, crystals, runeDust, runeShards, runeCores, totalDamage,
                         statusId,

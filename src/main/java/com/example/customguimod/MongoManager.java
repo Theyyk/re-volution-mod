@@ -106,7 +106,6 @@ public class MongoManager {
             ));
         }
 
-        CustomGuiMod.logger.info("getCardsInDeck: loaded " + result.size() + " cards from deck " + deckIndex);
         return result;
     }
 

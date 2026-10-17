@@ -9,11 +9,15 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = CustomGuiMod.MODID, version = CustomGuiMod.VERSION)
+@Mod(
+        modid = CustomGuiMod.MODID,
+        version = CustomGuiMod.VERSION,
+        acceptableRemoteVersions = "*"
+)
 public class CustomGuiMod {
 
     public static final String MODID = "customguimod";
-    public static final String VERSION = "1.2.9";
+    public static final String VERSION = "1.2.10";
 
     public static Logger logger;
 
@@ -61,8 +65,8 @@ public class CustomGuiMod {
     @Mod.EventHandler
     public void serverStarting(FMLServerStartingEvent event) {
         event.registerServerCommand(new CustomMobCommand());
-        event.registerServerCommand(new CustomCardsCommand());
-        event.registerServerCommand(new CustomDeckCommand());
+        event.registerServerCommand(new CustomRunesCommand());
+        event.registerServerCommand(new CustomStatusCommand());
         event.registerServerCommand(new CustomResourceCommand());
         event.registerServerCommand(new AdminPanelCommand());
 
