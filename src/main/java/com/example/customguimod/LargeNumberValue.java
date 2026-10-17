@@ -50,42 +50,53 @@ final class LargeNumberValue {
 
     private static String[] buildSuffixes() {
         List<String> values = new ArrayList<>();
-        values.add(""); // x1
-        values.add("K"); // thousand
+        String[] standard = {
+                "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
+                "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg"
+        };
+        for (String suffix : standard) values.add(suffix);
 
-        // unit index = exponent / 3, while illion index = unit index - 1.
-        // Keep the familiar K/M/B/T family, then extend the same compact Latin-style
-        // construction through the 999th -illion (up to 1E3000).
-        for (int illionIndex = 1; illionIndex <= MAX_ILLION_INDEX; illionIndex++) {
-            values.add(illionSuffix(illionIndex));
+        addDecade(values, "Vg");
+        values.add("Tg");
+        addDecade(values, "Tg");
+        values.add("Qag");
+        addDecade(values, "Qag");
+        values.add("Qig");
+        addDecade(values, "Qig");
+        values.add("Sxg");
+        addDecade(values, "Sxg");
+        values.add("Spg");
+        addDecade(values, "Spg");
+        values.add("Ocg");
+        addDecade(values, "Ocg");
+        values.add("Nog");
+        addDecade(values, "Nog");
+        values.add("Ce");
+
+        // Keep the established compact naming unchanged through Ce (1E303).
+        // From UCe onward, extend with our Latin-style compositional suffixes.
+        for (int illionIndex = 101; illionIndex <= MAX_ILLION_INDEX; illionIndex++) {
+            values.add(extendedIllionSuffix(illionIndex));
         }
 
         return values.toArray(new String[0]);
     }
 
-    private static String illionSuffix(int illionIndex) {
-        switch (illionIndex) {
-            case 1: return "M";
-            case 2: return "B";
-            case 3: return "T";
-            case 4: return "Qa";
-            case 5: return "Qi";
-            case 6: return "Sx";
-            case 7: return "Sp";
-            case 8: return "Oc";
-            case 9: return "No";
-            default:
-                if (illionIndex < 100) return belowHundredSuffix(illionIndex);
-                int hundreds = illionIndex / 100;
-                int remainder = illionIndex % 100;
-                return belowHundredSuffix(remainder) + HUNDREDS_SUFFIXES[hundreds];
-        }
+    private static String extendedIllionSuffix(int illionIndex) {
+        int hundreds = illionIndex / 100;
+        int remainder = illionIndex % 100;
+        return belowHundredExtendedSuffix(remainder) + HUNDREDS_SUFFIXES[hundreds];
     }
 
-    private static String belowHundredSuffix(int value) {
+    private static String belowHundredExtendedSuffix(int value) {
         if (value <= 0) return "";
         int tens = value / 10;
         int ones = value % 10;
         return UNIT_PREFIXES[ones] + TENS_SUFFIXES[tens];
+    }
+
+    private static void addDecade(List<String> values, String base) {
+        String[] prefixes = {"U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
+        for (String prefix : prefixes) values.add(prefix + base);
     }
 }
