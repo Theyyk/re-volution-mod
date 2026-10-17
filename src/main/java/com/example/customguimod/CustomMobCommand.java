@@ -88,16 +88,16 @@ public class CustomMobCommand extends AdminOnlyCommand {
             }
 
             int amount;
-            int hp;
+            long hp;
             try {
                 amount = Integer.parseInt(args[3]);
-                hp = Integer.parseInt(args[4]);
+                hp = Long.parseLong(args[4]);
             } catch (NumberFormatException e) {
-                player.sendMessage(new TextComponentString("§camount и hp должны быть числами"));
+                player.sendMessage(new TextComponentString("§camount и hp должны быть целыми числами"));
                 return;
             }
 
-            if (amount <= 0 || hp <= 0) {
+            if (amount <= 0 || hp <= 0L) {
                 player.sendMessage(new TextComponentString("§camount и hp должны быть больше 0"));
                 return;
             }
