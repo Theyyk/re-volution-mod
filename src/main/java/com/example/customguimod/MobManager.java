@@ -9,6 +9,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.DamageSource;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
@@ -156,6 +157,12 @@ public class MobManager {
 
     private static void spawnMob(MobSpawn spawn) {
         if (serverWorld == null) return;
+
+        // Ensure the target chunk is loaded before adding the managed entity. Without this,
+        // an entity can exist server-side but not be tracked to clients until a later respawn.
+        BlockPos spawnPos = new BlockPos(spawn.x, spawn.y, spawn.z);
+        serverWorld.getChunkFromBlockCoords(spawnPos);
+
         EntityLiving entity = spawn.type.equalsIgnoreCase("skeleton")
                 ? new EntitySkeleton(serverWorld) : new EntityZombie(serverWorld);
 
@@ -184,6 +191,10 @@ public class MobManager {
             }
             return;
         }
+
+        // Force the first server update while the chunk is loaded so nearby clients receive
+        // tracking data immediately instead of only after the entity's first death/respawn.
+        serverWorld.updateEntityWithOptionalForce(entity, true);
 
         spawn.spawnFailureLogged = false;
         spawn.entity = entity;
