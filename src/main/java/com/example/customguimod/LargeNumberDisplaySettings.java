@@ -9,7 +9,8 @@ import java.util.Properties;
 /** Local client preference for how values above centillion are displayed. */
 final class LargeNumberDisplaySettings {
     private static final String KEY_MODE = "mode";
-    private static LargeNumberDisplayMode mode = LargeNumberDisplayMode.FULL;
+    private static final LargeNumberDisplayMode DEFAULT_MODE = LargeNumberDisplayMode.ABBREVIATED;
+    private static LargeNumberDisplayMode mode = DEFAULT_MODE;
     private static File configFile;
 
     private LargeNumberDisplaySettings() {}
@@ -31,15 +32,18 @@ final class LargeNumberDisplaySettings {
     }
 
     private static void load() {
-        if (configFile == null || !configFile.isFile()) return;
+        if (configFile == null || !configFile.isFile()) {
+            mode = DEFAULT_MODE;
+            return;
+        }
         Properties properties = new Properties();
         try (FileInputStream input = new FileInputStream(configFile)) {
             properties.load(input);
-            String raw = properties.getProperty(KEY_MODE, LargeNumberDisplayMode.FULL.name());
+            String raw = properties.getProperty(KEY_MODE, DEFAULT_MODE.name());
             mode = LargeNumberDisplayMode.valueOf(raw);
         } catch (IOException | IllegalArgumentException e) {
-            mode = LargeNumberDisplayMode.FULL;
-            CustomGuiMod.logger.warn("Could not load large number display preference; using FULL", e);
+            mode = DEFAULT_MODE;
+            CustomGuiMod.logger.warn("Could not load large number display preference; using " + DEFAULT_MODE.name(), e);
         }
     }
 
