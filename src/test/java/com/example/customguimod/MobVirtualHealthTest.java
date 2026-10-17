@@ -26,12 +26,22 @@ final class MobVirtualHealthTest {
         check("1.09M".equals(LargeNumberFormatter.format(precise)),
                 "Display must hide decimals after hundredths without changing stored HP");
 
+        BigDecimal hugeReward = LargeNumberValue.parseFlexible("1Ce");
+        check(hugeReward.compareTo(new BigDecimal("1E303")) == 0,
+                "Compact mob reward input must accept centillion");
+        check(LargeNumberValue.parseFlexible("1QaQagQe").compareTo(new BigDecimal("1E1335")) == 0,
+                "Compact mob reward input must accept extended suffixes");
+        check(MobRewardBonus.apply(hugeReward, 25.0D).compareTo(new BigDecimal("1.25E303")) == 0,
+                "Mob reward bonuses must preserve arbitrary precision");
+
         MobManager.MobSpawn spawn = new MobManager.MobSpawn(
-                "TestMobHP", "zombie", huge, "coins", 100, 0.0D, 64.0D, 0.0D);
+                "TestMobHP", "zombie", huge, "coins", hugeReward, 0.0D, 64.0D, 0.0D);
         check(spawn.hp.compareTo(huge) == 0 && spawn.currentHp.compareTo(huge) == 0,
                 "A new managed mob must keep arbitrary precision configured HP");
+        check(spawn.amount.compareTo(hugeReward) == 0,
+                "A new managed mob must keep arbitrary precision reward amount");
 
-        System.out.println("v1.2.11 arbitrary precision managed mob health regression checks passed");
+        System.out.println("v1.2.11 arbitrary precision managed mob health/reward regression checks passed");
     }
 
     public static void main(String[] args) { run(); }
