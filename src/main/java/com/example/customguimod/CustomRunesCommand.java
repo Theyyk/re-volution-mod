@@ -57,14 +57,14 @@ public class CustomRunesCommand extends AdminOnlyCommand {
             player.sendMessage(new TextComponentString("§cВсе руны активного статуса очищены"));
 
             CardPacket msg = new CardPacket(-1, -1, -1, false);
-            NetworkHandler.INSTANCE.sendTo(msg, player);
+            NetworkHandler.sendToClient(msg, player);
             PlayerStatsService.sendTo(player);
             return;
         }
 
         if (args[0].equalsIgnoreCase("resetenhancements")) {
             RuneEnhancementManager.resetDeck(player.getUniqueID(), statusIndex);
-            NetworkHandler.INSTANCE.sendTo(
+            NetworkHandler.sendToClient(
                     new RuneEnhancementPacket(RuneEnhancementManager.getLevels(player.getUniqueID(), statusIndex)),
                     player
             );

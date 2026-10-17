@@ -16,18 +16,17 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 public class MobManager {
 
     private static final int POISON_TICK_INTERVAL = 20;
+    private static final double STATUS_EFFECT_RADIUS = 2.0D;
+    private static final double STATUS_EFFECT_RADIUS_SQ = STATUS_EFFECT_RADIUS * STATUS_EFFECT_RADIUS;
     private static final List<MobSpawn> spawns = new ArrayList<>();
-    private static final Map<UUID, UUID> selectedPoisonTargets = new HashMap<>();
     private static final Set<UUID> poisonDamagePlayers = new HashSet<>();
     private static World serverWorld;
     private static int poisonTickCounter;
@@ -58,7 +57,6 @@ public class MobManager {
 
     public static void loadFromDatabase(World world) {
         serverWorld = world;
-        selectedPoisonTargets.clear();
         poisonDamagePlayers.clear();
         poisonTickCounter = 0;
 
@@ -107,41 +105,12 @@ public class MobManager {
         if (serverWorld != null) loadFromDatabase(serverWorld);
     }
 
-    static void selectPoisonTarget(UUID playerUuid, EntityLiving target) {
-        if (playerUuid == null || target == null || target.isDead || !isManagedMob(target)) return;
-        selectedPoisonTargets.put(playerUuid, target.getUniqueID());
-    }
-
     static boolean isApplyingPoisonDamage(UUID playerUuid) {
         return playerUuid != null && poisonDamagePlayers.contains(playerUuid);
     }
 
-    private static boolean isManagedMob(EntityLiving target) {
-        for (MobSpawn spawn : spawns) {
-            if (spawn.entity == target && !target.isDead) return true;
-        }
-        return false;
-    }
-
-    private static EntityLiving poisonTarget(EntityPlayerMP player) {
-        UUID selectedUuid = selectedPoisonTargets.get(player.getUniqueID());
-        EntityLiving nearest = null;
-        double nearestDistance = Double.MAX_VALUE;
-
-        for (MobSpawn spawn : spawns) {
-            EntityLiving entity = spawn.entity;
-            if (entity == null || entity.isDead || entity.getHealth() <= 0.0F) continue;
-            if (selectedUuid != null && selectedUuid.equals(entity.getUniqueID())) return entity;
-
-            double distance = player.getDistanceSq(entity);
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearest = entity;
-            }
-        }
-
-        if (selectedUuid != null) selectedPoisonTargets.remove(player.getUniqueID(), selectedUuid);
-        return nearest;
+    static boolean isWithinStatusRadiusSq(double distanceSq) {
+        return Double.isFinite(distanceSq) && distanceSq >= 0.0D && distanceSq <= STATUS_EFFECT_RADIUS_SQ;
     }
 
     private static void applyPoisonTicks() {
@@ -155,15 +124,18 @@ public class MobManager {
             double poisonDamage = RuneCombatMath.poisonDamage(snapshot);
             if (poisonDamage <= 0.0D) continue;
 
-            EntityLiving target = poisonTarget(player);
-            if (target == null) continue;
-
             UUID playerUuid = player.getUniqueID();
-            poisonDamagePlayers.add(playerUuid);
-            try {
-                target.attackEntityFrom(DamageSource.causePlayerDamage(player), (float) poisonDamage);
-            } finally {
-                poisonDamagePlayers.remove(playerUuid);
+            for (MobSpawn spawn : spawns) {
+                EntityLiving target = spawn.entity;
+                if (target == null || target.isDead || target.getHealth() <= 0.0F) continue;
+                if (!isWithinStatusRadiusSq(player.getDistanceSq(target))) continue;
+
+                poisonDamagePlayers.add(playerUuid);
+                try {
+                    target.attackEntityFrom(DamageSource.causePlayerDamage(player), (float) poisonDamage);
+                } finally {
+                    poisonDamagePlayers.remove(playerUuid);
+                }
             }
         }
     }
@@ -228,8 +200,6 @@ public class MobManager {
                     }
                 }
 
-                UUID deadUuid = spawn.entity.getUniqueID();
-                selectedPoisonTargets.values().removeIf(deadUuid::equals);
                 spawn.entity.setDead();
                 spawn.entity = null;
                 spawn.respawnTimer = 10;

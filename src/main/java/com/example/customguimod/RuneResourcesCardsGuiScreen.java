@@ -39,7 +39,7 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
         int x = panelX + pad;
 
         drawSurface(panelX, currencyY, panelWidth, CURRENCY_PANEL_HEIGHT,
-                0x00000000, PANEL_BORDER_COLOR);
+                PANEL_BG_COLOR, PANEL_BORDER_COLOR);
         Gui.drawRect(panelX + 2, currencyY + 2,
                 panelX + panelWidth - 2, currencyY + pad + 13, CURRENCY_HEADING_MASK);
 

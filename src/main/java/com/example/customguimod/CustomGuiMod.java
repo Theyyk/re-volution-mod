@@ -9,7 +9,11 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = CustomGuiMod.MODID, version = CustomGuiMod.VERSION)
+@Mod(
+        modid = CustomGuiMod.MODID,
+        version = CustomGuiMod.VERSION,
+        acceptableRemoteVersions = "*"
+)
 public class CustomGuiMod {
 
     public static final String MODID = "customguimod";

@@ -49,9 +49,18 @@ final class RuneCombatMathTest {
         neutral.rageActive = true;
         neutral.rageMultiplier = 1.0D;
         check(close(RuneCombatMath.totalDamage(7.0D, neutral, true), 7.0D),
-                "Current x1 proc/rage placeholders must remain combat-neutral until balance is set");
+                "Neutral x1 multipliers must not change combat damage");
 
-        System.out.println("v1.2.10 rune combat math regression checks passed");
+        check(MobManager.isWithinStatusRadiusSq(0.0D),
+                "Status effects should include mobs at the player's position");
+        check(MobManager.isWithinStatusRadiusSq(4.0D),
+                "Status effects should include mobs exactly two blocks away");
+        check(!MobManager.isWithinStatusRadiusSq(4.000001D),
+                "Status effects must not hit mobs outside the two-block radius");
+        check(!MobManager.isWithinStatusRadiusSq(Double.NaN),
+                "Invalid distances must not be accepted as status targets");
+
+        System.out.println("v1.2.10 rune combat math and status radius regression checks passed");
     }
 
     public static void main(String[] args) {
