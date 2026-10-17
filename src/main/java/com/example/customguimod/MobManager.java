@@ -43,6 +43,7 @@ public class MobManager {
         public double x, y, z;
         public EntityLiving entity;
         public int respawnTimer;
+        public boolean spawnFailureLogged;
 
         public MobSpawn(String name, String type, int hp, String resource, int amount, double x, double y, double z) {
             this.name = name;
@@ -56,6 +57,7 @@ public class MobManager {
             this.z = z;
             this.entity = null;
             this.respawnTimer = 0;
+            this.spawnFailureLogged = false;
         }
     }
 
@@ -184,14 +186,23 @@ public class MobManager {
         entity.getEntityAttribute(SharedMonsterAttributes.ARMOR).setBaseValue(0.0D);
         entity.setNoAI(true);
 
+        // Spawn points may live in chunks that are not currently loaded. Vanilla
+        // World#spawnEntity rejects those entities unless forceSpawn is set.
+        entity.forceSpawn = true;
+
         if (!serverWorld.spawnEntity(entity)) {
             spawn.entity = null;
-            spawn.respawnTimer = 1;
-            CustomGuiMod.logger.warn("Could not spawn mob yet, retrying next tick: " + spawn.name);
+            // Retry at most once per second instead of hammering spawnEntity every tick.
+            spawn.respawnTimer = 20;
+            if (!spawn.spawnFailureLogged) {
+                spawn.spawnFailureLogged = true;
+                CustomGuiMod.logger.warn("Could not spawn managed mob; retrying once per second: " + spawn.name);
+            }
             return;
         }
 
         spawn.entity = entity;
+        spawn.spawnFailureLogged = false;
         CustomGuiMod.logger.info("Spawned mob: " + spawn.name + " (" + spawn.type + ") at " + spawn.x + ", " + spawn.y + ", " + spawn.z
                 + " with custom HP " + spawn.hp + " (native backing HP " + nativeHealth + ")");
     }
