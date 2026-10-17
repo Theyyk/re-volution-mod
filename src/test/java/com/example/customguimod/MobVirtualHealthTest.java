@@ -26,11 +26,12 @@ final class MobVirtualHealthTest {
         check("1.09M".equals(LargeNumberFormatter.format(precise)),
                 "Display must hide decimals after hundredths without changing stored HP");
 
-        BigDecimal hugeReward = LargeNumberValue.parseFlexible("1Ce");
+        BigDecimal hugeReward = LargeNumberValue.parseFlexible("1C");
         check(hugeReward.compareTo(new BigDecimal("1E303")) == 0,
-                "Compact mob reward input must accept centillion");
-        check(LargeNumberValue.parseFlexible("1QaQagQe").compareTo(new BigDecimal("1E1335")) == 0,
-                "Compact mob reward input must accept extended suffixes");
+                "Letter mob reward input must accept centillion");
+        String highLetterSuffix = LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.LETTER);
+        check(LargeNumberValue.parseFlexible("1" + highLetterSuffix).compareTo(new BigDecimal("1E1335")) == 0,
+                "Letter mob reward input must accept extended suffixes");
         check(MobRewardBonus.apply(hugeReward, 25.0D).compareTo(new BigDecimal("1.25E303")) == 0,
                 "Mob reward bonuses must preserve arbitrary precision");
 
