@@ -143,7 +143,7 @@ public final class RuneUxUiHandler {
         String resource = ClientPlayerStats.getAwakeningResource();
         int cost = ClientPlayerStats.getAwakeningCostForRank(rank);
         if (resource == null || resource.trim().isEmpty() || cost <= 0) return true;
-        int balance = ClientPlayerStats.getResourceBalance(resource);
+        long balance = ClientPlayerStats.getResourceBalance(resource);
         return balance >= 0 && balance >= cost;
     }
 
