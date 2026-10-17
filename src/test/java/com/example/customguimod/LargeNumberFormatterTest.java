@@ -36,17 +36,17 @@ final class LargeNumberFormatterTest {
         check(LargeNumberValue.unitSuffix(12).equals("Ud"), "Units must continue beyond decillion");
         check(LargeNumberValue.unitSuffix(21).equals("Vg"), "Vigintillion unit mapping changed");
         check(LargeNumberValue.unitSuffix(101).equals("Ce"), "Centillion unit mapping changed");
-        check(LargeNumberValue.unitSuffix(102).equals("CeA"), "Post-centillion units must use letters only");
-        check(LargeNumberValue.unitSuffix(127).equals("CeZ"), "Alphabetic post-centillion boundary changed");
-        check(LargeNumberValue.unitSuffix(128).equals("CeAA"), "Alphabetic post-centillion rollover changed");
-        check(LargeNumberValue.unitCount() > 411, "Extended unit list must cover exponent 1233");
-        check(LargeNumberValue.unitSuffix(411).equals("CeKX"), "1E1233 unit mapping changed");
-        check(LargeNumberFormatter.format(new BigDecimal("1E1233")).equals("1CeKX"),
-                "1E1233 should stay in letters-only compact unit format");
+        check(LargeNumberValue.unitCount() == 102, "Named units must stop at centillion");
+        check(LargeNumberFormatter.format(new BigDecimal("1E303")).equals("1Ce"),
+                "Centillion should remain compactly formatted");
+        check(LargeNumberFormatter.format(new BigDecimal("1E306")).equals("1E306"),
+                "Values immediately above centillion must switch to scientific notation");
+        check(LargeNumberFormatter.format(new BigDecimal("1.2345E307")).equals("1.23E307"),
+                "Scientific notation should keep two visible decimal places");
+        check(LargeNumberFormatter.format(new BigDecimal("1E1233")).equals("1E1233"),
+                "Very large values should stay in scientific notation");
         check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1000", 11)).equals("1Ud"),
                 "1000 Dc should roll over to the next named unit instead of scientific notation");
-        check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1", 101)).equals("1Ce"),
-                "Centillion should remain compactly formatted");
 
         check(RuneStatType.CLICK_DAMAGE_FLAT.format(40_015.5D).equals("+40.02K"),
                 "Rune stat display should use the shared large number formatter");
