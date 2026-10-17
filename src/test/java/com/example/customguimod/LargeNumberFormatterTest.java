@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import java.math.BigDecimal;
+
 final class LargeNumberFormatterTest {
     static void run() {
         checkFormat(0, "0");
@@ -23,6 +25,22 @@ final class LargeNumberFormatterTest {
                 "Non-finite display values must fail closed to zero");
         check(LargeNumberFormatter.format(Double.POSITIVE_INFINITY).equals("0"),
                 "Infinite display values must fail closed to zero");
+
+        BigDecimal preciseMillions = LargeNumberValue.parseWithUnit("1.0912121", 2);
+        check(preciseMillions.compareTo(new BigDecimal("1091212.1")) == 0,
+                "Unit input must preserve hidden precision for calculations");
+        check(LargeNumberFormatter.format(preciseMillions).equals("1.09M"),
+                "Unit input should display only two decimal places");
+
+        check(LargeNumberValue.unitSuffix(11).equals("Dc"), "Decillion unit index changed");
+        check(LargeNumberValue.unitSuffix(12).equals("Ud"), "Units must continue beyond decillion");
+        check(LargeNumberValue.unitSuffix(21).equals("Vg"), "Vigintillion unit mapping changed");
+        check(LargeNumberValue.unitSuffix(LargeNumberValue.unitCount() - 1).equals("Ce"),
+                "Extended unit list should reach centillion");
+        check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1000", 11)).equals("1Ud"),
+                "1000 Dc should roll over to the next named unit instead of scientific notation");
+        check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1", LargeNumberValue.unitCount() - 1)).equals("1Ce"),
+                "Centillion should remain compactly formatted");
 
         check(RuneStatType.CLICK_DAMAGE_FLAT.format(40_015.5D).equals("+40.02K"),
                 "Rune stat display should use the shared large number formatter");
