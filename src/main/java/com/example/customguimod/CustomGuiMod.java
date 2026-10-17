@@ -33,6 +33,7 @@ public class CustomGuiMod {
             MinecraftForge.EVENT_BUS.register(new MobManager());
             MinecraftForge.EVENT_BUS.register(new DamageBonusHandler());
         } else {
+            LargeNumberDisplaySettings.init(event.getModConfigurationDirectory());
             NetworkHandler.registerClient();
         }
 
@@ -44,8 +45,10 @@ public class CustomGuiMod {
     public void init(FMLInitializationEvent event) {
         KeyInputHandler.register();
         AdminPanelKeyHandler.register();
+        SettingsKeyHandler.register();
         MinecraftForge.EVENT_BUS.register(new KeyInputHandler());
         MinecraftForge.EVENT_BUS.register(new AdminPanelKeyHandler());
+        MinecraftForge.EVENT_BUS.register(new SettingsKeyHandler());
         MinecraftForge.EVENT_BUS.register(new ClientPacketHandler());
         MinecraftForge.EVENT_BUS.register(new HealthBarRenderer());
         MinecraftForge.EVENT_BUS.register(new NameHider());
