@@ -40,8 +40,6 @@ public class RunePurchaseUiHandler {
     public void onDrawPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
         applyState(event.getGui());
         if (event.getGui() == trackedScreen) {
-            // CardsGuiScreen may rebuild its button list after packets arrive, so restore the
-            // enhancement amount selector whenever it is missing.
             installEnhancementAmountButton(event.getGui(), trackedButtons);
             compactStatusButtons(event.getGui(), trackedButtons);
             applyPurchaseEconomy(event.getGui(), trackedButtons);
@@ -66,8 +64,6 @@ public class RunePurchaseUiHandler {
         }
 
         if (button.id == ENHANCE_BUTTON_ID && usesStatusPurchaseEconomy()) {
-            // The server chooses every target. The encoded slot is retained only for transport
-            // compatibility and is intentionally ignored by the authoritative enhancement logic.
             NetworkHandler.INSTANCE.sendToServer(new PingPacket(
                     "enhance_rune:0:" + enhancementAmount));
         }
@@ -113,7 +109,6 @@ public class RunePurchaseUiHandler {
         GuiButton purchaseAmount = findButton(buttons, GuiControls.AMOUNT_BUTTON_START_ID);
         if (enhance == null || purchaseAmount == null) return;
 
-        // Keep both quantity selectors equally wide so x10/x100 stay readable and aligned.
         int amountWidth = Math.max(purchaseAmount.width, AMOUNT_MIN_WIDTH);
         purchaseAmount.width = amountWidth;
 
@@ -158,7 +153,7 @@ public class RunePurchaseUiHandler {
         CostRange costs = enhancementCostRange(enhancementAmount);
         String resource = ClientRuneEnhancements.getResource();
         String resourceName = resource == null || resource.isEmpty() ? "" : priceResourceName(resource);
-        int balance = ClientPlayerStats.getResourceBalance(resource);
+        long balance = ClientPlayerStats.getResourceBalance(resource);
 
         if (!costs.valid || resourceName.isEmpty()) {
             enhance.enabled = false;
@@ -170,7 +165,6 @@ public class RunePurchaseUiHandler {
                 ? String.valueOf(costs.maximum)
                 : costs.minimum + "–" + costs.maximum;
         enhance.displayString = "Случайное усиление:\n" + costText + " " + resourceName;
-        // Every one of the 26 fixed slots is a valid random target, including empty slots.
         enhance.enabled = balance >= costs.maximum;
     }
 
