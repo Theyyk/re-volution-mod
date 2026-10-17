@@ -36,11 +36,13 @@ final class LargeNumberFormatterTest {
         check(LargeNumberValue.unitSuffix(12).equals("Ud"), "Units must continue beyond decillion");
         check(LargeNumberValue.unitSuffix(21).equals("Vg"), "Vigintillion unit mapping changed");
         check(LargeNumberValue.unitSuffix(101).equals("Ce"), "Centillion unit mapping changed");
-        check(LargeNumberValue.unitSuffix(102).equals("Ce2"), "Post-centillion units should continue compactly");
+        check(LargeNumberValue.unitSuffix(102).equals("CeA"), "Post-centillion units must use letters only");
+        check(LargeNumberValue.unitSuffix(127).equals("CeZ"), "Alphabetic post-centillion boundary changed");
+        check(LargeNumberValue.unitSuffix(128).equals("CeAA"), "Alphabetic post-centillion rollover changed");
         check(LargeNumberValue.unitCount() > 411, "Extended unit list must cover exponent 1233");
-        check(LargeNumberValue.unitSuffix(411).equals("Ce311"), "1E1233 unit mapping changed");
-        check(LargeNumberFormatter.format(new BigDecimal("1E1233")).equals("1Ce311"),
-                "1E1233 should stay in compact named-unit format");
+        check(LargeNumberValue.unitSuffix(411).equals("CeKX"), "1E1233 unit mapping changed");
+        check(LargeNumberFormatter.format(new BigDecimal("1E1233")).equals("1CeKX"),
+                "1E1233 should stay in letters-only compact unit format");
         check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1000", 11)).equals("1Ud"),
                 "1000 Dc should roll over to the next named unit instead of scientific notation");
         check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1", 101)).equals("1Ce"),
