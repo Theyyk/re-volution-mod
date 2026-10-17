@@ -16,7 +16,7 @@ public class SettingsScreen extends GuiScreen {
     public void initGui() {
         buttonList.clear();
         int x = width / 2 - BUTTON_W / 2;
-        int y = height / 2 - 35;
+        int y = height / 2 - 12;
         LargeNumberDisplayMode[] modes = LargeNumberDisplayMode.values();
         for (int i = 0; i < modes.length; i++) {
             buttonList.add(new GuiButton(i, x, y + i * 24, BUTTON_W, BUTTON_H, label(modes[i])));
@@ -34,7 +34,7 @@ public class SettingsScreen extends GuiScreen {
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
         drawCenteredString(fontRenderer, "RE:volution - Настройки", width / 2, height / 2 - 78, 0xFFFFFF);
-        drawCenteredString(fontRenderer, "Формат больших чисел после Ce", width / 2, height / 2 - 58, 0xBFBFBF);
+        drawCenteredString(fontRenderer, "Формат больших чисел", width / 2, height / 2 - 58, 0xBFBFBF);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
