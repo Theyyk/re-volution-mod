@@ -213,3 +213,11 @@ tasks.register('resourceActionFoundationRegression', JavaExec) {
     mainClass = 'com.example.customguimod.ResourceActionFoundationTest'
 }
 check.dependsOn resourceActionFoundationRegression
+
+// Keep v1.2.11 compact-number thresholds and player-facing suffixes stable.
+tasks.register('largeNumberFormatterRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.LargeNumberFormatterTest'
+}
+check.dependsOn largeNumberFormatterRegression
