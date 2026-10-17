@@ -65,8 +65,8 @@ public final class RuneResourcesCardsGuiScreen extends CardsGuiScreen {
         GlStateManager.popMatrix();
     }
 
-    private void drawResourceLine(int x, int y, String name, int value, int availableWidth) {
-        String valueText = String.valueOf(value);
+    private void drawResourceLine(int x, int y, String name, long value, int availableWidth) {
+        String valueText = LargeNumberFormatter.format(value);
         int digitAdvance = stableDigitAdvance();
         int valueWidth = stableValueWidth(valueText, digitAdvance);
         int valueX = x + availableWidth - valueWidth;

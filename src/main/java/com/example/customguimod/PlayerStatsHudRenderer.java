@@ -24,9 +24,9 @@ public class PlayerStatsHudRenderer {
     }
 
     public static void draw(Minecraft mc, int screenWidth) {
-        String text = "§6Монеты: §e" + ClientPlayerStats.getCoins()
-                + " §8| §bКристаллы: §f" + ClientPlayerStats.getCrystals()
-                + " §8| §cУрон: §f+" + ClientPlayerStats.getTotalDamage();
+        String text = "§6Монеты: §e" + LargeNumberFormatter.format(ClientPlayerStats.getCoins())
+                + " §8| §bКристаллы: §f" + LargeNumberFormatter.format(ClientPlayerStats.getCrystals())
+                + " §8| §cУрон: §f+" + LargeNumberFormatter.format(ClientPlayerStats.getTotalDamage());
 
         int textWidth = mc.fontRenderer.getStringWidth(text);
         int x = (screenWidth - textWidth) / 2;
