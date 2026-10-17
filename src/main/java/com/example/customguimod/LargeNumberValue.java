@@ -17,12 +17,13 @@ final class LargeNumberValue {
 
     static int unitCount() { return SUFFIXES.length; }
 
-    static String unitSuffix(int index) { return unitSuffix(index, LargeNumberDisplayMode.FULL); }
+    /** Client-facing unit labels follow the player's selected post-Ce display mode. */
+    static String unitSuffix(int index) { return unitSuffix(index, LargeNumberDisplaySettings.getMode()); }
 
     static String unitSuffix(int index, LargeNumberDisplayMode mode) {
         if (index < 0 || index >= SUFFIXES.length) return "";
         if (index <= CENTILLION_UNIT_INDEX || mode == null || mode == LargeNumberDisplayMode.FULL) return SUFFIXES[index];
-        if (mode == LargeNumberDisplayMode.SCIENTIFIC) return "";
+        if (mode == LargeNumberDisplayMode.SCIENTIFIC) return "E" + (index * 3);
         int illionIndex = index - 1;
         int hundreds = illionIndex / 100;
         int remainder = illionIndex % 100;
