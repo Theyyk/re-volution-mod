@@ -49,7 +49,7 @@ public class PingPacket implements IMessage {
             EntityPlayerMP player = ctx.getServerHandler().player;
             player.getServerWorld().addScheduledTask(() -> {
                 String action = message.getAction();
-                CustomGuiMod.logger.info("Packet from " + player.getName() + ": " + action);
+                CustomGuiMod.logger.info("Packet from " + player.getName() + ": " + logActionName(action));
 
                 List<String> deckNames = MongoManager.getDeckNames(player.getUniqueID());
                 int deckIndex = MongoManager.getActiveDeck(player.getUniqueID());
@@ -134,6 +134,16 @@ public class PingPacket implements IMessage {
                 }
             });
             return null;
+        }
+
+        private static String logActionName(String action) {
+            if (action == null) return "null";
+            if (action.equals("buy_card")) return "buy_rune";
+            if (action.startsWith("buy_cards:")) return "buy_runes:" + action.substring("buy_cards:".length());
+            if (action.equals("load_cards")) return "load_runes";
+            if (action.equals("load_decks")) return "load_statuses";
+            if (action.startsWith("switch_deck:")) return "switch_status:" + action.substring("switch_deck:".length());
+            return action;
         }
 
         private boolean isSupportedBulkAmount(int amount) {
@@ -488,7 +498,8 @@ public class PingPacket implements IMessage {
         private void sendCards(EntityPlayerMP player, int deckIndex) {
             NetworkHandler.INSTANCE.sendTo(new CardPacket(-1, 0, 0, false), player);
             List<MongoManager.SavedCard> cards = MongoManager.getCardsInDeck(player.getUniqueID(), deckIndex);
-            CustomGuiMod.logger.info("Sending cards to client from deck " + deckIndex + ": " + cards.size());
+            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+            CustomGuiMod.logger.info("Sending runes to client for status " + statusId + ": " + cards.size());
             for (MongoManager.SavedCard card : cards) {
                 NetworkHandler.INSTANCE.sendTo(new CardPacket(card.slot, card.cardIndex, card.layer, false), player);
             }
