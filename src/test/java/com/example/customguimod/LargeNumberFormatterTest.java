@@ -32,68 +32,70 @@ final class LargeNumberFormatterTest {
         check(LargeNumberFormatter.format(preciseMillions).equals("1.09M"),
                 "Unit input should display only two decimal places");
 
-        check(LargeNumberValue.unitSuffix(11, LargeNumberDisplayMode.FULL).equals("Dc"), "Decillion unit index changed");
-        check(LargeNumberValue.unitSuffix(12, LargeNumberDisplayMode.FULL).equals("UDc"), "Undecillion abbreviation changed");
-        check(LargeNumberValue.unitSuffix(13, LargeNumberDisplayMode.FULL).equals("DDc"), "Duodecillion abbreviation changed");
-        check(LargeNumberValue.unitSuffix(20, LargeNumberDisplayMode.FULL).equals("NDc"), "Novemdecillion abbreviation changed");
-        check(LargeNumberValue.unitSuffix(21, LargeNumberDisplayMode.FULL).equals("Vg"), "Vigintillion unit mapping changed");
-        check(LargeNumberValue.unitSuffix(22, LargeNumberDisplayMode.FULL).equals("UVg"), "Unvigintillion abbreviation changed");
-        check(LargeNumberValue.unitSuffix(91, LargeNumberDisplayMode.FULL).equals("Ng"), "Nonagintillion abbreviation changed");
-        check(LargeNumberValue.unitSuffix(100, LargeNumberDisplayMode.FULL).equals("NNg"), "Novemnonagintillion abbreviation changed");
-        check(LargeNumberValue.unitSuffix(101, LargeNumberDisplayMode.FULL).equals("Ce"), "Centillion unit mapping changed");
-        check(LargeNumberValue.unitSuffix(102, LargeNumberDisplayMode.FULL).equals("UCe"), "Custom continuation should start after centillion");
-        check(LargeNumberValue.unitSuffix(190, LargeNumberDisplayMode.FULL).equals("NoOcgCe"), "1E570 full suffix mapping changed");
-        check(LargeNumberValue.unitSuffix(412, LargeNumberDisplayMode.FULL).equals("UDcQe"), "1E1236 full suffix mapping changed");
-        check(LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.FULL).equals("QaQagQe"), "1E1335 full suffix mapping changed");
-        check(LargeNumberValue.unitCount() == 1001, "Compact units should extend through the 999th -illion");
+        check(LargeNumberValue.unitSuffix(18, LargeNumberDisplayMode.LETTER).equals("Spd"), "Septendecillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(19, LargeNumberDisplayMode.LETTER).equals("Ocd"), "Octodecillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(20, LargeNumberDisplayMode.LETTER).equals("Nod"), "Novemdecillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(21, LargeNumberDisplayMode.LETTER).equals("Vg"), "Vigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(22, LargeNumberDisplayMode.LETTER).equals("Uvg"), "Unvigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(23, LargeNumberDisplayMode.LETTER).equals("Dvg"), "Duovigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(24, LargeNumberDisplayMode.LETTER).equals("Tvg"), "Trevigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(25, LargeNumberDisplayMode.LETTER).equals("Qavg"), "Quattuorvigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(26, LargeNumberDisplayMode.LETTER).equals("Qivg"), "Quinvigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(27, LargeNumberDisplayMode.LETTER).equals("Sxvg"), "Sexvigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(28, LargeNumberDisplayMode.LETTER).equals("Spvg"), "Septenvigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(29, LargeNumberDisplayMode.LETTER).equals("Ocvg"), "Octovigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(30, LargeNumberDisplayMode.LETTER).equals("Nov"), "Novemvigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(31, LargeNumberDisplayMode.LETTER).equals("Tt"), "Trigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(32, LargeNumberDisplayMode.LETTER).equals("Unt"), "Untrigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(33, LargeNumberDisplayMode.LETTER).equals("Dtt"), "Duotrigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(34, LargeNumberDisplayMode.LETTER).equals("Ttt"), "Tretrigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(35, LargeNumberDisplayMode.LETTER).equals("Qut"), "Quattuortrigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(36, LargeNumberDisplayMode.LETTER).equals("Qat"), "Quintrigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(37, LargeNumberDisplayMode.LETTER).equals("Sst"), "Sextrigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(38, LargeNumberDisplayMode.LETTER).equals("Spt"), "Septentrigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(39, LargeNumberDisplayMode.LETTER).equals("Oct"), "Octotrigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(40, LargeNumberDisplayMode.LETTER).equals("Nvt"), "Novemtrigintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(41, LargeNumberDisplayMode.LETTER).equals("Qdt"), "Quadragintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(51, LargeNumberDisplayMode.LETTER).equals("Qqt"), "Quinquagintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(61, LargeNumberDisplayMode.LETTER).equals("Sxt"), "Sexagintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(71, LargeNumberDisplayMode.LETTER).equals("Sgt"), "Septuagintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(81, LargeNumberDisplayMode.LETTER).equals("Oi"), "Octogintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(91, LargeNumberDisplayMode.LETTER).equals("Noi"), "Nonagintillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(101, LargeNumberDisplayMode.LETTER).equals("C"), "Centillion abbreviation changed");
+        check(LargeNumberValue.unitSuffix(121, LargeNumberDisplayMode.LETTER).equals("Vgn"), "Post-centillion viginti abbreviation changed");
+        check(LargeNumberValue.unitSuffix(122, LargeNumberDisplayMode.LETTER).equals("Uvgn"), "Post-centillion unviginti abbreviation changed");
+        check(LargeNumberValue.unitCount() == 1001, "Letter units should extend through the 999th -illion");
 
-        check(LargeNumberValue.unitSuffix(190, LargeNumberDisplayMode.ABBREVIATED).equals("NOCe"),
-                "1E570 abbreviated suffix mapping changed");
-        check(LargeNumberValue.unitSuffix(412, LargeNumberDisplayMode.ABBREVIATED).equals("UDQe"),
-                "1E1236 abbreviated suffix mapping changed");
-        check(LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.ABBREVIATED).equals("QQQe"),
-                "1E1335 abbreviated suffix mapping changed");
-        check(LargeNumberValue.unitSuffix(190, LargeNumberDisplayMode.SHORT).equals("NOC"),
-                "1E570 short suffix mapping changed");
-        check(LargeNumberValue.unitSuffix(412, LargeNumberDisplayMode.SHORT).equals("UDQ"),
-                "1E1236 short suffix mapping changed");
-        check(LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.SHORT).equals("QQQ"),
-                "1E1335 short suffix mapping changed");
-        check(LargeNumberValue.unitSuffix(100, LargeNumberDisplayMode.SCIENTIFIC).equals("NNg"),
-                "Scientific mode must keep the fixed suffixes through centillion");
-        check(LargeNumberValue.unitSuffix(101, LargeNumberDisplayMode.SCIENTIFIC).equals("Ce"),
-                "Scientific mode must keep centillion unchanged");
-        check(LargeNumberValue.unitSuffix(102, LargeNumberDisplayMode.SCIENTIFIC).equals("E306"),
-                "Scientific unit selector should start E notation after centillion");
-        check(LargeNumberValue.unitSuffix(190, LargeNumberDisplayMode.SCIENTIFIC).equals("E570"),
-                "Scientific unit selector exponent mapping changed");
+        check(LargeNumberValue.unitSuffix(1, LargeNumberDisplayMode.ENGINEERING).equals("E3"),
+                "Engineering selector must start at E3");
+        check(LargeNumberValue.unitSuffix(21, LargeNumberDisplayMode.ENGINEERING).equals("E63"),
+                "Engineering selector exponent mapping changed");
+        check(LargeNumberValue.unitSuffix(101, LargeNumberDisplayMode.ENGINEERING).equals("E303"),
+                "Engineering centillion exponent mapping changed");
+        check(LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.ENGINEERING).equals("E1335"),
+                "Engineering selector must remain exact at high exponents");
 
-        check(LargeNumberFormatter.format(new BigDecimal("1E300"), LargeNumberDisplayMode.FULL).equals("1NNg"),
-                "The unit immediately before centillion should be 1NNg");
-        check(LargeNumberFormatter.format(new BigDecimal("1E303"), LargeNumberDisplayMode.SHORT).equals("1Ce"),
-                "Values through centillion must ignore the post-Ce display mode");
-        check(LargeNumberFormatter.format(new BigDecimal("1E570"), LargeNumberDisplayMode.FULL).equals("1NoOcgCe"),
-                "Full mode should use compositional suffixes above centillion");
-        check(LargeNumberFormatter.format(new BigDecimal("1E570"), LargeNumberDisplayMode.ABBREVIATED).equals("1NOCe"),
-                "Abbreviated mode should shorten compositional suffixes");
-        check(LargeNumberFormatter.format(new BigDecimal("1E570"), LargeNumberDisplayMode.SHORT).equals("1NOC"),
-                "Short mode should use three-letter compositional suffixes");
-        check(LargeNumberFormatter.format(new BigDecimal("1E570"), LargeNumberDisplayMode.SCIENTIFIC).equals("1E570"),
-                "Scientific mode should switch only values above centillion to E notation");
-        check(LargeNumberFormatter.format(new BigDecimal("1E1335"), LargeNumberDisplayMode.FULL).equals("1QaQagQe"),
-                "1E1335 full mode mapping changed");
-        check(LargeNumberFormatter.format(new BigDecimal("1E1335"), LargeNumberDisplayMode.ABBREVIATED).equals("1QQQe"),
-                "1E1335 abbreviated mode mapping changed");
-        check(LargeNumberFormatter.format(new BigDecimal("1E1335"), LargeNumberDisplayMode.SHORT).equals("1QQQ"),
-                "1E1335 short mode mapping changed");
-        check(LargeNumberFormatter.format(new BigDecimal("1E1335"), LargeNumberDisplayMode.SCIENTIFIC).equals("1E1335"),
-                "1E1335 scientific mode mapping changed");
-        check(LargeNumberFormatter.format(new BigDecimal("1E3000"), LargeNumberDisplayMode.FULL).equals("1NoNogNt"),
-                "The extended compact suffix range should reach 1E3000");
-        check(LargeNumberFormatter.format(new BigDecimal("1E3003"), LargeNumberDisplayMode.FULL).equals("1E3003"),
-                "Values beyond the configured compact suffix range should fall back to scientific notation");
-        check(LargeNumberFormatter.format(LargeNumberValue.parseWithUnit("1000", 11)).equals("1UDc"),
-                "1000 Dc should roll over to undecillion");
+        check(LargeNumberFormatter.format(new BigDecimal("1E90"), LargeNumberDisplayMode.LETTER).equals("1Nov"),
+                "1E90 should use Nov in letter mode");
+        check(LargeNumberFormatter.format(new BigDecimal("1E93"), LargeNumberDisplayMode.LETTER).equals("1Tt"),
+                "1E93 should use Tt in letter mode");
+        check(LargeNumberFormatter.format(new BigDecimal("1E120"), LargeNumberDisplayMode.LETTER).equals("1Nvt"),
+                "1E120 should use Nvt in letter mode");
+        check(LargeNumberFormatter.format(new BigDecimal("1E123"), LargeNumberDisplayMode.LETTER).equals("1Qdt"),
+                "1E123 should use Qdt in letter mode");
+        check(LargeNumberFormatter.format(new BigDecimal("1E303"), LargeNumberDisplayMode.LETTER).equals("1C"),
+                "1E303 should use C in letter mode");
+        check(LargeNumberFormatter.format(new BigDecimal("1E363"), LargeNumberDisplayMode.LETTER).equals("1Vgn"),
+                "1E363 should use Vgn in letter mode");
+
+        check(LargeNumberFormatter.format(new BigDecimal("1250"), LargeNumberDisplayMode.ENGINEERING).equals("1.25E3"),
+                "Engineering mode should use E notation from thousands onward");
+        check(LargeNumberFormatter.format(new BigDecimal("1E303"), LargeNumberDisplayMode.ENGINEERING).equals("1E303"),
+                "Engineering mode should show centillion as E303");
+        check(LargeNumberFormatter.format(new BigDecimal("1E1335"), LargeNumberDisplayMode.ENGINEERING).equals("1E1335"),
+                "Engineering mode should preserve high exponents");
+        check(LargeNumberFormatter.format(new BigDecimal("1E3003"), LargeNumberDisplayMode.LETTER).equals("1E3003"),
+                "Values beyond the configured letter range should fall back to engineering notation");
 
         check(RuneStatType.CLICK_DAMAGE_FLAT.format(40_015.5D).equals("+40.02K"),
                 "Rune stat display should use the shared large number formatter");
