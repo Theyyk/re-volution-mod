@@ -12,11 +12,14 @@ import java.util.List;
 
 public final class AdminPanelScreen extends GuiScreen {
     private static final int W = 360, H = 20, PAGE = 6;
-    private static final int MOB_HP_FIELD_W = 119, MOB_HP_UNIT_W = 52;
+    private static final int MOB_NUMBER_FIELD_W = 119, MOB_NUMBER_UNIT_W = 52;
+    private static final int HP_UNIT_OPTION_BASE = 6000;
+    private static final int REWARD_UNIT_OPTION_BASE = 8000;
+
     private final List<String> players = new ArrayList<>(), resources = new ArrayList<>(), mobs = new ArrayList<>(), balances = new ArrayList<>();
-    private int tab, playerIndex, resourceIndex, mobIndex, mobTypeIndex, mobHpUnitIndex;
-    private int playerPage, resourcePage, mobPage, mobHpUnitPage;
-    private boolean playerDropdown, resourceDropdown, mobDropdown, mobTypeDropdown, mobHpUnitDropdown;
+    private int tab, playerIndex, resourceIndex, mobIndex, mobTypeIndex, mobHpUnitIndex, mobRewardUnitIndex;
+    private int playerPage, resourcePage, mobPage, mobHpUnitPage, mobRewardUnitPage;
+    private boolean playerDropdown, resourceDropdown, mobDropdown, mobTypeDropdown, mobHpUnitDropdown, mobRewardUnitDropdown;
     private int confirmAction = -1;
     private long confirmUntil;
     private GuiTextField amountField, mobNameField, mobHpField, mobRewardField;
@@ -43,6 +46,7 @@ public final class AdminPanelScreen extends GuiScreen {
         resourcePage = clampPage(resourcePage, resources.size());
         mobPage = clampPage(mobPage, mobs.size());
         mobHpUnitPage = clampPage(mobHpUnitPage, LargeNumberValue.unitCount());
+        mobRewardUnitPage = clampPage(mobRewardUnitPage, LargeNumberValue.unitCount());
     }
 
     @Override public void initGui() {
@@ -54,7 +58,7 @@ public final class AdminPanelScreen extends GuiScreen {
         int tabsY = tabsY(y);
         int refreshY = tabsY + 26;
         int cy = refreshY + 56;
-        buttonList.add(btn(1, x, y, W, "Игрок: " + playerName() + (players.size() > 1 ? "  v" : "")));
+        buttonList.add(btn(1, x, y, W, "Игрок: " + playerName()));
         buttonList.add(tabBtn(2, x, tabsY, 116, "РУНЫ", tab == 0));
         buttonList.add(tabBtn(3, x + 122, tabsY, 116, "РЕСУРСЫ", tab == 1));
         buttonList.add(tabBtn(4, x + 244, tabsY, 116, "МОБЫ", tab == 2));
@@ -97,7 +101,7 @@ public final class AdminPanelScreen extends GuiScreen {
 
     private void buildResources(int x, int y) {
         String balance = playerUuid().isEmpty() || resources.isEmpty() ? "-" : selectedBalance();
-        buttonList.add(btn(30, x, y, W, "Ресурс: " + displayResource(resource()) + " | Баланс: " + balance + "  v"));
+        buttonList.add(btn(30, x, y, W, "Ресурс: " + displayResource(resource()) + " | Баланс: " + balance));
         int formY = resourceFormY(y);
         amountField = field(31, x, formY, W, amountText);
         buttonList.add(btn(32, x, formY + 26, 114, "Добавить"));
@@ -108,15 +112,16 @@ public final class AdminPanelScreen extends GuiScreen {
     }
 
     private void buildMobs(int x, int y) {
-        buttonList.add(btn(40, x, y, 175, "Тип: " + (mobTypeIndex == 0 ? "zombie" : "skeleton") + "  v"));
-        buttonList.add(btn(41, x + 185, y, 175, "Награда: " + displayResource(resource()) + "  v"));
+        buttonList.add(btn(40, x, y, 175, "Тип: " + (mobTypeIndex == 0 ? "zombie" : "skeleton")));
+        buttonList.add(btn(41, x + 185, y, 175, "Награда: " + displayResource(resource())));
         int nameY = mobNameY(y), hpY = mobHpY(y), createY = mobCreateY(y), selectorY = mobSelectorY(y), actionsY = mobActionsY(y);
         mobNameField = field(42, x, nameY, W, mobNameText);
-        mobHpField = field(43, x, hpY, MOB_HP_FIELD_W, mobHpText);
-        buttonList.add(btn(49, x + MOB_HP_FIELD_W + 4, hpY, MOB_HP_UNIT_W, unitLabel(mobHpUnitIndex) + "  v", mobHpUnitDropdown));
-        mobRewardField = field(44, x + 185, hpY, 175, mobRewardText);
+        mobHpField = field(43, x, hpY, MOB_NUMBER_FIELD_W, mobHpText);
+        buttonList.add(btn(49, x + MOB_NUMBER_FIELD_W + 4, hpY, MOB_NUMBER_UNIT_W, unitLabel(mobHpUnitIndex), mobHpUnitDropdown));
+        mobRewardField = field(44, x + 185, hpY, MOB_NUMBER_FIELD_W, mobRewardText);
+        buttonList.add(btn(50, x + 185 + MOB_NUMBER_FIELD_W + 4, hpY, MOB_NUMBER_UNIT_W, unitLabel(mobRewardUnitIndex), mobRewardUnitDropdown));
         buttonList.add(btn(45, x, createY, W, "Создать у выбранного игрока"));
-        buttonList.add(btn(46, x, selectorY, W, "Моб: " + mobLabel() + (mobs.size() > 1 ? "  v" : "")));
+        buttonList.add(btn(46, x, selectorY, W, "Моб: " + mobLabel()));
         buttonList.add(btn(47, x, actionsY, 175, "Установить спавн"));
         boolean c = confirming(48);
         buttonList.add(btn(48, x + 185, actionsY, 175, c ? "Повторить: удалить" : "Удалить", c));
@@ -132,7 +137,10 @@ public final class AdminPanelScreen extends GuiScreen {
         if (playerDropdown) addPlayerDropdown(x, y + 22, W);
         else if (resourceDropdown) { if (tab == 1) addResourceDropdown(x, cy + 22, W); else addResourceDropdown(x + 185, cy + 22, 175); }
         else if (mobTypeDropdown) { buttonList.add(btn(4000, x, cy + 22, 175, "zombie", mobTypeIndex == 0)); buttonList.add(btn(4001, x, cy + 44, 175, "skeleton", mobTypeIndex == 1)); }
-        else if (mobHpUnitDropdown) addHpUnitDropdown(x + MOB_HP_FIELD_W + 4, mobHpY(cy) + 22, MOB_HP_UNIT_W);
+        else if (mobHpUnitDropdown) addUnitDropdown(x + MOB_NUMBER_FIELD_W + 4, mobHpY(cy) + 22, MOB_NUMBER_UNIT_W,
+                mobHpUnitIndex, mobHpUnitPage, HP_UNIT_OPTION_BASE, 5031, 5032);
+        else if (mobRewardUnitDropdown) addUnitDropdown(x + 185 + MOB_NUMBER_FIELD_W + 4, mobHpY(cy) + 22, MOB_NUMBER_UNIT_W,
+                mobRewardUnitIndex, mobRewardUnitPage, REWARD_UNIT_OPTION_BASE, 5041, 5042);
         else if (mobDropdown) addMobDropdown(x, mobSelectorY(cy) + 22, W);
     }
 
@@ -154,15 +162,15 @@ public final class AdminPanelScreen extends GuiScreen {
         }
         addPageButtons(x, y + row * 22, w, 5021, 5022, mobPage, mobs.size());
     }
-    private void addHpUnitDropdown(int x, int y, int w) {
+    private void addUnitDropdown(int x, int y, int w, int selectedIndex, int page, int optionBase, int prevId, int nextId) {
         int size = LargeNumberValue.unitCount();
-        int start = mobHpUnitPage * PAGE, end = Math.min(size, start + PAGE), row = 0;
-        for (int i = start; i < end; i++) buttonList.add(btn(6000 + i, x, y + row++ * 22, w, unitLabel(i), i == mobHpUnitIndex));
+        int start = page * PAGE, end = Math.min(size, start + PAGE), row = 0;
+        for (int i = start; i < end; i++) buttonList.add(btn(optionBase + i, x, y + row++ * 22, w, unitLabel(i), i == selectedIndex));
         int pages = Math.max(1, (size + PAGE - 1) / PAGE);
         if (pages > 1) {
-            GuiButton prev = btn(5031, x, y + row * 22, (w - 2) / 2, "<");
-            GuiButton next = btn(5032, x + (w + 2) / 2, y + row * 22, (w - 2) / 2, ">");
-            prev.enabled = mobHpUnitPage > 0; next.enabled = mobHpUnitPage + 1 < pages; buttonList.add(prev); buttonList.add(next);
+            GuiButton prev = btn(prevId, x, y + row * 22, (w - 2) / 2, "<");
+            GuiButton next = btn(nextId, x + (w + 2) / 2, y + row * 22, (w - 2) / 2, ">");
+            prev.enabled = page > 0; next.enabled = page + 1 < pages; buttonList.add(prev); buttonList.add(next);
         }
     }
     private void addPageButtons(int x, int y, int w, int prevId, int nextId, int page, int size) {
@@ -178,7 +186,12 @@ public final class AdminPanelScreen extends GuiScreen {
         if (b.id >= 2000 && b.id < 3000) { resourceIndex = b.id - 2000; resourceDropdown = false; initGui(); return; }
         if (b.id >= 3000 && b.id < 4000) { mobIndex = b.id - 3000; mobDropdown = false; initGui(); return; }
         if (b.id == 4000 || b.id == 4001) { mobTypeIndex = b.id - 4000; mobTypeDropdown = false; initGui(); return; }
-        if (b.id >= 6000 && b.id < 7000) { int index = b.id - 6000; if (index < LargeNumberValue.unitCount()) mobHpUnitIndex = index; mobHpUnitDropdown = false; initGui(); return; }
+        if (b.id >= HP_UNIT_OPTION_BASE && b.id < HP_UNIT_OPTION_BASE + LargeNumberValue.unitCount()) {
+            mobHpUnitIndex = b.id - HP_UNIT_OPTION_BASE; mobHpUnitDropdown = false; initGui(); return;
+        }
+        if (b.id >= REWARD_UNIT_OPTION_BASE && b.id < REWARD_UNIT_OPTION_BASE + LargeNumberValue.unitCount()) {
+            mobRewardUnitIndex = b.id - REWARD_UNIT_OPTION_BASE; mobRewardUnitDropdown = false; initGui(); return;
+        }
         if (pageButton(b.id)) return;
         if (b.id == 1) { toggle(0); return; }
         if (b.id >= 2 && b.id <= 4) { tab = b.id - 2; closeDropdowns(); clearConfirm(); initGui(); return; }
@@ -193,6 +206,7 @@ public final class AdminPanelScreen extends GuiScreen {
         else if (b.id == 35) { if (!confirm(35)) return; send("resource_zero_all\t" + playerUuid()); }
         else if (b.id == 40) { toggle(2); return; }
         else if (b.id == 49) { toggle(4); return; }
+        else if (b.id == 50) { toggle(5); return; }
         else if (b.id == 45) { clearConfirm(); createMob(); }
         else if (b.id == 46) { toggle(3); return; }
         else if (b.id == 47 && !mobs.isEmpty()) { clearConfirm(); send("mob_setspawn\t" + mobName() + "\t" + playerUuid()); }
@@ -204,15 +218,25 @@ public final class AdminPanelScreen extends GuiScreen {
         else if (id == 5011) resourcePage = Math.max(0, resourcePage - 1); else if (id == 5012) resourcePage++;
         else if (id == 5021) mobPage = Math.max(0, mobPage - 1); else if (id == 5022) mobPage++;
         else if (id == 5031) mobHpUnitPage = Math.max(0, mobHpUnitPage - 1); else if (id == 5032) mobHpUnitPage++;
+        else if (id == 5041) mobRewardUnitPage = Math.max(0, mobRewardUnitPage - 1); else if (id == 5042) mobRewardUnitPage++;
         else return false; initGui(); return true;
     }
     private void toggle(int kind) {
-        boolean p = kind == 0 && !playerDropdown, r = kind == 1 && !resourceDropdown, t = kind == 2 && !mobTypeDropdown,
-                m = kind == 3 && !mobDropdown, u = kind == 4 && !mobHpUnitDropdown;
-        closeDropdowns(); playerDropdown = p; resourceDropdown = r; mobTypeDropdown = t; mobDropdown = m; mobHpUnitDropdown = u;
-        if (u) mobHpUnitPage = mobHpUnitIndex / PAGE; initGui();
+        boolean p = kind == 0 && !playerDropdown;
+        boolean r = kind == 1 && !resourceDropdown;
+        boolean t = kind == 2 && !mobTypeDropdown;
+        boolean m = kind == 3 && !mobDropdown;
+        boolean h = kind == 4 && !mobHpUnitDropdown;
+        boolean rw = kind == 5 && !mobRewardUnitDropdown;
+        closeDropdowns();
+        playerDropdown = p; resourceDropdown = r; mobTypeDropdown = t; mobDropdown = m; mobHpUnitDropdown = h; mobRewardUnitDropdown = rw;
+        if (h) mobHpUnitPage = mobHpUnitIndex / PAGE;
+        if (rw) mobRewardUnitPage = mobRewardUnitIndex / PAGE;
+        initGui();
     }
-    private void closeDropdowns() { playerDropdown = resourceDropdown = mobDropdown = mobTypeDropdown = mobHpUnitDropdown = false; }
+    private void closeDropdowns() {
+        playerDropdown = resourceDropdown = mobDropdown = mobTypeDropdown = mobHpUnitDropdown = mobRewardUnitDropdown = false;
+    }
     private boolean confirm(int id) { long now = System.currentTimeMillis(); if (confirmAction == id && now <= confirmUntil) { clearConfirm(); return true; } confirmAction = id; confirmUntil = now + 4000L; initGui(); return false; }
     private boolean confirming(int id) { if (confirmAction == id && System.currentTimeMillis() <= confirmUntil) return true; if (System.currentTimeMillis() > confirmUntil) confirmAction = -1; return false; }
     private void clearConfirm() { confirmAction = -1; confirmUntil = 0L; }
@@ -220,8 +244,10 @@ public final class AdminPanelScreen extends GuiScreen {
     private void createMob() {
         String name = mobNameText.trim();
         BigDecimal hp, reward;
-        try { hp = LargeNumberValue.parseWithUnit(mobHpText, mobHpUnitIndex); reward = LargeNumberValue.parseFlexible(mobRewardText); }
-        catch (RuntimeException e) { return; }
+        try {
+            hp = LargeNumberValue.parseWithUnit(mobHpText, mobHpUnitIndex);
+            reward = LargeNumberValue.parseWithUnit(mobRewardText, mobRewardUnitIndex);
+        } catch (RuntimeException e) { return; }
         if (name.isEmpty() || hp.signum() <= 0 || reward.signum() <= 0) return;
         send("mob_create\t" + name + "\t" + (mobTypeIndex == 0 ? "zombie" : "skeleton") + "\t" + resource()
                 + "\t" + LargeNumberValue.canonical(reward) + "\t" + LargeNumberValue.canonical(hp) + "\t" + playerUuid());
@@ -256,8 +282,9 @@ public final class AdminPanelScreen extends GuiScreen {
         if (tab == 1) body.drawString("Количество:", x, resourceFormY(cy) - 15, GuiTheme.HEADING_TEXT_COLOR, false);
         else if (tab == 2) {
             int nameY = mobNameY(cy), hpY = mobHpY(cy);
-            body.drawString("Имя моба:", x, nameY - 15, GuiTheme.HEADING_TEXT_COLOR, false); body.drawString("HP:", x, hpY - 15, GuiTheme.HEADING_TEXT_COLOR, false);
-            body.drawString("Награда (1000 / 1T / 1Ce / 1E303):", x + 185, hpY - 15, GuiTheme.HEADING_TEXT_COLOR, false);
+            body.drawString("Имя моба:", x, nameY - 15, GuiTheme.HEADING_TEXT_COLOR, false);
+            body.drawString("HP:", x, hpY - 15, GuiTheme.HEADING_TEXT_COLOR, false);
+            body.drawString("Награда:", x + 185, hpY - 15, GuiTheme.HEADING_TEXT_COLOR, false);
             if (details && !mobs.isEmpty()) {
                 int detailsY = mobDetailsY(cy);
                 body.drawString("Выбран: " + mobName() + " | " + split(mobs.get(mobIndex), 1) + " | HP " + compactNumber(split(mobs.get(mobIndex), 2))
