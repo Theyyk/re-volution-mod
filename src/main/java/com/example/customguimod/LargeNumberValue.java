@@ -6,6 +6,10 @@ import java.util.List;
 
 /** Shared arbitrary-precision value helpers for compact large-number input. */
 final class LargeNumberValue {
+    private static final int MAX_ILLION_INDEX = 999;
+    private static final String[] UNIT_PREFIXES = {"", "U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
+    private static final String[] TENS_SUFFIXES = {"", "Dc", "Vg", "Tg", "Qag", "Qig", "Sxg", "Spg", "Ocg", "Nog"};
+    private static final String[] HUNDREDS_SUFFIXES = {"", "Ce", "Du", "Tr", "Qe", "Qn", "Ses", "Sts", "Ot", "Nt"};
     private static final String[] SUFFIXES = buildSuffixes();
 
     private LargeNumberValue() {}
@@ -46,34 +50,42 @@ final class LargeNumberValue {
 
     private static String[] buildSuffixes() {
         List<String> values = new ArrayList<>();
-        String[] base = {
-                "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
-                "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg"
-        };
-        for (String suffix : base) values.add(suffix);
+        values.add(""); // x1
+        values.add("K"); // thousand
 
-        addDecade(values, "Vg");
-        values.add("Tg");
-        addDecade(values, "Tg");
-        values.add("Qag");
-        addDecade(values, "Qag");
-        values.add("Qig");
-        addDecade(values, "Qig");
-        values.add("Sxg");
-        addDecade(values, "Sxg");
-        values.add("Spg");
-        addDecade(values, "Spg");
-        values.add("Ocg");
-        addDecade(values, "Ocg");
-        values.add("Nog");
-        addDecade(values, "Nog");
-        values.add("Ce");
+        // unit index = exponent / 3, while illion index = unit index - 1.
+        // Keep the familiar K/M/B/T family, then extend the same compact Latin-style
+        // construction through the 999th -illion (up to 1E3000).
+        for (int illionIndex = 1; illionIndex <= MAX_ILLION_INDEX; illionIndex++) {
+            values.add(illionSuffix(illionIndex));
+        }
 
         return values.toArray(new String[0]);
     }
 
-    private static void addDecade(List<String> values, String base) {
-        String[] prefixes = {"U", "D", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"};
-        for (String prefix : prefixes) values.add(prefix + base);
+    private static String illionSuffix(int illionIndex) {
+        switch (illionIndex) {
+            case 1: return "M";
+            case 2: return "B";
+            case 3: return "T";
+            case 4: return "Qa";
+            case 5: return "Qi";
+            case 6: return "Sx";
+            case 7: return "Sp";
+            case 8: return "Oc";
+            case 9: return "No";
+            default:
+                if (illionIndex < 100) return belowHundredSuffix(illionIndex);
+                int hundreds = illionIndex / 100;
+                int remainder = illionIndex % 100;
+                return belowHundredSuffix(remainder) + HUNDREDS_SUFFIXES[hundreds];
+        }
+    }
+
+    private static String belowHundredSuffix(int value) {
+        if (value <= 0) return "";
+        int tens = value / 10;
+        int ones = value % 10;
+        return UNIT_PREFIXES[ones] + TENS_SUFFIXES[tens];
     }
 }
