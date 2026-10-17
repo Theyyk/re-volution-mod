@@ -296,12 +296,12 @@ public class MongoManager {
     public static class CustomMob {
         public String name;
         public String type;
-        public int hp;
+        public long hp;
         public int money;
         public double x, y, z;
         public boolean enabled;
 
-        public CustomMob(String name, String type, int hp, int money, double x, double y, double z, boolean enabled) {
+        public CustomMob(String name, String type, long hp, int money, double x, double y, double z, boolean enabled) {
             this.name = name;
             this.type = type;
             this.hp = hp;
@@ -317,7 +317,7 @@ public class MongoManager {
         return database.getCollection("custom_mobs");
     }
 
-    public static void createMob(String name, String type, int hp, int money) {
+    public static void createMob(String name, String type, long hp, int money) {
         if (players == null) return;
         getMobsCollection().insertOne(new Document("name", name)
                 .append("type", type)
@@ -358,7 +358,7 @@ public class MongoManager {
             result.add(new CustomMob(
                     doc.getString("name"),
                     doc.getString("type"),
-                    doc.getInteger("hp", 10),
+                    getLong(doc, "hp", 10L),
                     doc.getInteger("money", 50),
                     doc.getDouble("x"),
                     doc.getDouble("y"),
@@ -376,12 +376,17 @@ public class MongoManager {
         return new CustomMob(
                 doc.getString("name"),
                 doc.getString("type"),
-                doc.getInteger("hp", 10),
+                getLong(doc, "hp", 10L),
                 doc.getInteger("money", 50),
                 doc.getDouble("x"),
                 doc.getDouble("y"),
                 doc.getDouble("z"),
                 doc.getBoolean("enabled", false)
         );
+    }
+
+    private static long getLong(Document doc, String field, long fallback) {
+        Number value = doc == null ? null : doc.get(field, Number.class);
+        return value == null ? fallback : value.longValue();
     }
 }
