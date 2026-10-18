@@ -4,6 +4,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -74,7 +75,10 @@ public class CustomGuiMod {
         event.registerServerCommand(new AdminPanelCommand());
 
         ResourceManager.purgeDeprecatedLightnings();
+    }
 
+    @Mod.EventHandler
+    public void serverStarted(FMLServerStartedEvent event) {
         net.minecraft.world.World world = event.getServer().getWorld(0);
         MobManager.loadFromDatabase(world);
     }
