@@ -56,6 +56,8 @@ public class MobManager {
         public EntityLiving entity;
         public int respawnTimer;
         public boolean spawnFailureLogged;
+        public boolean chunkWasUnloaded;
+        public boolean hasSpawnedOnce;
 
         public MobSpawn(String name, String type, BigDecimal hp, String resource, BigDecimal amount, double x, double y, double z) {
             this.name = name;
@@ -112,7 +114,7 @@ public class MobManager {
             if (!isManagedOrLegacyCustomMob(entity)) continue;
             entity.setDead();
             removed++;
-            CustomGuiMod.logger.info("Removed old persisted managed mob: " + entity.getUniqueID());
+            CustomGuiMod.logger.debug("Removed old persisted managed mob: " + entity.getUniqueID());
         }
         if (removed > 0) CustomGuiMod.logger.info("Removed " + removed + " stale managed mob(s) before initial spawn.");
     }
@@ -142,6 +144,10 @@ public class MobManager {
     private static String buildSpawnKey(String name, String type, double x, double y, double z) {
         return String.valueOf(name) + "|" + String.valueOf(type).toLowerCase(java.util.Locale.ROOT) + "|"
                 + Double.toString(x) + "|" + Double.toString(y) + "|" + Double.toString(z);
+    }
+
+    private static BlockPos spawnPosition(MobSpawn spawn) {
+        return new BlockPos(spawn.x, spawn.y, spawn.z);
     }
 
     private static void applyPoisonTicks() {
@@ -191,7 +197,7 @@ public class MobManager {
             return;
         }
 
-        BlockPos spawnPos = new BlockPos(spawn.x, spawn.y, spawn.z);
+        BlockPos spawnPos = spawnPosition(spawn);
         serverWorld.getChunkFromBlockCoords(spawnPos);
         EntityLiving entity = spawn.type.equalsIgnoreCase("skeleton") ? new EntitySkeleton(serverWorld) : new EntityZombie(serverWorld);
         spawn.currentHp = spawn.hp;
@@ -220,8 +226,13 @@ public class MobManager {
         }
         spawn.spawnFailureLogged = false;
         spawn.entity = entity;
-        CustomGuiMod.logger.info("Spawned mob: " + spawn.name + " (" + spawn.type + ") at " + spawn.x + ", " + spawn.y + ", " + spawn.z
-                + " with custom HP " + LargeNumberValue.canonical(spawn.hp) + " (native backing HP " + nativeHealth + ")");
+        if (!spawn.hasSpawnedOnce) {
+            spawn.hasSpawnedOnce = true;
+            CustomGuiMod.logger.info("Spawned mob: " + spawn.name + " (" + spawn.type + ") at " + spawn.x + ", " + spawn.y + ", " + spawn.z
+                    + " with custom HP " + LargeNumberValue.canonical(spawn.hp) + " (native backing HP " + nativeHealth + ")");
+        } else {
+            CustomGuiMod.logger.debug("Respawned managed mob: " + spawn.name + " entityId=" + entity.getEntityId());
+        }
     }
 
     private static void syncMobMetadata(MobSpawn spawn, EntityLiving entity) {
@@ -240,7 +251,7 @@ public class MobManager {
         if (managedSessionId.equals(entitySessionId)) return;
         event.setCanceled(true);
         entity.setDead();
-        CustomGuiMod.logger.info("Prevented stale persisted managed mob from rejoining world: " + entity.getUniqueID());
+        CustomGuiMod.logger.debug("Prevented stale persisted managed mob from rejoining world: " + entity.getUniqueID());
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -258,7 +269,7 @@ public class MobManager {
         }
         if (removed > 0) {
             level.setTag("Entities", entities); root.setTag("Level", level);
-            CustomGuiMod.logger.info("Skipped persisting " + removed + " managed mob(s) in chunk " + event.getChunk().x + ", " + event.getChunk().z);
+            CustomGuiMod.logger.debug("Skipped persisting " + removed + " managed mob(s) in chunk " + event.getChunk().x + ", " + event.getChunk().z);
         }
     }
 
@@ -307,12 +318,29 @@ public class MobManager {
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         for (MobSpawn spawn : spawns) {
+            boolean spawnChunkLoaded = serverWorld != null && serverWorld.isBlockLoaded(spawnPosition(spawn));
+            if (!spawnChunkLoaded) {
+                spawn.chunkWasUnloaded = true;
+                continue;
+            }
+
+            if (spawn.chunkWasUnloaded) {
+                spawn.chunkWasUnloaded = false;
+                if (spawn.entity != null && !isRegisteredInWorld(spawn.entity)) {
+                    if (!spawn.entity.isDead) spawn.entity.setDead();
+                    CustomGuiMod.logger.debug("Managed mob spawn chunk reloaded; scheduling clean respawn: " + spawn.name);
+                    spawn.entity = null;
+                    spawn.respawnTimer = LOST_ENTITY_RESPAWN_DELAY_TICKS;
+                    continue;
+                }
+            }
+
             if (spawn.entity != null && !spawn.entity.isDead) {
                 if (isRegisteredInWorld(spawn.entity)) {
                     if (spawn.entity.isBurning()) spawn.entity.extinguish();
                     continue;
                 }
-                CustomGuiMod.logger.warn("Managed mob lost from world registry; scheduling clean respawn: " + spawn.name
+                CustomGuiMod.logger.warn("Managed mob lost from world registry while spawn chunk stayed loaded; scheduling clean respawn: " + spawn.name
                         + " entityId=" + spawn.entity.getEntityId());
                 spawn.entity.setDead();
                 spawn.entity = null;
