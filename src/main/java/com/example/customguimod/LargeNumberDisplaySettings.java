@@ -9,7 +9,7 @@ import java.util.Properties;
 /** Local client preference for large-number presentation. */
 final class LargeNumberDisplaySettings {
     private static final String KEY_MODE = "mode";
-    private static final LargeNumberDisplayMode DEFAULT_MODE = LargeNumberDisplayMode.LETTER;
+    private static final LargeNumberDisplayMode DEFAULT_MODE = LargeNumberDisplayMode.SIMPLIFIED;
     private static LargeNumberDisplayMode mode = DEFAULT_MODE;
     private static File configFile;
 
@@ -49,11 +49,13 @@ final class LargeNumberDisplaySettings {
 
     private static LargeNumberDisplayMode parseMode(String raw) {
         if (raw == null) return DEFAULT_MODE;
-        if ("SCIENTIFIC".equals(raw)) return LargeNumberDisplayMode.ENGINEERING;
-        if ("FULL".equals(raw) || "ABBREVIATED".equals(raw) || "SHORT".equals(raw)) {
-            return LargeNumberDisplayMode.LETTER;
+        String normalized = raw.trim().toUpperCase(java.util.Locale.ROOT);
+        if ("SCIENTIFIC".equals(normalized)) return LargeNumberDisplayMode.ENGINEERING;
+        if ("LETTER".equals(normalized) || "ABBREVIATED".equals(normalized) || "SHORT".equals(normalized)) {
+            return LargeNumberDisplayMode.SIMPLIFIED;
         }
-        return LargeNumberDisplayMode.valueOf(raw);
+        if ("FULL".equals(normalized)) return LargeNumberDisplayMode.FULL;
+        return LargeNumberDisplayMode.valueOf(normalized);
     }
 
     private static void save() {
