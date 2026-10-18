@@ -6,7 +6,7 @@ on:
       - "feature/v1.3-rune-client-package-split"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate-migration:
@@ -36,3 +36,19 @@ jobs:
 
       - name: Compile migrated project
         run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" -Dnet.minecraftforge.gradle.check.certs=false clean testClasses
+
+      - name: Commit validated migration
+        if: github.actor != 'github-actions[bot]'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -- gradlew
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Package migration is already materialized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "refactor: split rune and client packages"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
