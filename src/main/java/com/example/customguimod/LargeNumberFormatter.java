@@ -29,9 +29,10 @@ final class LargeNumberFormatter {
         BigDecimal abs = normalized.abs();
         if (abs.compareTo(THOUSAND) < 0) return compactPlain(normalized);
 
+        LargeNumberDisplayMode effectiveMode = mode == null ? LargeNumberDisplayMode.SIMPLIFIED : mode;
         int integerDigits = normalized.precision() - normalized.scale();
         int unitIndex = Math.max(0, (integerDigits - 1) / 3);
-        if (mode == LargeNumberDisplayMode.ENGINEERING) {
+        if (effectiveMode == LargeNumberDisplayMode.ENGINEERING) {
             return engineering(normalized, unitIndex);
         }
 
@@ -42,7 +43,7 @@ final class LargeNumberFormatter {
                 unitIndex++;
                 scaled = normalized.movePointLeft(unitIndex * 3);
             }
-            return compactPlain(scaled) + LargeNumberValue.unitSuffix(unitIndex, LargeNumberDisplayMode.LETTER);
+            return compactPlain(scaled) + LargeNumberValue.unitSuffix(unitIndex, effectiveMode);
         }
 
         return engineering(normalized, unitIndex);
