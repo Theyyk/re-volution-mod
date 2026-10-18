@@ -15,6 +15,7 @@ TEST_ROOT = ROOT / "src/test/java"
 BASE = "com.example.customguimod"
 
 RUNE = {
+    "MobRewardBonus",
     "PrimaryRuneCatalog",
     "RuneAwakeningDecision",
     "RuneAwakeningPaymentService",
@@ -83,6 +84,7 @@ for name in NETWORK:
     MOVE[name] = BASE + ".network"
 
 TEST_MOVE = {
+    "MobRewardBonusTest": BASE + ".rune",
     "PrimaryRuneCatalogTest": BASE + ".rune",
     "RuneCombatMathTest": BASE + ".rune",
     "RuneEconomyConfigTest": BASE + ".rune",
@@ -115,9 +117,11 @@ PUBLIC_TYPES = {
     "RuneTexturePreloader",
 }
 
-ROOT_IMPORTS = {
-    "RuneMobEffects": ["MobRewardBonus"],
-    "RuneRewardBonusService": ["MobRewardBonus"],
+# Public root integration types remain at the bootstrap/server boundary in this stage.
+ROOT_TYPES = {
+    "AdminPanelRequestPacket",
+    "CustomGuiMod",
+    "PingPacket",
 }
 
 PKG_RE = re.compile(r"(?m)^package\s+([\w.]+);\s*$")
@@ -156,8 +160,7 @@ def promote_top_level_type(text, class_name):
 
 
 def promote_rune_stat_type_members(text):
-    # Enum constants and enum constructors cannot be prefixed with public. Promote only the
-    # members that are consumed by the client package.
+    # Enum constants and enum constructors cannot be prefixed with public.
     replacements = {
         "    enum DisplayKind {": "    public enum DisplayKind {",
         "    final String displayName;": "    public final String displayName;",
@@ -199,6 +202,38 @@ def promote_boundary_members(text, class_name):
     return "".join(out)
 
 
+def promote_nested_boundary_models(text, class_name):
+    # These nested data holders cross the rune/client or rune/server boundary. Their data was
+    # previously package-private only because everything lived in one flat package.
+    if class_name == "PrimaryRuneCatalog":
+        for field in ("name", "type", "iconTexture", "stats", "targetedPowers", "compositeEffects"):
+            text = re.sub(r"(?m)^        final (.+\s+%s;)\s*$" % field, r"        public final \1", text)
+    elif class_name == "RuneInventory":
+        text = text.replace("        final int runeIndex;", "        public final int runeIndex;")
+        text = text.replace("        final int layer;", "        public final int layer;")
+    elif class_name == "RuneCombatMath":
+        fields = (
+            "clickFlat", "clickMultiplier", "poisonFlat", "poisonMultiplier",
+            "clickVulnerabilityPercent", "poisonVulnerabilityPercent",
+            "allDamageVulnerabilityPercent", "allDamageMultiplier",
+            "procChancePercent", "procDamageMultiplier", "rageActive", "rageMultiplier",
+        )
+        for field in fields:
+            text = re.sub(r"(?m)^        (double|boolean) (%s)(\s*=\s*[^;]+)?;\s*$" % field,
+                          r"        public \1 \2\3;", text)
+        text = text.replace("    public static final class Snapshot {\n", "    public static final class Snapshot {\n        public Snapshot() {}\n")
+    elif class_name == "RuneAwakeningPaymentService":
+        for field in ("allowed", "paid", "invalidConfiguration"):
+            text = text.replace("        final boolean %s;" % field, "        public final boolean %s;" % field)
+        text = text.replace("        final String resource;", "        public final String resource;")
+        text = text.replace("        final int cost;", "        public final int cost;")
+        text = text.replace("        final int balance;", "        public final int balance;")
+    elif class_name == "RuneStat":
+        for field in ("baseValue", "awakeningBonus", "enhancementBonus", "otherBonus", "finalValue"):
+            text = text.replace("        final double %s;" % field, "        public final double %s;" % field)
+    return text
+
+
 def add_imports(text, package, own_name):
     for name, target in MOVE.items():
         text = text.replace(BASE + "." + name, target + "." + name)
@@ -214,11 +249,14 @@ def add_imports(text, package, own_name):
         if fqcn not in existing:
             additions.append("import %s;" % fqcn)
             existing.add(fqcn)
-    for root_name in ROOT_IMPORTS.get(own_name, []):
-        fqcn = BASE + "." + root_name
-        if fqcn not in existing:
-            additions.append("import %s;" % fqcn)
-            existing.add(fqcn)
+    if package != BASE:
+        for name in sorted(ROOT_TYPES):
+            if not re.search(r"\b%s\b" % re.escape(name), text):
+                continue
+            fqcn = BASE + "." + name
+            if fqcn not in existing:
+                additions.append("import %s;" % fqcn)
+                existing.add(fqcn)
     if not additions:
         return text
     package_match = PKG_RE.search(text)
@@ -236,6 +274,7 @@ def migrate_root_sources(root, mapping):
         text = replace_package(text, target_package)
         text = promote_top_level_type(text, class_name)
         text = promote_boundary_members(text, class_name)
+        text = promote_nested_boundary_models(text, class_name)
         new = path_for(root, target_package, old.name)
         new.parent.mkdir(parents=True, exist_ok=True)
         new.write_text(text, encoding="utf-8")
