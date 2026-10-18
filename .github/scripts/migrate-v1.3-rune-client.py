@@ -115,7 +115,6 @@ PUBLIC_TYPES = {
     "RuneTexturePreloader",
 }
 
-# Existing root helpers referenced from the new rune package need explicit imports after moving.
 ROOT_IMPORTS = {
     "RuneMobEffects": ["MobRewardBonus"],
     "RuneRewardBonusService": ["MobRewardBonus"],
@@ -156,15 +155,28 @@ def promote_top_level_type(text, class_name):
     return text
 
 
-def promote_boundary_members(text, class_name):
-    """Expose only direct members of explicitly selected boundary types.
+def promote_rune_stat_type_members(text):
+    # Enum constants and enum constructors cannot be prefixed with public. Promote only the
+    # members that are consumed by the client package.
+    replacements = {
+        "    enum DisplayKind {": "    public enum DisplayKind {",
+        "    final String displayName;": "    public final String displayName;",
+        "    final DisplayKind displayKind;": "    public final DisplayKind displayKind;",
+        "    String format(double value) {": "    public String format(double value) {",
+        "    boolean isDamageMultiplier() {": "    public boolean isDamageMultiplier() {",
+        "    static String compact(double value) {": "    public static String compact(double value) {",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
 
-    The old flat package relied on package-private access. After the split those direct members
-    become the narrow Java boundary. Private implementation remains private; nested member
-    internals are not widened here unless the nested type itself is part of the exposed model.
-    """
+
+def promote_boundary_members(text, class_name):
     if class_name not in PUBLIC_TYPES:
         return text
+    if class_name == "RuneStatType":
+        return promote_rune_stat_type_members(text)
+
     out = []
     for line in text.splitlines(True):
         if not line.startswith("    ") or line.startswith("        "):
@@ -185,14 +197,6 @@ def promote_boundary_members(text, class_name):
             line = "    public " + stripped
         out.append(line)
     return "".join(out)
-
-
-def add_named_import(text, fqcn):
-    if fqcn in IMPORT_RE.findall(text):
-        return text
-    package_match = PKG_RE.search(text)
-    insert_at = package_match.end()
-    return text[:insert_at] + "\n\nimport " + fqcn + ";" + text[insert_at:]
 
 
 def add_imports(text, package, own_name):
