@@ -2,7 +2,8 @@ package com.example.customguimod;
 
 /** Client-selectable presentation mode for large numeric values. */
 enum LargeNumberDisplayMode {
-    LETTER("Буквенный"),
+    SIMPLIFIED("Упрощенный"),
+    FULL("Полный"),
     ENGINEERING("Инженерный");
 
     private final String displayName;
