@@ -86,7 +86,7 @@ for name in NETWORK:
 TEST_MOVE = {
     "MobRewardBonusTest": BASE + ".rune",
     "PrimaryRuneCatalogTest": BASE + ".rune",
-    "RuneCombatMathTest": BASE + ".rune",
+    "RuneCombatMathTest": BASE + ".client",
     "RuneEconomyConfigTest": BASE + ".rune",
     "RuneInventoryTest": BASE + ".rune",
     "RuneProgressionTest": BASE + ".rune",
@@ -95,9 +95,11 @@ TEST_MOVE = {
     "GuiLayoutTest": BASE + ".client",
     "RuneAwakeningInputTest": BASE + ".client",
     "RuneEnhancementPacketTest": BASE + ".client",
+    "RuneTooltipContentTest": BASE + ".client",
 }
 
 PUBLIC_TYPES = {
+    "MobRewardBonus",
     "PrimaryRuneCatalog",
     "RuneAwakeningDecision",
     "RuneAwakeningPaymentService",
@@ -208,6 +210,9 @@ def promote_nested_boundary_models(text, class_name):
     if class_name == "PrimaryRuneCatalog":
         for field in ("name", "type", "iconTexture", "stats", "targetedPowers", "compositeEffects"):
             text = re.sub(r"(?m)^        final (.+\s+%s;)\s*$" % field, r"        public final \1", text)
+        text = text.replace("        Definition(String name, String type, String iconFile, RuneStat... stats) {",
+                            "        public Definition(String name, String type, String iconFile, RuneStat... stats) {")
+        text = text.replace("        Definition(String name,\n", "        public Definition(String name,\n")
     elif class_name == "RuneInventory":
         text = text.replace("        final int runeIndex;", "        public final int runeIndex;")
         text = text.replace("        final int layer;", "        public final int layer;")
