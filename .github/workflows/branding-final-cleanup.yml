@@ -31,6 +31,8 @@ jobs:
           for path in root.rglob('*'):
               if not path.is_file() or '.git' in path.parts:
                   continue
+              if len(path.parts) >= 2 and path.parts[0] == '.github' and path.parts[1] == 'workflows':
+                  continue
               try:
                   text = path.read_text(encoding='utf-8')
               except (UnicodeDecodeError, OSError):
