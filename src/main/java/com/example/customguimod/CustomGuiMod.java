@@ -4,7 +4,6 @@ import com.example.customguimod.admin.AdminPanelAccess;
 import com.example.customguimod.admin.AdminPanelKeyHandler;
 import com.example.customguimod.client.hud.HealthBarRenderer;
 import com.example.customguimod.client.hud.NameHider;
-import com.example.customguimod.client.hud.PlayerStatsHudRenderer;
 import com.example.customguimod.commands.AdminPanelCommand;
 import com.example.customguimod.commands.CustomMobCommand;
 import com.example.customguimod.commands.CustomResourceCommand;
@@ -69,7 +68,6 @@ public class CustomGuiMod {
         MinecraftForge.EVENT_BUS.register(new ClientPacketHandler());
         MinecraftForge.EVENT_BUS.register(new HealthBarRenderer());
         MinecraftForge.EVENT_BUS.register(new NameHider());
-        MinecraftForge.EVENT_BUS.register(new PlayerStatsHudRenderer());
         MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());
         MinecraftForge.EVENT_BUS.register(new PoisonStatsUiHandler());
