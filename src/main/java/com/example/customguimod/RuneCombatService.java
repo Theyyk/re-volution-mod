@@ -16,11 +16,32 @@ final class RuneCombatService {
     private RuneCombatService() {}
 
     static RuneCombatMath.Snapshot resolve(UUID uuid, long worldTick) {
+        RuneCombatMath.Snapshot snapshot = resolveStable(uuid);
+        if (snapshot == null) return null;
+        if (snapshot.rageMultiplier > 1.0D && isRageActive(uuid, worldTick)) snapshot.rageActive = true;
+        return snapshot;
+    }
+
+    /**
+     * Resolves permanent combat power from every configured rune collection. The selected collection
+     * only controls which collection is being viewed/edited in the GUI; it does not disable combat
+     * power already owned in other configured collections.
+     */
+    static RuneCombatMath.Snapshot resolveStable(UUID uuid) {
         if (uuid == null) return null;
+        int collectionCount = MongoManager.getCollectionNames(uuid).size();
+        RuneCombatMath.Snapshot aggregate = null;
+        for (int collectionIndex = 0; collectionIndex < collectionCount; collectionIndex++) {
+            if (RuneStatusRegistry.statusForCollection(collectionIndex) != RuneStatusRegistry.STATUS_POISON) continue;
+            RuneCombatMath.Snapshot collection = resolvePoisonCollection(uuid, collectionIndex);
+            if (collection == null) continue;
+            if (aggregate == null) aggregate = new RuneCombatMath.Snapshot();
+            merge(aggregate, collection);
+        }
+        return aggregate;
+    }
 
-        int collectionIndex = MongoManager.getActiveCollection(uuid);
-        if (RuneStatusRegistry.statusForCollection(collectionIndex) != RuneStatusRegistry.STATUS_POISON) return null;
-
+    private static RuneCombatMath.Snapshot resolvePoisonCollection(UUID uuid, int collectionIndex) {
         RuneInventory inventory = new RuneInventory();
         List<MongoManager.SavedRune> runes = MongoManager.getRunesInCollection(uuid, collectionIndex);
         for (MongoManager.SavedRune rune : runes) {
@@ -84,7 +105,6 @@ final class RuneCombatService {
                                 snapshot.rageMultiplier,
                                 effect.resolvedTemporaryAllDamageMultiplier(owned.layer, enhancementMultiplier)
                         );
-                        if (isRageActive(uuid, worldTick)) snapshot.rageActive = true;
                         break;
                     default:
                         break;
@@ -95,6 +115,20 @@ final class RuneCombatService {
         return snapshot;
     }
 
+    private static void merge(RuneCombatMath.Snapshot target, RuneCombatMath.Snapshot source) {
+        target.clickFlat += source.clickFlat;
+        target.clickMultiplier *= source.clickMultiplier;
+        target.poisonFlat += source.poisonFlat;
+        target.poisonMultiplier *= source.poisonMultiplier;
+        target.clickVulnerabilityPercent += source.clickVulnerabilityPercent;
+        target.poisonVulnerabilityPercent += source.poisonVulnerabilityPercent;
+        target.allDamageVulnerabilityPercent += source.allDamageVulnerabilityPercent;
+        target.allDamageMultiplier *= source.allDamageMultiplier;
+        target.procChancePercent = Math.max(target.procChancePercent, source.procChancePercent);
+        target.procDamageMultiplier = Math.max(target.procDamageMultiplier, source.procDamageMultiplier);
+        target.rageMultiplier = Math.max(target.rageMultiplier, source.rageMultiplier);
+    }
+
     static boolean rollProc(RuneCombatMath.Snapshot snapshot) {
         if (snapshot == null || snapshot.procChancePercent <= 0.0D) return false;
         return ThreadLocalRandom.current().nextDouble(100.0D) < Math.min(100.0D, snapshot.procChancePercent);
@@ -102,27 +136,29 @@ final class RuneCombatService {
 
     static void activateRageOnMobHit(UUID uuid, long worldTick) {
         if (uuid == null) return;
-        int collectionIndex = MongoManager.getActiveCollection(uuid);
-        if (RuneStatusRegistry.statusForCollection(collectionIndex) != RuneStatusRegistry.STATUS_POISON) return;
+        int collectionCount = MongoManager.getCollectionNames(uuid).size();
+        for (int collectionIndex = 0; collectionIndex < collectionCount; collectionIndex++) {
+            if (RuneStatusRegistry.statusForCollection(collectionIndex) != RuneStatusRegistry.STATUS_POISON) continue;
 
-        RuneInventory inventory = new RuneInventory();
-        for (MongoManager.SavedRune rune : MongoManager.getRunesInCollection(uuid, collectionIndex)) {
-            if (rune == null) continue;
-            inventory.set(rune.slot, rune.runeIndex, rune.layer);
-        }
+            RuneInventory inventory = new RuneInventory();
+            for (MongoManager.SavedRune rune : MongoManager.getRunesInCollection(uuid, collectionIndex)) {
+                if (rune == null) continue;
+                inventory.set(rune.slot, rune.runeIndex, rune.layer);
+            }
 
-        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-            if (inventory.getBoost(rune) == null) continue;
-            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
-            if (definition == null) continue;
-            for (RuneCompositeEffect effect : definition.compositeEffects) {
-                if (effect == null
-                        || effect.kind != RuneCompositeEffect.Kind.TEMPORARY_ALL_DAMAGE_MULTIPLIER
-                        || effect.activation != RuneCompositeEffect.Activation.CLICK_HIT_MOB
-                        || effect.maxStacks < 1) continue;
-                long durationTicks = Math.max(1L, Math.round(effect.durationSeconds * 20.0D));
-                RAGE_EXPIRY_TICKS.put(uuid, worldTick + durationTicks);
-                return;
+            for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+                if (inventory.getBoost(rune) == null) continue;
+                PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
+                if (definition == null) continue;
+                for (RuneCompositeEffect effect : definition.compositeEffects) {
+                    if (effect == null
+                            || effect.kind != RuneCompositeEffect.Kind.TEMPORARY_ALL_DAMAGE_MULTIPLIER
+                            || effect.activation != RuneCompositeEffect.Activation.CLICK_HIT_MOB
+                            || effect.maxStacks < 1) continue;
+                    long durationTicks = Math.max(1L, Math.round(effect.durationSeconds * 20.0D));
+                    RAGE_EXPIRY_TICKS.put(uuid, worldTick + durationTicks);
+                    return;
+                }
             }
         }
     }
