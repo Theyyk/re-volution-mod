@@ -1,7 +1,5 @@
 package com.example.customguimod;
 
-import java.util.Locale;
-
 /**
  * Stable identifiers for scalar, player-facing rune stat categories.
  *
@@ -96,10 +94,6 @@ enum RuneStatType {
     }
 
     static String compact(double value) {
-        if (!Double.isFinite(value)) return "0";
-        if (value == Math.rint(value)) return String.valueOf((long) value);
-        return String.format(Locale.ROOT, "%.2f", value)
-                .replaceAll("0+$", "")
-                .replaceAll("\\.$", "");
+        return LargeNumberFormatter.format(value);
     }
 }

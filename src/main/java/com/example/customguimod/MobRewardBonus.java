@@ -1,5 +1,8 @@
 package com.example.customguimod;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 /**
  * Pure mob-reward policy for rune reward stats.
  * Only custom-mob drops use this policy; compensation/admin grants do not.
@@ -21,12 +24,17 @@ final class MobRewardBonus {
         return null;
     }
 
-    static int apply(int baseAmount, double bonusPercent) {
-        if (baseAmount <= 0) return Math.max(0, baseAmount);
-        if (!Double.isFinite(bonusPercent) || bonusPercent <= 0.0D) return baseAmount;
+    static BigDecimal apply(BigDecimal baseAmount, double bonusPercent) {
+        if (baseAmount == null || baseAmount.signum() <= 0) return BigDecimal.ZERO;
+        if (!Double.isFinite(bonusPercent) || bonusPercent <= 0.0D) return LargeNumberValue.normalize(baseAmount);
+        BigDecimal multiplier = BigDecimal.ONE.add(BigDecimal.valueOf(bonusPercent).movePointLeft(2));
+        BigDecimal boosted = baseAmount.multiply(multiplier).setScale(0, RoundingMode.FLOOR);
+        return LargeNumberValue.normalize(boosted.max(baseAmount));
+    }
 
-        double boosted = baseAmount * (1.0D + bonusPercent / 100.0D);
-        if (!Double.isFinite(boosted) || boosted >= Integer.MAX_VALUE) return Integer.MAX_VALUE;
-        return Math.max(baseAmount, (int) Math.floor(boosted + 0.0000001D));
+    static int apply(int baseAmount, double bonusPercent) {
+        BigDecimal value = apply(BigDecimal.valueOf(baseAmount), bonusPercent);
+        if (value.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) >= 0) return Integer.MAX_VALUE;
+        return value.intValue();
     }
 }

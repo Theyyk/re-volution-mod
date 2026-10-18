@@ -1,12 +1,13 @@
 package com.example.customguimod;
 
-public final class ClientPlayerStats {
+import java.math.BigDecimal;
 
-    private static int coins;
-    private static int crystals;
-    private static int runeDust;
-    private static int runeShards;
-    private static int runeCores;
+public final class ClientPlayerStats {
+    private static BigDecimal coins = BigDecimal.ZERO;
+    private static BigDecimal crystals = BigDecimal.ZERO;
+    private static BigDecimal runeDust = BigDecimal.ZERO;
+    private static BigDecimal runeShards = BigDecimal.ZERO;
+    private static BigDecimal runeCores = BigDecimal.ZERO;
     private static int totalDamage;
     private static int activeRuneStatusId = RuneStatusRegistry.STATUS_POISON;
     private static String purchaseResource = "coins";
@@ -17,34 +18,26 @@ public final class ClientPlayerStats {
 
     private ClientPlayerStats() {}
 
-    public static void update(int newCoins, int newCrystals, int newRuneDust,
-                              int newRuneShards, int newRuneCores, int newTotalDamage,
-                              int newActiveRuneStatusId,
-                              String newPurchaseResource, int newPurchaseUnitCost,
-                              String newAwakeningResource, int newAwakeningNormalCost,
-                              int newAwakeningImprovedCost) {
-        coins = newCoins;
-        crystals = newCrystals;
-        runeDust = newRuneDust;
-        runeShards = newRuneShards;
-        runeCores = newRuneCores;
-        totalDamage = newTotalDamage;
-        activeRuneStatusId = newActiveRuneStatusId;
-        purchaseResource = newPurchaseResource == null || newPurchaseResource.trim().isEmpty()
-                ? "coins" : ResourceManager.normalize(newPurchaseResource);
+    public static void update(BigDecimal newCoins, BigDecimal newCrystals, BigDecimal newRuneDust,
+                              BigDecimal newRuneShards, BigDecimal newRuneCores, int newTotalDamage,
+                              int newActiveRuneStatusId, String newPurchaseResource, int newPurchaseUnitCost,
+                              String newAwakeningResource, int newAwakeningNormalCost, int newAwakeningImprovedCost) {
+        coins = safe(newCoins); crystals = safe(newCrystals); runeDust = safe(newRuneDust); runeShards = safe(newRuneShards); runeCores = safe(newRuneCores);
+        totalDamage = newTotalDamage; activeRuneStatusId = newActiveRuneStatusId;
+        purchaseResource = newPurchaseResource == null || newPurchaseResource.trim().isEmpty() ? "coins" : ResourceManager.normalize(newPurchaseResource);
         purchaseUnitCost = Math.max(1, newPurchaseUnitCost);
-        awakeningResource = newAwakeningResource == null
-                ? "" : ResourceManager.normalize(newAwakeningResource);
-        awakeningNormalCost = Math.max(0, newAwakeningNormalCost);
-        awakeningImprovedCost = Math.max(0, newAwakeningImprovedCost);
+        awakeningResource = newAwakeningResource == null ? "" : ResourceManager.normalize(newAwakeningResource);
+        awakeningNormalCost = Math.max(0, newAwakeningNormalCost); awakeningImprovedCost = Math.max(0, newAwakeningImprovedCost);
     }
 
-    public static void setCoins(int newCoins) { coins = newCoins; }
-    public static int getCoins() { return coins; }
-    public static int getCrystals() { return crystals; }
-    public static int getRuneDust() { return runeDust; }
-    public static int getRuneShards() { return runeShards; }
-    public static int getRuneCores() { return runeCores; }
+    private static BigDecimal safe(BigDecimal value) { return value == null || value.signum() < 0 ? BigDecimal.ZERO : LargeNumberValue.normalize(value); }
+
+    public static void setCoins(long newCoins) { coins = BigDecimal.valueOf(Math.max(0L, newCoins)); }
+    public static BigDecimal getCoins() { return coins; }
+    public static BigDecimal getCrystals() { return crystals; }
+    public static BigDecimal getRuneDust() { return runeDust; }
+    public static BigDecimal getRuneShards() { return runeShards; }
+    public static BigDecimal getRuneCores() { return runeCores; }
     public static int getTotalDamage() { return totalDamage; }
     public static int getActiveRuneStatusId() { return activeRuneStatusId; }
     public static String getPurchaseResource() { return purchaseResource; }
@@ -53,18 +46,15 @@ public final class ClientPlayerStats {
     public static int getAwakeningNormalCost() { return awakeningNormalCost; }
     public static int getAwakeningImprovedCost() { return awakeningImprovedCost; }
 
-    public static int getAwakeningCostForRank(int rank) {
-        if (rank >= RuneInventory.IMPROVED_RANK) return awakeningImprovedCost;
-        return awakeningNormalCost;
-    }
+    public static int getAwakeningCostForRank(int rank) { return rank >= RuneInventory.IMPROVED_RANK ? awakeningImprovedCost : awakeningNormalCost; }
 
-    public static int getResourceBalance(String resource) {
+    public static BigDecimal getResourceBalance(String resource) {
         String normalized = ResourceManager.normalize(resource);
         if ("coins".equals(normalized)) return coins;
         if ("crystals".equals(normalized)) return crystals;
         if (ResourceManager.RUNE_DUST.equals(normalized)) return runeDust;
         if (ResourceManager.RUNE_SHARDS.equals(normalized)) return runeShards;
         if (ResourceManager.RUNE_CORES.equals(normalized)) return runeCores;
-        return -1;
+        return BigDecimal.valueOf(-1L);
     }
 }

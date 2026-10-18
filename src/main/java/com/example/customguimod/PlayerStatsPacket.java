@@ -4,13 +4,14 @@ import io.netty.buffer.ByteBuf;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public class PlayerStatsPacket implements IMessage {
+import java.math.BigDecimal;
 
-    private int coins;
-    private int crystals;
-    private int runeDust;
-    private int runeShards;
-    private int runeCores;
+public class PlayerStatsPacket implements IMessage {
+    private String coins = "0";
+    private String crystals = "0";
+    private String runeDust = "0";
+    private String runeShards = "0";
+    private String runeCores = "0";
     private int totalDamage;
     private int activeRuneStatusId;
     private String purchaseResource;
@@ -21,17 +22,15 @@ public class PlayerStatsPacket implements IMessage {
 
     public PlayerStatsPacket() {}
 
-    public PlayerStatsPacket(int coins, int crystals, int runeDust,
-                             int runeShards, int runeCores, int totalDamage,
-                             int activeRuneStatusId,
-                             String purchaseResource, int purchaseUnitCost,
-                             String awakeningResource, int awakeningNormalCost,
-                             int awakeningImprovedCost) {
-        this.coins = coins;
-        this.crystals = crystals;
-        this.runeDust = runeDust;
-        this.runeShards = runeShards;
-        this.runeCores = runeCores;
+    public PlayerStatsPacket(BigDecimal coins, BigDecimal crystals, BigDecimal runeDust,
+                             BigDecimal runeShards, BigDecimal runeCores, int totalDamage,
+                             int activeRuneStatusId, String purchaseResource, int purchaseUnitCost,
+                             String awakeningResource, int awakeningNormalCost, int awakeningImprovedCost) {
+        this.coins = LargeNumberValue.canonical(coins);
+        this.crystals = LargeNumberValue.canonical(crystals);
+        this.runeDust = LargeNumberValue.canonical(runeDust);
+        this.runeShards = LargeNumberValue.canonical(runeShards);
+        this.runeCores = LargeNumberValue.canonical(runeCores);
         this.totalDamage = totalDamage;
         this.activeRuneStatusId = activeRuneStatusId;
         this.purchaseResource = purchaseResource == null ? "coins" : purchaseResource;
@@ -41,43 +40,27 @@ public class PlayerStatsPacket implements IMessage {
         this.awakeningImprovedCost = awakeningImprovedCost;
     }
 
-    @Override
-    public void fromBytes(ByteBuf buf) {
-        coins = buf.readInt();
-        crystals = buf.readInt();
-        runeDust = buf.readInt();
-        runeShards = buf.readInt();
-        runeCores = buf.readInt();
-        totalDamage = buf.readInt();
-        activeRuneStatusId = buf.readInt();
-        purchaseResource = ByteBufUtils.readUTF8String(buf);
-        purchaseUnitCost = buf.readInt();
-        awakeningResource = ByteBufUtils.readUTF8String(buf);
-        awakeningNormalCost = buf.readInt();
-        awakeningImprovedCost = buf.readInt();
+    @Override public void fromBytes(ByteBuf buf) {
+        coins = ByteBufUtils.readUTF8String(buf); crystals = ByteBufUtils.readUTF8String(buf);
+        runeDust = ByteBufUtils.readUTF8String(buf); runeShards = ByteBufUtils.readUTF8String(buf); runeCores = ByteBufUtils.readUTF8String(buf);
+        totalDamage = buf.readInt(); activeRuneStatusId = buf.readInt();
+        purchaseResource = ByteBufUtils.readUTF8String(buf); purchaseUnitCost = buf.readInt();
+        awakeningResource = ByteBufUtils.readUTF8String(buf); awakeningNormalCost = buf.readInt(); awakeningImprovedCost = buf.readInt();
     }
 
-    @Override
-    public void toBytes(ByteBuf buf) {
-        buf.writeInt(coins);
-        buf.writeInt(crystals);
-        buf.writeInt(runeDust);
-        buf.writeInt(runeShards);
-        buf.writeInt(runeCores);
-        buf.writeInt(totalDamage);
-        buf.writeInt(activeRuneStatusId);
-        ByteBufUtils.writeUTF8String(buf, purchaseResource == null ? "coins" : purchaseResource);
-        buf.writeInt(purchaseUnitCost);
-        ByteBufUtils.writeUTF8String(buf, awakeningResource == null ? "" : awakeningResource);
-        buf.writeInt(awakeningNormalCost);
-        buf.writeInt(awakeningImprovedCost);
+    @Override public void toBytes(ByteBuf buf) {
+        ByteBufUtils.writeUTF8String(buf, coins); ByteBufUtils.writeUTF8String(buf, crystals);
+        ByteBufUtils.writeUTF8String(buf, runeDust); ByteBufUtils.writeUTF8String(buf, runeShards); ByteBufUtils.writeUTF8String(buf, runeCores);
+        buf.writeInt(totalDamage); buf.writeInt(activeRuneStatusId);
+        ByteBufUtils.writeUTF8String(buf, purchaseResource == null ? "coins" : purchaseResource); buf.writeInt(purchaseUnitCost);
+        ByteBufUtils.writeUTF8String(buf, awakeningResource == null ? "" : awakeningResource); buf.writeInt(awakeningNormalCost); buf.writeInt(awakeningImprovedCost);
     }
 
-    public int getCoins() { return coins; }
-    public int getCrystals() { return crystals; }
-    public int getRuneDust() { return runeDust; }
-    public int getRuneShards() { return runeShards; }
-    public int getRuneCores() { return runeCores; }
+    public BigDecimal getCoins() { return LargeNumberValue.parseExact(coins); }
+    public BigDecimal getCrystals() { return LargeNumberValue.parseExact(crystals); }
+    public BigDecimal getRuneDust() { return LargeNumberValue.parseExact(runeDust); }
+    public BigDecimal getRuneShards() { return LargeNumberValue.parseExact(runeShards); }
+    public BigDecimal getRuneCores() { return LargeNumberValue.parseExact(runeCores); }
     public int getTotalDamage() { return totalDamage; }
     public int getActiveRuneStatusId() { return activeRuneStatusId; }
     public String getPurchaseResource() { return purchaseResource; }
