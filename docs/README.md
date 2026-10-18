@@ -11,8 +11,9 @@
 - [Проверки и обязательный процесс выпуска](development.md).
 - [Источник шрифтов Cristalix и подтверждение поддержки](permissions/cristalix.md).
 
-- [Аудит, scope и карта классов v1.3.0](cleanup-v1.3-plan.md).
-- [Архив скриншотов](archive/screenshots/README.md).
+- [Аудит и карта первого cleanup-этапа перед финальным package split](cleanup-v1.3-plan.md).
+- [Актуальные скриншоты v1.2.12](screenshots/v1.2.12/README.md).
+- [Архив исторических скриншотов](archive/screenshots/README.md).
 
 ## Версии
 
