@@ -398,7 +398,7 @@ public class RunesGuiScreen extends GuiScreen {
         int resourcesY = layout.leftPanelY + layout.leftPanelHeight + 11;
         drawPanel(layout.leftPanelX, resourcesY, layout.leftPanelWidth, 68);
         y = resourcesY + pad;
-        drawHeadingString("РЕСУРСЫ", x, y, textW, HEADING_TEXT_COLOR, true);
+        drawHeadingString("РЕСУРСЫ", x, y, textW, HEADING_TEXT_COLOR, false);
         y += scaled(21, 16);
         drawStatLine(x, y, "Монеты", LargeNumbers.format(ClientPlayerStats.getCoins()), textW);
         y += scaled(16, 12);
