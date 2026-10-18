@@ -1,5 +1,11 @@
 package com.example.customguimod;
 
+import com.example.customguimod.network.NetworkHandler;
+import com.example.customguimod.network.PongPacket;
+import com.example.customguimod.network.RuneSlotPacket;
+import com.example.customguimod.persistence.MongoManager;
+import com.example.customguimod.resource.ResourceManager;
+
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
@@ -40,7 +46,7 @@ public class PingPacket implements IMessage {
     }
 
     public static class Handler implements IMessageHandler<PingPacket, IMessage> {
-        private static final int LEGACY_CARD_COST = 100;
+        private static final int LEGACY_RUNE_COST = 100;
         private static final Random RANDOM = new Random();
 
         @Override
@@ -51,21 +57,21 @@ public class PingPacket implements IMessage {
                 String action = message.getAction();
                 CustomGuiMod.logger.info("Packet from " + player.getName() + ": " + logActionName(action));
 
-                List<String> deckNames = MongoManager.getDeckNames(player.getUniqueID());
-                int deckIndex = MongoManager.getActiveDeck(player.getUniqueID());
+                List<String> collectionNames = MongoManager.getCollectionNames(player.getUniqueID());
+                int collectionIndex = MongoManager.getActiveCollection(player.getUniqueID());
 
-                if (!deckNames.isEmpty() && (deckIndex < 0 || deckIndex >= deckNames.size())) {
-                    deckIndex = 0;
-                    MongoManager.setActiveDeck(player.getUniqueID(), deckIndex);
+                if (!collectionNames.isEmpty() && (collectionIndex < 0 || collectionIndex >= collectionNames.size())) {
+                    collectionIndex = 0;
+                    MongoManager.setActiveCollection(player.getUniqueID(), collectionIndex);
                 }
 
                 if (action.equals("buy_card")) {
-                    buyCards(player, deckIndex, 1, false);
+                    buyRunes(player, collectionIndex, 1, false);
                 } else if (action.startsWith("buy_cards:")) {
                     String rawAmount = action.substring("buy_cards:".length());
 
                     if (rawAmount.equalsIgnoreCase("all")) {
-                        buyCards(player, deckIndex, Integer.MAX_VALUE, true);
+                        buyRunes(player, collectionIndex, Integer.MAX_VALUE, true);
                         return;
                     }
 
@@ -75,7 +81,7 @@ public class PingPacket implements IMessage {
                             player.sendMessage(new TextComponentString("§cНекорректное количество рун."));
                             return;
                         }
-                        buyCards(player, deckIndex, requestedAmount, false);
+                        buyRunes(player, collectionIndex, requestedAmount, false);
                     } catch (NumberFormatException e) {
                         player.sendMessage(new TextComponentString("§cНекорректное количество рун."));
                     }
@@ -92,14 +98,14 @@ public class PingPacket implements IMessage {
                             player.sendMessage(new TextComponentString("§cНекорректное количество усилений."));
                             return;
                         }
-                        enhanceRune(player, deckIndex, runeIndex, requestedAmount);
+                        enhanceRune(player, collectionIndex, runeIndex, requestedAmount);
                     } catch (NumberFormatException e) {
                         player.sendMessage(new TextComponentString("§cНекорректная команда усиления."));
                     }
                 } else if (action.startsWith("upgrade_rune:")) {
                     String rawIndex = action.substring("upgrade_rune:".length());
                     try {
-                        awakenRune(player, deckIndex, Integer.parseInt(rawIndex));
+                        awakenRune(player, collectionIndex, Integer.parseInt(rawIndex));
                     } catch (NumberFormatException e) {
                         player.sendMessage(new TextComponentString("§cНекорректная руна."));
                     }
@@ -110,24 +116,24 @@ public class PingPacket implements IMessage {
                     player.sendMessage(new TextComponentString("§6Твой баланс: " + balance + " монет"));
                     NetworkHandler.INSTANCE.sendTo(new PongPacket(balance), player);
                 } else if (action.equals("load_cards")) {
-                    sendCards(player, deckIndex);
+                    sendRunes(player, collectionIndex);
                 } else if (action.equals("load_decks")) {
-                    sendDeckState(player);
+                    sendCollectionState(player);
                 } else if (action.startsWith("switch_deck:")) {
                     String rawIndex = action.substring("switch_deck:".length());
                     try {
-                        int targetDeck = Integer.parseInt(rawIndex);
-                        List<String> decks = MongoManager.getDeckNames(player.getUniqueID());
-                        if (targetDeck < 0 || targetDeck >= decks.size()) {
+                        int targetCollection = Integer.parseInt(rawIndex);
+                        List<String> collections = MongoManager.getCollectionNames(player.getUniqueID());
+                        if (targetCollection < 0 || targetCollection >= collections.size()) {
                             player.sendMessage(new TextComponentString("§cТакой колоды не существует."));
-                            sendDeckState(player);
+                            sendCollectionState(player);
                             return;
                         }
-                        MongoManager.setActiveDeck(player.getUniqueID(), targetDeck);
-                        sendDeckState(player);
-                        sendCards(player, targetDeck);
+                        MongoManager.setActiveCollection(player.getUniqueID(), targetCollection);
+                        sendCollectionState(player);
+                        sendRunes(player, targetCollection);
                         PlayerStatsService.sendTo(player);
-                        player.sendMessage(new TextComponentString("§aАктивная колода: §e" + decks.get(targetDeck)));
+                        player.sendMessage(new TextComponentString("§aАктивная колода: §e" + collections.get(targetCollection)));
                     } catch (NumberFormatException e) {
                         player.sendMessage(new TextComponentString("§cНекорректный номер колоды."));
                     }
@@ -150,30 +156,30 @@ public class PingPacket implements IMessage {
             return amount == 1 || amount == 5 || amount == 10 || amount == 100;
         }
 
-        private void buyCards(EntityPlayerMP player, int deckIndex, int requestedAmount, boolean buyAll) {
-            List<String> decks = MongoManager.getDeckNames(player.getUniqueID());
-            if (decks.isEmpty() || deckIndex < 0 || deckIndex >= decks.size()) {
+        private void buyRunes(EntityPlayerMP player, int collectionIndex, int requestedAmount, boolean buyAll) {
+            List<String> collections = MongoManager.getCollectionNames(player.getUniqueID());
+            if (collections.isEmpty() || collectionIndex < 0 || collectionIndex >= collections.size()) {
                 player.sendMessage(new TextComponentString("§cУ тебя нет доступных колод."));
                 return;
             }
 
-            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+            int statusId = RuneStatusRegistry.statusForCollection(collectionIndex);
             if (RuneStatusRegistry.isRuneStatus(statusId)) {
-                buyRunes(player, deckIndex, statusId, requestedAmount, buyAll);
+                buyRunes(player, collectionIndex, statusId, requestedAmount, buyAll);
                 return;
             }
 
             int balance = MongoManager.getBalance(player.getUniqueID());
-            List<Integer> freeSlots = MongoManager.getFreeSlots(player.getUniqueID(), deckIndex);
+            List<Integer> freeSlots = MongoManager.getFreeSlots(player.getUniqueID(), collectionIndex);
             if (freeSlots.isEmpty()) {
                 player.sendMessage(new TextComponentString("§eВ этой legacy-коллекции больше нет свободных слотов."));
                 NetworkHandler.INSTANCE.sendTo(new PongPacket(balance), player);
                 return;
             }
 
-            int affordable = balance / LEGACY_CARD_COST;
+            int affordable = balance / LEGACY_RUNE_COST;
             if (affordable <= 0) {
-                player.sendMessage(new TextComponentString("§cНедостаточно монет! Нужно минимум " + LEGACY_CARD_COST + ", у тебя " + balance));
+                player.sendMessage(new TextComponentString("§cНедостаточно монет! Нужно минимум " + LEGACY_RUNE_COST + ", у тебя " + balance));
                 NetworkHandler.INSTANCE.sendTo(new PongPacket(balance), player);
                 return;
             }
@@ -188,16 +194,16 @@ public class PingPacket implements IMessage {
             Collections.shuffle(freeSlots);
             for (int i = 0; i < amountToBuy; i++) {
                 int slot = freeSlots.get(i);
-                int cardIndex = RANDOM.nextInt(10);
+                int runeIndex = RANDOM.nextInt(10);
                 int layer = RuneInventory.NORMAL_RANK;
-                MongoManager.addCardToDeck(player.getUniqueID(), deckIndex, slot, cardIndex, layer, 1);
-                NetworkHandler.INSTANCE.sendTo(new CardPacket(slot, cardIndex, layer, true), player);
+                MongoManager.addRuneToCollection(player.getUniqueID(), collectionIndex, slot, runeIndex, layer, 1);
+                NetworkHandler.INSTANCE.sendTo(new RuneSlotPacket(slot, runeIndex, layer, true), player);
             }
 
             finishLegacyPurchase(player, balance, requestedAmount, buyAll, amountToBuy, amountToBuy, 0);
         }
 
-        private void buyRunes(EntityPlayerMP player, int deckIndex, int statusId, int requestedAmount, boolean buyAll) {
+        private void buyRunes(EntityPlayerMP player, int collectionIndex, int statusId, int requestedAmount, boolean buyAll) {
             String purchaseResource = canonicalPurchaseResource(statusId);
             String purchaseDisplayName = ResourceManager.getDisplayName(purchaseResource);
             int unitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
@@ -210,17 +216,17 @@ public class PingPacket implements IMessage {
                 return;
             }
 
-            List<MongoManager.SavedCard> cards = MongoManager.getCardsInDeck(player.getUniqueID(), deckIndex);
+            List<MongoManager.SavedRune> runes = MongoManager.getRunesInCollection(player.getUniqueID(), collectionIndex);
             boolean[] owned = new boolean[RuneInventory.BOOST_TYPE_COUNT];
             int[] bestRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
             int ownedCount = 0;
-            for (MongoManager.SavedCard card : cards) {
-                if (card.cardIndex < 0 || card.cardIndex >= RuneInventory.BOOST_TYPE_COUNT) continue;
-                if (!owned[card.cardIndex]) {
-                    owned[card.cardIndex] = true;
+            for (MongoManager.SavedRune rune : runes) {
+                if (rune.runeIndex < 0 || rune.runeIndex >= RuneInventory.BOOST_TYPE_COUNT) continue;
+                if (!owned[rune.runeIndex]) {
+                    owned[rune.runeIndex] = true;
                     ownedCount++;
                 }
-                bestRanks[card.cardIndex] = Math.max(bestRanks[card.cardIndex], RuneProgression.clampRank(card.layer));
+                bestRanks[rune.runeIndex] = Math.max(bestRanks[rune.runeIndex], RuneProgression.clampRank(rune.layer));
             }
 
             if (ownedCount >= RuneInventory.BOOST_TYPE_COUNT) {
@@ -248,7 +254,7 @@ public class PingPacket implements IMessage {
                     // The duplicate still needs visible feedback. Re-send the existing rune as an
                     // animated acquisition event; the client converts it to a border-only pulse.
                     NetworkHandler.INSTANCE.sendTo(
-                            new CardPacket(runeIndex, runeIndex, bestRanks[runeIndex], true), player);
+                            new RuneSlotPacket(runeIndex, runeIndex, bestRanks[runeIndex], true), player);
                     continue;
                 }
 
@@ -256,8 +262,8 @@ public class PingPacket implements IMessage {
                 bestRanks[runeIndex] = RuneProgression.NORMAL_RANK;
                 ownedCount++;
                 newRunes++;
-                MongoManager.addCardToDeck(player.getUniqueID(), deckIndex, runeIndex, runeIndex, RuneProgression.NORMAL_RANK, 1);
-                NetworkHandler.INSTANCE.sendTo(new CardPacket(runeIndex, runeIndex, RuneProgression.NORMAL_RANK, true), player);
+                MongoManager.addRuneToCollection(player.getUniqueID(), collectionIndex, runeIndex, runeIndex, RuneProgression.NORMAL_RANK, 1);
+                NetworkHandler.INSTANCE.sendTo(new RuneSlotPacket(runeIndex, runeIndex, RuneProgression.NORMAL_RANK, true), player);
             }
 
             String duplicateResource = RuneEconomyConfig.resourceForStatus(statusId);
@@ -281,7 +287,7 @@ public class PingPacket implements IMessage {
         }
 
         private void finishLegacyPurchase(EntityPlayerMP player, int balance, int requestedAmount, boolean buyAll, int amountToBuy, int newRunes, int duplicates) {
-            int spent = amountToBuy * LEGACY_CARD_COST;
+            int spent = amountToBuy * LEGACY_RUNE_COST;
             int newBalance = balance - spent;
             MongoManager.setBalance(player.getUniqueID(), newBalance);
             PlayerStatsService.sendTo(player);
@@ -328,8 +334,8 @@ public class PingPacket implements IMessage {
             return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
         }
 
-        private void enhanceRune(EntityPlayerMP player, int deckIndex, int ignoredRuneIndex, int requestedAmount) {
-            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+        private void enhanceRune(EntityPlayerMP player, int collectionIndex, int ignoredRuneIndex, int requestedAmount) {
+            int statusId = RuneStatusRegistry.statusForCollection(collectionIndex);
             if (!RuneStatusRegistry.isRuneStatus(statusId)) {
                 player.sendMessage(new TextComponentString("§cУсиление недоступно для этой legacy-коллекции."));
                 return;
@@ -342,7 +348,7 @@ public class PingPacket implements IMessage {
                 return;
             }
 
-            int[] currentLevels = RuneEnhancementManager.getLevels(player.getUniqueID(), deckIndex);
+            int[] currentLevels = RuneEnhancementManager.getLevels(player.getUniqueID(), collectionIndex);
             int[] plannedLevels = Arrays.copyOf(currentLevels, currentLevels.length);
             int[] increments = new int[RuneInventory.BOOST_TYPE_COUNT];
             long totalCost = 0L;
@@ -392,19 +398,19 @@ public class PingPacket implements IMessage {
             int affectedSlots = 0;
             for (int rune = 0; rune < increments.length; rune++) {
                 if (increments[rune] <= 0) continue;
-                RuneEnhancementManager.addLevels(player.getUniqueID(), deckIndex, rune, increments[rune]);
+                RuneEnhancementManager.addLevels(player.getUniqueID(), collectionIndex, rune, increments[rune]);
                 affectedSlots++;
             }
 
-            sendEnhancements(player, deckIndex);
+            sendEnhancements(player, collectionIndex);
             PlayerStatsService.sendTo(player);
             player.sendMessage(new TextComponentString("§aСлучайных усилений: §f" + requestedAmount
                     + "§a. Затронуто слотов: §f" + affectedSlots
                     + "§a. Потрачено: §e" + cost + " §f" + ResourceManager.getDisplayName(resource) + "§a."));
         }
 
-        private void awakenRune(EntityPlayerMP player, int deckIndex, int runeIndex) {
-            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+        private void awakenRune(EntityPlayerMP player, int collectionIndex, int runeIndex) {
+            int statusId = RuneStatusRegistry.statusForCollection(collectionIndex);
             if (!RuneStatusRegistry.isRuneStatus(statusId)) {
                 player.sendMessage(new TextComponentString("§cПробуждение недоступно для этой legacy-коллекции."));
                 return;
@@ -414,17 +420,17 @@ public class PingPacket implements IMessage {
                 return;
             }
 
-            List<MongoManager.SavedCard> cards = MongoManager.getCardsInDeck(player.getUniqueID(), deckIndex);
+            List<MongoManager.SavedRune> runes = MongoManager.getRunesInCollection(player.getUniqueID(), collectionIndex);
             boolean[] owned = new boolean[RuneInventory.BOOST_TYPE_COUNT];
             int[] bestRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
             int ownedCount = 0;
-            for (MongoManager.SavedCard card : cards) {
-                if (card.cardIndex < 0 || card.cardIndex >= RuneInventory.BOOST_TYPE_COUNT) continue;
-                if (!owned[card.cardIndex]) {
-                    owned[card.cardIndex] = true;
+            for (MongoManager.SavedRune rune : runes) {
+                if (rune.runeIndex < 0 || rune.runeIndex >= RuneInventory.BOOST_TYPE_COUNT) continue;
+                if (!owned[rune.runeIndex]) {
+                    owned[rune.runeIndex] = true;
                     ownedCount++;
                 }
-                bestRanks[card.cardIndex] = Math.max(bestRanks[card.cardIndex], RuneProgression.clampRank(card.layer));
+                bestRanks[rune.runeIndex] = Math.max(bestRanks[rune.runeIndex], RuneProgression.clampRank(rune.layer));
             }
 
             if (ownedCount < RuneInventory.BOOST_TYPE_COUNT) {
@@ -465,22 +471,22 @@ public class PingPacket implements IMessage {
                 return;
             }
 
-            MongoManager.clearDeck(player.getUniqueID(), deckIndex);
+            MongoManager.clearCollection(player.getUniqueID(), collectionIndex);
             for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
                 if (rune == runeIndex) continue;
                 if (bestRanks[rune] <= currentRank) continue;
-                MongoManager.addCardToDeck(player.getUniqueID(), deckIndex, rune, rune, bestRanks[rune], 1);
+                MongoManager.addRuneToCollection(player.getUniqueID(), collectionIndex, rune, rune, bestRanks[rune], 1);
             }
-            MongoManager.addCardToDeck(player.getUniqueID(), deckIndex, runeIndex, runeIndex, newRank, 1);
+            MongoManager.addRuneToCollection(player.getUniqueID(), collectionIndex, runeIndex, runeIndex, newRank, 1);
 
-            NetworkHandler.INSTANCE.sendTo(new CardPacket(-1, 0, 0, false), player);
+            NetworkHandler.INSTANCE.sendTo(new RuneSlotPacket(-1, 0, 0, false), player);
             for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
                 if (rune == runeIndex) continue;
                 if (bestRanks[rune] <= currentRank) continue;
-                NetworkHandler.INSTANCE.sendTo(new CardPacket(rune, rune, bestRanks[rune], false), player);
+                NetworkHandler.INSTANCE.sendTo(new RuneSlotPacket(rune, rune, bestRanks[rune], false), player);
             }
-            NetworkHandler.INSTANCE.sendTo(new CardPacket(runeIndex, runeIndex, newRank, false), player);
-            sendEnhancements(player, deckIndex);
+            NetworkHandler.INSTANCE.sendTo(new RuneSlotPacket(runeIndex, runeIndex, newRank, false), player);
+            sendEnhancements(player, collectionIndex);
             PlayerStatsService.sendTo(player);
 
             String paymentText = payment.paid ? " §7Стоимость: §e" + payment.cost + " §f" + ResourceManager.getDisplayName(payment.resource) + "§7." : "";
@@ -489,27 +495,27 @@ public class PingPacket implements IMessage {
                     + "» сброшены, более высокие ранги сохранены. Усиления слотов сохранены." + paymentText));
         }
 
-        private void sendDeckState(EntityPlayerMP player) {
-            List<String> decks = MongoManager.getDeckNames(player.getUniqueID());
-            int activeDeck = MongoManager.getActiveDeck(player.getUniqueID());
-            NetworkHandler.INSTANCE.sendTo(new DeckPacket(decks, activeDeck), player);
+        private void sendCollectionState(EntityPlayerMP player) {
+            List<String> collections = MongoManager.getCollectionNames(player.getUniqueID());
+            int activeCollection = MongoManager.getActiveCollection(player.getUniqueID());
+            NetworkHandler.INSTANCE.sendTo(new RuneCollectionsPacket(collections, activeCollection), player);
         }
 
-        private void sendCards(EntityPlayerMP player, int deckIndex) {
-            NetworkHandler.INSTANCE.sendTo(new CardPacket(-1, 0, 0, false), player);
-            List<MongoManager.SavedCard> cards = MongoManager.getCardsInDeck(player.getUniqueID(), deckIndex);
-            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
-            CustomGuiMod.logger.info("Sending runes to client for status " + statusId + ": " + cards.size());
-            for (MongoManager.SavedCard card : cards) {
-                NetworkHandler.INSTANCE.sendTo(new CardPacket(card.slot, card.cardIndex, card.layer, false), player);
+        private void sendRunes(EntityPlayerMP player, int collectionIndex) {
+            NetworkHandler.INSTANCE.sendTo(new RuneSlotPacket(-1, 0, 0, false), player);
+            List<MongoManager.SavedRune> runes = MongoManager.getRunesInCollection(player.getUniqueID(), collectionIndex);
+            int statusId = RuneStatusRegistry.statusForCollection(collectionIndex);
+            CustomGuiMod.logger.info("Sending runes to client for status " + statusId + ": " + runes.size());
+            for (MongoManager.SavedRune rune : runes) {
+                NetworkHandler.INSTANCE.sendTo(new RuneSlotPacket(rune.slot, rune.runeIndex, rune.layer, false), player);
             }
-            sendEnhancements(player, deckIndex);
+            sendEnhancements(player, collectionIndex);
         }
 
-        private void sendEnhancements(EntityPlayerMP player, int deckIndex) {
-            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
+        private void sendEnhancements(EntityPlayerMP player, int collectionIndex) {
+            int statusId = RuneStatusRegistry.statusForCollection(collectionIndex);
             int[] levels = RuneStatusRegistry.isRuneStatus(statusId)
-                    ? RuneEnhancementManager.getLevels(player.getUniqueID(), deckIndex)
+                    ? RuneEnhancementManager.getLevels(player.getUniqueID(), collectionIndex)
                     : new int[RuneInventory.BOOST_TYPE_COUNT];
             NetworkHandler.INSTANCE.sendTo(new RuneEnhancementPacket(levels), player);
         }

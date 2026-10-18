@@ -87,8 +87,14 @@ jobs:
           PROJECT_VERSION=$(grep -E "^[[:space:]]*version[[:space:]]*=" build.gradle | head -n 1 | sed -E "s/.*['\"]([^'\"]+)['\"].*/\1/")
           python3 .github/scripts/check-release-notes.py "v${PROJECT_VERSION}"
 
+      - name: Check source terminology and package paths
+        run: python3 .github/scripts/check-structure.py
+
       - name: Build mod
         run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" -Dnet.minecraftforge.gradle.check.certs=false clean build
+
+      - name: Verify packaged classes and resources
+        run: python3 .github/scripts/check-structure.py build/libs/customguimod-*.jar
 
       - name: Prepare artifact name
         id: artifact_name

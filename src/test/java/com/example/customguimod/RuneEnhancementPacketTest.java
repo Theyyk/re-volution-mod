@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.resource.ResourceManager;
+
 final class RuneEnhancementPacketTest {
     public static void main(String[] args) {
         int[] levels = new int[RuneInventory.BOOST_TYPE_COUNT];

@@ -3,7 +3,7 @@ package com.example.customguimod;
 /** Exercises the fixed 26-rune catalog and rank states without Minecraft or MongoDB. */
 public final class RuneInventoryTest {
     public static void main(String[] args) {
-        EarthRuneCatalogTest.run();
+        PrimaryRuneCatalogTest.run();
         RuneEconomyConfigTest.run();
         RuneProgressionTest.run();
 

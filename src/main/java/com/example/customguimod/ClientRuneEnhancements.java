@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.resource.ResourceManager;
+
 import java.util.Arrays;
 
 final class ClientRuneEnhancements {

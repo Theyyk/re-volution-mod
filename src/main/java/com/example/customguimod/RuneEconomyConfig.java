@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.resource.ResourceManager;
+
 /** Central economy rules for rune statuses. Gameplay code should read values here instead of hard-coding them. */
 final class RuneEconomyConfig {
     static final int STATUS_POISON = RuneStatusRegistry.STATUS_POISON;

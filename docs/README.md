@@ -11,6 +11,9 @@
 - [Проверки и обязательный процесс выпуска](development.md).
 - [Источник шрифтов Cristalix и подтверждение поддержки](permissions/cristalix.md).
 
+- [Аудит, scope и карта классов v1.3.0](cleanup-v1.3-plan.md).
+- [Архив скриншотов](archive/screenshots/README.md).
+
 ## Версии
 
 [Русские описания всех выпущенных версий](releases/README.md). Английская история изменений и готовые JAR публикуются в [GitHub Releases](https://github.com/Theyyk/re-volution-mod/releases).

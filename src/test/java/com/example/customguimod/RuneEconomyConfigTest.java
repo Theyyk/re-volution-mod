@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.resource.ResourceManager;
+
 /** Pure Java regression checks for configurable rune economy rules. */
 public final class RuneEconomyConfigTest {
     public static void main(String[] args) {

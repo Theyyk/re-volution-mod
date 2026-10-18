@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.persistence.MongoManager;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,23 +18,23 @@ final class RuneCombatService {
     static RuneCombatMath.Snapshot resolve(UUID uuid, long worldTick) {
         if (uuid == null) return null;
 
-        int deckIndex = MongoManager.getActiveDeck(uuid);
-        if (RuneStatusRegistry.statusForDeck(deckIndex) != RuneStatusRegistry.STATUS_POISON) return null;
+        int collectionIndex = MongoManager.getActiveCollection(uuid);
+        if (RuneStatusRegistry.statusForCollection(collectionIndex) != RuneStatusRegistry.STATUS_POISON) return null;
 
         RuneInventory inventory = new RuneInventory();
-        List<MongoManager.SavedCard> cards = MongoManager.getCardsInDeck(uuid, deckIndex);
-        for (MongoManager.SavedCard card : cards) {
-            if (card == null) continue;
-            inventory.set(card.slot, card.cardIndex, card.layer);
+        List<MongoManager.SavedRune> runes = MongoManager.getRunesInCollection(uuid, collectionIndex);
+        for (MongoManager.SavedRune rune : runes) {
+            if (rune == null) continue;
+            inventory.set(rune.slot, rune.runeIndex, rune.layer);
         }
 
-        int[] enhancementLevels = RuneEnhancementManager.getLevels(uuid, deckIndex);
+        int[] enhancementLevels = RuneEnhancementManager.getLevels(uuid, collectionIndex);
         Map<String, Double> targetedBasePower = new HashMap<>();
 
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             RuneInventory.Entry owned = inventory.getBoost(rune);
             if (owned == null) continue;
-            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(rune);
+            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
             if (definition == null) continue;
 
             int enhancementLevel = enhancementLevel(enhancementLevels, rune);
@@ -48,7 +50,7 @@ final class RuneCombatService {
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             RuneInventory.Entry owned = inventory.getBoost(rune);
             if (owned == null) continue;
-            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(rune);
+            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
             if (definition == null) continue;
 
             int enhancementLevel = enhancementLevel(enhancementLevels, rune);
@@ -100,18 +102,18 @@ final class RuneCombatService {
 
     static void activateRageOnMobHit(UUID uuid, long worldTick) {
         if (uuid == null) return;
-        int deckIndex = MongoManager.getActiveDeck(uuid);
-        if (RuneStatusRegistry.statusForDeck(deckIndex) != RuneStatusRegistry.STATUS_POISON) return;
+        int collectionIndex = MongoManager.getActiveCollection(uuid);
+        if (RuneStatusRegistry.statusForCollection(collectionIndex) != RuneStatusRegistry.STATUS_POISON) return;
 
         RuneInventory inventory = new RuneInventory();
-        for (MongoManager.SavedCard card : MongoManager.getCardsInDeck(uuid, deckIndex)) {
-            if (card == null) continue;
-            inventory.set(card.slot, card.cardIndex, card.layer);
+        for (MongoManager.SavedRune rune : MongoManager.getRunesInCollection(uuid, collectionIndex)) {
+            if (rune == null) continue;
+            inventory.set(rune.slot, rune.runeIndex, rune.layer);
         }
 
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             if (inventory.getBoost(rune) == null) continue;
-            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(rune);
+            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
             if (definition == null) continue;
             for (RuneCompositeEffect effect : definition.compositeEffects) {
                 if (effect == null

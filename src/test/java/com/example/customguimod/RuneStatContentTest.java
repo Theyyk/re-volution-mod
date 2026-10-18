@@ -77,7 +77,7 @@ final class RuneStatContentTest {
                 "Reference-only enhancement effectiveness must remain formula-free");
 
         RuneTargetedPower targeted = new RuneTargetedPower("mace", "Булава", 5.6D);
-        check(targeted.type() == RuneStatType.CARD_POWER_FLAT, "Targeted power must stay distinct from channel multipliers");
+        check(targeted.type() == RuneStatType.RUNE_POWER_FLAT, "Targeted power must stay distinct from channel multipliers");
         check(targeted.tooltipLine(RuneInventory.NORMAL_RANK, 1.0D).equals("+5.6 к силе Булава"),
                 "Targeted power tooltip should preserve the approved compact wording");
         check(targeted.tooltipLine(RuneInventory.IMPROVED_RANK, 1.5D).equals("+25.2 к силе Булава"),

@@ -26,37 +26,37 @@ final class RuneEnhancementManager {
                 .getCollection("players");
     }
 
-    static int getLevel(UUID uuid, int deckIndex, int runeIndex) {
-        if (uuid == null || deckIndex < 0 || runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT) return 0;
+    static int getLevel(UUID uuid, int collectionIndex, int runeIndex) {
+        if (uuid == null || collectionIndex < 0 || runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT) return 0;
         ensureConnected();
         Document player = players.find(new Document("_id", uuid.toString())).first();
         if (player == null) return 0;
 
-        Object rawDecks = player.get("decks");
-        if (!(rawDecks instanceof List)) return 0;
-        List<?> decks = (List<?>) rawDecks;
-        if (deckIndex >= decks.size() || !(decks.get(deckIndex) instanceof Document)) return 0;
+        Object rawCollections = player.get("decks");
+        if (!(rawCollections instanceof List)) return 0;
+        List<?> collections = (List<?>) rawCollections;
+        if (collectionIndex >= collections.size() || !(collections.get(collectionIndex) instanceof Document)) return 0;
 
-        Document deck = (Document) decks.get(deckIndex);
-        Document enhancements = deck.get("runeEnhancements", Document.class);
+        Document collection = (Document) collections.get(collectionIndex);
+        Document enhancements = collection.get("runeEnhancements", Document.class);
         if (enhancements == null) return 0;
         Number level = enhancements.get(runeKey(runeIndex), Number.class);
         return level == null ? 0 : Math.max(0, level.intValue());
     }
 
-    static int[] getLevels(UUID uuid, int deckIndex) {
+    static int[] getLevels(UUID uuid, int collectionIndex) {
         int[] result = new int[RuneInventory.BOOST_TYPE_COUNT];
-        if (uuid == null || deckIndex < 0) return result;
+        if (uuid == null || collectionIndex < 0) return result;
         ensureConnected();
         Document player = players.find(new Document("_id", uuid.toString())).first();
         if (player == null) return result;
 
-        Object rawDecks = player.get("decks");
-        if (!(rawDecks instanceof List)) return result;
-        List<?> decks = (List<?>) rawDecks;
-        if (deckIndex >= decks.size() || !(decks.get(deckIndex) instanceof Document)) return result;
+        Object rawCollections = player.get("decks");
+        if (!(rawCollections instanceof List)) return result;
+        List<?> collections = (List<?>) rawCollections;
+        if (collectionIndex >= collections.size() || !(collections.get(collectionIndex) instanceof Document)) return result;
 
-        Document enhancements = ((Document) decks.get(deckIndex)).get("runeEnhancements", Document.class);
+        Document enhancements = ((Document) collections.get(collectionIndex)).get("runeEnhancements", Document.class);
         if (enhancements == null) return result;
         for (int rune = 0; rune < result.length; rune++) {
             Number level = enhancements.get(runeKey(rune), Number.class);
@@ -65,29 +65,29 @@ final class RuneEnhancementManager {
         return result;
     }
 
-    static int addLevels(UUID uuid, int deckIndex, int runeIndex, int amount) {
-        if (uuid == null || deckIndex < 0 || runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT || amount <= 0) {
-            return getLevel(uuid, deckIndex, runeIndex);
+    static int addLevels(UUID uuid, int collectionIndex, int runeIndex, int amount) {
+        if (uuid == null || collectionIndex < 0 || runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT || amount <= 0) {
+            return getLevel(uuid, collectionIndex, runeIndex);
         }
         ensureConnected();
-        int current = getLevel(uuid, deckIndex, runeIndex);
+        int current = getLevel(uuid, collectionIndex, runeIndex);
         long target = (long) current + amount;
         int safeAmount = target > Integer.MAX_VALUE ? Integer.MAX_VALUE - current : amount;
         if (safeAmount <= 0) return current;
 
-        String field = "decks." + deckIndex + ".runeEnhancements." + runeKey(runeIndex);
+        String field = "decks." + collectionIndex + ".runeEnhancements." + runeKey(runeIndex);
         players.updateOne(
                 new Document("_id", uuid.toString()),
                 new Document("$inc", new Document(field, safeAmount))
         );
-        return getLevel(uuid, deckIndex, runeIndex);
+        return getLevel(uuid, collectionIndex, runeIndex);
     }
 
     /** Resets every fixed-slot enhancement in one deck without touching owned runes or ranks. */
-    static void resetDeck(UUID uuid, int deckIndex) {
-        if (uuid == null || deckIndex < 0) return;
+    static void resetCollection(UUID uuid, int collectionIndex) {
+        if (uuid == null || collectionIndex < 0) return;
         ensureConnected();
-        String field = "decks." + deckIndex + ".runeEnhancements";
+        String field = "decks." + collectionIndex + ".runeEnhancements";
         players.updateOne(
                 new Document("_id", uuid.toString()),
                 new Document("$unset", new Document(field, ""))

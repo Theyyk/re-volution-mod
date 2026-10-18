@@ -1,5 +1,10 @@
 package com.example.customguimod;
 
+import com.example.customguimod.admin.AdminPanelStatePacket;
+import com.example.customguimod.network.NetworkHandler;
+import com.example.customguimod.number.LargeNumbers;
+import com.example.customguimod.resource.ResourceManager;
+
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -45,8 +50,8 @@ public final class AdminPanelScreen extends GuiScreen {
         playerPage = clampPage(playerPage, players.size());
         resourcePage = clampPage(resourcePage, resources.size());
         mobPage = clampPage(mobPage, mobs.size());
-        mobHpUnitPage = clampPage(mobHpUnitPage, LargeNumberValue.unitCount());
-        mobRewardUnitPage = clampPage(mobRewardUnitPage, LargeNumberValue.unitCount());
+        mobHpUnitPage = clampPage(mobHpUnitPage, LargeNumbers.unitCount());
+        mobRewardUnitPage = clampPage(mobRewardUnitPage, LargeNumbers.unitCount());
     }
 
     @Override public void initGui() {
@@ -163,7 +168,7 @@ public final class AdminPanelScreen extends GuiScreen {
         addPageButtons(x, y + row * 22, w, 5021, 5022, mobPage, mobs.size());
     }
     private void addUnitDropdown(int x, int y, int w, int selectedIndex, int page, int optionBase, int prevId, int nextId) {
-        int size = LargeNumberValue.unitCount();
+        int size = LargeNumbers.unitCount();
         int start = page * PAGE, end = Math.min(size, start + PAGE), row = 0;
         for (int i = start; i < end; i++) buttonList.add(btn(optionBase + i, x, y + row++ * 22, w, unitLabel(i), i == selectedIndex));
         int pages = Math.max(1, (size + PAGE - 1) / PAGE);
@@ -186,10 +191,10 @@ public final class AdminPanelScreen extends GuiScreen {
         if (b.id >= 2000 && b.id < 3000) { resourceIndex = b.id - 2000; resourceDropdown = false; initGui(); return; }
         if (b.id >= 3000 && b.id < 4000) { mobIndex = b.id - 3000; mobDropdown = false; initGui(); return; }
         if (b.id == 4000 || b.id == 4001) { mobTypeIndex = b.id - 4000; mobTypeDropdown = false; initGui(); return; }
-        if (b.id >= HP_UNIT_OPTION_BASE && b.id < HP_UNIT_OPTION_BASE + LargeNumberValue.unitCount()) {
+        if (b.id >= HP_UNIT_OPTION_BASE && b.id < HP_UNIT_OPTION_BASE + LargeNumbers.unitCount()) {
             mobHpUnitIndex = b.id - HP_UNIT_OPTION_BASE; mobHpUnitDropdown = false; initGui(); return;
         }
-        if (b.id >= REWARD_UNIT_OPTION_BASE && b.id < REWARD_UNIT_OPTION_BASE + LargeNumberValue.unitCount()) {
+        if (b.id >= REWARD_UNIT_OPTION_BASE && b.id < REWARD_UNIT_OPTION_BASE + LargeNumbers.unitCount()) {
             mobRewardUnitIndex = b.id - REWARD_UNIT_OPTION_BASE; mobRewardUnitDropdown = false; initGui(); return;
         }
         if (pageButton(b.id)) return;
@@ -245,12 +250,12 @@ public final class AdminPanelScreen extends GuiScreen {
         String name = mobNameText.trim();
         BigDecimal hp, reward;
         try {
-            hp = LargeNumberValue.parseWithUnit(mobHpText, mobHpUnitIndex);
-            reward = LargeNumberValue.parseWithUnit(mobRewardText, mobRewardUnitIndex);
+            hp = LargeNumbers.parseWithUnit(mobHpText, mobHpUnitIndex);
+            reward = LargeNumbers.parseWithUnit(mobRewardText, mobRewardUnitIndex);
         } catch (RuntimeException e) { return; }
         if (name.isEmpty() || hp.signum() <= 0 || reward.signum() <= 0) return;
         send("mob_create\t" + name + "\t" + (mobTypeIndex == 0 ? "zombie" : "skeleton") + "\t" + resource()
-                + "\t" + LargeNumberValue.canonical(reward) + "\t" + LargeNumberValue.canonical(hp) + "\t" + playerUuid());
+                + "\t" + LargeNumbers.canonical(reward) + "\t" + LargeNumbers.canonical(hp) + "\t" + playerUuid());
     }
     private void send(String action) { if (playerUuid().isEmpty() && !"refresh".equals(action)) return; NetworkHandler.INSTANCE.sendToServer(new AdminPanelRequestPacket(action)); }
 
@@ -315,8 +320,8 @@ public final class AdminPanelScreen extends GuiScreen {
         for (String row : balances) if (u.equals(split(row, 0)) && r.equals(split(row, 1))) return compactNumber(split(row, 2));
         return "0";
     }
-    private String compactNumber(String raw) { try { return LargeNumberFormatter.format(LargeNumberValue.parseExact(raw)); } catch (RuntimeException e) { return raw; } }
-    private String unitLabel(int index) { String suffix = LargeNumberValue.unitSuffix(index); return suffix.isEmpty() ? "x1" : suffix; }
+    private String compactNumber(String raw) { try { return LargeNumbers.format(LargeNumbers.parseExact(raw)); } catch (RuntimeException e) { return raw; } }
+    private String unitLabel(int index) { String suffix = LargeNumbers.unitSuffix(index); return suffix.isEmpty() ? "x1" : suffix; }
     private String playerUuid() { return players.isEmpty() ? "" : split(players.get(playerIndex), 0); }
     private String playerName() { return players.isEmpty() ? "нет игроков онлайн" : split(players.get(playerIndex), 1); }
     private String playerColumn(int c) { return players.isEmpty() ? "-" : split(players.get(playerIndex), c); }

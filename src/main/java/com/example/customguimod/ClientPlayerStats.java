@@ -1,5 +1,8 @@
 package com.example.customguimod;
 
+import com.example.customguimod.number.LargeNumbers;
+import com.example.customguimod.resource.ResourceManager;
+
 import java.math.BigDecimal;
 
 public final class ClientPlayerStats {
@@ -30,7 +33,7 @@ public final class ClientPlayerStats {
         awakeningNormalCost = Math.max(0, newAwakeningNormalCost); awakeningImprovedCost = Math.max(0, newAwakeningImprovedCost);
     }
 
-    private static BigDecimal safe(BigDecimal value) { return value == null || value.signum() < 0 ? BigDecimal.ZERO : LargeNumberValue.normalize(value); }
+    private static BigDecimal safe(BigDecimal value) { return value == null || value.signum() < 0 ? BigDecimal.ZERO : LargeNumbers.normalize(value); }
 
     public static void setCoins(long newCoins) { coins = BigDecimal.valueOf(Math.max(0L, newCoins)); }
     public static BigDecimal getCoins() { return coins; }

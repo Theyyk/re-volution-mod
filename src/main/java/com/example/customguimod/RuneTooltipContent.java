@@ -15,14 +15,14 @@ import java.util.List;
 final class RuneTooltipContent {
     private RuneTooltipContent() {}
 
-    static List<String> lines(EarthRuneCatalog.Definition definition,
+    static List<String> lines(PrimaryRuneCatalog.Definition definition,
                               int rank,
                               int enhancementLevel,
                               double enhancementMultiplier) {
         return lines(definition, rank, enhancementLevel, enhancementMultiplier, 0.0D);
     }
 
-    static List<String> lines(EarthRuneCatalog.Definition definition,
+    static List<String> lines(PrimaryRuneCatalog.Definition definition,
                               int rank,
                               int enhancementLevel,
                               double enhancementMultiplier,

@@ -1,5 +1,20 @@
 package com.example.customguimod;
 
+import com.example.customguimod.admin.AdminPanelAccess;
+import com.example.customguimod.admin.AdminPanelKeyHandler;
+import com.example.customguimod.client.hud.HealthBarRenderer;
+import com.example.customguimod.client.hud.NameHider;
+import com.example.customguimod.client.hud.PlayerStatsHudRenderer;
+import com.example.customguimod.commands.AdminPanelCommand;
+import com.example.customguimod.commands.CustomMobCommand;
+import com.example.customguimod.commands.CustomResourceCommand;
+import com.example.customguimod.mob.MobManager;
+import com.example.customguimod.network.NetworkHandler;
+import com.example.customguimod.number.LargeNumbers;
+import com.example.customguimod.number.SettingsKeyHandler;
+import com.example.customguimod.persistence.MongoManager;
+import com.example.customguimod.resource.ResourceManager;
+
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
@@ -35,7 +50,7 @@ public class CustomGuiMod {
             MinecraftForge.EVENT_BUS.register(new MobManager());
             MinecraftForge.EVENT_BUS.register(new DamageBonusHandler());
         } else {
-            LargeNumberDisplaySettings.init(event.getModConfigurationDirectory());
+            LargeNumbers.initDisplaySettings(event.getModConfigurationDirectory());
             NetworkHandler.registerClient();
         }
 
