@@ -1,0 +1,29 @@
+name: Audit v1.3 Branding
+
+on:
+  push:
+    branches:
+      - "feature/v1.3-revolution-branding"
+
+permissions:
+  contents: read
+
+jobs:
+  audit-branding:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Audit legacy branding identifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== customguimod / CustomGuiMod / customgui occurrences ==='
+          git grep -n -I -E 'customguimod|CustomGuiMod|Custom GUI Mod|customgui' -- . ':!/.github/release-notes/*' || true
+          echo
+          echo '=== historical release-note occurrences (preserved history) ==='
+          git grep -n -I -E 'customguimod|CustomGuiMod|Custom GUI Mod|customgui' -- .github/release-notes || true
+          echo
+          echo '=== paths containing legacy branding ==='
+          git ls-files | grep -E 'customguimod|CustomGuiMod|customgui' || true
