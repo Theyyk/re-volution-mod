@@ -2,7 +2,6 @@ package com.example.customguimod;
 
 import com.example.customguimod.number.LargeNumbers;
 
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 
 import java.math.BigDecimal;
@@ -14,7 +13,6 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
     private static final int CURRENCY_PANEL_HEIGHT = 68;
     private static final int RUNE_PANEL_HEIGHT = 84;
     private static final int PANEL_GAP = 11;
-    private static final int CURRENCY_HEADING_MASK = 0x90080808;
     private static final int RESOURCE_ICON_SIZE = 10;
     private static final int RESOURCE_ICON_GAP = 5;
     private final GuiLayout resourceLayout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
@@ -33,7 +31,6 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         int textWidth = Math.max(10, panelWidth - pad * 2);
         int x = panelX + pad;
         drawSurface(panelX, currencyY, panelWidth, CURRENCY_PANEL_HEIGHT, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
-        Gui.drawRect(panelX + 2, currencyY + 2, panelX + panelWidth - 2, currencyY + pad + 13, CURRENCY_HEADING_MASK);
         int y = currencyY + pad;
         GuiFontRenderer.heading(mc).drawStringWithShadow("ВАЛЮТА", x, y, HEADING_TEXT_COLOR);
         y += resourceLayout.scaled(21, 16);
