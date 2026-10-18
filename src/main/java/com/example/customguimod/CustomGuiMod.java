@@ -72,6 +72,7 @@ public class CustomGuiMod {
         MinecraftForge.EVENT_BUS.register(new PlayerStatsHudRenderer());
         MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());
+        MinecraftForge.EVENT_BUS.register(new PoisonStatsUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneStatusChatFilter());
         RuneTexturePreloader.register();
 
