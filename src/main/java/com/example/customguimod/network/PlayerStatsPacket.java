@@ -21,13 +21,16 @@ public class PlayerStatsPacket implements IMessage {
     private String awakeningResource;
     private int awakeningNormalCost;
     private int awakeningImprovedCost;
+    private double resolvedClickDamage;
+    private double resolvedPoisonDamage;
 
     public PlayerStatsPacket() {}
 
     public PlayerStatsPacket(BigDecimal coins, BigDecimal crystals, BigDecimal runeDust,
                              BigDecimal runeShards, BigDecimal runeCores, int totalDamage,
                              int activeRuneStatusId, String purchaseResource, int purchaseUnitCost,
-                             String awakeningResource, int awakeningNormalCost, int awakeningImprovedCost) {
+                             String awakeningResource, int awakeningNormalCost, int awakeningImprovedCost,
+                             double resolvedClickDamage, double resolvedPoisonDamage) {
         this.coins = LargeNumbers.canonical(coins);
         this.crystals = LargeNumbers.canonical(crystals);
         this.runeDust = LargeNumbers.canonical(runeDust);
@@ -40,6 +43,8 @@ public class PlayerStatsPacket implements IMessage {
         this.awakeningResource = awakeningResource == null ? "" : awakeningResource;
         this.awakeningNormalCost = awakeningNormalCost;
         this.awakeningImprovedCost = awakeningImprovedCost;
+        this.resolvedClickDamage = resolvedClickDamage;
+        this.resolvedPoisonDamage = resolvedPoisonDamage;
     }
 
     @Override public void fromBytes(ByteBuf buf) {
@@ -48,6 +53,7 @@ public class PlayerStatsPacket implements IMessage {
         totalDamage = buf.readInt(); activeRuneStatusId = buf.readInt();
         purchaseResource = ByteBufUtils.readUTF8String(buf); purchaseUnitCost = buf.readInt();
         awakeningResource = ByteBufUtils.readUTF8String(buf); awakeningNormalCost = buf.readInt(); awakeningImprovedCost = buf.readInt();
+        resolvedClickDamage = buf.readDouble(); resolvedPoisonDamage = buf.readDouble();
     }
 
     @Override public void toBytes(ByteBuf buf) {
@@ -56,6 +62,7 @@ public class PlayerStatsPacket implements IMessage {
         buf.writeInt(totalDamage); buf.writeInt(activeRuneStatusId);
         ByteBufUtils.writeUTF8String(buf, purchaseResource == null ? "coins" : purchaseResource); buf.writeInt(purchaseUnitCost);
         ByteBufUtils.writeUTF8String(buf, awakeningResource == null ? "" : awakeningResource); buf.writeInt(awakeningNormalCost); buf.writeInt(awakeningImprovedCost);
+        buf.writeDouble(resolvedClickDamage); buf.writeDouble(resolvedPoisonDamage);
     }
 
     public BigDecimal getCoins() { return LargeNumbers.parseExact(coins); }
@@ -70,4 +77,6 @@ public class PlayerStatsPacket implements IMessage {
     public String getAwakeningResource() { return awakeningResource; }
     public int getAwakeningNormalCost() { return awakeningNormalCost; }
     public int getAwakeningImprovedCost() { return awakeningImprovedCost; }
+    public double getResolvedClickDamage() { return resolvedClickDamage; }
+    public double getResolvedPoisonDamage() { return resolvedPoisonDamage; }
 }
