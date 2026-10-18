@@ -1,6 +1,6 @@
 package com.example.revolution.client;
 
-import com.example.revolution.AdminPanelRequestPacket;
+import com.example.revolution.network.admin.AdminPanelRequestPacket;
 import com.example.revolution.admin.AdminPanelStatePacket;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.number.LargeNumbers;

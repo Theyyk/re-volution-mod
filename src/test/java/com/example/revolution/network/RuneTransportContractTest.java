@@ -1,4 +1,4 @@
-package com.example.revolution;
+package com.example.revolution.network;
 
 
 import com.example.revolution.network.RuneCollectionsPacket;

@@ -4,7 +4,7 @@ package com.example.revolution.mob;
 import java.math.BigDecimal;
 import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.number.NumberTestSupport;
-import com.example.revolution.RuneTestSupport;
+import com.example.revolution.rune.RuneTestSupport;
 
 final class MobVirtualHealthTest {
     static void run() {

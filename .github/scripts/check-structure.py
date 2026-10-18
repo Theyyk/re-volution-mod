@@ -10,6 +10,12 @@ LEXER = re.compile(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|\
 
 
 def check_sources():
+    main_root = ROOT / 'src/main/java/com/example/revolution'
+    allowed_main_root = {'BrandingProperties.java', 'RevolutionMod.java', 'ServerInit.java'}
+    actual_main_root = {p.name for p in main_root.glob('*.java')}
+    assert actual_main_root == allowed_main_root, ('Unexpected root production classes', sorted(actual_main_root))
+    test_root = ROOT / 'src/test/java/com/example/revolution'
+    assert not list(test_root.glob('*.java')), ('Unexpected root test classes', sorted(p.name for p in test_root.glob('*.java')))
     for path in (ROOT / 'src').rglob('*.java'):
         source = path.read_text(encoding='utf-8')
         package = re.search(r'^package ([\w.]+);', source, re.M).group(1)

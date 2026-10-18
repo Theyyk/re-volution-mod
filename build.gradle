@@ -154,7 +154,7 @@ check.dependsOn runeEnhancementPacketRegression
 tasks.register('multiStatusRuneRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.RuneStatusRegistryTest'
+    mainClass = 'com.example.revolution.rune.RuneStatusRegistryTest'
 }
 check.dependsOn multiStatusRuneRegression
 
@@ -193,6 +193,6 @@ check.dependsOn mobVirtualHealthRegression
 tasks.register('runeTransportContractRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.RuneTransportContractTest'
+    mainClass = 'com.example.revolution.network.RuneTransportContractTest'
 }
 check.dependsOn runeTransportContractRegression

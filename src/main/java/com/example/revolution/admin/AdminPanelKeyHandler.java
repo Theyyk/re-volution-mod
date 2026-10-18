@@ -1,6 +1,6 @@
 package com.example.revolution.admin;
 
-import com.example.revolution.AdminPanelRequestPacket;
+import com.example.revolution.network.admin.AdminPanelRequestPacket;
 import com.example.revolution.network.NetworkHandler;
 
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;

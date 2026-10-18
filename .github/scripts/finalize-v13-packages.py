@@ -19,16 +19,16 @@ MOVES = {
 }
 
 OLD_TO_NEW = {
-    'com.example.revolution.AdminPanelRequestPacket': 'com.example.revolution.network.admin.AdminPanelRequestPacket',
-    'com.example.revolution.PingPacket': 'com.example.revolution.network.PingPacket',
-    'com.example.revolution.CustomRunesCommand': 'com.example.revolution.commands.CustomRunesCommand',
-    'com.example.revolution.CustomStatusCommand': 'com.example.revolution.commands.CustomStatusCommand',
-    'com.example.revolution.DamageBonusHandler': 'com.example.revolution.combat.DamageBonusHandler',
-    'com.example.revolution.PlayerJoinHandler': 'com.example.revolution.player.PlayerJoinHandler',
-    'com.example.revolution.PlayerStatsService': 'com.example.revolution.player.PlayerStatsService',
-    'com.example.revolution.RuneStatusRegistryTest': 'com.example.revolution.rune.RuneStatusRegistryTest',
-    'com.example.revolution.RuneTestSupport': 'com.example.revolution.rune.RuneTestSupport',
-    'com.example.revolution.RuneTransportContractTest': 'com.example.revolution.network.RuneTransportContractTest',
+    'com.example.revolution.network.admin.AdminPanelRequestPacket': 'com.example.revolution.network.admin.AdminPanelRequestPacket',
+    'com.example.revolution.network.PingPacket': 'com.example.revolution.network.PingPacket',
+    'com.example.revolution.commands.CustomRunesCommand': 'com.example.revolution.commands.CustomRunesCommand',
+    'com.example.revolution.commands.CustomStatusCommand': 'com.example.revolution.commands.CustomStatusCommand',
+    'com.example.revolution.combat.DamageBonusHandler': 'com.example.revolution.combat.DamageBonusHandler',
+    'com.example.revolution.player.PlayerJoinHandler': 'com.example.revolution.player.PlayerJoinHandler',
+    'com.example.revolution.player.PlayerStatsService': 'com.example.revolution.player.PlayerStatsService',
+    'com.example.revolution.rune.RuneStatusRegistryTest': 'com.example.revolution.rune.RuneStatusRegistryTest',
+    'com.example.revolution.rune.RuneTestSupport': 'com.example.revolution.rune.RuneTestSupport',
+    'com.example.revolution.network.RuneTransportContractTest': 'com.example.revolution.network.RuneTransportContractTest',
 }
 
 ROOT_TYPES = {

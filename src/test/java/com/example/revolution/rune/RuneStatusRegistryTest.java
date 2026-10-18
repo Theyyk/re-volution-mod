@@ -1,4 +1,4 @@
-package com.example.revolution;
+package com.example.revolution.rune;
 
 
 import com.example.revolution.rune.RuneStatusRegistry;

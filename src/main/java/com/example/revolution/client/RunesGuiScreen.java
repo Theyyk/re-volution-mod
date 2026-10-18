@@ -4,7 +4,7 @@ import com.example.revolution.rune.PrimaryRuneCatalog;
 import com.example.revolution.rune.RuneInventory;
 import com.example.revolution.rune.RuneProgression;
 import com.example.revolution.RevolutionMod;
-import com.example.revolution.PingPacket;
+import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.number.LargeNumbers;
 
