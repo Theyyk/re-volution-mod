@@ -40,8 +40,8 @@ final class RuneTexturePreloader implements IResourceManagerReloadListener {
         BufferedImage fallback = null;
         int fallbackCount = 0;
 
-        for (int i = 0; i < EarthRuneCatalog.size(); i++) {
-            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(i);
+        for (int i = 0; i < PrimaryRuneCatalog.size(); i++) {
+            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(i);
             if (definition == null || !loaded.add(definition.iconTexture)) continue;
 
             ResourceLocation runeTexture = new ResourceLocation(definition.iconTexture);

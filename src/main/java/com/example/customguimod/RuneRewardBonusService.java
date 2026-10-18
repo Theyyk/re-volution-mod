@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.persistence.MongoManager;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -11,23 +13,23 @@ final class RuneRewardBonusService {
         RuneStatType targetType = MobRewardBonus.statTypeFor(resource);
         if (uuid == null || targetType == null) return 0.0D;
 
-        int deckIndex = MongoManager.getActiveDeck(uuid);
-        if (RuneStatusRegistry.statusForDeck(deckIndex) != RuneStatusRegistry.STATUS_POISON) return 0.0D;
+        int collectionIndex = MongoManager.getActiveCollection(uuid);
+        if (RuneStatusRegistry.statusForCollection(collectionIndex) != RuneStatusRegistry.STATUS_POISON) return 0.0D;
 
         RuneInventory inventory = new RuneInventory();
-        List<MongoManager.SavedCard> cards = MongoManager.getCardsInDeck(uuid, deckIndex);
-        for (MongoManager.SavedCard card : cards) {
-            if (card == null) continue;
-            inventory.set(card.slot, card.cardIndex, card.layer);
+        List<MongoManager.SavedRune> runes = MongoManager.getRunesInCollection(uuid, collectionIndex);
+        for (MongoManager.SavedRune rune : runes) {
+            if (rune == null) continue;
+            inventory.set(rune.slot, rune.runeIndex, rune.layer);
         }
 
-        int[] enhancementLevels = RuneEnhancementManager.getLevels(uuid, deckIndex);
+        int[] enhancementLevels = RuneEnhancementManager.getLevels(uuid, collectionIndex);
         double total = 0.0D;
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             RuneInventory.Entry owned = inventory.getBoost(rune);
             if (owned == null) continue;
 
-            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(rune);
+            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
             if (definition == null || definition.stats == null) continue;
 
             int enhancementLevel = rune < enhancementLevels.length ? Math.max(0, enhancementLevels[rune]) : 0;

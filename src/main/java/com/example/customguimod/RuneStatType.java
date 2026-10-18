@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.number.LargeNumbers;
+
 /**
  * Stable identifiers for scalar, player-facing rune stat categories.
  *
@@ -41,7 +43,7 @@ enum RuneStatType {
     RESOURCE_REWARD_PERCENT("Добыча ресурса", DisplayKind.PERCENT),
 
     // Targeted stat: a concrete rune/family target is stored separately when used.
-    CARD_POWER_FLAT("Сила рун", DisplayKind.FLAT),
+    RUNE_POWER_FLAT("Сила рун", DisplayKind.FLAT),
 
     // Reserved content types. Their gameplay systems will be wired later.
     HERO_XP_MULTIPLIER("Опыт героев", DisplayKind.MULTIPLIER),
@@ -94,6 +96,6 @@ enum RuneStatType {
     }
 
     static String compact(double value) {
-        return LargeNumberFormatter.format(value);
+        return LargeNumbers.format(value);
     }
 }

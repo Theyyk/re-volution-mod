@@ -40,8 +40,8 @@ public final class RuneAwakeningInputTest {
         System.out.println("Awakening left-click input, scaling, search and collection guards passed");
     }
 
-    private static int select(GuiLayout layout, RuneInventory inventory, int deck, int x, int y) {
-        return RuneAwakeningInput.runeAt(layout, inventory, deck, x, y, slot -> true);
+    private static int select(GuiLayout layout, RuneInventory inventory, int collection, int x, int y) {
+        return RuneAwakeningInput.runeAt(layout, inventory, collection, x, y, slot -> true);
     }
     private static int screenX(GuiLayout l, int x) { return Math.round(l.canvasX + x * l.canvasScale); }
     private static int screenY(GuiLayout l, int y) { return Math.round(l.canvasY + y * l.canvasScale); }

@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.resource.ResourceManager;
+
 final class MobRewardBonusTest {
     static void run() {
         check(MobRewardBonus.statTypeFor("coins") == RuneStatType.COIN_REWARD_PERCENT,

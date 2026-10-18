@@ -25,8 +25,8 @@ public class ClientPacketHandler {
         if (data.startsWith("balance:")) {
             int balance = Integer.parseInt(data.substring("balance:".length()));
             Minecraft.getMinecraft().addScheduledTask(() -> {
-                if (Minecraft.getMinecraft().currentScreen instanceof CardsGuiScreen) {
-                    ((CardsGuiScreen) Minecraft.getMinecraft().currentScreen).setBalance(balance);
+                if (Minecraft.getMinecraft().currentScreen instanceof RunesGuiScreen) {
+                    ((RunesGuiScreen) Minecraft.getMinecraft().currentScreen).setBalance(balance);
                 }
             });
         }

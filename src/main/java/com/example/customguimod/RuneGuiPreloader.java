@@ -1,5 +1,8 @@
 package com.example.customguimod;
 
+import com.example.customguimod.network.NetworkHandler;
+import com.example.customguimod.network.RuneSlotPacket;
+
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -11,19 +14,19 @@ import java.util.List;
 /** Collects the first GUI snapshot before the rune screen becomes visible. */
 @SideOnly(Side.CLIENT)
 final class RuneGuiPreloader {
-    private static final long CARD_SETTLE_MS = 120L;
+    private static final long RUNE_SETTLE_MS = 120L;
     private static final long FALLBACK_TIMEOUT_MS = 1500L;
     private static final long POST_OPEN_REFRESH_TIMEOUT_MS = 750L;
 
     private static boolean pendingOpen;
     private static long startedAt;
     private static boolean statsReady;
-    private static boolean decksReady;
-    private static boolean cardsStarted;
-    private static long lastCardPacketAt;
-    private static List<String> deckNames = Collections.emptyList();
-    private static int activeDeck;
-    private static final List<CardSnapshot> cards = new ArrayList<>();
+    private static boolean collectionsReady;
+    private static boolean runesStarted;
+    private static long lastRunePacketAt;
+    private static List<String> collectionNames = Collections.emptyList();
+    private static int activeCollection;
+    private static final List<RuneSnapshot> runes = new ArrayList<>();
 
     private static boolean suppressInitialRefresh;
     private static boolean refreshStarted;
@@ -36,12 +39,12 @@ final class RuneGuiPreloader {
         pendingOpen = true;
         startedAt = System.currentTimeMillis();
         statsReady = false;
-        decksReady = false;
-        cardsStarted = false;
-        lastCardPacketAt = 0L;
-        deckNames = Collections.emptyList();
-        activeDeck = 0;
-        cards.clear();
+        collectionsReady = false;
+        runesStarted = false;
+        lastRunePacketAt = 0L;
+        collectionNames = Collections.emptyList();
+        activeCollection = 0;
+        runes.clear();
         suppressInitialRefresh = false;
         refreshStarted = false;
         openedAt = 0L;
@@ -56,25 +59,25 @@ final class RuneGuiPreloader {
         if (pendingOpen) statsReady = true;
     }
 
-    static void acceptDecks(List<String> names, int selectedDeck) {
+    static void acceptCollections(List<String> names, int selectedCollection) {
         if (!pendingOpen) return;
-        deckNames = names == null ? Collections.emptyList() : new ArrayList<>(names);
-        activeDeck = selectedDeck;
-        decksReady = true;
+        collectionNames = names == null ? Collections.emptyList() : new ArrayList<>(names);
+        activeCollection = selectedCollection;
+        collectionsReady = true;
     }
 
-    static void acceptCard(CardPacket packet) {
+    static void acceptRune(RuneSlotPacket packet) {
         if (!pendingOpen) return;
-        cardsStarted = true;
-        lastCardPacketAt = System.currentTimeMillis();
+        runesStarted = true;
+        lastRunePacketAt = System.currentTimeMillis();
         if (packet.getSlot() == -1) {
-            cards.clear();
+            runes.clear();
             return;
         }
-        cards.add(new CardSnapshot(packet.getSlot(), packet.getCardIndex(), packet.getLayer()));
+        runes.add(new RuneSnapshot(packet.getSlot(), packet.getRuneIndex(), packet.getLayer()));
     }
 
-    static boolean shouldSuppressLiveCard(CardPacket packet) {
+    static boolean shouldSuppressLiveRune(RuneSlotPacket packet) {
         if (!suppressInitialRefresh) return false;
 
         long now = System.currentTimeMillis();
@@ -94,15 +97,15 @@ final class RuneGuiPreloader {
         long now = System.currentTimeMillis();
 
         if (suppressInitialRefresh) {
-            boolean refreshSettled = refreshStarted && now - lastRefreshPacketAt >= CARD_SETTLE_MS;
+            boolean refreshSettled = refreshStarted && now - lastRefreshPacketAt >= RUNE_SETTLE_MS;
             boolean refreshTimedOut = openedAt > 0L && now - openedAt >= POST_OPEN_REFRESH_TIMEOUT_MS;
             if (refreshSettled || refreshTimedOut) suppressInitialRefresh = false;
         }
 
         if (!pendingOpen) return;
 
-        boolean cardsSettled = cardsStarted && now - lastCardPacketAt >= CARD_SETTLE_MS;
-        boolean complete = statsReady && decksReady && cardsSettled;
+        boolean runesSettled = runesStarted && now - lastRunePacketAt >= RUNE_SETTLE_MS;
+        boolean complete = statsReady && collectionsReady && runesSettled;
         boolean timedOut = now - startedAt >= FALLBACK_TIMEOUT_MS;
         if (!complete && !timedOut) return;
 
@@ -110,14 +113,14 @@ final class RuneGuiPreloader {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.currentScreen != null) return;
 
-        RuneResourcesCardsGuiScreen screen = new RuneResourcesCardsGuiScreen();
+        RuneResourcesGuiScreen screen = new RuneResourcesGuiScreen();
         mc.displayGuiScreen(screen);
-        screen.setDecks(deckNames, activeDeck);
-        screen.clearCards();
-        for (CardSnapshot card : cards) {
-            screen.addCardFromServer(card.slot, card.cardIndex, card.layer, false);
+        screen.setCollections(collectionNames, activeCollection);
+        screen.clearRunes();
+        for (RuneSnapshot rune : runes) {
+            screen.addRuneFromServer(rune.slot, rune.runeIndex, rune.layer);
         }
-        CardSyncState.completeLoad();
+        RuneCollectionSyncState.completeLoad();
 
         suppressInitialRefresh = true;
         refreshStarted = false;
@@ -129,14 +132,14 @@ final class RuneGuiPreloader {
         return pendingOpen;
     }
 
-    private static final class CardSnapshot {
+    private static final class RuneSnapshot {
         final int slot;
-        final int cardIndex;
+        final int runeIndex;
         final int layer;
 
-        CardSnapshot(int slot, int cardIndex, int layer) {
+        RuneSnapshot(int slot, int runeIndex, int layer) {
             this.slot = slot;
-            this.cardIndex = cardIndex;
+            this.runeIndex = runeIndex;
             this.layer = layer;
         }
     }

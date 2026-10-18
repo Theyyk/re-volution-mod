@@ -14,7 +14,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.2.11'
+version = '1.2.12'
 group = 'com.example.customguimod'
 archivesBaseName = 'customguimod'
 
@@ -104,12 +104,12 @@ tasks.register('runeEconomyRegression', JavaExec) {
 check.dependsOn runeEconomyRegression
 
 // Keep the fixed poison catalog and rune stat content under CI.
-tasks.register('earthRuneCatalogRegression', JavaExec) {
+tasks.register('primaryRuneCatalogRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.EarthRuneCatalogTest'
+    mainClass = 'com.example.customguimod.PrimaryRuneCatalogTest'
 }
-check.dependsOn earthRuneCatalogRegression
+check.dependsOn primaryRuneCatalogRegression
 
 // Keep player-facing tooltip composition and stat formatting under CI.
 tasks.register('runeTooltipContentRegression', JavaExec) {
@@ -151,7 +151,7 @@ tasks.register('runeEnhancementPacketRegression', JavaExec) {
 }
 check.dependsOn runeEnhancementPacketRegression
 
-// Prove that deck routing and economy configuration remain isolated across rune statuses.
+// Prove that collection routing and economy configuration remain isolated across rune statuses.
 tasks.register('multiStatusRuneRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
@@ -170,7 +170,7 @@ check.dependsOn multiStatusRuneEconomyRegression
 tasks.register('resourceActionFoundationRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.ResourceActionFoundationTest'
+    mainClass = 'com.example.customguimod.resource.ResourceActionFoundationTest'
 }
 check.dependsOn resourceActionFoundationRegression
 
@@ -178,7 +178,7 @@ check.dependsOn resourceActionFoundationRegression
 tasks.register('largeNumberFormatterRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.LargeNumberFormatterTest'
+    mainClass = 'com.example.customguimod.number.LargeNumberFormatterTest'
 }
 check.dependsOn largeNumberFormatterRegression
 
@@ -186,6 +186,14 @@ check.dependsOn largeNumberFormatterRegression
 tasks.register('mobVirtualHealthRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.MobVirtualHealthTest'
+    mainClass = 'com.example.customguimod.mob.MobVirtualHealthTest'
 }
 check.dependsOn mobVirtualHealthRegression
+
+// Pin renamed rune transport to the existing byte-level protocol.
+tasks.register('runeTransportContractRegression', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.customguimod.RuneTransportContractTest'
+}
+check.dependsOn runeTransportContractRegression

@@ -18,11 +18,11 @@ final class RuneStatusRegistry {
 
     private RuneStatusRegistry() {}
 
-    static int statusForDeck(int deckIndex) {
-        if (deckIndex < 0) return STATUS_NONE;
+    static int statusForCollection(int collectionIndex) {
+        if (collectionIndex < 0) return STATUS_NONE;
 
-        int fallback = deckIndex == 0 ? STATUS_POISON : STATUS_NONE;
-        String raw = System.getProperty("customguimod.runes.deck." + deckIndex + ".status");
+        int fallback = collectionIndex == 0 ? STATUS_POISON : STATUS_NONE;
+        String raw = System.getProperty("customguimod.runes.deck." + collectionIndex + ".status");
         if (raw == null || raw.trim().isEmpty()) return fallback;
 
         try {
@@ -49,8 +49,8 @@ final class RuneStatusRegistry {
         return normalized.isEmpty() ? fallback : normalized;
     }
 
-    static String displayNameForDeck(int deckIndex, String storedName) {
-        int statusId = statusForDeck(deckIndex);
+    static String displayNameForCollection(int collectionIndex, String storedName) {
+        int statusId = statusForCollection(collectionIndex);
         if (statusId == STATUS_POISON) return "Яд";
         return storedName == null ? "" : storedName;
     }

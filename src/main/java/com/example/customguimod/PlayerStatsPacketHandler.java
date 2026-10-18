@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.network.PlayerStatsPacket;
+
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
@@ -27,6 +29,7 @@ public class PlayerStatsPacketHandler implements IMessageHandler<PlayerStatsPack
                     message.getAwakeningNormalCost(),
                     message.getAwakeningImprovedCost()
             );
+            ClientPlayerStats.setResolvedCombat(message.getResolvedClickDamage(), message.getResolvedPoisonDamage());
             RuneGuiPreloader.noteStats();
             CustomGuiMod.logger.info("Player stats updated on client: coins=" + message.getCoins()
                     + ", crystals=" + message.getCrystals()
@@ -34,6 +37,8 @@ public class PlayerStatsPacketHandler implements IMessageHandler<PlayerStatsPack
                     + ", runeShards=" + message.getRuneShards()
                     + ", runeCores=" + message.getRuneCores()
                     + ", damage=" + message.getTotalDamage()
+                    + ", resolvedClickDamage=" + message.getResolvedClickDamage()
+                    + ", resolvedPoisonDamage=" + message.getResolvedPoisonDamage()
                     + ", activeRuneStatusId=" + message.getActiveRuneStatusId()
                     + ", purchaseResource=" + message.getPurchaseResource()
                     + ", purchaseUnitCost=" + message.getPurchaseUnitCost()

@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.resource.ResourceManager;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -30,20 +32,20 @@ final class GuiControls {
             this.selected = selected;
         }
 
-        private boolean blockedByCardSync() {
-            return (id == 0 || id == AMOUNT_BUTTON_START_ID) && CardSyncState.isLoading();
+        private boolean blockedByRuneSync() {
+            return (id == 0 || id == AMOUNT_BUTTON_START_ID) && RuneCollectionSyncState.isLoading();
         }
 
         @Override
         public boolean mousePressed(Minecraft mc, int mouseX, int mouseY) {
-            return !blockedByCardSync() && super.mousePressed(mc, mouseX, mouseY);
+            return !blockedByRuneSync() && super.mousePressed(mc, mouseX, mouseY);
         }
 
         @Override
         public void drawButton(Minecraft mc, int mouseX, int mouseY, float partialTicks) {
             if (!visible) return;
 
-            boolean syncBlocked = blockedByCardSync();
+            boolean syncBlocked = blockedByRuneSync();
             hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
 
             boolean interactive = enabled && !syncBlocked;
@@ -166,7 +168,7 @@ final class GuiControls {
         @Override
         public boolean mousePressed(Minecraft mc, int mouseX, int mouseY) {
             boolean pressed = super.mousePressed(mc, mouseX, mouseY);
-            if (pressed && !active) CardSyncState.beginLoad();
+            if (pressed && !active) RuneCollectionSyncState.beginLoad();
             return pressed;
         }
 

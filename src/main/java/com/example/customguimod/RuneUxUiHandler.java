@@ -30,7 +30,7 @@ public final class RuneUxUiHandler {
 
     @SubscribeEvent public void onLegacyRuneTooltip(RenderTooltipEvent.Pre event) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (!(mc.currentScreen instanceof CardsGuiScreen)) return;
+        if (!(mc.currentScreen instanceof RunesGuiScreen)) return;
         if (ClientPlayerStats.getActiveRuneStatusId() != RuneStatusRegistry.STATUS_POISON) return;
         List<String> lines = event.getLines(); if (lines == null || lines.isEmpty()) return;
         boolean hasRank = false, hasType = false;
@@ -39,9 +39,9 @@ public final class RuneUxUiHandler {
     }
 
     @SubscribeEvent public void onDrawPost(GuiScreenEvent.DrawScreenEvent.Post event) {
-        if (!(event.getGui() instanceof CardsGuiScreen)) return;
+        if (!(event.getGui() instanceof RunesGuiScreen)) return;
         if (!RuneStatusRegistry.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())) return;
-        CardsGuiScreen screen = (CardsGuiScreen) event.getGui();
+        RunesGuiScreen screen = (RunesGuiScreen) event.getGui();
         GuiLayout layout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT); layout.update(screen.width, screen.height);
         drawSlotEffects(layout); overlayWhiteCtrlHints(layout); drawFinalStatTooltip(screen, layout, event.getMouseX(), event.getMouseY());
     }
@@ -106,14 +106,14 @@ public final class RuneUxUiHandler {
         return minimum >= RuneInventory.ADVANCED_RANK ? 0 : minimum;
     }
 
-    private void drawFinalStatTooltip(CardsGuiScreen screen, GuiLayout layout, int mouseX, int mouseY) {
+    private void drawFinalStatTooltip(RunesGuiScreen screen, GuiLayout layout, int mouseX, int mouseY) {
         if (ClientPlayerStats.getActiveRuneStatusId() != RuneStatusRegistry.STATUS_POISON) return;
         int canvasX = layout.canvasMouseX(mouseX), canvasY = layout.canvasMouseY(mouseY);
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             int rank = ClientRuneRanks.rankOf(rune); if (rank <= 0 || !screen.runeMatchesSearch(rune)) continue;
             int[] pos = layout.runeSlotPosition(rune);
             if (canvasX < pos[0] || canvasX >= pos[0] + layout.runeSlotWidth || canvasY < pos[1] || canvasY >= pos[1] + layout.runeSlotHeight) continue;
-            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(rune); if (definition == null) return;
+            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune); if (definition == null) return;
             List<String> lines = RuneTooltipContent.lines(definition, rank, ClientRuneEnhancements.levelOf(rune), ClientRuneEnhancements.multiplierOf(rune), targetedPowerForSlot(rune));
             if (lines.isEmpty()) return;
             RuneTooltipRenderer.draw(lines, rank, mouseX, mouseY, screen.width, screen.height, GuiFontRenderer.get(Minecraft.getMinecraft())); return;
@@ -125,7 +125,7 @@ public final class RuneUxUiHandler {
         double total = 0.0D;
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             int rank = ClientRuneRanks.rankOf(rune); if (rank <= 0) continue;
-            EarthRuneCatalog.Definition definition = EarthRuneCatalog.at(rune); if (definition == null) continue;
+            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune); if (definition == null) continue;
             double multiplier = ClientRuneEnhancements.multiplierOf(rune);
             for (RuneTargetedPower power : definition.targetedPowers) if (power != null && targetKey.equals(power.targetKey)) total += Math.max(0.0D, power.resolve(rank, multiplier));
         }

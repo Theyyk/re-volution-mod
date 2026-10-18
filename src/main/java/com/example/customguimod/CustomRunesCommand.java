@@ -1,5 +1,10 @@
 package com.example.customguimod;
 
+import com.example.customguimod.commands.AdminOnlyCommand;
+import com.example.customguimod.network.NetworkHandler;
+import com.example.customguimod.network.RuneSlotPacket;
+import com.example.customguimod.persistence.MongoManager;
+
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -45,25 +50,25 @@ public class CustomRunesCommand extends AdminOnlyCommand {
             return;
         }
 
-        int statusIndex = MongoManager.getActiveDeck(player.getUniqueID());
-        int statusId = RuneStatusRegistry.statusForDeck(statusIndex);
+        int statusIndex = MongoManager.getActiveCollection(player.getUniqueID());
+        int statusId = RuneStatusRegistry.statusForCollection(statusIndex);
         if (!RuneStatusRegistry.isRuneStatus(statusId)) {
             player.sendMessage(new TextComponentString("§cАктивный статус не поддерживает руны"));
             return;
         }
 
         if (args[0].equalsIgnoreCase("clear")) {
-            MongoManager.clearDeck(player.getUniqueID(), statusIndex);
+            MongoManager.clearCollection(player.getUniqueID(), statusIndex);
             player.sendMessage(new TextComponentString("§cВсе руны активного статуса очищены"));
 
-            CardPacket msg = new CardPacket(-1, -1, -1, false);
+            RuneSlotPacket msg = new RuneSlotPacket(-1, -1, -1, false);
             NetworkHandler.sendToClient(msg, player);
             PlayerStatsService.sendTo(player);
             return;
         }
 
         if (args[0].equalsIgnoreCase("resetenhancements")) {
-            RuneEnhancementManager.resetDeck(player.getUniqueID(), statusIndex);
+            RuneEnhancementManager.resetCollection(player.getUniqueID(), statusIndex);
             NetworkHandler.sendToClient(
                     new RuneEnhancementPacket(RuneEnhancementManager.getLevels(player.getUniqueID(), statusIndex)),
                     player
