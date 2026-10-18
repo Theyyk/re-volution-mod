@@ -16,8 +16,8 @@
 Подключение настраивается параметрами JVM:
 
 ```text
--Dcustomguimod.mongo.uri=mongodb://localhost:27017
--Dcustomguimod.mongo.database=MyProject_test
+-Drevolution.mongo.uri=mongodb://localhost:27017
+-Drevolution.mongo.database=MyProject_test
 ```
 
 Имя базы можно переопределить параметром JVM. В текущем локальном окружении проекта используется одна постоянная база `MyProject_test`; её данные сохраняются между запусками. Если подключение требует авторизации, задайте соответствующий URI при запуске; не публикуйте его в репозитории.
@@ -29,7 +29,7 @@ MongoDB хранит игроков, наборы и руны, собствен�
 Из каталога подготовленного сервера с файлами Forge, библиотеками, конфигурацией и принятым соглашением EULA:
 
 ```powershell
-java -Dcustomguimod.mongo.uri=mongodb://localhost:27017 -Dcustomguimod.mongo.database=MyProject_test -jar forge-1.12.2-14.23.5.2859.jar nogui
+java -Drevolution.mongo.uri=mongodb://localhost:27017 -Drevolution.mongo.database=MyProject_test -jar forge-1.12.2-14.23.5.2859.jar nogui
 ```
 
 Команда `java` должна указывать на Java 8. Клиент запускается через установленный профиль Forge. Подключитесь к адресу своего сервера; клавиша `C` открывает интерфейс мода. Для штатной остановки сервера используйте `stop`.
