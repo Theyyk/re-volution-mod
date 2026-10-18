@@ -1,4 +1,5 @@
 @if "%DEBUG%" == "" @echo off
+@rem RE:volution Mod Gradle wrapper
 @rem ##########################################################################
 @rem
 @rem  Gradle startup script for Windows
