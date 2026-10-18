@@ -39,8 +39,9 @@ def check_jar(path):
                 assert not re.search(r'Card|Deck|EarthRune|FlyingRune|FlyingCard|TestSupport|Test\$', name), name
                 assert not name.endswith('Test.class'), name
         assert 'com/example/customguimod/network/RuneSlotPacket.class' in names
-        assert 'com/example/customguimod/RuneCollectionsPacket.class' in names
-        assert 'com/example/customguimod/PrimaryRuneCatalog.class' in names
+        assert 'com/example/customguimod/network/RuneCollectionsPacket.class' in names
+        assert 'com/example/customguimod/rune/PrimaryRuneCatalog.class' in names
+        assert 'com/example/customguimod/client/RunesGuiScreen.class' in names
 
 
 if __name__ == '__main__':

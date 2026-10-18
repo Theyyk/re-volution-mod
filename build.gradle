@@ -83,7 +83,7 @@ publishing {
 tasks.register('runeInventoryRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.RuneInventoryTest'
+    mainClass = 'com.example.customguimod.rune.RuneInventoryTest'
 }
 check.dependsOn runeInventoryRegression
 
@@ -91,7 +91,7 @@ check.dependsOn runeInventoryRegression
 tasks.register('guiLayoutRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.GuiLayoutTest'
+    mainClass = 'com.example.customguimod.client.GuiLayoutTest'
 }
 check.dependsOn guiLayoutRegression
 
@@ -99,7 +99,7 @@ check.dependsOn guiLayoutRegression
 tasks.register('runeEconomyRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.RuneEconomyConfigTest'
+    mainClass = 'com.example.customguimod.rune.RuneEconomyConfigTest'
 }
 check.dependsOn runeEconomyRegression
 
@@ -107,7 +107,7 @@ check.dependsOn runeEconomyRegression
 tasks.register('primaryRuneCatalogRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.PrimaryRuneCatalogTest'
+    mainClass = 'com.example.customguimod.rune.PrimaryRuneCatalogTest'
 }
 check.dependsOn primaryRuneCatalogRegression
 
@@ -115,7 +115,7 @@ check.dependsOn primaryRuneCatalogRegression
 tasks.register('runeTooltipContentRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.RuneTooltipContentTest'
+    mainClass = 'com.example.customguimod.client.RuneTooltipContentTest'
 }
 check.dependsOn runeTooltipContentRegression
 
@@ -123,7 +123,7 @@ check.dependsOn runeTooltipContentRegression
 tasks.register('runeStatContentRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.RuneStatContentTest'
+    mainClass = 'com.example.customguimod.rune.RuneStatContentTest'
 }
 check.dependsOn runeStatContentRegression
 
@@ -131,7 +131,7 @@ check.dependsOn runeStatContentRegression
 tasks.register('runeCombatMathRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.RuneCombatMathTest'
+    mainClass = 'com.example.customguimod.client.RuneCombatMathTest'
 }
 check.dependsOn runeCombatMathRegression
 
@@ -139,7 +139,7 @@ check.dependsOn runeCombatMathRegression
 tasks.register('mobRewardBonusRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.MobRewardBonusTest'
+    mainClass = 'com.example.customguimod.rune.MobRewardBonusTest'
 }
 check.dependsOn mobRewardBonusRegression
 
@@ -147,7 +147,7 @@ check.dependsOn mobRewardBonusRegression
 tasks.register('runeEnhancementPacketRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.RuneEnhancementPacketTest'
+    mainClass = 'com.example.customguimod.client.RuneEnhancementPacketTest'
 }
 check.dependsOn runeEnhancementPacketRegression
 
@@ -162,7 +162,7 @@ check.dependsOn multiStatusRuneRegression
 tasks.register('multiStatusRuneEconomyRegression', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.customguimod.MultiStatusRuneEconomyTest'
+    mainClass = 'com.example.customguimod.rune.MultiStatusRuneEconomyTest'
 }
 check.dependsOn multiStatusRuneEconomyRegression
 

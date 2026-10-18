@@ -2,7 +2,7 @@ package com.example.customguimod.mob;
 
 import com.example.customguimod.CustomGuiMod;
 import com.example.customguimod.PlayerStatsService;
-import com.example.customguimod.RuneMobEffects;
+import com.example.customguimod.rune.RuneMobEffects;
 import com.example.customguimod.number.LargeNumbers;
 import com.example.customguimod.persistence.MongoManager;
 import com.example.customguimod.resource.ResourceManager;

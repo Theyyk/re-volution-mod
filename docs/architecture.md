@@ -27,6 +27,10 @@ PNG рун находятся в отдельном наборе ресурсо�
 
 [Проверки и выпуск](development.md) · [Источник шрифтов и ответ поддержки](permissions/cristalix.md).
 
-## Пакеты первого структурного PR
+## Пакеты после структурного разделения
 
-Выделены `admin`, `commands`, `network`, `number`, `resource`, `persistence`, `mob` и `client.hud`. Связанные package-private классы рун и GUI пока остаются вместе в корневом пакете. Это первый шаг, а не завершённое разделение rune/client. [Полная карта и границы API](cleanup-v1.3-plan.md).
+Серверные и общие правила рун вынесены в `com.example.customguimod.rune`. Связанный клиентский GUI, client state и обработчики интерфейса находятся в `com.example.customguimod.client`. Транспортные DTO, для которых разделение не меняет wire-контракт, находятся в `com.example.customguimod.network`.
+
+Ранее выделенные `admin`, `commands`, `number`, `resource`, `persistence`, `mob` и `client.hud` сохраняют свои границы. Публичность расширена только на реальные межпакетные границы; внутренние client GUI-классы остаются package-private там, где внешний доступ не требуется.
+
+Это структурное разделение не меняет Mongo-ключи, сетевой канал и discriminator order, resource paths, формулы экономики и боя или игровое поведение. История первого cleanup-этапа и исходная карта переноса сохранены в [cleanup-v1.3-plan.md](cleanup-v1.3-plan.md).

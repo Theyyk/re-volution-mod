@@ -1,7 +1,7 @@
 package com.example.customguimod.persistence;
 
 import com.example.customguimod.CustomGuiMod;
-import com.example.customguimod.RuneStorageRules;
+import com.example.customguimod.rune.RuneStorageRules;
 import com.example.customguimod.number.LargeNumbers;
 
 import com.mongodb.client.MongoClient;
