@@ -12,6 +12,8 @@ public final class ClientPlayerStats {
     private static BigDecimal runeShards = BigDecimal.ZERO;
     private static BigDecimal runeCores = BigDecimal.ZERO;
     private static int totalDamage;
+    private static double resolvedClickDamage;
+    private static double resolvedPoisonDamage;
     private static int activeRuneStatusId = RuneStatusRegistry.STATUS_POISON;
     private static String purchaseResource = "coins";
     private static int purchaseUnitCost = 100;
@@ -33,6 +35,15 @@ public final class ClientPlayerStats {
         awakeningNormalCost = Math.max(0, newAwakeningNormalCost); awakeningImprovedCost = Math.max(0, newAwakeningImprovedCost);
     }
 
+    public static void setResolvedCombat(double clickDamage, double poisonDamage) {
+        resolvedClickDamage = finiteNonNegative(clickDamage);
+        resolvedPoisonDamage = finiteNonNegative(poisonDamage);
+    }
+
+    private static double finiteNonNegative(double value) {
+        return Double.isFinite(value) ? Math.max(0.0D, value) : 0.0D;
+    }
+
     private static BigDecimal safe(BigDecimal value) { return value == null || value.signum() < 0 ? BigDecimal.ZERO : LargeNumbers.normalize(value); }
 
     public static void setCoins(long newCoins) { coins = BigDecimal.valueOf(Math.max(0L, newCoins)); }
@@ -52,6 +63,8 @@ public final class ClientPlayerStats {
     public static BigDecimal getRuneShards() { return runeShards; }
     public static BigDecimal getRuneCores() { return runeCores; }
     public static int getTotalDamage() { return totalDamage; }
+    public static double getResolvedClickDamage() { return resolvedClickDamage; }
+    public static double getResolvedPoisonDamage() { return resolvedPoisonDamage; }
     public static int getActiveRuneStatusId() { return activeRuneStatusId; }
     public static String getPurchaseResource() { return purchaseResource; }
     public static int getPurchaseUnitCost() { return purchaseUnitCost; }
