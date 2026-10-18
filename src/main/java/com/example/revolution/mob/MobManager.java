@@ -1,7 +1,7 @@
 package com.example.revolution.mob;
 
 import com.example.revolution.RevolutionMod;
-import com.example.revolution.PlayerStatsService;
+import com.example.revolution.player.PlayerStatsService;
 import com.example.revolution.rune.RuneMobEffects;
 import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.persistence.MongoManager;

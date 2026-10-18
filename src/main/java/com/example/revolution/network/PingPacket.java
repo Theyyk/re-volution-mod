@@ -1,6 +1,10 @@
-package com.example.revolution;
+package com.example.revolution.network;
 
 
+
+
+import com.example.revolution.RevolutionMod;
+import com.example.revolution.player.PlayerStatsService;
 import com.example.revolution.rune.RuneAwakeningDecision;
 import com.example.revolution.rune.RuneAwakeningPaymentService;
 import com.example.revolution.network.RuneCollectionsPacket;

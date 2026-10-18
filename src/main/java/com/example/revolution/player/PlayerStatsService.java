@@ -1,4 +1,4 @@
-package com.example.revolution;
+package com.example.revolution.player;
 
 
 import com.example.revolution.rune.RuneCombatMath;

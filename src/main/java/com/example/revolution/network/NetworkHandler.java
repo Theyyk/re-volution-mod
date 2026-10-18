@@ -1,9 +1,9 @@
 package com.example.revolution.network;
 
-import com.example.revolution.AdminPanelRequestPacket;
+import com.example.revolution.network.admin.AdminPanelRequestPacket;
 import com.example.revolution.client.AdminPanelStateClientHandler;
 import com.example.revolution.RevolutionMod;
-import com.example.revolution.PingPacket;
+import com.example.revolution.network.PingPacket;
 import com.example.revolution.client.PlayerStatsPacketHandler;
 import com.example.revolution.network.RuneCollectionsPacket;
 import com.example.revolution.client.RuneCollectionsPacketHandler;

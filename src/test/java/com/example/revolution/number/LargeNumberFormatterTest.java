@@ -1,6 +1,6 @@
 package com.example.revolution.number;
 
-import com.example.revolution.RuneTestSupport;
+import com.example.revolution.rune.RuneTestSupport;
 
 import java.math.BigDecimal;
 import java.util.HashMap;

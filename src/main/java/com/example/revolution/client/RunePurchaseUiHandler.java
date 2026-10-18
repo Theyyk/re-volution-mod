@@ -2,7 +2,7 @@ package com.example.revolution.client;
 
 import com.example.revolution.rune.RuneInventory;
 import com.example.revolution.rune.RuneStatusRegistry;
-import com.example.revolution.PingPacket;
+import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.resource.ResourceManager;
 

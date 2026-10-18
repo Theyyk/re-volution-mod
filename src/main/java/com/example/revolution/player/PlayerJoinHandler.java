@@ -1,5 +1,7 @@
-package com.example.revolution;
+package com.example.revolution.player;
 
+
+import com.example.revolution.RevolutionMod;
 import com.example.revolution.persistence.MongoManager;
 import com.example.revolution.resource.ResourceManager;
 

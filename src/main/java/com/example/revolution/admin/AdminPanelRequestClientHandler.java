@@ -1,6 +1,6 @@
 package com.example.revolution.admin;
 
-import com.example.revolution.AdminPanelRequestPacket;
+import com.example.revolution.network.admin.AdminPanelRequestPacket;
 
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;

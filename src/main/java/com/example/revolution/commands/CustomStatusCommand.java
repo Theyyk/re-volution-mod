@@ -1,5 +1,7 @@
-package com.example.revolution;
+package com.example.revolution.commands;
 
+
+import com.example.revolution.player.PlayerStatsService;
 import com.example.revolution.commands.AdminOnlyCommand;
 import com.example.revolution.persistence.MongoManager;
 
