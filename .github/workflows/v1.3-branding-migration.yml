@@ -66,6 +66,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The default GITHUB_TOKEN cannot push a commit that edits another workflow file.
+          # release.yml is updated separately through the repository connector after this commit.
+          git restore -- .github/workflows/release.yml gradlew
           if git diff --quiet && git diff --cached --quiet; then
             echo 'No migration changes to commit.'
             exit 0
