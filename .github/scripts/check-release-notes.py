@@ -15,7 +15,7 @@ def validate(tag, russian, english):
         errors.append("English release notes are missing or empty")
     if re.search(r"[А-Яа-яЁё]", english):
         errors.append("English release notes contain Russian text")
-    for heading in (f"## Custom GUI Mod {tag}", "### Added", "### Fixed", "### Other", "### Download"):
+    for heading in (f"## RE:volution Mod {tag}", "### Added", "### Fixed", "### Other", "### Download"):
         if heading not in english.splitlines():
             errors.append(f"Missing English release heading: {heading}")
     if not re.search(r"^\*\*Full Changelog:\*\*\s+\S", english, re.MULTILINE):
