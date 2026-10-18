@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+
+import com.example.customguimod.network.RuneCollectionsPacket;
 import com.example.customguimod.network.RuneSlotPacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;

@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+
+import com.example.customguimod.rune.RuneStatusRegistry;
 /** Pure Java regression checks for multi-status deck routing. */
 public final class RuneStatusRegistryTest {
     public static void main(String[] args) {

@@ -1,17 +1,17 @@
 package com.example.customguimod.network;
 
 import com.example.customguimod.AdminPanelRequestPacket;
-import com.example.customguimod.AdminPanelStateClientHandler;
+import com.example.customguimod.client.AdminPanelStateClientHandler;
 import com.example.customguimod.CustomGuiMod;
 import com.example.customguimod.PingPacket;
-import com.example.customguimod.PlayerStatsPacketHandler;
-import com.example.customguimod.RuneCollectionsPacket;
-import com.example.customguimod.RuneCollectionsPacketHandler;
-import com.example.customguimod.RuneCollectionsPacketServerHandler;
-import com.example.customguimod.RuneEnhancementPacket;
-import com.example.customguimod.RuneEnhancementPacketHandler;
-import com.example.customguimod.RuneEnhancementPacketServerHandler;
-import com.example.customguimod.RuneSlotPacketHandler;
+import com.example.customguimod.client.PlayerStatsPacketHandler;
+import com.example.customguimod.network.RuneCollectionsPacket;
+import com.example.customguimod.client.RuneCollectionsPacketHandler;
+import com.example.customguimod.network.RuneCollectionsPacketServerHandler;
+import com.example.customguimod.network.RuneEnhancementPacket;
+import com.example.customguimod.client.RuneEnhancementPacketHandler;
+import com.example.customguimod.network.RuneEnhancementPacketServerHandler;
+import com.example.customguimod.client.RuneSlotPacketHandler;
 import com.example.customguimod.admin.AdminPanelRequestClientHandler;
 import com.example.customguimod.admin.AdminPanelStatePacket;
 import com.example.customguimod.admin.AdminPanelStateServerHandler;

@@ -1,5 +1,8 @@
 package com.example.customguimod;
 
+
+import com.example.customguimod.rune.MobRewardBonus;
+import com.example.customguimod.rune.RuneStatType;
 import java.math.BigDecimal;
 
 /** Test-only bridge for assertions that cross private feature boundaries. Never shipped in the mod JAR. */

@@ -1,6 +1,6 @@
 package com.example.customguimod.network;
 
-import com.example.customguimod.ClientPlayerStats;
+import com.example.customguimod.client.ClientPlayerStats;
 import com.example.customguimod.CustomGuiMod;
 
 import net.minecraft.client.Minecraft;
