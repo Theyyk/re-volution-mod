@@ -1,7 +1,7 @@
 package com.example.customguimod;
 
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.EntityTracker;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
@@ -53,7 +53,7 @@ public class ManagedMobVisibilityHandler {
 
             int elapsed = entry.getValue() + 1;
             if (elapsed == FIRST_REFRESH_TICKS || elapsed == FINAL_REFRESH_TICKS) {
-                refreshVisibility(player);
+                refreshVisibility(player, elapsed);
             }
 
             if (elapsed >= FINAL_REFRESH_TICKS) iterator.remove();
@@ -68,7 +68,7 @@ public class ManagedMobVisibilityHandler {
         return server.getPlayerList().getPlayerByUUID(uuid);
     }
 
-    private static void refreshVisibility(EntityPlayerMP player) {
+    private static void refreshVisibility(EntityPlayerMP player, int elapsedTicks) {
         if (player == null || !(player.world instanceof WorldServer)) return;
         WorldServer world = (WorldServer) player.world;
         EntityTracker tracker = world.getEntityTracker();
@@ -81,6 +81,6 @@ public class ManagedMobVisibilityHandler {
         tracker.updateVisibility(player);
 
         CustomGuiMod.logger.debug("Rebuilt entity tracking after login for " + player.getName()
-                + " at tick " + elapsedLoginTicks.getOrDefault(player.getUniqueID(), -1));
+                + " at tick " + elapsedTicks);
     }
 }
