@@ -2,8 +2,9 @@
 
 The script is intentionally mechanical: it moves the agreed classes, updates package
 statements, rewrites old fully-qualified references and adds imports for moved types.
-Visibility is NOT widened here; compile failures are used to identify real package
-boundaries that need an explicit API instead of blanket public modifiers.
+Only the types that form real cross-package boundaries are promoted to public; the rest
+of the implementation keeps its existing visibility so the migration does not become a
+blanket public-API expansion.
 """
 from pathlib import Path
 import re
@@ -96,6 +97,28 @@ TEST_MOVE = {
     "RuneEnhancementPacketTest": BASE + ".client",
 }
 
+# These are actual cross-package seams after the split. Promoting only these top-level types
+# is intentional; member visibility is handled separately only when a caller needs it.
+PUBLIC_TYPES = {
+    "PrimaryRuneCatalog",
+    "RuneAwakeningDecision",
+    "RuneAwakeningPaymentService",
+    "RuneCombatMath",
+    "RuneCombatService",
+    "RuneCompositeEffect",
+    "RuneEconomyConfig",
+    "RuneEnhancementManager",
+    "RuneInventory",
+    "RuneProgression",
+    "RuneStat",
+    "RuneStatDisplay",
+    "RuneStatType",
+    "RuneStatusRegistry",
+    "RuneTargetedPower",
+    "GuiFontRenderer",
+    "RuneTexturePreloader",
+}
+
 PKG_RE = re.compile(r"(?m)^package\s+([\w.]+);\s*$")
 IMPORT_RE = re.compile(r"(?m)^import\s+([\w.]+);\s*$")
 
@@ -113,6 +136,22 @@ def package_of(text):
 
 def replace_package(text, package):
     return PKG_RE.sub("package %s;" % package, text, count=1)
+
+
+def promote_top_level_type(text, class_name):
+    if class_name not in PUBLIC_TYPES:
+        return text
+    patterns = [
+        (r"(?m)^(final\s+class\s+%s\b)" % re.escape(class_name), r"public \1"),
+        (r"(?m)^(class\s+%s\b)" % re.escape(class_name), r"public \1"),
+        (r"(?m)^(enum\s+%s\b)" % re.escape(class_name), r"public \1"),
+        (r"(?m)^(interface\s+%s\b)" % re.escape(class_name), r"public \1"),
+    ]
+    for pattern, replacement in patterns:
+        updated, count = re.subn(pattern, replacement, text, count=1)
+        if count:
+            return updated
+    return text
 
 
 def add_imports(text, package, own_name):
@@ -146,6 +185,7 @@ def migrate_root_sources(root, mapping):
             continue
         text = old.read_text(encoding="utf-8")
         text = replace_package(text, target_package)
+        text = promote_top_level_type(text, class_name)
         new = path_for(root, target_package, old.name)
         new.parent.mkdir(parents=True, exist_ok=True)
         new.write_text(text, encoding="utf-8")
