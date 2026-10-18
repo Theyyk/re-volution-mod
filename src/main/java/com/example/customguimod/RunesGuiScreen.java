@@ -1,6 +1,7 @@
 package com.example.customguimod;
 
 import com.example.customguimod.network.NetworkHandler;
+import com.example.customguimod.number.LargeNumbers;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
@@ -253,7 +254,6 @@ public class RunesGuiScreen extends GuiScreen {
         int buttonSize = layout.navPanelWidth - pad * 2;
         int x = layout.navPanelX + pad;
         int y = layout.navPanelY + pad;
-        int gap = 10;
 
         buttonList.add(new NavButton(
                 NAV_RUNES_ID, x, y, buttonSize, buttonSize,
@@ -389,12 +389,9 @@ public class RunesGuiScreen extends GuiScreen {
 
         drawHeadingString("СТАТИСТИКА", x, y, textW, HEADING_TEXT_COLOR, true);
         y += scaled(21, 16);
-        double baseDamage = mc.player == null ? 1.0D
-                : mc.player.getEntityAttribute(net.minecraft.entity.SharedMonsterAttributes.ATTACK_DAMAGE).getAttributeValue();
-        double damage = baseDamage + ClientPlayerStats.getTotalDamage();
-        String damageText = damage == Math.rint(damage) ? String.valueOf((long) damage)
-                : String.format(java.util.Locale.ROOT, "%.2f", damage).replaceAll("0+$", "").replaceAll("\\.$", "");
-        drawStatLine(x, y, "Урон за клик", damageText, textW);
+        drawStatLine(x, y, "Урон за клик", LargeNumbers.format(ClientPlayerStats.getResolvedClickDamage()), textW);
+        y += 13;
+        drawStatLine(x, y, "Урон яда", LargeNumbers.format(ClientPlayerStats.getResolvedPoisonDamage()), textW);
 
         if (this instanceof RuneResourcesGuiScreen) return;
 
@@ -403,9 +400,9 @@ public class RunesGuiScreen extends GuiScreen {
         y = resourcesY + pad;
         drawHeadingString("РЕСУРСЫ", x, y, textW, HEADING_TEXT_COLOR, true);
         y += scaled(21, 16);
-        drawStatLine(x, y, "Монеты", String.valueOf(ClientPlayerStats.getCoins()), textW);
+        drawStatLine(x, y, "Монеты", LargeNumbers.format(ClientPlayerStats.getCoins()), textW);
         y += scaled(16, 12);
-        drawStatLine(x, y, "Кристаллы", String.valueOf(ClientPlayerStats.getCrystals()), textW);
+        drawStatLine(x, y, "Кристаллы", LargeNumbers.format(ClientPlayerStats.getCrystals()), textW);
     }
 
     private void drawStatLine(int x, int y, String name, String value, int availableWidth) {
@@ -428,6 +425,11 @@ public class RunesGuiScreen extends GuiScreen {
             drawRect(x + 1, y + 4, x + 9, y + 7, CRYSTAL_COLOR);
             drawRect(x + 2, y + 2, x + 8, y + 9, CRYSTAL_COLOR);
             drawRect(x + 3, y + 2, x + 5, y + 6, CRYSTAL_HIGHLIGHT_COLOR);
+        } else if ("Урон яда".equals(name)) {
+            drawRect(x + 4, y, x + 6, y + 2, POISON_TYPE_COLOR);
+            drawRect(x + 3, y + 2, x + 7, y + 4, POISON_TYPE_COLOR);
+            drawRect(x + 2, y + 4, x + 8, y + 7, POISON_TYPE_COLOR);
+            drawRect(x + 3, y + 7, x + 7, y + 9, POISON_TYPE_COLOR);
         } else {
             for (int i = 0; i < 6; i++)
                 drawRect(x + 7 - i, y + 1 + i, x + 9 - i, y + 3 + i, SWORD_BLADE_COLOR);
@@ -813,7 +815,6 @@ public class RunesGuiScreen extends GuiScreen {
         drawLeftPanelContent();
         drawCenterPanelContent(mouseX, mouseY);
         drawRunePanelContent(mouseX, mouseY);
-
 
         super.drawScreen(mouseX, mouseY, partialTicks);
         drawElementTooltip(mouseX, mouseY);
