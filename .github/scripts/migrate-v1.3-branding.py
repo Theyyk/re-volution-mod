@@ -74,6 +74,13 @@ def rewrite_current_text():
             path.write_text(updated, encoding="utf-8")
 
 
+def update_artifact_basename():
+    path = ROOT / "build.gradle"
+    text = path.read_text(encoding="utf-8")
+    text = re.sub(r"(?m)^archivesBaseName\s*=\s*['\"][^'\"]+['\"]\s*$", "archivesBaseName = 'RE-volution'", text)
+    path.write_text(text, encoding="utf-8")
+
+
 def write_branding_properties():
     path = ROOT / "src/main/java/com/example/revolution/BrandingProperties.java"
     path.write_text(
@@ -147,8 +154,6 @@ def update_readme():
 def update_mcmod_info():
     path = ROOT / "src/main/resources/mcmod.info"
     text = path.read_text(encoding="utf-8")
-    text = text.replace('"modid": "revolution"', '"modid": "revolution"')
-    text = text.replace('"name": "RE:volution"', '"name": "RE:volution"')
     text = text.replace('"description": "Кастомный GUI"', '"description": "RE:volution for Minecraft 1.12.2"')
     path.write_text(text, encoding="utf-8")
 
@@ -170,6 +175,7 @@ def main():
         "src/main/java/com/example/revolution/RevolutionMod.java",
     )
     rewrite_current_text()
+    update_artifact_basename()
     write_branding_properties()
     migrate_properties()
     migrate_config_files()
