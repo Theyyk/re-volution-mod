@@ -31,7 +31,6 @@ public class CustomGuiMod {
             AdminPanelAccess.init(event.getModConfigurationDirectory());
             MinecraftForge.EVENT_BUS.register(new PlayerJoinHandler());
             MinecraftForge.EVENT_BUS.register(new MobManager());
-            MinecraftForge.EVENT_BUS.register(new ManagedMobVisibilityHandler());
             MinecraftForge.EVENT_BUS.register(new DamageBonusHandler());
         } else {
             LargeNumberDisplaySettings.init(event.getModConfigurationDirectory());
