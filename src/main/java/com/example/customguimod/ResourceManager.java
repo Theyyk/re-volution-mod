@@ -5,9 +5,9 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.UpdateOptions;
-import com.mongodb.client.result.UpdateResult;
 import org.bson.Document;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -34,7 +34,6 @@ public final class ResourceManager {
 
     private static synchronized void ensureConnected() {
         if (client != null) return;
-
         client = MongoClients.create(System.getProperty("customguimod.mongo.uri", "mongodb://localhost:27017"));
         database = client.getDatabase(System.getProperty("customguimod.mongo.database", "MyProject_build"));
         players = database.getCollection("players");
@@ -43,36 +42,21 @@ public final class ResourceManager {
 
     public static void purgeDeprecatedLightnings() {
         ensureConnected();
-
-        players.updateMany(
-                new Document(RETIRED_LIGHTNINGS, new Document("$exists", true)),
-                new Document("$unset", new Document(RETIRED_LIGHTNINGS, ""))
-        );
-
-        mobs.updateMany(
-                new Document("resource", RETIRED_LIGHTNINGS),
-                new Document("$unset", new Document("resource", "").append("amount", ""))
-        );
-
-        // One-way migration cleanup for databases created before the fixed resource catalog.
+        players.updateMany(new Document(RETIRED_LIGHTNINGS, new Document("$exists", true)),
+                new Document("$unset", new Document(RETIRED_LIGHTNINGS, "")));
+        mobs.updateMany(new Document("resource", RETIRED_LIGHTNINGS),
+                new Document("$unset", new Document("resource", "").append("amount", "")));
         database.getCollection("custom_resources").deleteMany(new Document("name", RETIRED_LIGHTNINGS));
     }
 
     public static void purgeDeprecatedLightnings(UUID uuid) {
         ensureConnected();
-        players.updateOne(
-                new Document("_id", uuid.toString()),
-                new Document("$unset", new Document(RETIRED_LIGHTNINGS, ""))
-        );
+        players.updateOne(new Document("_id", uuid.toString()),
+                new Document("$unset", new Document(RETIRED_LIGHTNINGS, "")));
     }
 
-    public static boolean isRetiredResource(String name) {
-        return RETIRED_LIGHTNINGS.equals(normalize(name).trim());
-    }
-
-    public static String normalize(String name) {
-        return name == null ? "" : name.toLowerCase(Locale.ROOT);
-    }
+    public static boolean isRetiredResource(String name) { return RETIRED_LIGHTNINGS.equals(normalize(name).trim()); }
+    public static String normalize(String name) { return name == null ? "" : name.toLowerCase(Locale.ROOT); }
 
     public static String getDisplayName(String resource) {
         String normalized = normalize(resource);
@@ -84,145 +68,125 @@ public final class ResourceManager {
         return resource;
     }
 
-    /**
-     * v1.2.8 fixed catalog. Runtime creation/deletion of currencies or rune resources is intentionally unsupported.
-     */
-    public static List<String> getResourceNames() {
-        return new ArrayList<>(BUILT_IN);
-    }
+    public static List<String> getResourceNames() { return new ArrayList<>(BUILT_IN); }
 
     public static String findCanonicalName(String input) {
         if (input == null || isRetiredResource(input)) return null;
-        for (String name : BUILT_IN) {
-            if (name.equalsIgnoreCase(input)) return name;
-        }
+        for (String name : BUILT_IN) if (name.equalsIgnoreCase(input)) return name;
         return null;
     }
 
-    public static int getPlayerResource(UUID uuid, String resource) {
+    public static BigDecimal getPlayerResourceValue(UUID uuid, String resource) {
         ensureConnected();
         String canonical = findCanonicalName(resource);
-        if (canonical == null) return 0;
-
+        if (canonical == null) return BigDecimal.ZERO;
         Document doc = players.find(new Document("_id", uuid.toString())).first();
-        if (doc == null) return 0;
-
+        if (doc == null) return BigDecimal.ZERO;
         String normalized = normalize(canonical);
-        if (normalized.equals("coins")) return getInt(doc, "balance");
-        if (normalized.equals("crystals")) return getInt(doc, "crystals");
-
+        if (normalized.equals("coins")) return getDecimal(doc, "balance");
+        if (normalized.equals("crystals")) return getDecimal(doc, "crystals");
         Document custom = doc.get("resources", Document.class);
-        if (custom == null) return 0;
-        return getInt(custom, normalized);
+        return custom == null ? BigDecimal.ZERO : getDecimal(custom, normalized);
     }
 
-    /**
-     * Generic signed adjustment kept for admin/migration compatibility.
-     * Gameplay code should prefer grantPlayerResource/spendPlayerResource.
-     */
-    public static int addPlayerResource(UUID uuid, String resource, int amount) {
-        if (amount > 0) {
-            grantPlayerResource(uuid, resource, amount);
-        } else if (amount < 0) {
-            long requested = -(long) amount;
-            int spend = requested > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) requested;
-            spendPlayerResource(uuid, resource, spend);
-        }
-        return getPlayerResource(uuid, resource);
+    public static int getPlayerResource(UUID uuid, String resource) {
+        BigDecimal value = getPlayerResourceValue(uuid, resource);
+        if (value.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) >= 0) return Integer.MAX_VALUE;
+        return Math.max(0, value.intValue());
     }
 
-    public static boolean canAfford(UUID uuid, String resource, int amount) {
-        if (amount < 0) return false;
-        String canonical = findCanonicalName(resource);
-        return canonical != null && getPlayerResource(uuid, canonical) >= amount;
+    public static long getPlayerResourceLong(UUID uuid, String resource) {
+        BigDecimal value = getPlayerResourceValue(uuid, resource);
+        if (value.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) >= 0) return Long.MAX_VALUE;
+        return Math.max(0L, value.longValue());
     }
 
-    /** Grant a non-negative amount of a known fixed resource. */
-    public static boolean grantPlayerResource(UUID uuid, String resource, int amount) {
+    public static synchronized boolean grantPlayerResource(UUID uuid, String resource, BigDecimal amount) {
         ensureConnected();
-        if (amount < 0) return false;
         String canonical = findCanonicalName(resource);
-        if (canonical == null) return false;
-        if (amount == 0) return true;
-
-        String field = playerResourceField(canonical);
-        players.updateOne(
-                new Document("_id", uuid.toString()),
-                new Document("$inc", new Document(field, amount)),
-                new UpdateOptions().upsert(true)
-        );
+        if (canonical == null || amount == null || amount.signum() < 0) return false;
+        if (amount.signum() == 0) return true;
+        BigDecimal next = LargeNumberValue.normalize(getPlayerResourceValue(uuid, canonical).add(amount));
+        writePlayerResource(uuid, canonical, next);
         return true;
     }
 
-    /**
-     * Atomically spends a non-negative amount and never lets the persisted balance cross below zero.
-     */
-    public static boolean spendPlayerResource(UUID uuid, String resource, int amount) {
-        ensureConnected();
-        if (amount < 0) return false;
+    public static boolean grantPlayerResource(UUID uuid, String resource, int amount) {
+        return grantPlayerResource(uuid, resource, BigDecimal.valueOf(amount));
+    }
 
+    public static synchronized boolean spendPlayerResource(UUID uuid, String resource, int amount) {
+        if (amount < 0) return false;
         String canonical = findCanonicalName(resource);
         if (canonical == null) return false;
-        if (amount == 0) return true;
+        BigDecimal current = getPlayerResourceValue(uuid, canonical);
+        BigDecimal cost = BigDecimal.valueOf(amount);
+        if (current.compareTo(cost) < 0) return false;
+        writePlayerResource(uuid, canonical, current.subtract(cost));
+        return true;
+    }
 
-        String field = playerResourceField(canonical);
-        Document filter = new Document("_id", uuid.toString())
-                .append(field, new Document("$gte", amount));
-        UpdateResult result = players.updateOne(
-                filter,
-                new Document("$inc", new Document(field, -amount))
-        );
-        return result.getModifiedCount() > 0;
+    public static boolean canAfford(UUID uuid, String resource, int amount) {
+        return amount >= 0 && getPlayerResourceValue(uuid, resource).compareTo(BigDecimal.valueOf(amount)) >= 0;
+    }
+
+    public static int addPlayerResource(UUID uuid, String resource, int amount) {
+        if (amount > 0) grantPlayerResource(uuid, resource, amount);
+        else if (amount < 0) spendPlayerResource(uuid, resource, (int) Math.min(Integer.MAX_VALUE, -(long) amount));
+        return getPlayerResource(uuid, resource);
     }
 
     public static int setPlayerResource(UUID uuid, String resource, int value) {
-        ensureConnected();
         String canonical = findCanonicalName(resource);
         if (canonical == null) return 0;
-
-        int safeValue = Math.max(0, value);
-        String field = playerResourceField(canonical);
-        players.updateOne(
-                new Document("_id", uuid.toString()),
-                new Document("$set", new Document(field, safeValue)),
-                new UpdateOptions().upsert(true)
-        );
+        writePlayerResource(uuid, canonical, BigDecimal.valueOf(Math.max(0, value)));
         return getPlayerResource(uuid, canonical);
     }
 
-    public static void setMobReward(String mobName, String resource, int amount) {
+    private static void writePlayerResource(UUID uuid, String canonical, BigDecimal value) {
+        ensureConnected();
+        String field = playerResourceField(canonical);
+        players.updateOne(new Document("_id", uuid.toString()),
+                new Document("$set", new Document(field, LargeNumberValue.canonical(value.max(BigDecimal.ZERO)))),
+                new UpdateOptions().upsert(true));
+    }
+
+    public static void setMobReward(String mobName, String resource, BigDecimal amount) {
         ensureConnected();
         String canonical = findCanonicalName(resource);
-        if (canonical == null) return;
+        if (canonical == null || amount == null || amount.signum() <= 0) return;
+        mobs.updateOne(new Document("name", mobName),
+                new Document("$set", new Document("resource", canonical)
+                        .append("amount", LargeNumberValue.canonical(amount))));
+    }
 
-        mobs.updateOne(
-                new Document("name", mobName),
-                new Document("$set", new Document("resource", canonical).append("amount", amount))
-        );
+    public static void setMobReward(String mobName, String resource, int amount) {
+        setMobReward(mobName, resource, BigDecimal.valueOf(amount));
     }
 
     public static String getMobResource(String mobName) {
         ensureConnected();
         Document doc = mobs.find(new Document("name", mobName)).first();
         if (doc == null) return "coins";
-
         String resource = doc.getString("resource");
         if (resource == null || resource.isEmpty()) return "coins";
-
         String canonical = findCanonicalName(resource);
         return canonical == null ? "coins" : canonical;
     }
 
-    public static int getMobAmount(String mobName) {
+    public static BigDecimal getMobAmountValue(String mobName) {
         ensureConnected();
         Document doc = mobs.find(new Document("name", mobName)).first();
-        if (doc == null) return 0;
+        if (doc == null) return BigDecimal.ZERO;
+        BigDecimal amount = getDecimal(doc, "amount");
+        if (amount.signum() > 0) return amount;
+        return getDecimal(doc, "money");
+    }
 
-        Integer amount = doc.getInteger("amount");
-        if (amount != null) return amount;
-
-        Integer oldMoney = doc.getInteger("money");
-        return oldMoney == null ? 0 : oldMoney;
+    public static int getMobAmount(String mobName) {
+        BigDecimal value = getMobAmountValue(mobName);
+        if (value.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) >= 0) return Integer.MAX_VALUE;
+        return Math.max(0, value.intValue());
     }
 
     private static String playerResourceField(String canonical) {
@@ -232,8 +196,15 @@ public final class ResourceManager {
         return "resources." + normalized;
     }
 
-    private static int getInt(Document doc, String field) {
-        Number number = doc.get(field, Number.class);
-        return number == null ? 0 : number.intValue();
+    private static BigDecimal getDecimal(Document doc, String field) {
+        if (doc == null) return BigDecimal.ZERO;
+        Object raw = doc.get(field);
+        if (raw == null) return BigDecimal.ZERO;
+        try {
+            if (raw instanceof Number) return LargeNumberValue.normalize(new BigDecimal(raw.toString()));
+            return LargeNumberValue.parseExact(String.valueOf(raw));
+        } catch (RuntimeException ignored) {
+            return BigDecimal.ZERO;
+        }
     }
 }

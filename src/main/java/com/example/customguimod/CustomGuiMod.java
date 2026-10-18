@@ -1,9 +1,11 @@
 package com.example.customguimod;
 
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -33,6 +35,7 @@ public class CustomGuiMod {
             MinecraftForge.EVENT_BUS.register(new MobManager());
             MinecraftForge.EVENT_BUS.register(new DamageBonusHandler());
         } else {
+            LargeNumberDisplaySettings.init(event.getModConfigurationDirectory());
             NetworkHandler.registerClient();
         }
 
@@ -44,8 +47,10 @@ public class CustomGuiMod {
     public void init(FMLInitializationEvent event) {
         KeyInputHandler.register();
         AdminPanelKeyHandler.register();
+        SettingsKeyHandler.register();
         MinecraftForge.EVENT_BUS.register(new KeyInputHandler());
         MinecraftForge.EVENT_BUS.register(new AdminPanelKeyHandler());
+        MinecraftForge.EVENT_BUS.register(new SettingsKeyHandler());
         MinecraftForge.EVENT_BUS.register(new ClientPacketHandler());
         MinecraftForge.EVENT_BUS.register(new HealthBarRenderer());
         MinecraftForge.EVENT_BUS.register(new NameHider());
@@ -71,8 +76,16 @@ public class CustomGuiMod {
         event.registerServerCommand(new AdminPanelCommand());
 
         ResourceManager.purgeDeprecatedLightnings();
+    }
 
-        net.minecraft.world.World world = event.getServer().getWorld(0);
+    @Mod.EventHandler
+    public void serverStarted(FMLServerStartedEvent event) {
+        net.minecraft.server.MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        if (server == null) {
+            logger.error("MinecraftServer is unavailable during FMLServerStartedEvent; managed mobs were not loaded.");
+            return;
+        }
+        net.minecraft.world.World world = server.getWorld(0);
         MobManager.loadFromDatabase(world);
     }
 }
