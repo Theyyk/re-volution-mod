@@ -1,7 +1,12 @@
 package com.example.customguimod;
 
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityTracker;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.play.server.SPacketDestroyEntities;
+import net.minecraft.network.play.server.SPacketEntityMetadata;
+import net.minecraft.network.play.server.SPacketSpawnMob;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
@@ -13,18 +18,19 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Re-runs vanilla entity visibility checks shortly after login.
+ * Repairs managed-mob visibility for reconnecting clients.
  *
- * Managed mobs can already exist server-side while the reconnecting client's chunks
- * are still being attached. A plain updateVisibility call is not enough when the
- * tracker still believes the joining player already tracks an entity that the new
- * client session never received. Force-removing the player from tracker entries and
- * rebuilding visibility makes vanilla resend the existing entities without recreating
- * them or touching their managed HP/state.
+ * Vanilla tracking can retain enough server-side state that updateVisibility() alone
+ * does not resend an already-existing managed mob to a fresh client world. Repeatedly
+ * removing the player from all tracker entries also proved unreliable across several
+ * reconnects. Keep vanilla tracking intact and explicitly resend only current-session
+ * managed mobs after the player's chunks have had time to attach.
  */
 public class ManagedMobVisibilityHandler {
-    private static final int FIRST_REFRESH_TICKS = 5;
-    private static final int FINAL_REFRESH_TICKS = 40;
+    private static final int FIRST_REFRESH_TICKS = 10;
+    private static final int SECOND_REFRESH_TICKS = 40;
+    private static final int FINAL_REFRESH_TICKS = 100;
+    private static final String SESSION_TAG = "revolutionManagedSession";
     private static final Map<UUID, Integer> elapsedLoginTicks = new HashMap<>();
 
     @SubscribeEvent
@@ -52,7 +58,7 @@ public class ManagedMobVisibilityHandler {
             }
 
             int elapsed = entry.getValue() + 1;
-            if (elapsed == FIRST_REFRESH_TICKS || elapsed == FINAL_REFRESH_TICKS) {
+            if (elapsed == FIRST_REFRESH_TICKS || elapsed == SECOND_REFRESH_TICKS || elapsed == FINAL_REFRESH_TICKS) {
                 refreshVisibility(player, elapsed);
             }
 
@@ -69,18 +75,27 @@ public class ManagedMobVisibilityHandler {
     }
 
     private static void refreshVisibility(EntityPlayerMP player, int elapsedTicks) {
-        if (player == null || !(player.world instanceof WorldServer)) return;
+        if (player == null || player.connection == null || !(player.world instanceof WorldServer)) return;
         WorldServer world = (WorldServer) player.world;
         EntityTracker tracker = world.getEntityTracker();
 
-        // A reconnect creates a fresh client world, but the server tracker can still
-        // have stale per-player visibility state for entities that survived on the
-        // server. Clear that state first so updateVisibility must send spawn packets
-        // again for every entity the player should currently see.
-        tracker.removePlayerFromTrackers(player);
+        // Let vanilla refresh its normal tracker state, but do not remove the player
+        // from every tracker entry. Explicitly rebuild only managed mobs on the client.
         tracker.updateVisibility(player);
 
-        CustomGuiMod.logger.debug("Rebuilt entity tracking after login for " + player.getName()
-                + " at tick " + elapsedTicks);
+        int resent = 0;
+        for (Entity raw : world.loadedEntityList) {
+            if (!(raw instanceof EntityLiving) || raw.isDead) continue;
+            if (raw.getEntityData().getString(SESSION_TAG).isEmpty()) continue;
+
+            EntityLiving entity = (EntityLiving) raw;
+            player.connection.sendPacket(new SPacketDestroyEntities(entity.getEntityId()));
+            player.connection.sendPacket(new SPacketSpawnMob(entity));
+            player.connection.sendPacket(new SPacketEntityMetadata(entity.getEntityId(), entity.getDataManager(), true));
+            resent++;
+        }
+
+        CustomGuiMod.logger.debug("Refreshed managed mob visibility for " + player.getName()
+                + " at tick " + elapsedTicks + "; resent=" + resent);
     }
 }
