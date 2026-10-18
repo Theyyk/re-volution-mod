@@ -36,6 +36,16 @@ public final class ClientPlayerStats {
     private static BigDecimal safe(BigDecimal value) { return value == null || value.signum() < 0 ? BigDecimal.ZERO : LargeNumbers.normalize(value); }
 
     public static void setCoins(long newCoins) { coins = BigDecimal.valueOf(Math.max(0L, newCoins)); }
+
+    /**
+     * Applies the legacy int-sized coin synchronization only while the modern client value still
+     * fits that transport. Large-number stats are authoritative once they exceed the legacy range.
+     */
+    public static void acceptLegacyCoins(int newCoins) {
+        if (coins.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) > 0) return;
+        setCoins(newCoins);
+    }
+
     public static BigDecimal getCoins() { return coins; }
     public static BigDecimal getCrystals() { return crystals; }
     public static BigDecimal getRuneDust() { return runeDust; }

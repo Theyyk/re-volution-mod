@@ -11,13 +11,25 @@ final class ClientRuneEnhancements {
     private static String resource = "";
     private static double powerStep;
     private static boolean synced;
+    private static boolean suppressNextPulse;
 
     private ClientRuneEnhancements() {}
+
+    static void suppressNextPulse() {
+        suppressNextPulse = true;
+    }
+
+    static boolean shouldPulseSync(boolean wasSynced, int previousStatusId, int incomingStatusId, boolean suppressPulse) {
+        return wasSynced && previousStatusId == incomingStatusId && !suppressPulse;
+    }
 
     static void accept(RuneEnhancementPacket packet) {
         int previousStatusId = statusId;
         int[] previousLevels = Arrays.copyOf(LEVELS, LEVELS.length);
-        boolean mayPulse = synced && packet != null && packet.getStatusId() == previousStatusId;
+        boolean suppressPulse = suppressNextPulse;
+        suppressNextPulse = false;
+        boolean mayPulse = packet != null
+                && shouldPulseSync(synced, previousStatusId, packet.getStatusId(), suppressPulse);
 
         Arrays.fill(LEVELS, 0);
         for (int[] runeCosts : COSTS) Arrays.fill(runeCosts, 0);

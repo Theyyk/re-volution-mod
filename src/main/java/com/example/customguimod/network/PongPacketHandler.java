@@ -16,8 +16,8 @@ public class PongPacketHandler implements IMessageHandler<PongPacket, IMessage> 
     @Override
     public IMessage onMessage(PongPacket message, MessageContext ctx) {
         Minecraft.getMinecraft().addScheduledTask(() -> {
-            ClientPlayerStats.setCoins(message.getBalance());
-            CustomGuiMod.logger.info("Coins updated on client: " + message.getBalance());
+            ClientPlayerStats.acceptLegacyCoins(message.getBalance());
+            CustomGuiMod.logger.info("Legacy coins sync received on client: " + message.getBalance());
         });
         return null;
     }

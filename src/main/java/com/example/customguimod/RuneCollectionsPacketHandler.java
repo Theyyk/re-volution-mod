@@ -13,6 +13,9 @@ public class RuneCollectionsPacketHandler implements IMessageHandler<RuneCollect
     @Override
     public IMessage onMessage(RuneCollectionsPacket message, MessageContext ctx) {
         Minecraft.getMinecraft().addScheduledTask(() -> {
+            // A collection change is followed by a full enhancement snapshot. That snapshot is
+            // synchronization, not a new enhancement action, so it must not trigger green pulses.
+            ClientRuneEnhancements.suppressNextPulse();
             RuneGuiPreloader.acceptCollections(message.getCollectionNames(), message.getActiveCollection());
 
             if (Minecraft.getMinecraft().currentScreen instanceof RunesGuiScreen) {
