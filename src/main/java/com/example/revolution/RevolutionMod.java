@@ -10,6 +10,7 @@ import com.example.revolution.combat.DamageBonusHandler;
 import com.example.revolution.commands.CustomStatusCommand;
 import com.example.revolution.commands.CustomRunesCommand;
 import com.example.revolution.client.ClientPacketHandler;
+import com.example.revolution.client.EnhancementClickGuard;
 import com.example.revolution.client.GuiFontRenderer;
 import com.example.revolution.client.KeyInputHandler;
 import com.example.revolution.client.RunePurchaseUiHandler;
@@ -86,6 +87,7 @@ public class RevolutionMod {
         MinecraftForge.EVENT_BUS.register(new ClientPacketHandler());
         MinecraftForge.EVENT_BUS.register(new HealthBarRenderer());
         MinecraftForge.EVENT_BUS.register(new NameHider());
+        MinecraftForge.EVENT_BUS.register(new EnhancementClickGuard());
         MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneStatusChatFilter());

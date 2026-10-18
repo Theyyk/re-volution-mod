@@ -31,7 +31,7 @@ public class NetworkHandler {
             NetworkRegistry.INSTANCE.newSimpleChannel("revolution:main");
 
     public static void registerServer() {
-        INSTANCE.registerMessage(PingPacket.Handler.class, PingPacket.class, 0, Side.SERVER);
+        INSTANCE.registerMessage(RateLimitedPingPacketHandler.class, PingPacket.class, 0, Side.SERVER);
         INSTANCE.registerMessage(PongPacketServerHandler.class, PongPacket.class, 1, Side.CLIENT);
         INSTANCE.registerMessage(RuneSlotPacketServerHandler.class, RuneSlotPacket.class, 2, Side.CLIENT);
         INSTANCE.registerMessage(RuneCollectionsPacketServerHandler.class, RuneCollectionsPacket.class, 3, Side.CLIENT);
