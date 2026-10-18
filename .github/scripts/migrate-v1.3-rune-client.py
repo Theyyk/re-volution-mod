@@ -35,8 +35,6 @@ RUNE = {
     "RuneTargetedPower",
 }
 
-# Keep the coupled client GUI classes together. This creates one client boundary instead of
-# replacing the old root-package coupling with multiple client subpackages and public helpers.
 CLIENT = {
     "AdminPanelScreen",
     "AdminPanelStateClientHandler",
@@ -97,8 +95,6 @@ TEST_MOVE = {
     "RuneEnhancementPacketTest": BASE + ".client",
 }
 
-# These are actual cross-package seams after the split. Promoting only these top-level types
-# is intentional; member visibility is handled separately only when a caller needs it.
 PUBLIC_TYPES = {
     "PrimaryRuneCatalog",
     "RuneAwakeningDecision",
@@ -117,6 +113,12 @@ PUBLIC_TYPES = {
     "RuneTargetedPower",
     "GuiFontRenderer",
     "RuneTexturePreloader",
+}
+
+# Existing root helpers referenced from the new rune package need explicit imports after moving.
+ROOT_IMPORTS = {
+    "RuneMobEffects": ["MobRewardBonus"],
+    "RuneRewardBonusService": ["MobRewardBonus"],
 }
 
 PKG_RE = re.compile(r"(?m)^package\s+([\w.]+);\s*$")
@@ -154,8 +156,46 @@ def promote_top_level_type(text, class_name):
     return text
 
 
+def promote_boundary_members(text, class_name):
+    """Expose only direct members of explicitly selected boundary types.
+
+    The old flat package relied on package-private access. After the split those direct members
+    become the narrow Java boundary. Private implementation remains private; nested member
+    internals are not widened here unless the nested type itself is part of the exposed model.
+    """
+    if class_name not in PUBLIC_TYPES:
+        return text
+    out = []
+    for line in text.splitlines(True):
+        if not line.startswith("    ") or line.startswith("        "):
+            out.append(line)
+            continue
+        stripped = line[4:]
+        if not stripped or stripped.startswith(("public ", "private ", "protected ", "@", "//", "/*", "*", "}", "static {")):
+            out.append(line)
+            continue
+        declaration = False
+        if re.match(r"(?:static\s+)?(?:final\s+)?(?:class|enum|interface)\b", stripped):
+            declaration = True
+        elif ";" in stripped and not stripped.lstrip().startswith(("return ", "throw ")):
+            declaration = True
+        elif "(" in stripped and (stripped.rstrip().endswith("{") or stripped.rstrip().endswith(";")):
+            declaration = True
+        if declaration:
+            line = "    public " + stripped
+        out.append(line)
+    return "".join(out)
+
+
+def add_named_import(text, fqcn):
+    if fqcn in IMPORT_RE.findall(text):
+        return text
+    package_match = PKG_RE.search(text)
+    insert_at = package_match.end()
+    return text[:insert_at] + "\n\nimport " + fqcn + ";" + text[insert_at:]
+
+
 def add_imports(text, package, own_name):
-    # Replace explicit root-qualified references/imports first.
     for name, target in MOVE.items():
         text = text.replace(BASE + "." + name, target + "." + name)
 
@@ -167,6 +207,11 @@ def add_imports(text, package, own_name):
         if not re.search(r"\b%s\b" % re.escape(name), text):
             continue
         fqcn = target + "." + name
+        if fqcn not in existing:
+            additions.append("import %s;" % fqcn)
+            existing.add(fqcn)
+    for root_name in ROOT_IMPORTS.get(own_name, []):
+        fqcn = BASE + "." + root_name
         if fqcn not in existing:
             additions.append("import %s;" % fqcn)
             existing.add(fqcn)
@@ -186,6 +231,7 @@ def migrate_root_sources(root, mapping):
         text = old.read_text(encoding="utf-8")
         text = replace_package(text, target_package)
         text = promote_top_level_type(text, class_name)
+        text = promote_boundary_members(text, class_name)
         new = path_for(root, target_package, old.name)
         new.parent.mkdir(parents=True, exist_ok=True)
         new.write_text(text, encoding="utf-8")
