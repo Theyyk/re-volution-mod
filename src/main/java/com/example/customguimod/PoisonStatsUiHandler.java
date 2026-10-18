@@ -15,7 +15,7 @@ import static com.example.customguimod.GuiTheme.PANEL_BG_COLOR;
 import static com.example.customguimod.GuiTheme.POISON_TYPE_COLOR;
 import static com.example.customguimod.GuiTheme.TEXT_COLOR;
 
-/** Draws resolved Poison-status combat values in the rune GUI statistics panel. */
+/** Draws server-resolved total combat values from all configured rune collections. */
 @SideOnly(Side.CLIENT)
 public final class PoisonStatsUiHandler {
     private static final int STAT_ICON_SIZE = 10;
@@ -24,14 +24,12 @@ public final class PoisonStatsUiHandler {
     @SubscribeEvent
     public void onDrawPost(GuiScreenEvent.DrawScreenEvent.Post event) {
         if (!(event.getGui() instanceof RunesGuiScreen)) return;
-        if (ClientPlayerStats.getActiveRuneStatusId() != RuneStatusRegistry.STATUS_POISON) return;
 
         RunesGuiScreen screen = (RunesGuiScreen) event.getGui();
         GuiLayout layout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
         layout.update(screen.width, screen.height);
 
-        Minecraft mc = Minecraft.getMinecraft();
-        FontRenderer font = GuiFontRenderer.get(mc);
+        FontRenderer font = GuiFontRenderer.get(Minecraft.getMinecraft());
         int pad = layout.scaled(8, 4);
         int x = layout.leftPanelX + pad;
         int clickY = layout.leftPanelY + pad + layout.scaled(21, 16);
@@ -40,18 +38,17 @@ public final class PoisonStatsUiHandler {
         int valueAreaX = x + availableWidth / 2;
         int valueRight = x + availableWidth;
 
-        double baseDamage = mc.player == null ? 1.0D
-                : mc.player.getEntityAttribute(net.minecraft.entity.SharedMonsterAttributes.ATTACK_DAMAGE).getAttributeValue();
-        String clickValue = LargeNumbers.format(ClientRuneCombatPreview.clickDamage(baseDamage));
-        String poisonValue = LargeNumbers.format(ClientRuneCombatPreview.poisonDamage());
+        String clickValue = LargeNumbers.format(ClientPlayerStats.getResolvedClickDamage());
+        String poisonValue = LargeNumbers.format(ClientPlayerStats.getResolvedPoisonDamage());
 
         GlStateManager.pushMatrix();
         GlStateManager.translate(layout.canvasX, layout.canvasY, 0.0F);
         GlStateManager.scale(layout.canvasScale, layout.canvasScale, 1.0F);
         try {
-            // The base screen still draws its legacy additive click value. Clear only the right-side value area,
-            // then replace it with the same stable click calculation used by the real rune combat model.
-            Gui.drawRect(valueAreaX, clickY - 1, valueRight + 1, clickY + font.FONT_HEIGHT + 1, PANEL_BG_COLOR);
+            // Base screen still paints the old int-sized value. Replace that area with an opaque copy
+            // of the panel background so the legacy digits cannot remain visible underneath.
+            int opaquePanel = 0xFF000000 | (PANEL_BG_COLOR & 0x00FFFFFF);
+            Gui.drawRect(valueAreaX, clickY - 1, valueRight + 1, clickY + font.FONT_HEIGHT + 1, opaquePanel);
             drawRightAligned(font, clickValue, valueRight, clickY);
 
             drawPoisonIcon(x, poisonY);
