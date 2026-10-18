@@ -26,12 +26,17 @@ final class MobVirtualHealthTest {
         check("1.09M".equals(LargeNumberFormatter.format(precise)),
                 "Display must hide decimals after hundredths without changing stored HP");
 
-        BigDecimal hugeReward = LargeNumberValue.parseFlexible("1C");
+        BigDecimal hugeReward = LargeNumberValue.parseFlexible("1Ce");
         check(hugeReward.compareTo(new BigDecimal("1E303")) == 0,
-                "Letter mob reward input must accept centillion");
-        String highLetterSuffix = LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.LETTER);
-        check(LargeNumberValue.parseFlexible("1" + highLetterSuffix).compareTo(new BigDecimal("1E1335")) == 0,
-                "Letter mob reward input must accept extended suffixes");
+                "Current centillion mob reward input must be accepted");
+        check(LargeNumberValue.parseFlexible("1C").compareTo(new BigDecimal("1E303")) == 0,
+                "Legacy centillion mob reward input must stay compatible");
+        String highSimplifiedSuffix = LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.SIMPLIFIED);
+        check(LargeNumberValue.parseFlexible("1" + highSimplifiedSuffix).compareTo(new BigDecimal("1E1335")) == 0,
+                "Simplified mob reward input must accept extended suffixes");
+        String highFullSuffix = LargeNumberValue.unitSuffix(445, LargeNumberDisplayMode.FULL);
+        check(LargeNumberValue.parseFlexible("1" + highFullSuffix).compareTo(new BigDecimal("1E1335")) == 0,
+                "Full mob reward input must accept extended suffixes");
         check(MobRewardBonus.apply(hugeReward, 25.0D).compareTo(new BigDecimal("1.25E303")) == 0,
                 "Mob reward bonuses must preserve arbitrary precision");
 
