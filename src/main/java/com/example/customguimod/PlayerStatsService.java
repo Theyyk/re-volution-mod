@@ -5,6 +5,7 @@ import com.example.customguimod.network.PlayerStatsPacket;
 import com.example.customguimod.persistence.MongoManager;
 import com.example.customguimod.resource.ResourceManager;
 
+import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.math.BigDecimal;
@@ -59,6 +60,11 @@ public final class PlayerStatsService {
         int activeCollection = MongoManager.getActiveCollection(uuid);
         int statusId = RuneStatusRegistry.statusForCollection(activeCollection);
 
+        RuneCombatMath.Snapshot stableCombat = RuneCombatService.resolveStable(uuid);
+        double baseDamage = player.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).getAttributeValue();
+        double resolvedClickDamage = RuneCombatMath.clickDamage(baseDamage, stableCombat, false);
+        double resolvedPoisonDamage = RuneCombatMath.poisonDamage(stableCombat);
+
         String purchaseResource = RuneEconomyConfig.purchaseResourceForStatus(statusId);
         String canonicalPurchaseResource = ResourceManager.findCanonicalName(purchaseResource);
         if (canonicalPurchaseResource == null) canonicalPurchaseResource = "coins";
@@ -70,6 +76,7 @@ public final class PlayerStatsService {
         int awakeningImprovedCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.IMPROVED_RANK);
 
         NetworkHandler.sendToClient(new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage,
-                statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost, awakeningImprovedCost), player);
+                statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost,
+                awakeningImprovedCost, resolvedClickDamage, resolvedPoisonDamage), player);
     }
 }
