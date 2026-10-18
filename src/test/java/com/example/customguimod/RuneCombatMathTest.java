@@ -69,6 +69,23 @@ final class RuneCombatMathTest {
         check(close(ClientRuneCombatPreview.poisonDamage(-1, previewRanks, previewEnhancements, 0.1D), 0.0D),
                 "GUI poison preview must be zero outside the Poison status");
 
+        int[] clickRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
+        int[] clickEnhancements = new int[RuneInventory.BOOST_TYPE_COUNT];
+        clickRanks[0] = RuneInventory.NORMAL_RANK;
+        clickRanks[4] = RuneInventory.NORMAL_RANK;
+        clickEnhancements[4] = 10;
+        double previewClick = ClientRuneCombatPreview.clickDamage(
+                RuneStatusRegistry.STATUS_POISON,
+                2.0D,
+                clickRanks,
+                clickEnhancements,
+                0.1D
+        );
+        check(close(previewClick, 6.0D),
+                "GUI click preview must include click flat damage and the resolved x multiplier");
+        check(close(ClientRuneCombatPreview.clickDamage(-1, 7.0D, clickRanks, clickEnhancements, 0.1D), 7.0D),
+                "GUI click preview must leave non-Poison vanilla damage unchanged");
+
         check(MobTestSupport.isWithinStatusRadiusSq(0.0D),
                 "Status effects should include mobs at the player's position");
         check(MobTestSupport.isWithinStatusRadiusSq(4.0D),
@@ -78,7 +95,7 @@ final class RuneCombatMathTest {
         check(!MobTestSupport.isWithinStatusRadiusSq(Double.NaN),
                 "Invalid distances must not be accepted as status targets");
 
-        System.out.println("v1.2.10 rune combat math, poison GUI preview and status radius regression checks passed");
+        System.out.println("v1.2.10 rune combat math, click/poison GUI previews and status radius regression checks passed");
     }
 
     public static void main(String[] args) {
