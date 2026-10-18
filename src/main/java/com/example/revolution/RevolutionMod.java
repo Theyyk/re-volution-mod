@@ -35,12 +35,14 @@ import org.apache.logging.log4j.Logger;
 
 @Mod(
         modid = RevolutionMod.MODID,
+        name = RevolutionMod.NAME,
         version = RevolutionMod.VERSION,
         acceptableRemoteVersions = "*"
 )
 public class RevolutionMod {
 
     public static final String MODID = "revolution";
+    public static final String NAME = "RE:volution Mod";
     public static final String VERSION = "1.2.12";
 
     public static Logger logger;
@@ -61,7 +63,7 @@ public class RevolutionMod {
             NetworkHandler.registerClient();
         }
 
-        logger.info("RE:volution preInit done");
+        logger.info("RE:volution Mod preInit done");
     }
 
     @Mod.EventHandler
@@ -85,7 +87,7 @@ public class RevolutionMod {
         GuiFontRenderer.get(minecraft);
         GuiFontRenderer.heading(minecraft);
 
-        logger.info("RE:volution client init done");
+        logger.info("RE:volution Mod client init done");
     }
 
     @Mod.EventHandler

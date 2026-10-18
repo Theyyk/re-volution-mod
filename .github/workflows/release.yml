@@ -101,7 +101,7 @@ jobs:
         shell: bash
         run: |
           gh release create "${GITHUB_REF_NAME}" build/libs/RE-volution-*.jar \
-            --title "RE:volution ${GITHUB_REF_NAME}" \
+            --title "RE:volution Mod ${GITHUB_REF_NAME}" \
             --notes-file ".github/release-notes/${GITHUB_REF_NAME}.md"
 
       - name: Delete merged feature and release branches

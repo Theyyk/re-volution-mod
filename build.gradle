@@ -52,12 +52,12 @@ configurations.configureEach {
 jar {
     manifest {
         attributes([
-            "Specification-Title": "examplemod",
-            "Specification-Vendor": "examplemodsareus",
+            "Specification-Title": "RE:volution Mod",
+            "Specification-Vendor": "Theyyk",
             "Specification-Version": "1",
-            "Implementation-Title": project.name,
+            "Implementation-Title": "RE:volution Mod",
             "Implementation-Version": "${version}",
-            "Implementation-Vendor" :"examplemodsareus",
+            "Implementation-Vendor" :"Theyyk",
             "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
