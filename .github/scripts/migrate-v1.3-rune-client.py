@@ -34,7 +34,13 @@ RUNE = {
     "RuneTargetedPower",
 }
 
-CLIENT_RUNE = {
+# Keep the coupled client GUI classes together. This creates one client boundary instead of
+# replacing the old root-package coupling with multiple client subpackages and public helpers.
+CLIENT = {
+    "AdminPanelScreen",
+    "AdminPanelStateClientHandler",
+    "ClientPacketHandler",
+    "ClientPlayerStats",
     "ClientRuneCombatPreview",
     "ClientRuneEnhancements",
     "ClientRuneRanks",
@@ -44,6 +50,7 @@ CLIENT_RUNE = {
     "GuiLayout",
     "GuiTheme",
     "KeyInputHandler",
+    "PlayerStatsPacketHandler",
     "PoisonStatsUiHandler",
     "RuneAwakeningInput",
     "RuneCollectionSyncState",
@@ -61,17 +68,6 @@ CLIENT_RUNE = {
     "RunesGuiScreen",
 }
 
-CLIENT = {
-    "ClientPacketHandler",
-    "ClientPlayerStats",
-    "PlayerStatsPacketHandler",
-}
-
-CLIENT_ADMIN = {
-    "AdminPanelScreen",
-    "AdminPanelStateClientHandler",
-}
-
 NETWORK = {
     "RuneCollectionsPacket",
     "RuneCollectionsPacketServerHandler",
@@ -82,12 +78,8 @@ NETWORK = {
 MOVE = {}
 for name in RUNE:
     MOVE[name] = BASE + ".rune"
-for name in CLIENT_RUNE:
-    MOVE[name] = BASE + ".client.rune"
 for name in CLIENT:
     MOVE[name] = BASE + ".client"
-for name in CLIENT_ADMIN:
-    MOVE[name] = BASE + ".client.admin"
 for name in NETWORK:
     MOVE[name] = BASE + ".network"
 
@@ -99,9 +91,9 @@ TEST_MOVE = {
     "RuneProgressionTest": BASE + ".rune",
     "RuneStatContentTest": BASE + ".rune",
     "MultiStatusRuneEconomyTest": BASE + ".rune",
-    "GuiLayoutTest": BASE + ".client.rune",
-    "RuneAwakeningInputTest": BASE + ".client.rune",
-    "RuneEnhancementPacketTest": BASE + ".client.rune",
+    "GuiLayoutTest": BASE + ".client",
+    "RuneAwakeningInputTest": BASE + ".client",
+    "RuneEnhancementPacketTest": BASE + ".client",
 }
 
 PKG_RE = re.compile(r"(?m)^package\s+([\w.]+);\s*$")
