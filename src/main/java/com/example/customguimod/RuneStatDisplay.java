@@ -12,14 +12,14 @@ import java.util.List;
 final class RuneStatDisplay {
     private RuneStatDisplay() {}
 
-    static List<String> finalValueLines(RuneStat[] stats, int rank, double enhancementMultiplier) {
+    public static List<String> finalValueLines(RuneStat[] stats, int rank, double enhancementMultiplier) {
         return finalValueLines(stats, rank, enhancementMultiplier, 0.0D);
     }
 
-    static List<String> finalValueLines(RuneStat[] stats,
-                                        int rank,
-                                        double enhancementMultiplier,
-                                        double targetedBasePowerBonus) {
+    public static List<String> finalValueLines(RuneStat[] stats,
+                                               int rank,
+                                               double enhancementMultiplier,
+                                               double targetedBasePowerBonus) {
         if (stats == null || stats.length == 0) return Collections.emptyList();
 
         List<String> lines = new ArrayList<>();
