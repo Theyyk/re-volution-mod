@@ -10,31 +10,31 @@ final class RuneInventory {
     static final int ADVANCED_RANK = RuneProgression.ADVANCED_RANK;
 
     static final class Entry {
-        final int cardIndex;
+        final int runeIndex;
         final int layer;
 
-        Entry(int cardIndex, int layer) {
-            this.cardIndex = cardIndex;
+        Entry(int runeIndex, int layer) {
+            this.runeIndex = runeIndex;
             this.layer = layer;
         }
     }
 
     private final Entry[] slots = new Entry[LEGACY_RECORD_CAPACITY];
 
-    void set(int slot, int cardIndex, int layer) {
-        if (slot < 0 || slot >= LEGACY_RECORD_CAPACITY || cardIndex < 0 || cardIndex >= BOOST_TYPE_COUNT) return;
-        slots[slot] = new Entry(cardIndex, RuneProgression.clampRank(layer));
+    void set(int slot, int runeIndex, int layer) {
+        if (slot < 0 || slot >= LEGACY_RECORD_CAPACITY || runeIndex < 0 || runeIndex >= BOOST_TYPE_COUNT) return;
+        slots[slot] = new Entry(runeIndex, RuneProgression.clampRank(layer));
     }
 
     Entry get(int slot) {
         return slot < 0 || slot >= LEGACY_RECORD_CAPACITY ? null : slots[slot];
     }
 
-    Entry getBoost(int cardIndex) {
-        if (cardIndex < 0 || cardIndex >= BOOST_TYPE_COUNT) return null;
+    Entry getBoost(int runeIndex) {
+        if (runeIndex < 0 || runeIndex >= BOOST_TYPE_COUNT) return null;
         Entry best = null;
         for (Entry entry : slots) {
-            if (entry == null || entry.cardIndex != cardIndex) continue;
+            if (entry == null || entry.runeIndex != runeIndex) continue;
             if (best == null || entry.layer > best.layer) best = entry;
         }
         return best;
@@ -49,8 +49,8 @@ final class RuneInventory {
         boolean[] present = new boolean[BOOST_TYPE_COUNT];
         int count = 0;
         for (Entry entry : slots) {
-            if (entry != null && entry.cardIndex < limit && !present[entry.cardIndex]) {
-                present[entry.cardIndex] = true;
+            if (entry != null && entry.runeIndex < limit && !present[entry.runeIndex]) {
+                present[entry.runeIndex] = true;
                 count++;
             }
         }
@@ -71,12 +71,12 @@ final class RuneInventory {
         return ownedCatalogSlotCount() == BOOST_TYPE_COUNT;
     }
 
-    RuneAwakeningDecision awakeningDecision(int cardIndex) {
-        return RuneAwakeningDecision.evaluate(bestRanks(), cardIndex);
+    RuneAwakeningDecision awakeningDecision(int runeIndex) {
+        return RuneAwakeningDecision.evaluate(bestRanks(), runeIndex);
     }
 
-    boolean canAwaken(int cardIndex) {
-        return awakeningDecision(cardIndex).isAllowed();
+    boolean canAwaken(int runeIndex) {
+        return awakeningDecision(runeIndex).isAllowed();
     }
 
     int[] bestRanks() {

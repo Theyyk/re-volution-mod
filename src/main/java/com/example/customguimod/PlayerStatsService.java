@@ -1,5 +1,11 @@
 package com.example.customguimod;
 
+import com.example.customguimod.network.NetworkHandler;
+import com.example.customguimod.network.PlayerStatsPacket;
+import com.example.customguimod.persistence.MongoManager;
+import com.example.customguimod.resource.ResourceManager;
+
+import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.math.BigDecimal;
@@ -17,17 +23,17 @@ public final class PlayerStatsService {
 
     public static double getTotalDamageBonusValue(UUID uuid) {
         double totalBonus = 0.0D;
-        int deckCount = MongoManager.getDeckNames(uuid).size();
-        for (int deckIndex = 0; deckIndex < deckCount; deckIndex++) {
-            List<MongoManager.SavedCard> cards = MongoManager.getCardsInDeck(uuid, deckIndex);
-            int statusId = RuneStatusRegistry.statusForDeck(deckIndex);
-            if (!RuneStatusRegistry.isRuneStatus(statusId)) { totalBonus += cards.size(); continue; }
+        int collectionCount = MongoManager.getCollectionNames(uuid).size();
+        for (int collectionIndex = 0; collectionIndex < collectionCount; collectionIndex++) {
+            List<MongoManager.SavedRune> runes = MongoManager.getRunesInCollection(uuid, collectionIndex);
+            int statusId = RuneStatusRegistry.statusForCollection(collectionIndex);
+            if (!RuneStatusRegistry.isRuneStatus(statusId)) { totalBonus += runes.size(); continue; }
             int[] bestRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
-            for (MongoManager.SavedCard card : cards) {
-                if (card.cardIndex < 0 || card.cardIndex >= RuneInventory.BOOST_TYPE_COUNT) continue;
-                bestRanks[card.cardIndex] = Math.max(bestRanks[card.cardIndex], card.layer);
+            for (MongoManager.SavedRune rune : runes) {
+                if (rune.runeIndex < 0 || rune.runeIndex >= RuneInventory.BOOST_TYPE_COUNT) continue;
+                bestRanks[rune.runeIndex] = Math.max(bestRanks[rune.runeIndex], rune.layer);
             }
-            int[] enhancements = RuneEnhancementManager.getLevels(uuid, deckIndex);
+            int[] enhancements = RuneEnhancementManager.getLevels(uuid, collectionIndex);
             for (int rune = 0; rune < bestRanks.length; rune++) {
                 int rank = bestRanks[rune]; if (rank <= 0) continue;
                 totalBonus += rankMultiplier(rank) * RuneEconomyConfig.enhancementPowerMultiplier(statusId, enhancements[rune]);
@@ -51,8 +57,13 @@ public final class PlayerStatsService {
         BigDecimal runeShards = ResourceManager.getPlayerResourceValue(uuid, ResourceManager.RUNE_SHARDS);
         BigDecimal runeCores = ResourceManager.getPlayerResourceValue(uuid, ResourceManager.RUNE_CORES);
         int totalDamage = getTotalDamageBonus(uuid);
-        int activeDeck = MongoManager.getActiveDeck(uuid);
-        int statusId = RuneStatusRegistry.statusForDeck(activeDeck);
+        int activeCollection = MongoManager.getActiveCollection(uuid);
+        int statusId = RuneStatusRegistry.statusForCollection(activeCollection);
+
+        RuneCombatMath.Snapshot stableCombat = RuneCombatService.resolveStable(uuid);
+        double baseDamage = player.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).getAttributeValue();
+        double resolvedClickDamage = RuneCombatMath.clickDamage(baseDamage, stableCombat, false);
+        double resolvedPoisonDamage = RuneCombatMath.poisonDamage(stableCombat);
 
         String purchaseResource = RuneEconomyConfig.purchaseResourceForStatus(statusId);
         String canonicalPurchaseResource = ResourceManager.findCanonicalName(purchaseResource);
@@ -65,6 +76,7 @@ public final class PlayerStatsService {
         int awakeningImprovedCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.IMPROVED_RANK);
 
         NetworkHandler.sendToClient(new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage,
-                statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost, awakeningImprovedCost), player);
+                statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost,
+                awakeningImprovedCost, resolvedClickDamage, resolvedPoisonDamage), player);
     }
 }

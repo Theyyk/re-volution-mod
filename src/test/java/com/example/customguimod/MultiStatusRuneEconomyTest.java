@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.resource.ResourceManager;
+
 /** Regression checks proving economy/progression inputs are isolated per rune status. */
 public final class MultiStatusRuneEconomyTest {
     public static void main(String[] args) {

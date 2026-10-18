@@ -5,7 +5,7 @@ import java.util.List;
 final class RuneTooltipContentTest {
     static void run() {
         List<String> single = RuneTooltipContent.lines(
-                EarthRuneCatalog.at(0),
+                PrimaryRuneCatalog.at(0),
                 RuneInventory.IMPROVED_RANK,
                 5,
                 1.5D
@@ -19,53 +19,53 @@ final class RuneTooltipContentTest {
         check(single.get(5).equals("§fУрон Клика +4.5"), "Single final stat should render below the effects heading");
 
         List<String> boostedTarget = RuneTooltipContent.lines(
-                EarthRuneCatalog.at(0), RuneInventory.IMPROVED_RANK, 5, 1.5D, 2.0D);
+                PrimaryRuneCatalog.at(0), RuneInventory.IMPROVED_RANK, 5, 1.5D, 2.0D);
         check(boostedTarget.get(5).equals("§fУрон Клика +13.5"),
                 "Target rune tooltip must visibly include power granted by another rune before rank and enhancement scaling");
 
         List<String> hybrid = RuneTooltipContent.lines(
-                EarthRuneCatalog.at(11), RuneInventory.IMPROVED_RANK, 10, 2.0D);
+                PrimaryRuneCatalog.at(11), RuneInventory.IMPROVED_RANK, 10, 2.0D);
         check(hybrid.size() == 7, "Multi-stat tooltip should render effects vertically");
         check(hybrid.get(5).equals("§fУрон Клика x6"), "Toxic shard click effect should render as a font-safe multiplier");
         check(hybrid.get(6).equals("§fУрон Яда x6"), "Toxic shard poison effect should render as a font-safe multiplier");
 
         List<String> targeted = RuneTooltipContent.lines(
-                EarthRuneCatalog.at(8), RuneInventory.IMPROVED_RANK, 5, 1.5D);
+                PrimaryRuneCatalog.at(8), RuneInventory.IMPROVED_RANK, 5, 1.5D);
         check(targeted.get(5).equals("§f+4.5 к силе Кинжал убийцы"),
                 "Sharpening stone should use the approved compact target wording");
 
         List<String> proc = RuneTooltipContent.lines(
-                EarthRuneCatalog.at(7), RuneInventory.NORMAL_RANK, 0, 1.0D);
+                PrimaryRuneCatalog.at(7), RuneInventory.NORMAL_RANK, 0, 1.0D);
         check(proc.size() == 7, "Proc tooltip should keep the approved compact two-line effect");
         check(proc.get(5).equals("§f15% шанс нанести"), "Proc chance should stay at the approved fixed 15 percent");
         check(proc.get(6).equals("§fx2 урона при клике"), "Proc base damage multiplier should be x2");
 
         List<String> boostedProc = RuneTooltipContent.lines(
-                EarthRuneCatalog.at(7), RuneInventory.IMPROVED_RANK, 5, 1.5D);
+                PrimaryRuneCatalog.at(7), RuneInventory.IMPROVED_RANK, 5, 1.5D);
         check(boostedProc.get(5).equals("§f15% шанс нанести"), "Enhancement must not change proc probability");
         check(boostedProc.get(6).equals("§fx9 урона при клике"),
                 "Proc damage multiplier should scale with rank and enhancement");
 
         List<String> rage = RuneTooltipContent.lines(
-                EarthRuneCatalog.at(10), RuneInventory.NORMAL_RANK, 0, 1.0D);
+                PrimaryRuneCatalog.at(10), RuneInventory.NORMAL_RANK, 0, 1.0D);
         check(rage.size() == 7, "Rage tooltip should remain two compact effect rows");
         check(rage.get(5).equals("§fПопадание кликом увеличивает"),
                 "Rage tooltip should communicate the real mob-hit trigger");
         check(rage.get(6).equals("§fВесь урон x2 на 5 сек"), "Rage base multiplier should be x2 for five seconds");
 
         List<String> boostedRage = RuneTooltipContent.lines(
-                EarthRuneCatalog.at(10), RuneInventory.IMPROVED_RANK, 5, 1.5D);
+                PrimaryRuneCatalog.at(10), RuneInventory.IMPROVED_RANK, 5, 1.5D);
         check(boostedRage.get(6).equals("§fВесь урон x9 на 5 сек"),
                 "Rage multiplier should scale with rank and enhancement");
 
         List<String> resource = RuneTooltipContent.lines(
-                EarthRuneCatalog.at(25), RuneInventory.NORMAL_RANK, 4, 1.4D);
+                PrimaryRuneCatalog.at(25), RuneInventory.NORMAL_RANK, 4, 1.4D);
         check(resource.size() == 6, "Resource rune should expose its coin stat in the standard tooltip layout");
         check(resource.get(2).equals("§7Тип: §fРесурс"), "Resource rune type should remain visible");
         check(resource.get(5).equals("§fДобыча монет +1.4%"),
                 "Hunter relic should render only its coin-specific percent final value");
 
-        EarthRuneCatalog.Definition noStatDefinition = new EarthRuneCatalog.Definition(
+        PrimaryRuneCatalog.Definition noStatDefinition = new PrimaryRuneCatalog.Definition(
                 "Без эффекта", "Тест", "hunter_relic.png");
         List<String> noStats = RuneTooltipContent.lines(
                 noStatDefinition, RuneInventory.NORMAL_RANK, -4, 1.0D);

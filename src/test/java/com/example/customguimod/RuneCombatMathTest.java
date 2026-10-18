@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.mob.MobTestSupport;
+
 final class RuneCombatMathTest {
     static void run() {
         RuneStat targeted = RuneStat.scaled(RuneStatType.CLICK_DAMAGE_FLAT, 4.0D);
@@ -51,16 +53,49 @@ final class RuneCombatMathTest {
         check(close(RuneCombatMath.totalDamage(7.0D, neutral, true), 7.0D),
                 "Neutral x1 multipliers must not change combat damage");
 
-        check(MobManager.isWithinStatusRadiusSq(0.0D),
+        int[] previewRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
+        int[] previewEnhancements = new int[RuneInventory.BOOST_TYPE_COUNT];
+        previewRanks[13] = RuneInventory.NORMAL_RANK;
+        previewRanks[20] = RuneInventory.NORMAL_RANK;
+        previewEnhancements[13] = 10;
+        double previewPoison = ClientRuneCombatPreview.poisonDamage(
+                RuneStatusRegistry.STATUS_POISON,
+                previewRanks,
+                previewEnhancements,
+                0.1D
+        );
+        check(close(previewPoison, 4.0D),
+                "GUI poison preview must use the same targeted-power and enhancement order as combat damage");
+        check(close(ClientRuneCombatPreview.poisonDamage(-1, previewRanks, previewEnhancements, 0.1D), 0.0D),
+                "GUI poison preview must be zero outside the Poison status");
+
+        int[] clickRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
+        int[] clickEnhancements = new int[RuneInventory.BOOST_TYPE_COUNT];
+        clickRanks[0] = RuneInventory.NORMAL_RANK;
+        clickRanks[4] = RuneInventory.NORMAL_RANK;
+        clickEnhancements[4] = 10;
+        double previewClick = ClientRuneCombatPreview.clickDamage(
+                RuneStatusRegistry.STATUS_POISON,
+                2.0D,
+                clickRanks,
+                clickEnhancements,
+                0.1D
+        );
+        check(close(previewClick, 6.0D),
+                "GUI click preview must include click flat damage and the resolved x multiplier");
+        check(close(ClientRuneCombatPreview.clickDamage(-1, 7.0D, clickRanks, clickEnhancements, 0.1D), 7.0D),
+                "GUI click preview must leave non-Poison vanilla damage unchanged");
+
+        check(MobTestSupport.isWithinStatusRadiusSq(0.0D),
                 "Status effects should include mobs at the player's position");
-        check(MobManager.isWithinStatusRadiusSq(4.0D),
+        check(MobTestSupport.isWithinStatusRadiusSq(4.0D),
                 "Status effects should include mobs exactly two blocks away");
-        check(!MobManager.isWithinStatusRadiusSq(4.000001D),
+        check(!MobTestSupport.isWithinStatusRadiusSq(4.000001D),
                 "Status effects must not hit mobs outside the two-block radius");
-        check(!MobManager.isWithinStatusRadiusSq(Double.NaN),
+        check(!MobTestSupport.isWithinStatusRadiusSq(Double.NaN),
                 "Invalid distances must not be accepted as status targets");
 
-        System.out.println("v1.2.10 rune combat math and status radius regression checks passed");
+        System.out.println("v1.2.10 rune combat math, click/poison GUI previews and status radius regression checks passed");
     }
 
     public static void main(String[] args) {

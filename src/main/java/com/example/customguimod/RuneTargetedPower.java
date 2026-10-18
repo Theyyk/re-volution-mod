@@ -26,17 +26,17 @@ final class RuneTargetedPower {
     }
 
     RuneStatType type() {
-        return RuneStatType.CARD_POWER_FLAT;
+        return RuneStatType.RUNE_POWER_FLAT;
     }
 
     double resolve(int rank, double enhancementMultiplier) {
-        return RuneStat.scaled(RuneStatType.CARD_POWER_FLAT, flatBonus)
+        return RuneStat.scaled(RuneStatType.RUNE_POWER_FLAT, flatBonus)
                 .resolve(rank, enhancementMultiplier)
                 .finalValue;
     }
 
     String tooltipLine(int rank, double enhancementMultiplier) {
-        return RuneStatType.CARD_POWER_FLAT.format(resolve(rank, enhancementMultiplier))
+        return RuneStatType.RUNE_POWER_FLAT.format(resolve(rank, enhancementMultiplier))
                 + " к силе " + targetDisplayName;
     }
 }

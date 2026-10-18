@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.admin.AdminPanelStatePacket;
+
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;

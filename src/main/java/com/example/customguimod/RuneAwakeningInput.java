@@ -10,9 +10,9 @@ final class RuneAwakeningInput {
         return button == 0;
     }
 
-    static int runeAt(GuiLayout layout, RuneInventory inventory, int activeDeck,
+    static int runeAt(GuiLayout layout, RuneInventory inventory, int activeCollection,
                       int screenX, int screenY, IntPredicate matchesSearch) {
-        int statusId = RuneStatusRegistry.statusForDeck(activeDeck);
+        int statusId = RuneStatusRegistry.statusForCollection(activeCollection);
         if (!RuneStatusRegistry.isRuneStatus(statusId) || !inventory.hasAllCatalogRunes()) return -1;
 
         boolean allAdvanced = true;

@@ -11,13 +11,13 @@ import org.lwjgl.input.Keyboard;
 @SideOnly(Side.CLIENT)
 public class KeyInputHandler {
 
-    public static KeyBinding keyOpenCards;
+    public static KeyBinding keyOpenRunes;
 
-    private boolean cardsWasPressed = false;
+    private boolean runesWasPressed = false;
 
     public static void register() {
-        keyOpenCards = new KeyBinding("key.customguimod.cards", Keyboard.KEY_C, "key.categories.customguimod");
-        ClientRegistry.registerKeyBinding(keyOpenCards);
+        keyOpenRunes = new KeyBinding("key.customguimod.cards", Keyboard.KEY_C, "key.categories.customguimod");
+        ClientRegistry.registerKeyBinding(keyOpenRunes);
     }
 
     @SubscribeEvent
@@ -26,11 +26,11 @@ public class KeyInputHandler {
 
         RuneGuiPreloader.tick();
 
-        boolean cardsPressed = keyOpenCards.isPressed();
-        if (cardsPressed && !cardsWasPressed && !RuneGuiPreloader.isPendingOpen()) {
+        boolean runesPressed = keyOpenRunes.isPressed();
+        if (runesPressed && !runesWasPressed && !RuneGuiPreloader.isPendingOpen()) {
             RuneGuiPreloader.beginOpen();
             CustomGuiMod.logger.info("Предзагружаю RuneResourcesCardsGuiScreen");
         }
-        cardsWasPressed = cardsPressed;
+        runesWasPressed = runesPressed;
     }
 }

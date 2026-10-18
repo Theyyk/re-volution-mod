@@ -1,5 +1,8 @@
 package com.example.customguimod;
 
+import com.example.customguimod.number.LargeNumbers;
+import com.example.customguimod.resource.ResourceManager;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -26,10 +29,10 @@ final class MobRewardBonus {
 
     static BigDecimal apply(BigDecimal baseAmount, double bonusPercent) {
         if (baseAmount == null || baseAmount.signum() <= 0) return BigDecimal.ZERO;
-        if (!Double.isFinite(bonusPercent) || bonusPercent <= 0.0D) return LargeNumberValue.normalize(baseAmount);
+        if (!Double.isFinite(bonusPercent) || bonusPercent <= 0.0D) return LargeNumbers.normalize(baseAmount);
         BigDecimal multiplier = BigDecimal.ONE.add(BigDecimal.valueOf(bonusPercent).movePointLeft(2));
         BigDecimal boosted = baseAmount.multiply(multiplier).setScale(0, RoundingMode.FLOOR);
-        return LargeNumberValue.normalize(boosted.max(baseAmount));
+        return LargeNumbers.normalize(boosted.max(baseAmount));
     }
 
     static int apply(int baseAmount, double bonusPercent) {

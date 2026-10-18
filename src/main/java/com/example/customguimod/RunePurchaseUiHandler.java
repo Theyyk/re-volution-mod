@@ -1,5 +1,8 @@
 package com.example.customguimod;
 
+import com.example.customguimod.network.NetworkHandler;
+import com.example.customguimod.resource.ResourceManager;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -39,7 +42,7 @@ public class RunePurchaseUiHandler {
     }
 
     @SubscribeEvent public void onActionPerformed(GuiScreenEvent.ActionPerformedEvent.Post event) {
-        if (!(event.getGui() instanceof CardsGuiScreen)) return;
+        if (!(event.getGui() instanceof RunesGuiScreen)) return;
         GuiButton button = event.getButton(); if (button == null) return;
         if (button.id == ENHANCE_AMOUNT_BUTTON_ID) {
             enhancementAmount = enhancementAmount == 1 ? 5 : enhancementAmount == 5 ? 10 : enhancementAmount == 10 ? 100 : 1;
@@ -49,24 +52,24 @@ public class RunePurchaseUiHandler {
     }
 
     @SubscribeEvent public void onMouseInput(GuiScreenEvent.MouseInputEvent.Post event) {
-        if (!(event.getGui() instanceof CardsGuiScreen)) return;
+        if (!(event.getGui() instanceof RunesGuiScreen)) return;
         if (!RuneAwakeningInput.isAwakeningButton(Mouse.getEventButton()) || !Mouse.getEventButtonState()) return;
-        CardsGuiScreen screen = (CardsGuiScreen) event.getGui(); Minecraft mc = Minecraft.getMinecraft();
+        RunesGuiScreen screen = (RunesGuiScreen) event.getGui(); Minecraft mc = Minecraft.getMinecraft();
         int mouseX = Mouse.getEventX() * screen.width / Math.max(1, mc.displayWidth);
         int mouseY = screen.height - Mouse.getEventY() * screen.height / Math.max(1, mc.displayHeight) - 1;
         int rune = screen.awakeningRuneAt(mouseX, mouseY); if (rune >= 0) NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
     }
 
     private void compactStatusButtons(GuiScreen gui, List<GuiButton> buttons) {
-        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+        if (!(gui instanceof RunesGuiScreen) || buttons == null) return;
         int nextX = -1;
         for (GuiButton button : buttons) { if (!(button instanceof GuiControls.ElementButton)) continue; if (nextX < 0) nextX = button.x; button.x = nextX; nextX += button.width + STATUS_BUTTON_GAP; }
     }
 
-    private void applyState(GuiScreen gui) { if (gui instanceof CardsGuiScreen) ((CardsGuiScreen) gui).updatePurchaseAvailability(); }
+    private void applyState(GuiScreen gui) { if (gui instanceof RunesGuiScreen) ((RunesGuiScreen) gui).updatePurchaseAvailability(); }
 
     private void installEnhancementAmountButton(GuiScreen gui, List<GuiButton> buttons) {
-        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+        if (!(gui instanceof RunesGuiScreen) || buttons == null) return;
         GuiButton enhance = findButton(buttons, ENHANCE_BUTTON_ID), purchaseAmount = findButton(buttons, GuiControls.AMOUNT_BUTTON_START_ID);
         if (enhance == null || purchaseAmount == null) return;
         int amountWidth = Math.max(purchaseAmount.width, AMOUNT_MIN_WIDTH); purchaseAmount.width = amountWidth;
@@ -76,7 +79,7 @@ public class RunePurchaseUiHandler {
     }
 
     private void applyEnhancementEconomy(GuiScreen gui, List<GuiButton> buttons) {
-        if (!(gui instanceof CardsGuiScreen) || buttons == null) return;
+        if (!(gui instanceof RunesGuiScreen) || buttons == null) return;
         boolean statusEconomy = usesStatusPurchaseEconomy();
         GuiButton enhance = findButton(buttons, ENHANCE_BUTTON_ID), amount = findButton(buttons, ENHANCE_AMOUNT_BUTTON_ID);
         if (amount != null) { amount.displayString = "x" + enhancementAmount; amount.visible = statusEconomy; amount.enabled = amount.visible; }
@@ -101,7 +104,7 @@ public class RunePurchaseUiHandler {
     }
 
     private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
-        if (!(gui instanceof CardsGuiScreen) || buttons == null || !usesStatusPurchaseEconomy()) return;
+        if (!(gui instanceof RunesGuiScreen) || buttons == null || !usesStatusPurchaseEconomy()) return;
         int unitCost = Math.max(1, ClientPlayerStats.getPurchaseUnitCost()); long total = (long) unitCost * currentBuyAmount(buttons);
         if (total > Integer.MAX_VALUE) total = Integer.MAX_VALUE;
         String resource = ClientPlayerStats.getPurchaseResource(), resourceName = priceResourceName(resource);
@@ -109,13 +112,13 @@ public class RunePurchaseUiHandler {
     }
 
     private void applyAwakeningEconomy(GuiScreen gui, List<GuiButton> buttons) {
-        if (!(gui instanceof CardsGuiScreen) || buttons == null || !usesStatusPurchaseEconomy()) return;
+        if (!(gui instanceof RunesGuiScreen) || buttons == null || !usesStatusPurchaseEconomy()) return;
         GuiButton awakeningButton = null;
         for (GuiButton button : buttons) if (button.id == PURCHASE_OR_AWAKENING_BUTTON_ID && "Пробудить руну".equals(button.displayString)) { awakeningButton = button; break; }
         if (awakeningButton == null) return;
         String resource = ClientPlayerStats.getAwakeningResource(); String resourceName = resource == null || resource.isEmpty() ? "" : priceResourceName(resource);
         int normalCost = ClientPlayerStats.getAwakeningNormalCost(), improvedCost = ClientPlayerStats.getAwakeningImprovedCost();
-        int displayedCost = resolveHoveredAwakeningCost((CardsGuiScreen) gui, normalCost, improvedCost);
+        int displayedCost = resolveHoveredAwakeningCost((RunesGuiScreen) gui, normalCost, improvedCost);
         if (displayedCost > 0 && !resourceName.isEmpty()) { awakeningButton.displayString = "Пробудить руну:\n" + displayedCost + " " + resourceName; return; }
         if (normalCost > 0 && improvedCost > 0 && !resourceName.isEmpty()) {
             int min = Math.min(normalCost, improvedCost), max = Math.max(normalCost, improvedCost);
@@ -124,7 +127,7 @@ public class RunePurchaseUiHandler {
         awakeningButton.displayString = "Пробудить руну:\nБесплатно";
     }
 
-    private int resolveHoveredAwakeningCost(CardsGuiScreen screen, int normalCost, int improvedCost) {
+    private int resolveHoveredAwakeningCost(RunesGuiScreen screen, int normalCost, int improvedCost) {
         Minecraft mc = Minecraft.getMinecraft(); int mouseX = Mouse.getX() * screen.width / Math.max(1, mc.displayWidth);
         int mouseY = screen.height - Mouse.getY() * screen.height / Math.max(1, mc.displayHeight) - 1;
         int rune = screen.awakeningRuneAt(mouseX, mouseY); if (rune < 0) return 0;

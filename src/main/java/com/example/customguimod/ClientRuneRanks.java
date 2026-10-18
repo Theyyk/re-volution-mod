@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.network.RuneSlotPacket;
+
 import java.util.Arrays;
 
 final class ClientRuneRanks {
@@ -7,14 +9,14 @@ final class ClientRuneRanks {
 
     private ClientRuneRanks() {}
 
-    static void accept(CardPacket packet) {
+    static void accept(RuneSlotPacket packet) {
         if (packet == null) return;
         if (packet.getSlot() == -1) {
             Arrays.fill(BEST_RANKS, 0);
             return;
         }
 
-        int rune = packet.getCardIndex();
+        int rune = packet.getRuneIndex();
         if (rune < 0 || rune >= BEST_RANKS.length) return;
         BEST_RANKS[rune] = Math.max(BEST_RANKS[rune], RuneProgression.clampRank(packet.getLayer()));
     }

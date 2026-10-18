@@ -1,5 +1,7 @@
 package com.example.customguimod;
 
+import com.example.customguimod.persistence.MongoManager;
+
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.relauncher.Side;
