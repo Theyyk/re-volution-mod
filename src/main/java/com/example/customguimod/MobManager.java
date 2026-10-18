@@ -18,6 +18,7 @@ import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingExperienceDropEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.world.ChunkDataEvent;
+import net.minecraftforge.event.world.ChunkEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -88,12 +89,9 @@ public class MobManager {
             spawns.add(spawn);
         }
 
-        // Load every spawn chunk first. A copied Test world can contain stale managed-mob
-        // NBT from an older session; forcing these chunks through normal load/join handling
-        // before creating the new session prevents old and new entities from racing.
         Set<Long> warmedChunks = new HashSet<>();
         for (MobSpawn spawn : spawns) {
-            BlockPos spawnPos = new BlockPos(spawn.x, spawn.y, spawn.z);
+            BlockPos spawnPos = spawnPosition(spawn);
             int chunkX = spawnPos.getX() >> 4;
             int chunkZ = spawnPos.getZ() >> 4;
             long chunkKey = (((long) chunkX) << 32) ^ (chunkZ & 0xffffffffL);
@@ -148,6 +146,11 @@ public class MobManager {
 
     private static BlockPos spawnPosition(MobSpawn spawn) {
         return new BlockPos(spawn.x, spawn.y, spawn.z);
+    }
+
+    private static boolean isSpawnChunk(MobSpawn spawn, int chunkX, int chunkZ) {
+        BlockPos pos = spawnPosition(spawn);
+        return (pos.getX() >> 4) == chunkX && (pos.getZ() >> 4) == chunkZ;
     }
 
     private static void applyPoisonTicks() {
@@ -273,6 +276,39 @@ public class MobManager {
         }
     }
 
+    @SubscribeEvent
+    public void onSpawnChunkUnload(ChunkEvent.Unload event) {
+        if (event.getWorld().isRemote || serverWorld == null || event.getWorld() != serverWorld) return;
+        int chunkX = event.getChunk().x;
+        int chunkZ = event.getChunk().z;
+        for (MobSpawn spawn : spawns) {
+            if (!isSpawnChunk(spawn, chunkX, chunkZ)) continue;
+            spawn.chunkWasUnloaded = true;
+            spawn.entity = null;
+            spawn.respawnTimer = LOST_ENTITY_RESPAWN_DELAY_TICKS;
+            CustomGuiMod.logger.debug("Managed mob spawn chunk unloaded: " + spawn.name);
+        }
+    }
+
+    @SubscribeEvent
+    public void onSpawnChunkLoad(ChunkEvent.Load event) {
+        if (event.getWorld().isRemote || serverWorld == null || event.getWorld() != serverWorld) return;
+        int chunkX = event.getChunk().x;
+        int chunkZ = event.getChunk().z;
+        for (MobSpawn spawn : spawns) {
+            if (!isSpawnChunk(spawn, chunkX, chunkZ)) continue;
+            spawn.chunkWasUnloaded = false;
+            EntityLiving existing = findExistingCurrentSessionEntity(spawn);
+            if (existing != null) {
+                spawn.entity = existing;
+                continue;
+            }
+            spawn.entity = null;
+            spawn.respawnTimer = LOST_ENTITY_RESPAWN_DELAY_TICKS;
+            CustomGuiMod.logger.debug("Managed mob spawn chunk loaded; scheduling clean respawn: " + spawn.name);
+        }
+    }
+
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onLivingHurt(LivingHurtEvent event) {
         for (MobSpawn spawn : spawns) {
@@ -328,8 +364,9 @@ public class MobManager {
                 spawn.chunkWasUnloaded = false;
                 if (spawn.entity != null && !isRegisteredInWorld(spawn.entity)) {
                     if (!spawn.entity.isDead) spawn.entity.setDead();
-                    CustomGuiMod.logger.debug("Managed mob spawn chunk reloaded; scheduling clean respawn: " + spawn.name);
                     spawn.entity = null;
+                }
+                if (spawn.entity == null) {
                     spawn.respawnTimer = LOST_ENTITY_RESPAWN_DELAY_TICKS;
                     continue;
                 }
