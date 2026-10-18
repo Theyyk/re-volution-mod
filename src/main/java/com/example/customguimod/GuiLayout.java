@@ -58,7 +58,7 @@ final class GuiLayout {
         layoutScale = 1.0F;
         compactLayout = false;
         leftPanelX = 10; leftPanelY = 10;
-        leftPanelWidth = 300; leftPanelHeight = 52;
+        leftPanelWidth = 300; leftPanelHeight = 68;
         centerPanelX = 320; centerPanelY = 10;
         centerPanelWidth = 302; centerPanelHeight = 458;
         runePanelX = 632; runePanelY = 10;

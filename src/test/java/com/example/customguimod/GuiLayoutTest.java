@@ -42,7 +42,7 @@ public final class GuiLayoutTest {
 
     private static void checkGeometry(GuiLayout l) {
         equal(l.leftPanelX, 10, "left X"); equal(l.leftPanelY, 10, "left Y");
-        equal(l.leftPanelWidth, 300, "left width"); equal(l.leftPanelHeight, 52, "left height");
+        equal(l.leftPanelWidth, 300, "left width"); equal(l.leftPanelHeight, 68, "left height");
         equal(l.centerPanelX, 320, "center X"); equal(l.centerPanelY, 10, "center Y");
         equal(l.centerPanelWidth, 302, "center width"); equal(l.centerPanelHeight, 458, "center height");
         equal(l.runePanelX, 632, "rune panel X"); equal(l.runePanelY, 10, "rune panel Y");
