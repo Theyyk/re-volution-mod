@@ -1,6 +1,7 @@
 package com.example.customguimod;
 
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
@@ -79,7 +80,12 @@ public class CustomGuiMod {
 
     @Mod.EventHandler
     public void serverStarted(FMLServerStartedEvent event) {
-        net.minecraft.world.World world = event.getServer().getWorld(0);
+        net.minecraft.server.MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        if (server == null) {
+            logger.error("MinecraftServer is unavailable during FMLServerStartedEvent; managed mobs were not loaded.");
+            return;
+        }
+        net.minecraft.world.World world = server.getWorld(0);
         MobManager.loadFromDatabase(world);
     }
 }
