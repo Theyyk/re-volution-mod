@@ -31,10 +31,13 @@ import java.util.UUID;
 
 public class MobManager {
     private static final int POISON_TICK_INTERVAL = 20;
+    private static final int INITIAL_SPAWN_DELAY_TICKS = 20;
+    private static final int LOST_ENTITY_RESPAWN_DELAY_TICKS = 1;
     private static final double STATUS_EFFECT_RADIUS = 2.0D;
     private static final double STATUS_EFFECT_RADIUS_SQ = STATUS_EFFECT_RADIUS * STATUS_EFFECT_RADIUS;
     private static final BigDecimal VANILLA_MAX_HEALTH = new BigDecimal("1024");
     private static final String SESSION_TAG = "revolutionManagedSession";
+    private static final String SPAWN_KEY_TAG = "revolutionManagedSpawnKey";
     private static final List<MobSpawn> spawns = new ArrayList<>();
     private static final Set<UUID> poisonDamagePlayers = new HashSet<>();
     private static World serverWorld;
@@ -49,6 +52,7 @@ public class MobManager {
         public String resource;
         public BigDecimal amount;
         public double x, y, z;
+        public String spawnKey;
         public EntityLiving entity;
         public int respawnTimer;
         public boolean spawnFailureLogged;
@@ -61,6 +65,7 @@ public class MobManager {
             this.resource = resource;
             this.amount = positive(amount);
             this.x = x; this.y = y; this.z = z;
+            this.spawnKey = buildSpawnKey(name, type, x, y, z);
         }
     }
 
@@ -69,13 +74,8 @@ public class MobManager {
         poisonDamagePlayers.clear();
         poisonTickCounter = 0;
         managedSessionId = UUID.randomUUID().toString();
-        for (Entity entity : new ArrayList<>(world.loadedEntityList)) {
-            if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) continue;
-            if (!isManagedOrLegacyCustomMob(entity)) continue;
-            entity.setDead();
-            CustomGuiMod.logger.info("Removed old persisted managed mob: " + entity.getUniqueID());
-        }
         spawns.clear();
+
         List<MongoManager.CustomMob> mobs = MongoManager.getAllMobs();
         CustomGuiMod.logger.info("Loaded mobs from DB: " + mobs.size());
         for (MongoManager.CustomMob mob : mobs) {
@@ -83,9 +83,38 @@ public class MobManager {
             MobSpawn spawn = new MobSpawn(mob.name, mob.type, mob.hp,
                     ResourceManager.getMobResource(mob.name), ResourceManager.getMobAmountValue(mob.name),
                     mob.x, mob.y, mob.z);
-            spawn.respawnTimer = 1;
             spawns.add(spawn);
         }
+
+        // Load every spawn chunk first. A copied Test world can contain stale managed-mob
+        // NBT from an older session; forcing these chunks through normal load/join handling
+        // before creating the new session prevents old and new entities from racing.
+        Set<Long> warmedChunks = new HashSet<>();
+        for (MobSpawn spawn : spawns) {
+            BlockPos spawnPos = new BlockPos(spawn.x, spawn.y, spawn.z);
+            int chunkX = spawnPos.getX() >> 4;
+            int chunkZ = spawnPos.getZ() >> 4;
+            long chunkKey = (((long) chunkX) << 32) ^ (chunkZ & 0xffffffffL);
+            if (warmedChunks.add(chunkKey)) serverWorld.getChunkFromBlockCoords(spawnPos);
+        }
+
+        purgeLoadedManagedMobs(world);
+        for (MobSpawn spawn : spawns) spawn.respawnTimer = INITIAL_SPAWN_DELAY_TICKS;
+        CustomGuiMod.logger.info("Prepared " + spawns.size() + " managed mob(s); initial spawn delayed "
+                + INITIAL_SPAWN_DELAY_TICKS + " ticks after spawn chunks were loaded.");
+    }
+
+    private static void purgeLoadedManagedMobs(World world) {
+        if (world == null) return;
+        int removed = 0;
+        for (Entity entity : new ArrayList<>(world.loadedEntityList)) {
+            if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) continue;
+            if (!isManagedOrLegacyCustomMob(entity)) continue;
+            entity.setDead();
+            removed++;
+            CustomGuiMod.logger.info("Removed old persisted managed mob: " + entity.getUniqueID());
+        }
+        if (removed > 0) CustomGuiMod.logger.info("Removed " + removed + " stale managed mob(s) before initial spawn.");
     }
 
     public static void respawnAll() {
@@ -110,6 +139,11 @@ public class MobManager {
         return LargeNumberValue.normalize(value);
     }
 
+    private static String buildSpawnKey(String name, String type, double x, double y, double z) {
+        return String.valueOf(name) + "|" + String.valueOf(type).toLowerCase(java.util.Locale.ROOT) + "|"
+                + Double.toString(x) + "|" + Double.toString(y) + "|" + Double.toString(z);
+    }
+
     private static void applyPoisonTicks() {
         if (serverWorld == null || serverWorld.getMinecraftServer() == null) return;
         long worldTick = serverWorld.getTotalWorldTime();
@@ -130,8 +164,33 @@ public class MobManager {
         }
     }
 
+    private static EntityLiving findExistingCurrentSessionEntity(MobSpawn spawn) {
+        if (serverWorld == null || spawn == null) return null;
+        for (Entity raw : new ArrayList<>(serverWorld.loadedEntityList)) {
+            if (!(raw instanceof EntityLiving) || raw.isDead) continue;
+            if (!managedSessionId.equals(raw.getEntityData().getString(SESSION_TAG))) continue;
+            if (!spawn.spawnKey.equals(raw.getEntityData().getString(SPAWN_KEY_TAG))) continue;
+            return (EntityLiving) raw;
+        }
+        return null;
+    }
+
+    private static boolean isRegisteredInWorld(EntityLiving entity) {
+        if (serverWorld == null || entity == null || entity.isDead || entity.world != serverWorld) return false;
+        if (!serverWorld.loadedEntityList.contains(entity)) return false;
+        return serverWorld.getEntityByID(entity.getEntityId()) == entity;
+    }
+
     private static void spawnMob(MobSpawn spawn) {
         if (serverWorld == null) return;
+
+        EntityLiving existing = findExistingCurrentSessionEntity(spawn);
+        if (existing != null) {
+            spawn.entity = existing;
+            spawn.spawnFailureLogged = false;
+            return;
+        }
+
         BlockPos spawnPos = new BlockPos(spawn.x, spawn.y, spawn.z);
         serverWorld.getChunkFromBlockCoords(spawnPos);
         EntityLiving entity = spawn.type.equalsIgnoreCase("skeleton") ? new EntitySkeleton(serverWorld) : new EntityZombie(serverWorld);
@@ -139,6 +198,7 @@ public class MobManager {
         entity.setPosition(spawn.x, spawn.y, spawn.z);
         syncMobMetadata(spawn, entity);
         entity.getEntityData().setString(SESSION_TAG, managedSessionId);
+        entity.getEntityData().setString(SPAWN_KEY_TAG, spawn.spawnKey);
         entity.setAlwaysRenderNameTag(true);
         entity.setFire(0);
         double nativeHealth = nativeHealthFor(spawn.hp);
@@ -158,7 +218,6 @@ public class MobManager {
             }
             return;
         }
-        serverWorld.updateEntityWithOptionalForce(entity, true);
         spawn.spawnFailureLogged = false;
         spawn.entity = entity;
         CustomGuiMod.logger.info("Spawned mob: " + spawn.name + " (" + spawn.type + ") at " + spawn.x + ", " + spawn.y + ", " + spawn.z
@@ -248,7 +307,25 @@ public class MobManager {
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         for (MobSpawn spawn : spawns) {
-            if (spawn.entity != null && !spawn.entity.isDead) { if (spawn.entity.isBurning()) spawn.entity.extinguish(); continue; }
+            if (spawn.entity != null && !spawn.entity.isDead) {
+                if (isRegisteredInWorld(spawn.entity)) {
+                    if (spawn.entity.isBurning()) spawn.entity.extinguish();
+                    continue;
+                }
+                CustomGuiMod.logger.warn("Managed mob lost from world registry; scheduling clean respawn: " + spawn.name
+                        + " entityId=" + spawn.entity.getEntityId());
+                spawn.entity.setDead();
+                spawn.entity = null;
+                spawn.respawnTimer = LOST_ENTITY_RESPAWN_DELAY_TICKS;
+                continue;
+            }
+
+            EntityLiving existing = findExistingCurrentSessionEntity(spawn);
+            if (existing != null) {
+                spawn.entity = existing;
+                continue;
+            }
+
             if (spawn.respawnTimer > 0) spawn.respawnTimer--; else spawnMob(spawn);
         }
         if (++poisonTickCounter >= POISON_TICK_INTERVAL) { poisonTickCounter = 0; applyPoisonTicks(); }
