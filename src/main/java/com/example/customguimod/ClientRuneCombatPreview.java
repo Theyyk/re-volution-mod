@@ -71,7 +71,8 @@ final class ClientRuneCombatPreview {
 
     private static int rankAt(int[] ranks, int rune) {
         if (ranks == null || rune < 0 || rune >= ranks.length) return 0;
-        return RuneProgression.clampRank(ranks[rune]);
+        int rank = ranks[rune];
+        return rank <= 0 ? 0 : RuneProgression.clampRank(rank);
     }
 
     private static double enhancementMultiplier(int[] levels, int rune, double step) {
