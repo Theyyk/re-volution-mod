@@ -36,7 +36,7 @@ jobs:
         run: git diff --check
 
       - name: Compile production and tests
-        run: ./gradlew compileJava compileTestJava --no-daemon
+        run: ./gradlew compileJava compileTestJava --no-daemon -Dorg.gradle.java.home="$JAVA_HOME"
 
       - name: Commit materialized package layout
         shell: bash
