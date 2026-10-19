@@ -13,7 +13,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.3.1'
+version = '1.3.2'
 group = 'com.example.revolution'
 archivesBaseName = 'RE-volution'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
@@ -99,7 +99,9 @@ def regressionTests = [
     fileAdminWhitelistRepositoryRegression: 'com.example.revolution.persistence.FileAdminWhitelistRepositoryTest',
     mongoSchemaContractRegression: 'com.example.revolution.persistence.MongoSchemaContractTest',
     resourceServiceRegression: 'com.example.revolution.resource.service.ResourceServiceTest',
-    runeCombatServiceRegression: 'com.example.revolution.rune.service.RuneCombatServiceTest'
+    runeCombatServiceRegression: 'com.example.revolution.rune.service.RuneCombatServiceTest',
+    adminApiSecurityRegression: 'com.example.revolution.admin.api.auth.AdminApiSecurityTest',
+    adminApiInputValidationRegression: 'com.example.revolution.admin.api.AdminApiInputValidationTest'
 ]
 regressionTests.each { taskName, entryPoint ->
     def regression = tasks.register(taskName, JavaExec) {
@@ -118,4 +120,7 @@ tasks.register('architectureCheck', Exec) {
 tasks.register('architectureGuardRegression', Exec) {
     commandLine pythonExecutable, '.github/scripts/test-architecture-guards.py'
 }
-tasks.named('check').configure { dependsOn 'architectureCheck', 'architectureGuardRegression' }
+tasks.register('adminApiSecurityCheck', Exec) {
+    commandLine pythonExecutable, '.github/scripts/check-admin-api-security.py'
+}
+tasks.named('check').configure { dependsOn 'architectureCheck', 'architectureGuardRegression', 'adminApiSecurityCheck' }

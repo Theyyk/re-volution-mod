@@ -60,8 +60,24 @@ public final class ResourceService {
     public int setPlayerResource(UUID uuid, String resource, int value) {
         String canonical = findCanonicalName(resource);
         if (canonical == null) return 0;
-        repository.writePlayerResource(uuid, canonical, BigDecimal.valueOf(Math.max(0, value)));
+        setPlayerResourceValue(uuid, canonical, BigDecimal.valueOf(Math.max(0, value)));
         return getPlayerResource(uuid, canonical);
+    }
+
+    public synchronized boolean setPlayerResourceValue(UUID uuid, String resource, BigDecimal value) {
+        String canonical = findCanonicalName(resource);
+        if (canonical == null || uuid == null || value == null || value.signum() < 0) return false;
+        repository.writePlayerResource(uuid, canonical, LargeNumbers.normalize(value));
+        return true;
+    }
+
+    public synchronized boolean addPlayerResourceValue(UUID uuid, String resource, BigDecimal amount) {
+        String canonical = findCanonicalName(resource);
+        if (canonical == null || uuid == null || amount == null) return false;
+        BigDecimal next = repository.getPlayerResourceValue(uuid, canonical).add(amount);
+        if (next.signum() < 0) return false;
+        repository.writePlayerResource(uuid, canonical, LargeNumbers.normalize(next));
+        return true;
     }
 
     public void purgeDeprecatedLightnings(){ repository.purgeDeprecatedLightnings(); }
