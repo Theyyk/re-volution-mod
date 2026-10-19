@@ -1,4 +1,4 @@
-"""Enforce the 1.3.1 architectural contract without requiring Minecraft or a JVM."""
+"""Enforce the RE:volution architectural contract without requiring Minecraft or a JVM."""
 from pathlib import Path
 import hashlib
 import json
@@ -83,11 +83,8 @@ def validate():
         'client/network/RuneSlotPacketHandler.java',
         'client/network/RuneCollectionsPacketHandler.java',
         'client/network/PlayerStatsPacketHandler.java',
-        'client/network/AdminPanelRequestClientHandler.java',
-        'client/network/AdminPanelStateClientHandler.java',
         'client/network/RuneEnhancementPacketHandler.java',
         'client/input/KeyInputHandler.java',
-        'client/input/AdminPanelKeyHandler.java',
         'client/input/EnhancementClickGuard.java',
         'mob/event/ManagedMobEvents.java',
         'mob/event/MobDeathHandler.java',
@@ -98,10 +95,19 @@ def validate():
     forbidden_old_adapter_paths = {
         'client/ClientLifecycle.java', 'client/ClientNetworkRegistration.java',
         'client/KeyInputHandler.java', 'client/AdminPanelKeyHandler.java', 'client/EnhancementClickGuard.java',
+        'client/input/AdminPanelKeyHandler.java',
+        'client/AdminPanelScreen.java',
+        'client/network/AdminPanelRequestClientHandler.java',
+        'client/network/AdminPanelStateClientHandler.java',
+        'network/admin/AdminPanelRequestHandler.java',
+        'network/admin/AdminPanelRequestPacket.java',
+        'network/admin/AdminPanelStatePacket.java',
+        'network/admin/AdminPanelStateServerHandler.java',
+        'admin/service/AdminPanelService.java',
         'mob/ManagedMobEvents.java', 'mob/MobDeathHandler.java', 'player/PlayerJoinHandler.java',
     }
     stale_adapters = sorted(forbidden_old_adapter_paths.intersection(source_map))
-    assert not stale_adapters, 'Adapters moved back into domain roots: ' + ', '.join(stale_adapters)
+    assert not stale_adapters, 'Removed/relocated adapters returned: ' + ', '.join(stale_adapters)
 
     # The only global accessor is at framework boundaries, never in application services.
     assert sum('MongoClients.create(' in source for source in source_map.values()) == 1, 'Expected one Mongo client owner'
@@ -130,15 +136,30 @@ def validate():
     assert '((java.nio.Buffer) matrix).clear();' in source_map['client/GuiFontRenderer.java'], \
         'GUI font buffer reset lost early-Java-8 compatibility'
 
-    registrations = [
-        ('network/NetworkHandler.java', ['SERVER', 'CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'SERVER', 'CLIENT', 'CLIENT']),
-        ('client/network/ClientNetworkRegistration.java', ['CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'SERVER', 'CLIENT', 'CLIENT']),
-    ]
-    packets = ['PingPacket', 'PongPacket', 'RuneSlotPacket', 'RuneCollectionsPacket', 'PlayerStatsPacket',
-               'AdminPanelRequestPacket', 'AdminPanelStatePacket', 'RuneEnhancementPacket']
-    for path, sides in registrations:
+    expected_registrations = {
+        'network/NetworkHandler.java': [
+            ('PingPacket', 0, 'SERVER'),
+            ('PongPacket', 1, 'CLIENT'),
+            ('RuneSlotPacket', 2, 'CLIENT'),
+            ('RuneCollectionsPacket', 3, 'CLIENT'),
+            ('PlayerStatsPacket', 4, 'CLIENT'),
+            ('RuneEnhancementPacket', 7, 'CLIENT'),
+        ],
+        'client/network/ClientNetworkRegistration.java': [
+            ('PingPacket', 0, 'CLIENT'),
+            ('PongPacket', 1, 'CLIENT'),
+            ('RuneSlotPacket', 2, 'CLIENT'),
+            ('RuneCollectionsPacket', 3, 'CLIENT'),
+            ('PlayerStatsPacket', 4, 'CLIENT'),
+            ('RuneEnhancementPacket', 7, 'CLIENT'),
+        ],
+    }
+    for path, expected in expected_registrations.items():
         actual = re.findall(r'registerMessage\((\w+)\.class, (\w+)\.class, (\d+), Side\.(\w+)\)', source_map[path])
-        assert [(packet, int(number), side) for _, packet, number, side in actual] == list(zip(packets, range(8), sides)), path
+        compact = [(packet, int(number), side) for _, packet, number, side in actual]
+        assert compact == expected, path
+        assert all(number not in {5, 6} for _, number, _ in compact), path + ': admin packet IDs 5/6 must stay reserved'
+        assert ('RuneEnhancementPacket', 7, 'CLIENT') in compact, path + ': discriminator 7 changed'
         if path.startswith('network/'):
             assert actual[0][0] == 'RateLimitedPingPacketHandler', 'Enhancement anti-spam bypassed'
 
@@ -159,7 +180,7 @@ def validate():
                      for path in (ROOT / 'src/main/resources').rglob('*') if path.is_file() and path.name != 'mcmod.info'}
     assert actual_assets == assets, 'Resource assets changed; review the resource contract explicitly'
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, lifecycle, IDs 0-7, optional client and resource assets passed.')
+    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminator 7, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':

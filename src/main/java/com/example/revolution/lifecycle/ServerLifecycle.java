@@ -11,6 +11,7 @@ import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
 import com.example.revolution.player.event.PlayerJoinHandler;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.server.MinecraftServer;
@@ -82,6 +83,13 @@ public final class ServerLifecycle {
             return;
         }
         current.mobs.loadFromDatabase(server.getWorld(0));
+        if (dedicatedServer) {
+            try {
+                current.startAdminApi(server, configDirectory);
+            } catch (IOException | RuntimeException e) {
+                logger.error("RE:volution Admin API failed closed and was not started.", e);
+            }
+        }
     }
 
     public static void stopped() {
