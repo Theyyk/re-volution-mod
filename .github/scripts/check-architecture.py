@@ -82,13 +82,24 @@ def validate():
     assert 'RateLimitedPingPacketHandler.reset()' in source_map['lifecycle/ServerLifecycle.java'], 'Limiter not reset by lifecycle'
     assert 'stopping.close()' in source_map['lifecycle/ServerLifecycle.java'], 'Server graph not closed'
 
-    # Minecraft 1.12.2 clients can still run on early Java 8. Compiling a direct
-    # FloatBuffer.clear() call on a newer JDK can emit the newer covariant return
-    # descriptor and crash on Java 8u51 with NoSuchMethodError. Keep this reset
-    # explicitly dispatched through Buffer so the bytecode stays compatible.
-    gui_drawing = source_map['client/GuiDrawing.java']
-    assert '((java.nio.Buffer) transform).clear();' in gui_drawing, 'GUI buffer reset lost early-Java-8 compatibility'
-    assert 'transform.clear();' not in gui_drawing, 'Direct FloatBuffer.clear() is unsafe for early Java 8 clients'
+    # Minecraft 1.12.2 clients can still run on early Java 8. When source is compiled
+    # against a newer JDK, direct calls such as FloatBuffer.clear()/flip()/position()
+    # can be linked with newer covariant return descriptors and then fail on Java 8u51.
+    # Any mutable NIO operation on a typed buffer must therefore be dispatched through
+    # java.nio.Buffer explicitly. Scan every production source instead of guarding one GUI.
+    nio_types = r'(?:Byte|Char|Double|Float|Int|Long|Short)Buffer'
+    nio_mutators = r'(?:clear|flip|rewind|mark|reset|position|limit)'
+    unsafe_nio = []
+    for path, source in source_map.items():
+        names = set(re.findall(r'(?:java\.nio\.)?' + nio_types + r'\s+(\w+)\b', source))
+        for name in names:
+            if re.search(r'(?<!\))\b' + re.escape(name) + r'\.' + nio_mutators + r'\s*\(', source):
+                unsafe_nio.append(f'{path}: direct typed NIO mutation on {name}')
+    assert not unsafe_nio, 'Early-Java-8 unsafe NIO calls:\n' + '\n'.join(unsafe_nio)
+    assert '((java.nio.Buffer) transform).clear();' in source_map['client/GuiDrawing.java'], \
+        'GUI surface buffer reset lost early-Java-8 compatibility'
+    assert '((java.nio.Buffer) matrix).clear();' in source_map['client/GuiFontRenderer.java'], \
+        'GUI font buffer reset lost early-Java-8 compatibility'
 
     registrations = [
         ('network/NetworkHandler.java', ['SERVER', 'CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'SERVER', 'CLIENT', 'CLIENT']),
@@ -119,7 +130,7 @@ def validate():
                      for path in (ROOT / 'src/main/resources').rglob('*') if path.is_file() and path.name != 'mcmod.info'}
     assert actual_assets == assets, 'Resource assets changed; review the resource contract explicitly'
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, Java 8 GUI buffer compatibility, mirrored runners, lifecycle, IDs 0-7, optional client and resource assets passed.')
+    print('Architecture boundaries, early Java 8 NIO compatibility, mirrored runners, lifecycle, IDs 0-7, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':
