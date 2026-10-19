@@ -10,6 +10,13 @@ TEST = ROOT / 'src/test/java/com/example/revolution'
 BASE = 'com.example.revolution.'
 
 
+def resource_digest(path, data):
+    # Git checks text out with CRLF on Windows and LF on Linux. Binary assets stay exact.
+    if Path(path).suffix in {'.md', '.json', '.mcmeta'}:
+        data = data.replace(b'\r\n', b'\n')
+    return hashlib.sha256(data).hexdigest()
+
+
 def violations(path, source):
     """Pure rule function, also exercised with deliberately invalid source examples."""
     errors = []
@@ -100,7 +107,7 @@ def validate():
     assert 'org.gradle.java.home' not in (ROOT / 'gradle.properties').read_text(encoding='utf-8'), 'Local Java path committed'
 
     assets = json.loads((ROOT / 'docs/contracts/resource-assets.json').read_text(encoding='utf-8'))
-    actual_assets = {path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+    actual_assets = {path.relative_to(ROOT).as_posix(): resource_digest(path, path.read_bytes())
                      for path in (ROOT / 'src/main/resources').rglob('*') if path.is_file() and path.name != 'mcmod.info'}
     assert actual_assets == assets, 'Resource assets changed; review the resource contract explicitly'
     assert not errors, '\n'.join(errors)
