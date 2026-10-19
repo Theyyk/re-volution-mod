@@ -101,10 +101,20 @@ public final class RequiredResourcePack {
     }
 
     private static void removeHandler(EntityPlayerMP player) {
-        Channel channel = player.connection.netManager.channel();
-        channel.eventLoop().execute(() -> {
+        if (player == null || player.connection == null || player.connection.netManager == null) return;
+        final Channel channel = player.connection.netManager.channel();
+        if (channel == null) return;
+
+        final Runnable cleanup = () -> {
             if (channel.pipeline().get(HANDLER) != null) channel.pipeline().remove(HANDLER);
-        });
+        };
+
+        try {
+            if (channel.eventLoop().inEventLoop()) cleanup.run();
+            else channel.eventLoop().execute(cleanup);
+        } catch (RuntimeException ignored) {
+            // The connection may already be fully torn down during logout; cleanup is best-effort.
+        }
     }
 
     private static void disconnect(EntityPlayerMP player, String reason) {
