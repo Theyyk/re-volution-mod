@@ -1,13 +1,22 @@
-package com.example.revolution.client;
+package com.example.revolution.client.lifecycle;
 
 import com.example.revolution.RevolutionMod;
+import com.example.revolution.client.AdminPanelKeyHandler;
+import com.example.revolution.client.ClientPacketHandler;
+import com.example.revolution.client.EnhancementClickGuard;
+import com.example.revolution.client.GuiFontRenderer;
+import com.example.revolution.client.KeyInputHandler;
+import com.example.revolution.client.RunePurchaseUiHandler;
+import com.example.revolution.client.RuneStatusChatFilter;
+import com.example.revolution.client.RuneTexturePreloader;
+import com.example.revolution.client.RuneUxUiHandler;
 import com.example.revolution.client.hud.HealthBarRenderer;
 import com.example.revolution.client.hud.NameHider;
+import com.example.revolution.client.network.ClientNetworkRegistration;
 import com.example.revolution.client.settings.SettingsKeyHandler;
 import com.example.revolution.lifecycle.ServerLifecycle;
 import com.example.revolution.number.LargeNumbers;
 import java.io.File;
-import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;

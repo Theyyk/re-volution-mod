@@ -1,6 +1,8 @@
-package com.example.revolution.client;
+package com.example.revolution.client.network;
 
 import com.example.revolution.RevolutionMod;
+import com.example.revolution.client.ClientPlayerStats;
+import com.example.revolution.client.RuneGuiPreloader;
 import com.example.revolution.network.PlayerStatsPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;

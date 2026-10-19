@@ -1,4 +1,4 @@
-package com.example.revolution.client;
+package com.example.revolution.client.network;
 
 import com.example.revolution.network.admin.AdminPanelRequestPacket;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;

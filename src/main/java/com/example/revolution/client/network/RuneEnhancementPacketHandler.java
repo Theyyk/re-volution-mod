@@ -1,5 +1,6 @@
-package com.example.revolution.client;
+package com.example.revolution.client.network;
 
+import com.example.revolution.client.ClientRuneEnhancements;
 import com.example.revolution.network.RuneEnhancementPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;

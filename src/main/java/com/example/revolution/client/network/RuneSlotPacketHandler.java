@@ -1,5 +1,11 @@
-package com.example.revolution.client;
+package com.example.revolution.client.network;
 
+import com.example.revolution.client.ClientPlayerStats;
+import com.example.revolution.client.ClientRuneRanks;
+import com.example.revolution.client.RuneCollectionSyncState;
+import com.example.revolution.client.RuneGuiPreloader;
+import com.example.revolution.client.RuneUxUiHandler;
+import com.example.revolution.client.RunesGuiScreen;
 import com.example.revolution.network.RuneSlotPacket;
 import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.state.RuneInventory;
@@ -34,7 +40,6 @@ public class RuneSlotPacketHandler implements IMessageHandler<RuneSlotPacket, IM
                 if (message.getSlot() == -1) {
                     screen.clearRunes();
                 } else {
-                    // Purchase feedback remains a short border pulse on the destination slot.
                     screen.addRuneFromServer(message.getSlot(), message.getRuneIndex(), message.getLayer());
                 }
             }

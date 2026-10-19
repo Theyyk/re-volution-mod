@@ -1,4 +1,4 @@
-package com.example.revolution.client;
+package com.example.revolution.client.network;
 
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PingPacket;
@@ -11,7 +11,7 @@ import com.example.revolution.network.admin.AdminPanelRequestPacket;
 import com.example.revolution.network.admin.AdminPanelStatePacket;
 import net.minecraftforge.fml.relauncher.Side;
 
-final class ClientNetworkRegistration {
+public final class ClientNetworkRegistration {
     private ClientNetworkRegistration() {}
     public static void register() {
         NetworkHandler.INSTANCE.registerMessage(PingPacketClientHandler.class, PingPacket.class, 0, Side.CLIENT);

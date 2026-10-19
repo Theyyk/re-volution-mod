@@ -1,5 +1,8 @@
-package com.example.revolution.client;
+package com.example.revolution.client.network;
 
+import com.example.revolution.client.ClientRuneEnhancements;
+import com.example.revolution.client.RuneGuiPreloader;
+import com.example.revolution.client.RunesGuiScreen;
 import com.example.revolution.network.RuneCollectionsPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -14,8 +17,6 @@ public class RuneCollectionsPacketHandler implements IMessageHandler<RuneCollect
     @Override
     public IMessage onMessage(RuneCollectionsPacket message, MessageContext ctx) {
         Minecraft.getMinecraft().addScheduledTask(() -> {
-            // A collection change is followed by a full enhancement snapshot. That snapshot is
-            // synchronization, not a new enhancement action, so it must not trigger green pulses.
             ClientRuneEnhancements.suppressNextPulse();
             RuneGuiPreloader.acceptCollections(message.getCollectionNames(), message.getActiveCollection());
 

@@ -1,5 +1,6 @@
-package com.example.revolution.client;
+package com.example.revolution.client.network;
 
+import com.example.revolution.client.AdminPanelScreen;
 import com.example.revolution.network.admin.AdminPanelStatePacket;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;

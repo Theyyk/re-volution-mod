@@ -1,4 +1,4 @@
-package com.example.revolution.client;
+package com.example.revolution.client.network;
 
 import com.example.revolution.network.PingPacket;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
