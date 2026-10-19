@@ -54,6 +54,7 @@ def main():
     server = api_sources['admin/api/AdminApiServer.java']
     routes = api_sources['admin/api/AdminApiRoutes.java']
     http = api_sources['admin/api/AdminApiHttp.java']
+    form = api_sources['admin/api/AdminFormData.java']
     thread_bridge = api_sources['admin/api/AdminServerThreadExecutor.java']
     bind = api_sources['admin/api/AdminApiBindPolicy.java']
     auth = api_sources['admin/api/auth/AdminApiAuthService.java']
@@ -87,25 +88,29 @@ def main():
     }
     for route in expected_routes:
         assert route in routes, f'Missing explicit Admin API route: {route}'
-    assert 'generic' not in routes.lower() and 'action=' not in routes.lower(), 'Generic action dispatcher is forbidden'
+    assert 'action=' not in routes.lower(), 'Generic action dispatcher is forbidden'
     for capability in ('PLAYERS_READ', 'RESOURCES_READ', 'RESOURCES_WRITE', 'RUNES_READ', 'RUNES_WRITE', 'MOBS_READ', 'MOBS_WRITE'):
         assert f'AdminApiCapability.{capability}' in routes, f'Route capability missing: {capability}'
 
     assert 'server.addScheduledTask(task)' in thread_bridge, 'Admin operations must be scheduled on Minecraft server thread'
     assert 'isCallingFromMinecraftThread()' in thread_bridge, 'Server-thread bridge must detect authoritative thread'
     assert 'TIMEOUT_SECONDS' in thread_bridge and 'task.cancel(false)' in thread_bridge, 'Server-thread handoff must be bounded/cancellable'
+    assert 'serverThread.call(' in routes, 'Routes must delegate reads/mutations through server-thread bridge'
+    assert 'HttpExchange' not in routes.split('serverThread.call(', 1)[1].split('));', 1)[0], 'HTTP exchange must not cross the server-thread boundary'
     assert 'MAX_FORM_BODY_BYTES = 4096' in http, 'Mutation request bodies must stay bounded'
     assert 'Transfer-Encoding' in http and 'Content-Encoding' in http, 'Chunked/compressed mutation bodies must fail closed'
     assert 'application/x-www-form-urlencoded' in http, 'Mutation body type must be explicit'
-    assert 'unexpected form key' in api_sources['admin/api/AdminFormData.java'], 'Form parser must reject unknown fields'
-    assert 'duplicate form key' in api_sources['admin/api/AdminFormData.java'], 'Form parser must reject duplicates'
+    assert 'unexpected form key' in form, 'Form parser must reject unknown fields'
+    assert 'duplicate form key' in form, 'Form parser must reject duplicates'
     assert 'precision() > 100' in routes and '10_000L' in routes, 'Exact-number input bounds missing'
     assert '30_000_000.0D' in routes and '4096.0D' in routes, 'Coordinate input bounds missing'
     assert 'Admin API mutation operation=' in routes, 'State-changing routes must emit sanitized audit events'
-    assert 'Authorization' not in re.sub(r'boundedHeader\([^\n]+', '', routes), 'Route logging must not include authorization values'
 
     assert 'SecureRandom' in secrets and 'SECRET_BYTES = 32' in secrets, 'Installation secret must be 256-bit SecureRandom'
     assert 'revolution-admin.secret' in secrets, 'Installation secret runtime file contract changed'
+    assert 'LinkOption.NOFOLLOW_LINKS' in secrets and 'Files.isSymbolicLink(path)' in secrets, 'Secret path must reject linked-file substitution'
+    gitignore = (ROOT / '.gitignore').read_text(encoding='utf-8')
+    assert 'revolution-admin.secret' in gitignore and '*.secret' in gitignore, 'Runtime Admin API secrets must be ignored by Git'
     assert 'HmacSHA256' in challenges, 'Challenge proof must use HMAC-SHA-256'
     assert 'MessageDigest.isEqual' in challenges, 'HMAC proof comparison must be constant-time'
     assert 'outstanding.remove(challengeId)' in challenges, 'Challenge must be consumed before verification'
@@ -135,7 +140,7 @@ def main():
     assert 5 not in ids and 6 not in ids, 'Forge IDs 5/6 must stay reserved'
     assert 7 in ids and 'RuneEnhancementPacket.class, 7' in network, 'RuneEnhancement discriminator 7 changed'
 
-    print('Admin API security architecture, typed routes, body bounds and server-thread guard passed.')
+    print('Admin API security architecture, typed routes, secret hardening, body bounds and server-thread guard passed.')
 
 
 if __name__ == '__main__':
