@@ -58,8 +58,10 @@ public final class ResourceService {
     }
 
     public int setPlayerResource(UUID uuid, String resource, int value) {
-        setPlayerResourceValue(uuid, resource, BigDecimal.valueOf(Math.max(0, value)));
-        return getPlayerResource(uuid, resource);
+        String canonical = findCanonicalName(resource);
+        if (canonical == null) return 0;
+        setPlayerResourceValue(uuid, canonical, BigDecimal.valueOf(Math.max(0, value)));
+        return getPlayerResource(uuid, canonical);
     }
 
     public synchronized boolean setPlayerResourceValue(UUID uuid, String resource, BigDecimal value) {
