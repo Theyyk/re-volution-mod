@@ -1,10 +1,6 @@
 package com.example.revolution.network;
 
 import com.example.revolution.RevolutionMod;
-import com.example.revolution.network.admin.AdminPanelRequestHandler;
-import com.example.revolution.network.admin.AdminPanelRequestPacket;
-import com.example.revolution.network.admin.AdminPanelStatePacket;
-import com.example.revolution.network.admin.AdminPanelStateServerHandler;
 import java.util.Map;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
@@ -24,8 +20,7 @@ public class NetworkHandler {
         INSTANCE.registerMessage(RuneSlotPacketServerHandler.class, RuneSlotPacket.class, 2, Side.CLIENT);
         INSTANCE.registerMessage(RuneCollectionsPacketServerHandler.class, RuneCollectionsPacket.class, 3, Side.CLIENT);
         INSTANCE.registerMessage(PlayerStatsPacketServerHandler.class, PlayerStatsPacket.class, 4, Side.CLIENT);
-        INSTANCE.registerMessage(AdminPanelRequestHandler.class, AdminPanelRequestPacket.class, 5, Side.SERVER);
-        INSTANCE.registerMessage(AdminPanelStateServerHandler.class, AdminPanelStatePacket.class, 6, Side.CLIENT);
+        // Discriminators 5 and 6 are reserved for the removed Minecraft admin-panel transport.
         INSTANCE.registerMessage(RuneEnhancementPacketServerHandler.class, RuneEnhancementPacket.class, 7, Side.CLIENT);
     }
 
