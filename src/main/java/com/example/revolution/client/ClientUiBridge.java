@@ -5,7 +5,6 @@ import com.example.revolution.network.PlayerStatsPacket;
 import com.example.revolution.network.RuneCollectionsPacket;
 import com.example.revolution.network.RuneEnhancementPacket;
 import com.example.revolution.network.RuneSlotPacket;
-import com.example.revolution.network.admin.AdminPanelStatePacket;
 import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.state.RuneInventory;
 import net.minecraft.client.Minecraft;
@@ -104,14 +103,6 @@ public final class ClientUiBridge {
                 + ", awakeningResource=" + message.getAwakeningResource()
                 + ", awakeningNormalCost=" + message.getAwakeningNormalCost()
                 + ", awakeningImprovedCost=" + message.getAwakeningImprovedCost());
-    }
-
-    public static void applyAdminPanelState(AdminPanelStatePacket message) {
-        if (Minecraft.getMinecraft().currentScreen instanceof AdminPanelScreen) {
-            ((AdminPanelScreen) Minecraft.getMinecraft().currentScreen).applyState(message);
-        } else {
-            Minecraft.getMinecraft().displayGuiScreen(new AdminPanelScreen(message));
-        }
     }
 
     public static void acceptEnhancement(RuneEnhancementPacket message) {
