@@ -173,7 +173,7 @@ public final class GuiFontRenderer extends FontRenderer {
         if (text == null || text.isEmpty()) return (int) x;
         // The reference uses light strokes without Minecraft's heavy drop shadow.
         Minecraft minecraft = Minecraft.getMinecraft();
-        matrix.clear();
+        ((java.nio.Buffer) matrix).clear();
         GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, matrix);
         float modelX = matrix.get(0), modelY = matrix.get(5);
         float offsetX = matrix.get(12), offsetY = matrix.get(13);
