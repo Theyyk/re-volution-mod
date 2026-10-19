@@ -85,7 +85,7 @@ public final class ServerLifecycle {
         current.mobs.loadFromDatabase(server.getWorld(0));
         if (dedicatedServer) {
             try {
-                current.startAdminApi(configDirectory);
+                current.startAdminApi(server, configDirectory);
             } catch (IOException | RuntimeException e) {
                 logger.error("RE:volution Admin API failed closed and was not started.", e);
             }
