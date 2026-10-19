@@ -99,7 +99,8 @@ def regressionTests = [
     fileAdminWhitelistRepositoryRegression: 'com.example.revolution.persistence.FileAdminWhitelistRepositoryTest',
     mongoSchemaContractRegression: 'com.example.revolution.persistence.MongoSchemaContractTest',
     resourceServiceRegression: 'com.example.revolution.resource.service.ResourceServiceTest',
-    runeCombatServiceRegression: 'com.example.revolution.rune.service.RuneCombatServiceTest'
+    runeCombatServiceRegression: 'com.example.revolution.rune.service.RuneCombatServiceTest',
+    adminApiSecurityRegression: 'com.example.revolution.admin.api.auth.AdminApiSecurityTest'
 ]
 regressionTests.each { taskName, entryPoint ->
     def regression = tasks.register(taskName, JavaExec) {
