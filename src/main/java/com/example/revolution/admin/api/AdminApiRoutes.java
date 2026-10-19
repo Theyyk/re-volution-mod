@@ -28,6 +28,7 @@ final class AdminApiRoutes {
     private static final Set<String> MOB_CREATE_FIELDS = fields("name", "type", "resource", "amount", "hp", "x", "y", "z");
     private static final Set<String> MOB_NAME_FIELDS = fields("name");
     private static final Set<String> MOB_SPAWN_FIELDS = fields("name", "x", "y", "z");
+    private static final Set<String> MOB_PLAYER_SPAWN_FIELDS = fields("name", "uuid");
 
     private final Logger logger;
     private final AdminApiAuthService auth;
@@ -98,6 +99,9 @@ final class AdminApiRoutes {
         form(http, wrapper, "/api/v1/mobs/set-spawn", AdminApiCapability.MOBS_WRITE, MOB_SPAWN_FIELDS,
                 form -> operations.setMobSpawn(
                         form.get("name"), coordinate(form.get("x"), false), coordinate(form.get("y"), true), coordinate(form.get("z"), false)));
+        form(http, wrapper, "/api/v1/mobs/set-spawn-player", AdminApiCapability.MOBS_WRITE, MOB_PLAYER_SPAWN_FIELDS,
+                form -> withOnlinePlayer(form.get("uuid"), player ->
+                        operations.setMobSpawnAtPlayer(form.get("name"), player)));
     }
 
     private void read(HttpServer http, RouteWrapper wrapper, String path, ReadAction action,
