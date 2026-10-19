@@ -1,9 +1,8 @@
 package com.example.revolution.client;
 
 import com.example.revolution.network.RuneEnhancementPacket;
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.resource.ResourceManager;
-
+import com.example.revolution.resource.definition.ResourceDefinitions;
+import com.example.revolution.rune.state.RuneInventory;
 import java.util.Arrays;
 
 final class ClientRuneEnhancements {
@@ -44,7 +43,7 @@ final class ClientRuneEnhancements {
         }
 
         statusId = packet.getStatusId();
-        resource = packet.getResource() == null ? "" : ResourceManager.normalize(packet.getResource());
+        resource = packet.getResource() == null ? "" : ResourceDefinitions.normalize(packet.getResource());
         powerStep = Math.max(0.0D, packet.getPowerStep());
 
         int[] incomingLevels = packet.getLevels();

@@ -1,10 +1,14 @@
 package com.example.revolution.client.hud;
 
 import com.example.revolution.number.LargeNumbers;
-
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.EntitySkeleton;
@@ -14,9 +18,6 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.opengl.GL11;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 
 @SideOnly(Side.CLIENT)
 public class HealthBarRenderer {

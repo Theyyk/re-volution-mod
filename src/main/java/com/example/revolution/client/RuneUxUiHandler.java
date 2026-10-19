@@ -1,20 +1,20 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.PrimaryRuneCatalog;
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneStatusRegistry;
-import com.example.revolution.rune.RuneTargetedPower;
+import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.PrimaryRuneCatalog;
+import com.example.revolution.rune.definition.RuneTargetedPower;
+import com.example.revolution.rune.state.RuneInventory;
+import java.math.BigDecimal;
+import java.util.List;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-
-import java.math.BigDecimal;
-import java.util.List;
-
 import static com.example.revolution.client.GuiDrawing.drawSurface;
 import static com.example.revolution.client.GuiTheme.*;
 
@@ -35,7 +35,7 @@ public final class RuneUxUiHandler {
     @SubscribeEvent public void onLegacyRuneTooltip(RenderTooltipEvent.Pre event) {
         Minecraft mc = Minecraft.getMinecraft();
         if (!(mc.currentScreen instanceof RunesGuiScreen)) return;
-        if (ClientPlayerStats.getActiveRuneStatusId() != RuneStatusRegistry.STATUS_POISON) return;
+        if (ClientPlayerStats.getActiveRuneStatusId() != RuneStatusConfig.STATUS_POISON) return;
         List<String> lines = event.getLines(); if (lines == null || lines.isEmpty()) return;
         boolean hasRank = false, hasType = false;
         for (String line : lines) { if (line == null) continue; if (line.contains("Ранг:")) hasRank = true; if (line.contains("Тип:")) hasType = true; }
@@ -44,7 +44,7 @@ public final class RuneUxUiHandler {
 
     @SubscribeEvent public void onDrawPost(GuiScreenEvent.DrawScreenEvent.Post event) {
         if (!(event.getGui() instanceof RunesGuiScreen)) return;
-        if (!RuneStatusRegistry.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())) return;
+        if (!RuneStatusConfig.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())) return;
         RunesGuiScreen screen = (RunesGuiScreen) event.getGui();
         GuiLayout layout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT); layout.update(screen.width, screen.height);
         drawSlotEffects(layout); overlayWhiteCtrlHints(layout); drawFinalStatTooltip(screen, layout, event.getMouseX(), event.getMouseY());
@@ -111,7 +111,7 @@ public final class RuneUxUiHandler {
     }
 
     private void drawFinalStatTooltip(RunesGuiScreen screen, GuiLayout layout, int mouseX, int mouseY) {
-        if (ClientPlayerStats.getActiveRuneStatusId() != RuneStatusRegistry.STATUS_POISON) return;
+        if (ClientPlayerStats.getActiveRuneStatusId() != RuneStatusConfig.STATUS_POISON) return;
         int canvasX = layout.canvasMouseX(mouseX), canvasY = layout.canvasMouseY(mouseY);
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             int rank = ClientRuneRanks.rankOf(rune); if (rank <= 0 || !screen.runeMatchesSearch(rune)) continue;

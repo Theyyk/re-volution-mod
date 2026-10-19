@@ -1,11 +1,10 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneInventory;
+import com.example.revolution.rune.state.RuneInventory;
+import java.util.List;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
-
-import java.util.List;
 
 /** Draws rune tooltips as a compact framed card instead of the vanilla tooltip box. */
 final class RuneTooltipRenderer {

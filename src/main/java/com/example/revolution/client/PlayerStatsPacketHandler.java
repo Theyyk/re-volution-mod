@@ -2,7 +2,6 @@ package com.example.revolution.client;
 
 import com.example.revolution.RevolutionMod;
 import com.example.revolution.network.PlayerStatsPacket;
-
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;

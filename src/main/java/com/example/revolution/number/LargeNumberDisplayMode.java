@@ -1,7 +1,7 @@
 package com.example.revolution.number;
 
 /** Client-selectable presentation mode for large numeric values. */
-enum LargeNumberDisplayMode {
+public enum LargeNumberDisplayMode {
     SIMPLIFIED("Упрощенный"),
     FULL("Полный"),
     ENGINEERING("Инженерный");
@@ -12,7 +12,7 @@ enum LargeNumberDisplayMode {
         this.displayName = displayName;
     }
 
-    String displayName() {
+    public String displayName() {
         return displayName;
     }
 }

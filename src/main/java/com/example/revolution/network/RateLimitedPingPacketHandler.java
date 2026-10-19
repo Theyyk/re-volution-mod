@@ -11,7 +11,9 @@ import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 public final class RateLimitedPingPacketHandler implements IMessageHandler<PingPacket, IMessage> {
     private static final String ENHANCE_PREFIX = "enhance_rune:";
     private static final EnhancementRequestLimiter ENHANCEMENT_LIMITER = new EnhancementRequestLimiter();
-    private final PingPacket.Handler delegate = new PingPacket.Handler();
+    private final PingPacketHandler delegate = new PingPacketHandler();
+
+    public static void reset() { ENHANCEMENT_LIMITER.clear(); }
 
     @Override
     public IMessage onMessage(PingPacket message, MessageContext ctx) {

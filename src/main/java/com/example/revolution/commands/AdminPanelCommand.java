@@ -1,7 +1,12 @@
 package com.example.revolution.commands;
 
-import com.example.revolution.admin.AdminPanelAccess;
-
+import com.example.revolution.admin.definition.AdminWhitelistEntry;
+import com.example.revolution.admin.service.AdminAccessService;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+import javax.annotation.Nullable;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -9,13 +14,13 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
 
-import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
-
 public final class AdminPanelCommand extends AdminOnlyCommand {
+    private final AdminAccessService access;
+
+    public AdminPanelCommand(AdminAccessService access) {
+        this.access = access;
+    }
+
     @Override
     public String getName() {
         return "adminpanel";
@@ -51,14 +56,14 @@ public final class AdminPanelCommand extends AdminOnlyCommand {
 
         String action = args[1].toLowerCase();
         if ("reload".equals(action)) {
-            AdminPanelAccess.reload();
+            access.reload();
             sender.sendMessage(new TextComponentString("§aAdmin Panel whitelist reloaded."));
             return;
         }
         if ("list".equals(action)) {
-            List<AdminPanelAccess.Entry> entries = AdminPanelAccess.entries();
+            List<AdminWhitelistEntry> entries = access.entries();
             sender.sendMessage(new TextComponentString("§6Admin Panel whitelist (" + entries.size() + "):"));
-            for (AdminPanelAccess.Entry entry : entries) {
+            for (AdminWhitelistEntry entry : entries) {
                 sender.sendMessage(new TextComponentString("§7- §e" + entry.name + " §8" + entry.uuid));
             }
             return;
@@ -85,12 +90,12 @@ public final class AdminPanelCommand extends AdminOnlyCommand {
         }
 
         if ("add".equals(action)) {
-            boolean changed = AdminPanelAccess.add(uuid, name);
+            boolean changed = access.add(uuid, name);
             sender.sendMessage(new TextComponentString(changed
                     ? "§aДобавлен в Admin Panel whitelist: §e" + name
                     : "§eИгрок уже есть в Admin Panel whitelist."));
         } else if ("remove".equals(action)) {
-            boolean changed = AdminPanelAccess.remove(uuid);
+            boolean changed = access.remove(uuid);
             sender.sendMessage(new TextComponentString(changed
                     ? "§aУдалён из Admin Panel whitelist: §e" + name
                     : "§eИгрока нет в Admin Panel whitelist."));

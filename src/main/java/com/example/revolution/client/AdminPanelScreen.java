@@ -1,20 +1,18 @@
 package com.example.revolution.client;
 
-import com.example.revolution.network.admin.AdminPanelRequestPacket;
-import com.example.revolution.admin.AdminPanelStatePacket;
 import com.example.revolution.network.NetworkHandler;
+import com.example.revolution.network.admin.AdminPanelRequestPacket;
+import com.example.revolution.network.admin.AdminPanelStatePacket;
 import com.example.revolution.number.LargeNumbers;
-import com.example.revolution.resource.ResourceManager;
-
-import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.GuiTextField;
-
+import com.example.revolution.resource.definition.ResourceDefinitions;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiTextField;
 
 public final class AdminPanelScreen extends GuiScreen {
     private static final int W = 360, H = 20, PAGE = 6;
@@ -329,7 +327,7 @@ public final class AdminPanelScreen extends GuiScreen {
     private String resource() { return resources.isEmpty() ? "нет" : resources.get(resourceIndex); }
     private String mobName() { return mobs.isEmpty() ? "нет мобов" : split(mobs.get(mobIndex), 0); }
     private String mobLabel() { return mobs.isEmpty() ? "нет мобов" : mobName(); }
-    private String displayResource(String v) { return v == null ? "" : ResourceManager.getDisplayName(v); }
+    private String displayResource(String v) { return v == null ? "" : ResourceDefinitions.getDisplayName(v); }
     private String split(String v, int i) { String[] p = v.split("\\t", -1); return i < p.length ? p[i] : ""; }
     private int number(String v) { try { return Integer.parseInt(v == null ? "0" : v.trim()); } catch (NumberFormatException e) { return 0; } }
     private int findExact(List<String> values, String selected) { if (values.isEmpty() || selected == null || selected.isEmpty()) return 0; for (int i = 0; i < values.size(); i++) if (selected.equals(values.get(i))) return i; return 0; }

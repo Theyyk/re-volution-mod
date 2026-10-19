@@ -1,13 +1,13 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.PrimaryRuneCatalog;
-import com.example.revolution.rune.RuneCombatMath;
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneProgression;
-import com.example.revolution.rune.RuneStat;
-import com.example.revolution.rune.RuneStatType;
-import com.example.revolution.rune.RuneStatusRegistry;
-import com.example.revolution.rune.RuneTargetedPower;
+import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.PrimaryRuneCatalog;
+import com.example.revolution.rune.definition.RuneStat;
+import com.example.revolution.rune.definition.RuneStatType;
+import com.example.revolution.rune.definition.RuneTargetedPower;
+import com.example.revolution.rune.rules.RuneCombatMath;
+import com.example.revolution.rune.rules.RuneProgression;
+import com.example.revolution.rune.state.RuneInventory;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -53,7 +53,7 @@ final class ClientRuneCombatPreview {
 
     private static RuneCombatMath.Snapshot snapshot(int statusId, int[] ranks,
                                                     int[] enhancementLevels, double enhancementStep) {
-        if (statusId != RuneStatusRegistry.STATUS_POISON) return null;
+        if (statusId != RuneStatusConfig.STATUS_POISON) return null;
 
         double safeStep = Double.isFinite(enhancementStep) ? Math.max(0.0D, enhancementStep) : 0.0D;
         Map<String, Double> targetedBasePower = new HashMap<>();

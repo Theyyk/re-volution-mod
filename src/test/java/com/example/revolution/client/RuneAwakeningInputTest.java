@@ -1,9 +1,10 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneInventory;
+import com.example.revolution.rune.state.RuneInventory;
+
 /** Exercises the selector and left-click gate used by the Forge awakening handler. */
 public final class RuneAwakeningInputTest {
-    static void run() {
+    public static void run() {
         equal(RuneAwakeningInput.isAwakeningButton(0), true, "left click must awaken");
         equal(RuneAwakeningInput.isAwakeningButton(1), false, "right click must not awaken");
         equal(RuneAwakeningInput.isAwakeningButton(2), false, "middle click must not awaken");

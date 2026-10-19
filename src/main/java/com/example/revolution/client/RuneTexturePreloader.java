@@ -1,7 +1,14 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.PrimaryRuneCatalog;
 import com.example.revolution.RevolutionMod;
+import com.example.revolution.rune.definition.PrimaryRuneCatalog;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+import javax.imageio.ImageIO;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.resources.IReloadableResourceManager;
@@ -11,14 +18,6 @@ import net.minecraft.client.resources.IResourceManagerReloadListener;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-
-import javax.imageio.ImageIO;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 
 @SideOnly(Side.CLIENT)
 public final class RuneTexturePreloader implements IResourceManagerReloadListener {

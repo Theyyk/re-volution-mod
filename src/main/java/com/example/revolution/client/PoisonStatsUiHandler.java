@@ -1,8 +1,7 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneInventory;
 import com.example.revolution.number.LargeNumbers;
-
+import com.example.revolution.rune.state.RuneInventory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
@@ -11,7 +10,6 @@ import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-
 import static com.example.revolution.client.GuiTheme.PANEL_BG_COLOR;
 import static com.example.revolution.client.GuiTheme.POISON_TYPE_COLOR;
 import static com.example.revolution.client.GuiTheme.TEXT_COLOR;

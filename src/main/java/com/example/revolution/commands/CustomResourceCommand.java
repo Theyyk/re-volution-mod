@@ -1,7 +1,11 @@
 package com.example.revolution.commands;
 
-import com.example.revolution.resource.ResourceManager;
-
+import com.example.revolution.resource.definition.ResourceDefinitions;
+import com.example.revolution.resource.service.ResourceService;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import javax.annotation.Nullable;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -9,12 +13,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
 
-import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 public class CustomResourceCommand extends AdminOnlyCommand {
+    private final ResourceService resources;
+
+    public CustomResourceCommand(ResourceService resources) {
+        this.resources = resources;
+    }
 
     @Override
     public String getName() {
@@ -33,7 +37,7 @@ public class CustomResourceCommand extends AdminOnlyCommand {
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("balance")) {
-            return getListOfStringsMatchingLastWord(args, ResourceManager.getResourceNames());
+            return getListOfStringsMatchingLastWord(args, ResourceDefinitions.getResourceNames());
         }
 
         return new ArrayList<>();
@@ -54,7 +58,7 @@ public class CustomResourceCommand extends AdminOnlyCommand {
         }
 
         if (args[0].equalsIgnoreCase("list")) {
-            List<String> resources = ResourceManager.getResourceNames();
+            List<String> resources = ResourceDefinitions.getResourceNames();
             player.sendMessage(new TextComponentString("§6Ресурсы (" + resources.size() + "): §e" + String.join("§7, §e", resources)));
             return;
         }
@@ -65,14 +69,14 @@ public class CustomResourceCommand extends AdminOnlyCommand {
                 return;
             }
 
-            String canonical = ResourceManager.findCanonicalName(args[1]);
+            String canonical = ResourceDefinitions.findCanonicalName(args[1]);
             if (canonical == null) {
                 player.sendMessage(new TextComponentString("§cРесурс не найден: " + args[1]));
                 return;
             }
 
-            int value = ResourceManager.getPlayerResource(player.getUniqueID(), canonical);
-            player.sendMessage(new TextComponentString("§6" + ResourceManager.getDisplayName(canonical) + ": §e" + value));
+            int value = resources.getPlayerResource(player.getUniqueID(), canonical);
+            player.sendMessage(new TextComponentString("§6" + ResourceDefinitions.getDisplayName(canonical) + ": §e" + value));
             return;
         }
 

@@ -1,11 +1,13 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneStatusRegistry;
-import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.NetworkHandler;
-import com.example.revolution.resource.ResourceManager;
-
+import com.example.revolution.network.PingPacket;
+import com.example.revolution.resource.definition.ResourceDefinitions;
+import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.state.RuneInventory;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -14,9 +16,6 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.input.Mouse;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @SideOnly(Side.CLIENT)
 public class RunePurchaseUiHandler {
@@ -137,13 +136,13 @@ public class RunePurchaseUiHandler {
         int rank = ClientRuneRanks.rankOf(rune); if (rank >= RuneInventory.IMPROVED_RANK) return improvedCost; if (rank >= RuneInventory.NORMAL_RANK) return normalCost; return 0;
     }
 
-    private boolean usesStatusPurchaseEconomy() { return RuneStatusRegistry.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId()); }
+    private boolean usesStatusPurchaseEconomy() { return RuneStatusConfig.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId()); }
 
     private String priceResourceName(String resource) {
-        String normalized = ResourceManager.normalize(resource);
+        String normalized = ResourceDefinitions.normalize(resource);
         if ("coins".equals(normalized)) return "монет"; if ("crystals".equals(normalized)) return "кристаллов";
-        if (ResourceManager.RUNE_DUST.equals(normalized)) return "пыли рун"; if (ResourceManager.RUNE_SHARDS.equals(normalized)) return "осколков рун";
-        if (ResourceManager.RUNE_CORES.equals(normalized)) return "ядер рун"; return ResourceManager.getDisplayName(resource).toLowerCase(java.util.Locale.ROOT);
+        if (ResourceDefinitions.RUNE_DUST.equals(normalized)) return "пыли рун"; if (ResourceDefinitions.RUNE_SHARDS.equals(normalized)) return "осколков рун";
+        if (ResourceDefinitions.RUNE_CORES.equals(normalized)) return "ядер рун"; return ResourceDefinitions.getDisplayName(resource).toLowerCase(java.util.Locale.ROOT);
     }
 
     private int currentBuyAmount(List<GuiButton> buttons) {

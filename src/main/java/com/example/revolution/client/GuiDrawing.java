@@ -1,7 +1,9 @@
 package com.example.revolution.client;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
+import org.lwjgl.opengl.GL11;
 
 /** Pixel-snapped surface drawing shared by the screen and its controls. */
 final class GuiDrawing extends Gui {

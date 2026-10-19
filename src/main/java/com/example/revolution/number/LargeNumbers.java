@@ -18,4 +18,7 @@ public final class LargeNumbers {
     public static BigDecimal parseExact(String raw) { return LargeNumberValue.parseExact(raw); }
     public static String canonical(BigDecimal value) { return LargeNumberValue.canonical(value); }
     public static BigDecimal normalize(BigDecimal value) { return LargeNumberValue.normalize(value); }
+
+    public static LargeNumberDisplayMode displayMode() { return LargeNumberDisplaySettings.getMode(); }
+    public static void setDisplayMode(LargeNumberDisplayMode mode) { LargeNumberDisplaySettings.setMode(mode); }
 }

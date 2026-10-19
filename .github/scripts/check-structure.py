@@ -11,7 +11,7 @@ LEXER = re.compile(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|\
 
 def check_sources():
     main_root = ROOT / 'src/main/java/com/example/revolution'
-    allowed_main_root = {'BrandingProperties.java', 'RevolutionMod.java', 'ServerInit.java'}
+    allowed_main_root = {'RevolutionMod.java'}
     actual_main_root = {p.name for p in main_root.glob('*.java')}
     assert actual_main_root == allowed_main_root, ('Unexpected root production classes', sorted(actual_main_root))
     test_root = ROOT / 'src/test/java/com/example/revolution'
@@ -27,14 +27,14 @@ def check_sources():
                 continue
             assert not re.search(r'Card|CARD|card|Deck|DECK|deck|EarthRune|earthRune', token), (path, token)
     gradle = (ROOT / 'build.gradle').read_text(encoding='utf-8')
-    for name in re.findall(r"mainClass = '([^']+)'", gradle):
+    for name in re.findall(r"(?:mainClass = |\w+Regression: )'([^']+)'", gradle):
         assert (ROOT / 'src/test/java' / (name.replace('.', '/') + '.java')).is_file(), name
 
 
 def check_branding():
     old_brand = 'Custom' + ' GUI Mod'
     template_vendor = 'examplemods' + 'areus'
-    for path in ROOT.rglob('*'):
+    for path in [*ROOT.glob('*'), *(ROOT / 'src').rglob('*'), *(ROOT / 'docs').rglob('*'), *(ROOT / '.github').rglob('*')]:
         if not path.is_file() or '.git' in path.parts:
             continue
         try:
@@ -49,7 +49,7 @@ def check_branding():
     assert '"Specification-Title": "RE:volution Mod"' in gradle
     assert '"Specification-Vendor": "Theyyk"' in gradle
     assert '"Implementation-Title": "RE:volution Mod"' in gradle
-    assert '"Implementation-Vendor" :"Theyyk"' in gradle
+    assert '"Implementation-Vendor": "Theyyk"' in gradle
 
     mcmod = json.loads((ROOT / 'src/main/resources/mcmod.info').read_text(encoding='utf-8'))
     assert mcmod and mcmod[0]['modid'] == 'revolution'
@@ -71,9 +71,15 @@ def check_jar(path):
             if name.endswith('.class'):
                 assert not re.search(r'Card|Deck|EarthRune|FlyingRune|FlyingCard|TestSupport|Test\$', name), name
                 assert not name.endswith('Test.class'), name
+        production = {p.relative_to(ROOT / 'src/main/java').with_suffix('.class').as_posix()
+                      for p in (ROOT / 'src/main/java').rglob('*.java')}
+        for name in names:
+            if name.startswith('com/example/revolution/') and name.endswith('.class'):
+                owner = name.split('$', 1)[0] + '.class' if '$' in name else name
+                assert owner in production, f'Stale class packaged: {name}'
         assert 'com/example/revolution/network/RuneSlotPacket.class' in names
         assert 'com/example/revolution/network/RuneCollectionsPacket.class' in names
-        assert 'com/example/revolution/rune/PrimaryRuneCatalog.class' in names
+        assert 'com/example/revolution/rune/definition/PrimaryRuneCatalog.class' in names
         assert 'com/example/revolution/client/RunesGuiScreen.class' in names
 
 

@@ -1,14 +1,14 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneCombatMath;
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneStat;
-import com.example.revolution.rune.RuneStatType;
-import com.example.revolution.rune.RuneStatusRegistry;
-import com.example.revolution.mob.MobTestSupport;
+import com.example.revolution.mob.rules.MobTestSupport;
+import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneStat;
+import com.example.revolution.rune.definition.RuneStatType;
+import com.example.revolution.rune.rules.RuneCombatMath;
+import com.example.revolution.rune.state.RuneInventory;
 
-final class RuneCombatMathTest {
-    static void run() {
+public final class RuneCombatMathTest {
+    public static void run() {
         RuneStat targeted = RuneStat.scaled(RuneStatType.CLICK_DAMAGE_FLAT, 4.0D);
         RuneStat.Breakdown targetedResolved = targeted.resolve(
                 RuneInventory.IMPROVED_RANK,
@@ -64,7 +64,7 @@ final class RuneCombatMathTest {
         previewRanks[20] = RuneInventory.NORMAL_RANK;
         previewEnhancements[13] = 10;
         double previewPoison = ClientRuneCombatPreview.poisonDamage(
-                RuneStatusRegistry.STATUS_POISON,
+                RuneStatusConfig.STATUS_POISON,
                 previewRanks,
                 previewEnhancements,
                 0.1D
@@ -80,7 +80,7 @@ final class RuneCombatMathTest {
         clickRanks[4] = RuneInventory.NORMAL_RANK;
         clickEnhancements[4] = 10;
         double previewClick = ClientRuneCombatPreview.clickDamage(
-                RuneStatusRegistry.STATUS_POISON,
+                RuneStatusConfig.STATUS_POISON,
                 2.0D,
                 clickRanks,
                 clickEnhancements,

@@ -1,13 +1,12 @@
 package com.example.revolution.client;
 
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * Prevents accidental or automated enhancement click bursts without changing button visuals.

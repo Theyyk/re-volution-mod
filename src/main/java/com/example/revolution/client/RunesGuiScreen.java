@@ -1,16 +1,22 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.PrimaryRuneCatalog;
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneProgression;
 import com.example.revolution.RevolutionMod;
-import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.NetworkHandler;
+import com.example.revolution.network.PingPacket;
 import com.example.revolution.number.LargeNumbers;
-
+import com.example.revolution.rune.definition.PrimaryRuneCatalog;
+import com.example.revolution.rune.rules.RuneProgression;
+import com.example.revolution.rune.state.RuneInventory;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderItem;
@@ -18,11 +24,6 @@ import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
 import static com.example.revolution.client.GuiControls.*;
 import static com.example.revolution.client.GuiDrawing.drawSurface;
 import static com.example.revolution.client.GuiTheme.*;

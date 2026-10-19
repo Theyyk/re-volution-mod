@@ -1,4 +1,5 @@
 package com.example.revolution.client;
+
 /** Frozen v1.1.5 viewport fixtures and click/slot alignment without Minecraft or OpenGL. */
 public final class GuiLayoutTest {
     public static void main(String[] args) {

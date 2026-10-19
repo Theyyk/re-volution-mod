@@ -1,9 +1,8 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneStatusRegistry;
 import com.example.revolution.network.RuneSlotPacket;
-
+import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.state.RuneInventory;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
@@ -22,7 +21,7 @@ public class RuneSlotPacketHandler implements IMessageHandler<RuneSlotPacket, IM
             RuneCollectionSyncState.notePacket();
 
             if (message.isAnimate()
-                    && RuneStatusRegistry.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())
+                    && RuneStatusConfig.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())
                     && message.getRuneIndex() >= 0
                     && message.getRuneIndex() < RuneInventory.BOOST_TYPE_COUNT) {
                 RuneUxUiHandler.notePurchase(message.getRuneIndex());
