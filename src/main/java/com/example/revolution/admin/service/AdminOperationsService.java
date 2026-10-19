@@ -75,31 +75,39 @@ public final class AdminOperationsService {
     }
 
     public boolean setResource(EntityPlayerMP target, String resource, int value) {
+        return setResource(target, resource, BigDecimal.valueOf(value));
+    }
+
+    public boolean setResource(EntityPlayerMP target, String resource, BigDecimal value) {
         requireTarget(target);
         String canonical = ResourceDefinitions.findCanonicalName(resource);
-        if (canonical == null || value < 0) return false;
-        resources.setPlayerResource(target.getUniqueID(), canonical, value);
+        if (canonical == null || value == null || value.signum() < 0) return false;
+        if (!resources.setPlayerResourceValue(target.getUniqueID(), canonical, value)) return false;
         stats.sendTo(target);
         return true;
     }
 
     public boolean addResource(EntityPlayerMP target, String resource, int amount) {
+        return addResource(target, resource, BigDecimal.valueOf(amount));
+    }
+
+    public boolean addResource(EntityPlayerMP target, String resource, BigDecimal amount) {
         requireTarget(target);
         String canonical = ResourceDefinitions.findCanonicalName(resource);
-        if (canonical == null) return false;
-        resources.addPlayerResource(target.getUniqueID(), canonical, amount);
+        if (canonical == null || amount == null) return false;
+        if (!resources.addPlayerResourceValue(target.getUniqueID(), canonical, amount)) return false;
         stats.sendTo(target);
         return true;
     }
 
     public boolean zeroResource(EntityPlayerMP target, String resource) {
-        return setResource(target, resource, 0);
+        return setResource(target, resource, BigDecimal.ZERO);
     }
 
     public void zeroAllResources(EntityPlayerMP target) {
         requireTarget(target);
         for (String resource : ResourceDefinitions.getResourceNames()) {
-            resources.setPlayerResource(target.getUniqueID(), resource, 0);
+            resources.setPlayerResourceValue(target.getUniqueID(), resource, BigDecimal.ZERO);
         }
         stats.sendTo(target);
     }
@@ -116,7 +124,7 @@ public final class AdminOperationsService {
         String normalizedName = name == null ? "" : name.trim();
         String normalizedType = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
         String canonicalResource = ResourceDefinitions.findCanonicalName(resource);
-        if (normalizedName.isEmpty() || normalizedName.indexOf('\t') >= 0 || mobRepository.getMob(normalizedName) != null) return false;
+        if (!validName(normalizedName) || mobRepository.getMob(normalizedName) != null) return false;
         if (!("zombie".equals(normalizedType) || "skeleton".equals(normalizedType))) return false;
         if (canonicalResource == null || amount == null || hp == null || amount.signum() <= 0 || hp.signum() <= 0) return false;
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) return false;
@@ -129,14 +137,14 @@ public final class AdminOperationsService {
     }
 
     public boolean deleteMob(String name) {
-        if (name == null || mobRepository.getMob(name) == null) return false;
+        if (!validName(name) || mobRepository.getMob(name) == null) return false;
         mobRepository.deleteMob(name);
         mobs.respawnAll();
         return true;
     }
 
     public boolean setMobSpawn(String name, double x, double y, double z) {
-        if (name == null || mobRepository.getMob(name) == null) return false;
+        if (!validName(name) || mobRepository.getMob(name) == null) return false;
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) return false;
         mobRepository.setMobSpawn(name, x, y, z);
         mobs.respawnAll();
@@ -167,6 +175,15 @@ public final class AdminOperationsService {
                     target);
         }
         stats.sendTo(target);
+    }
+
+    private static boolean validName(String value) {
+        if (value == null || value.isEmpty() || value.length() > 64) return false;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < 0x20 || c == 0x7f) return false;
+        }
+        return true;
     }
 
     private static void requireTarget(EntityPlayerMP target) {
