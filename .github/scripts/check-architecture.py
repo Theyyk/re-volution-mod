@@ -74,6 +74,35 @@ def validate():
     source_map = {path.relative_to(MAIN).as_posix(): path.read_text(encoding='utf-8') for path in MAIN.rglob('*.java')}
     for path, source in source_map.items():
         errors.extend(violations(path, source))
+
+    required_adapter_paths = {
+        'client/lifecycle/ClientLifecycle.java',
+        'client/network/ClientNetworkRegistration.java',
+        'client/network/PingPacketClientHandler.java',
+        'client/network/PongPacketHandler.java',
+        'client/network/RuneSlotPacketHandler.java',
+        'client/network/RuneCollectionsPacketHandler.java',
+        'client/network/PlayerStatsPacketHandler.java',
+        'client/network/AdminPanelRequestClientHandler.java',
+        'client/network/AdminPanelStateClientHandler.java',
+        'client/network/RuneEnhancementPacketHandler.java',
+        'client/input/KeyInputHandler.java',
+        'client/input/AdminPanelKeyHandler.java',
+        'client/input/EnhancementClickGuard.java',
+        'mob/event/ManagedMobEvents.java',
+        'mob/event/MobDeathHandler.java',
+        'player/event/PlayerJoinHandler.java',
+    }
+    missing_adapters = sorted(required_adapter_paths.difference(source_map))
+    assert not missing_adapters, 'Adapter package topology regressed: ' + ', '.join(missing_adapters)
+    forbidden_old_adapter_paths = {
+        'client/ClientLifecycle.java', 'client/ClientNetworkRegistration.java',
+        'client/KeyInputHandler.java', 'client/AdminPanelKeyHandler.java', 'client/EnhancementClickGuard.java',
+        'mob/ManagedMobEvents.java', 'mob/MobDeathHandler.java', 'player/PlayerJoinHandler.java',
+    }
+    stale_adapters = sorted(forbidden_old_adapter_paths.intersection(source_map))
+    assert not stale_adapters, 'Adapters moved back into domain roots: ' + ', '.join(stale_adapters)
+
     # The only global accessor is at framework boundaries, never in application services.
     assert sum('MongoClients.create(' in source for source in source_map.values()) == 1, 'Expected one Mongo client owner'
     assert 'acceptableRemoteVersions = "*"' in source_map['RevolutionMod.java'], 'Optional-client handshake changed'
@@ -130,7 +159,7 @@ def validate():
                      for path in (ROOT / 'src/main/resources').rglob('*') if path.is_file() and path.name != 'mcmod.info'}
     assert actual_assets == assets, 'Resource assets changed; review the resource contract explicitly'
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, early Java 8 NIO compatibility, mirrored runners, lifecycle, IDs 0-7, optional client and resource assets passed.')
+    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, lifecycle, IDs 0-7, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':
