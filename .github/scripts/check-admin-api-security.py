@@ -85,6 +85,7 @@ def main():
         '/api/v1/mobs/create',
         '/api/v1/mobs/delete',
         '/api/v1/mobs/set-spawn',
+        '/api/v1/mobs/set-spawn-player',
     }
     for route in expected_routes:
         assert route in routes, f'Missing explicit Admin API route: {route}'
@@ -105,6 +106,10 @@ def main():
     assert 'precision() > 100' in routes and '10_000L' in routes, 'Exact-number input bounds missing'
     assert '30_000_000.0D' in routes and '4096.0D' in routes, 'Coordinate input bounds missing'
     assert 'Admin API mutation operation=' in routes, 'State-changing routes must emit sanitized audit events'
+
+    operations = read('admin/service/AdminOperationsService.java')
+    assert 'setMobSpawnAtPlayer(String name, EntityPlayerMP target)' in operations, 'Typed live player-position operation missing'
+    assert 'target.posX' in operations and 'target.posY' in operations and 'target.posZ' in operations, 'Player-position operation must read live server coordinates'
 
     assert 'SecureRandom' in secrets and 'SECRET_BYTES = 32' in secrets, 'Installation secret must be 256-bit SecureRandom'
     assert 'revolution-admin.secret' in secrets, 'Installation secret runtime file contract changed'
