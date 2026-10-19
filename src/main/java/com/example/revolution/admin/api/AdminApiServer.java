@@ -5,44 +5,48 @@ import com.example.revolution.admin.api.auth.AdminApiAuthService;
 import com.example.revolution.admin.api.auth.AdminApiCapability;
 import com.example.revolution.admin.api.auth.AdminChallengeService;
 import com.example.revolution.admin.api.auth.AdminInstallationSecretStore;
-import com.sun.net.httpserver.Headers;
+import com.example.revolution.admin.service.AdminOperationsService;
+import com.example.revolution.admin.service.AdminQueryService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.Logger;
 
-/**
- * Loopback-only HTTP adapter for the private RE:volution Admin application.
- * Business operations do not belong here; routes authenticate/authorize and delegate to typed services.
- */
+/** Loopback-only lifecycle/auth bootstrap for the private RE:volution Admin HTTP adapter. */
 public final class AdminApiServer implements AutoCloseable {
     public static final int DEFAULT_PORT = 18765;
     private static final String CHALLENGE_PATH = "/api/v1/auth/challenge";
     private static final String SESSION_PATH = "/api/v1/auth/session";
     private static final String STATUS_PATH = "/api/v1/status";
+
     private final Logger logger;
+    private final AdminOperationsService operations;
+    private final AdminQueryService queries;
     private final AdminInstallationSecretStore secretStore = new AdminInstallationSecretStore();
     private HttpServer server;
     private ThreadPoolExecutor executor;
     private AdminApiAuthService auth;
 
-    public AdminApiServer(Logger logger) {
+    public AdminApiServer(Logger logger, AdminOperationsService operations, AdminQueryService queries) {
+        if (logger == null || operations == null || queries == null) throw new IllegalArgumentException("Admin API dependencies are required");
         this.logger = logger;
+        this.operations = operations;
+        this.queries = queries;
     }
 
-    public synchronized void start(File configDirectory) throws IOException {
+    public synchronized void start(MinecraftServer minecraftServer, File configDirectory) throws IOException {
         if (server != null) return;
+        if (minecraftServer == null) throw new IOException("MinecraftServer is unavailable for Admin API");
         InetAddress bindAddress = AdminApiBindPolicy.loopback();
         AdminApiBindPolicy.requireAllowed(bindAddress);
         int port = resolvePort();
@@ -67,6 +71,7 @@ public final class AdminApiServer implements AutoCloseable {
             newServer.createContext(CHALLENGE_PATH, exact(CHALLENGE_PATH, this::handleChallenge));
             newServer.createContext(SESSION_PATH, exact(SESSION_PATH, this::handleSession));
             newServer.createContext(STATUS_PATH, exact(STATUS_PATH, this::handleStatus));
+            new AdminApiRoutes(logger, newAuth, operations, queries, minecraftServer).register(newServer, this::exact);
             newServer.start();
             server = newServer;
             executor = newExecutor;
@@ -84,22 +89,22 @@ public final class AdminApiServer implements AutoCloseable {
         return exchange -> {
             try {
                 if (!path.equals(exchange.getRequestURI().getPath())) {
-                    respond(exchange, 404, "{\"error\":\"not_found\"}");
+                    AdminApiHttp.respond(exchange, 404, "{\"error\":\"not_found\"}");
                     return;
                 }
                 InetAddress remote = exchange.getRemoteAddress() == null ? null : exchange.getRemoteAddress().getAddress();
                 if (!AdminApiBindPolicy.isAllowed(remote)) {
-                    respond(exchange, 403, "{\"error\":\"forbidden\"}");
+                    AdminApiHttp.respond(exchange, 403, "{\"error\":\"forbidden\"}");
                     return;
                 }
-                if (isBrowserOriginRequest(exchange.getRequestHeaders())) {
-                    respond(exchange, 403, "{\"error\":\"forbidden\"}");
+                if (AdminApiHttp.isBrowserOriginRequest(exchange.getRequestHeaders())) {
+                    AdminApiHttp.respond(exchange, 403, "{\"error\":\"forbidden\"}");
                     return;
                 }
                 delegate.handle(exchange);
             } catch (RuntimeException e) {
                 logger.warn("Admin API request failed without exposing request credentials", e);
-                safeInternalError(exchange);
+                AdminApiHttp.safeInternalError(exchange);
             } finally {
                 exchange.close();
             }
@@ -107,102 +112,40 @@ public final class AdminApiServer implements AutoCloseable {
     }
 
     private void handleChallenge(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST") || !requireEmptyBody(exchange)) return;
+        if (!AdminApiHttp.requireMethod(exchange, "POST") || !AdminApiHttp.requireEmptyBody(exchange)) return;
         AdminChallengeService.Challenge challenge = auth.issueChallenge();
         if (challenge == null) {
-            respond(exchange, 429, "{\"error\":\"rate_limited\"}");
+            AdminApiHttp.respond(exchange, 429, "{\"error\":\"rate_limited\"}");
             return;
         }
-        respond(exchange, 200, "{\"protocol\":\"REvolutionAdmin/v1\",\"challengeId\":\""
+        AdminApiHttp.respond(exchange, 200, "{\"protocol\":\"REvolutionAdmin/v1\",\"challengeId\":\""
                 + challenge.id + "\",\"nonce\":\"" + challenge.nonce + "\",\"expiresAt\":" + challenge.expiresAt + "}");
     }
 
     private void handleSession(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "POST") || !requireEmptyBody(exchange)) return;
-        String challengeId = boundedHeader(exchange, "X-REvolution-Challenge", 64);
-        String proof = boundedHeader(exchange, "X-REvolution-Proof", 128);
+        if (!AdminApiHttp.requireMethod(exchange, "POST") || !AdminApiHttp.requireEmptyBody(exchange)) return;
+        String challengeId = AdminApiHttp.boundedHeader(exchange, "X-REvolution-Challenge", 64);
+        String proof = AdminApiHttp.boundedHeader(exchange, "X-REvolution-Proof", 128);
         if (challengeId == null || proof == null) {
-            respond(exchange, 401, "{\"error\":\"unauthorized\"}");
+            AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
             return;
         }
         String token = auth.openSession(challengeId, proof);
         if (token == null) {
-            respond(exchange, 401, "{\"error\":\"unauthorized\"}");
+            AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
             return;
         }
-        respond(exchange, 200, "{\"token\":\"" + token + "\",\"idleTtlMillis\":300000,\"absoluteTtlMillis\":900000}");
+        AdminApiHttp.respond(exchange, 200, "{\"token\":\"" + token + "\",\"idleTtlMillis\":300000,\"absoluteTtlMillis\":900000}");
     }
 
     private void handleStatus(HttpExchange exchange) throws IOException {
-        if (!requireMethod(exchange, "GET") || !requireEmptyBody(exchange)) return;
-        String authorization = boundedHeader(exchange, "Authorization", 128);
+        if (!AdminApiHttp.requireMethod(exchange, "GET") || !AdminApiHttp.requireEmptyBody(exchange)) return;
+        String authorization = AdminApiHttp.boundedHeader(exchange, "Authorization", 128);
         if (!auth.authorizeBearer(authorization, AdminApiCapability.SERVER_READ)) {
-            respond(exchange, 401, "{\"error\":\"unauthorized\"}");
+            AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
             return;
         }
-        respond(exchange, 200, "{\"apiVersion\":1,\"modVersion\":\"" + RevolutionMod.VERSION + "\",\"remoteMode\":false}");
-    }
-
-    private static boolean requireMethod(HttpExchange exchange, String method) throws IOException {
-        if (method.equals(exchange.getRequestMethod())) return true;
-        exchange.getResponseHeaders().set("Allow", method);
-        respond(exchange, 405, "{\"error\":\"method_not_allowed\"}");
-        return false;
-    }
-
-    private static boolean requireEmptyBody(HttpExchange exchange) throws IOException {
-        String contentLength = exchange.getRequestHeaders().getFirst("Content-Length");
-        String transferEncoding = exchange.getRequestHeaders().getFirst("Transfer-Encoding");
-        if (transferEncoding != null) {
-            respond(exchange, 413, "{\"error\":\"body_not_allowed\"}");
-            return false;
-        }
-        if (contentLength != null) {
-            try {
-                if (Long.parseLong(contentLength) != 0L) {
-                    respond(exchange, 413, "{\"error\":\"body_not_allowed\"}");
-                    return false;
-                }
-            } catch (NumberFormatException e) {
-                respond(exchange, 400, "{\"error\":\"bad_request\"}");
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static boolean isBrowserOriginRequest(Headers headers) {
-        return headers.getFirst("Origin") != null
-                || headers.getFirst("Access-Control-Request-Method") != null
-                || headers.getFirst("Sec-Fetch-Site") != null;
-    }
-
-    private static String boundedHeader(HttpExchange exchange, String name, int maxLength) {
-        String value = exchange.getRequestHeaders().getFirst(name);
-        if (value == null || value.length() > maxLength) return null;
-        return value;
-    }
-
-    private static void respond(HttpExchange exchange, int status, String json) throws IOException {
-        byte[] body = json.getBytes(StandardCharsets.UTF_8);
-        Headers headers = exchange.getResponseHeaders();
-        headers.set("Content-Type", "application/json; charset=utf-8");
-        headers.set("Cache-Control", "no-store");
-        headers.set("Pragma", "no-cache");
-        headers.set("X-Content-Type-Options", "nosniff");
-        headers.set("Referrer-Policy", "no-referrer");
-        exchange.sendResponseHeaders(status, body.length);
-        try (OutputStream out = exchange.getResponseBody()) {
-            out.write(body);
-        }
-    }
-
-    private static void safeInternalError(HttpExchange exchange) {
-        try {
-            respond(exchange, 500, "{\"error\":\"internal_error\"}");
-        } catch (IOException ignored) {
-            // Connection already failed; no sensitive detail is returned.
-        }
+        AdminApiHttp.respond(exchange, 200, "{\"apiVersion\":1,\"modVersion\":\"" + RevolutionMod.VERSION + "\",\"remoteMode\":false}");
     }
 
     static int resolvePort() {
