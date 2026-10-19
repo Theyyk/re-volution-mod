@@ -151,6 +151,11 @@ public final class AdminOperationsService {
         return true;
     }
 
+    public boolean setMobSpawnAtPlayer(String name, EntityPlayerMP target) {
+        requireTarget(target);
+        return setMobSpawn(name, target.posX, target.posY, target.posZ);
+    }
+
     public List<MobDefinition> mobDefinitions() {
         return mobRepository.getAllMobs();
     }
