@@ -100,7 +100,8 @@ def regressionTests = [
     mongoSchemaContractRegression: 'com.example.revolution.persistence.MongoSchemaContractTest',
     resourceServiceRegression: 'com.example.revolution.resource.service.ResourceServiceTest',
     runeCombatServiceRegression: 'com.example.revolution.rune.service.RuneCombatServiceTest',
-    adminApiSecurityRegression: 'com.example.revolution.admin.api.auth.AdminApiSecurityTest'
+    adminApiSecurityRegression: 'com.example.revolution.admin.api.auth.AdminApiSecurityTest',
+    adminApiInputValidationRegression: 'com.example.revolution.admin.api.AdminApiInputValidationTest'
 ]
 regressionTests.each { taskName, entryPoint ->
     def regression = tasks.register(taskName, JavaExec) {
