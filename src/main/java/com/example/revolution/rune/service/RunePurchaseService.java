@@ -1,0 +1,221 @@
+package com.example.revolution.rune.service;
+
+import com.example.revolution.network.NetworkHandler;
+import com.example.revolution.network.PongPacket;
+import com.example.revolution.network.RuneSlotPacket;
+import com.example.revolution.player.repository.PlayerRepository;
+import com.example.revolution.player.service.PlayerStatsSyncService;
+import com.example.revolution.resource.definition.ResourceDefinitions;
+import com.example.revolution.resource.service.ResourceService;
+import com.example.revolution.rune.config.RuneEconomyConfig;
+import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.repository.RuneRecord;
+import com.example.revolution.rune.rules.RuneProgression;
+import com.example.revolution.rune.rules.RuneStorageRules;
+import com.example.revolution.rune.state.RuneInventory;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.text.TextComponentString;
+
+public final class RunePurchaseService {
+    private final PlayerRepository players;
+    private final ResourceService resources;
+    private final PlayerStatsSyncService stats;
+
+    public RunePurchaseService(PlayerRepository players, ResourceService resources, PlayerStatsSyncService stats) {
+        this.players = players;
+        this.resources = resources;
+        this.stats = stats;
+    }
+
+    private static final int LEGACY_RUNE_COST = 100;
+    private final Random random = new Random();
+
+    public void buyRunes(EntityPlayerMP player, int collectionIndex, int requestedAmount, boolean buyAll) {
+        List<String> collections = players.getCollectionNames(player.getUniqueID());
+        if (collections.isEmpty() || collectionIndex < 0 || collectionIndex >= collections.size()) {
+            player.sendMessage(new TextComponentString("§cУ тебя нет доступных колод."));
+            return;
+        }
+
+        int statusId = RuneStatusConfig.statusForCollection(collectionIndex);
+        if (RuneStatusConfig.isRuneStatus(statusId)) {
+            buyRunes(player, collectionIndex, statusId, requestedAmount, buyAll);
+            return;
+        }
+
+        int balance = players.getBalance(player.getUniqueID());
+        List<Integer> freeSlots = freeSlots(player.getUniqueID(), collectionIndex);
+        if (freeSlots.isEmpty()) {
+            player.sendMessage(new TextComponentString("§eВ этой legacy-коллекции больше нет свободных слотов."));
+            NetworkHandler.sendToClient(new PongPacket(balance), player);
+            return;
+        }
+
+        int affordable = balance / LEGACY_RUNE_COST;
+        if (affordable <= 0) {
+            player.sendMessage(new TextComponentString("§cНедостаточно монет! Нужно минимум " + LEGACY_RUNE_COST + ", у тебя " + balance));
+            NetworkHandler.sendToClient(new PongPacket(balance), player);
+            return;
+        }
+
+        int maxPossible = Math.min(affordable, freeSlots.size());
+        int amountToBuy = buyAll ? maxPossible : Math.min(requestedAmount, maxPossible);
+        if (amountToBuy <= 0) {
+            NetworkHandler.sendToClient(new PongPacket(balance), player);
+            return;
+        }
+
+        Collections.shuffle(freeSlots);
+        for (int i = 0; i < amountToBuy; i++) {
+            int slot = freeSlots.get(i);
+            int runeIndex = random.nextInt(10);
+            int layer = RuneInventory.NORMAL_RANK;
+            players.addRuneToCollection(player.getUniqueID(), collectionIndex, slot, runeIndex, layer, 1);
+            NetworkHandler.sendToClient(new RuneSlotPacket(slot, runeIndex, layer, true), player);
+        }
+
+        finishLegacyPurchase(player, balance, requestedAmount, buyAll, amountToBuy, amountToBuy, 0);
+    }
+
+    private void buyRunes(EntityPlayerMP player, int collectionIndex, int statusId, int requestedAmount, boolean buyAll) {
+        String purchaseResource = canonicalPurchaseResource(statusId);
+        String purchaseDisplayName = ResourceDefinitions.getDisplayName(purchaseResource);
+        int unitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
+        int balance = resources.getPlayerResource(player.getUniqueID(), purchaseResource);
+        int affordable = balance / unitCost;
+
+        if (affordable <= 0) {
+            player.sendMessage(new TextComponentString("§cНедостаточно ресурса «" + purchaseDisplayName + "»! Нужно минимум " + unitCost + ", у тебя " + balance + "."));
+            syncPurchaseBalance(player, purchaseResource, balance);
+            return;
+        }
+
+        List<RuneRecord> runes = players.getRunesInCollection(player.getUniqueID(), collectionIndex);
+        boolean[] owned = new boolean[RuneInventory.BOOST_TYPE_COUNT];
+        int[] bestRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
+        int ownedCount = 0;
+        for (RuneRecord rune : runes) {
+            if (rune.runeIndex < 0 || rune.runeIndex >= RuneInventory.BOOST_TYPE_COUNT) continue;
+            if (!owned[rune.runeIndex]) {
+                owned[rune.runeIndex] = true;
+                ownedCount++;
+            }
+            bestRanks[rune.runeIndex] = Math.max(bestRanks[rune.runeIndex], RuneProgression.clampRank(rune.layer));
+        }
+
+        if (ownedCount >= RuneInventory.BOOST_TYPE_COUNT) {
+            player.sendMessage(new TextComponentString(RuneProgression.allAtLeast(bestRanks, RuneProgression.ADVANCED_RANK)
+                    ? "§6Все 26 рун уже продвинутые. Достигнут максимальный ранг."
+                    : "§eВсе 26 слотов заполнены. §6Пробудите подходящую руну."));
+            syncPurchaseBalance(player, purchaseResource, balance);
+            return;
+        }
+
+        int targetAttempts = buyAll ? affordable : Math.min(requestedAmount, affordable);
+        if (targetAttempts <= 0) {
+            syncPurchaseBalance(player, purchaseResource, balance);
+            return;
+        }
+
+        int attempts = 0;
+        int newRunes = 0;
+        int duplicates = 0;
+        for (int i = 0; i < targetAttempts && ownedCount < RuneInventory.BOOST_TYPE_COUNT; i++) {
+            attempts++;
+            int runeIndex = random.nextInt(RuneInventory.BOOST_TYPE_COUNT);
+            if (owned[runeIndex]) {
+                duplicates++;
+                // The duplicate still needs visible feedback. Re-send the existing rune as an
+                // animated acquisition event; the client converts it to a border-only pulse.
+                NetworkHandler.sendToClient(
+                        new RuneSlotPacket(runeIndex, runeIndex, bestRanks[runeIndex], true), player);
+                continue;
+            }
+
+            owned[runeIndex] = true;
+            bestRanks[runeIndex] = RuneProgression.NORMAL_RANK;
+            ownedCount++;
+            newRunes++;
+            players.addRuneToCollection(player.getUniqueID(), collectionIndex, runeIndex, runeIndex, RuneProgression.NORMAL_RANK, 1);
+            NetworkHandler.sendToClient(new RuneSlotPacket(runeIndex, runeIndex, RuneProgression.NORMAL_RANK, true), player);
+        }
+
+        String duplicateResource = RuneEconomyConfig.resourceForStatus(statusId);
+        int duplicateCompensation = RuneEconomyConfig.duplicateCompensation(statusId, RuneProgression.NORMAL_RANK, duplicates);
+        if (duplicateCompensation > 0 && !duplicateResource.isEmpty()) {
+            resources.addPlayerResource(player.getUniqueID(), duplicateResource, duplicateCompensation);
+        }
+
+        finishRunePurchase(player, purchaseResource, unitCost, requestedAmount, buyAll, attempts, newRunes, duplicates);
+
+        if (duplicateCompensation > 0) {
+            player.sendMessage(new TextComponentString("§aКомпенсация за дубликаты: §e+" + duplicateCompensation + " §f"
+                    + ResourceDefinitions.getDisplayName(duplicateResource) + "§a."));
+        }
+
+        if (ownedCount >= RuneInventory.BOOST_TYPE_COUNT) {
+            player.sendMessage(new TextComponentString(RuneProgression.allAtLeast(bestRanks, RuneProgression.ADVANCED_RANK)
+                    ? "§6Все 26 рун уже продвинутые. Максимальный ранг достигнут."
+                    : "§6Все 26 слотов заполнены. Пробудите подходящую руну."));
+        }
+    }
+
+    private void finishLegacyPurchase(EntityPlayerMP player, int balance, int requestedAmount, boolean buyAll, int amountToBuy, int newRunes, int duplicates) {
+        int spent = amountToBuy * LEGACY_RUNE_COST;
+        int newBalance = balance - spent;
+        players.setBalance(player.getUniqueID(), newBalance);
+        stats.sendTo(player);
+        String duplicateText = duplicates > 0 ? " §7Дубликаты: §e" + duplicates + "§7." : "";
+        if (!buyAll && amountToBuy < requestedAmount) {
+            player.sendMessage(new TextComponentString("§eКуплено " + amountToBuy + " из " + requestedAmount + " попыток. Новых рун: " + newRunes
+                    + ". Потрачено: " + spent + ". Остаток: " + newBalance + "." + duplicateText));
+        } else {
+            player.sendMessage(new TextComponentString("§aПокупок: " + amountToBuy + ". Новых рун: " + newRunes
+                    + ". Потрачено: " + spent + ". Остаток: " + newBalance + "." + duplicateText));
+        }
+    }
+
+    private void finishRunePurchase(EntityPlayerMP player, String purchaseResource, int unitCost, int requestedAmount, boolean buyAll,
+                                    int amountToBuy, int newRunes, int duplicates) {
+        int spent = safeMultiply(unitCost, amountToBuy);
+        int newBalance = resources.addPlayerResource(player.getUniqueID(), purchaseResource, -spent);
+        stats.sendTo(player);
+        syncPurchaseBalance(player, purchaseResource, newBalance);
+        String resourceName = ResourceDefinitions.getDisplayName(purchaseResource);
+        String duplicateText = duplicates > 0 ? " §7Дубликаты: §e" + duplicates + "§7." : "";
+        if (!buyAll && amountToBuy < requestedAmount) {
+            player.sendMessage(new TextComponentString("§eКуплено " + amountToBuy + " из " + requestedAmount + " попыток. Новых рун: " + newRunes
+                    + ". Потрачено: " + spent + " " + resourceName + ". Остаток: " + newBalance + "." + duplicateText));
+        } else {
+            player.sendMessage(new TextComponentString("§aПокупок: " + amountToBuy + ". Новых рун: " + newRunes
+                    + ". Потрачено: " + spent + " " + resourceName + ". Остаток: " + newBalance + "." + duplicateText));
+        }
+    }
+
+    private String canonicalPurchaseResource(int statusId) {
+        String configured = RuneEconomyConfig.purchaseResourceForStatus(statusId);
+        String canonical = ResourceDefinitions.findCanonicalName(configured);
+        return canonical == null ? "coins" : canonical;
+    }
+
+    private void syncPurchaseBalance(EntityPlayerMP player, String resource, int balance) {
+        stats.sendTo(player);
+        if ("coins".equals(ResourceDefinitions.normalize(resource))) NetworkHandler.sendToClient(new PongPacket(balance), player);
+    }
+
+    private int safeMultiply(int left, int right) {
+        long total = (long) left * right;
+        return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
+    }
+
+    private List<Integer> freeSlots(java.util.UUID player, int collection) {
+        List<Integer> occupied = new java.util.ArrayList<>();
+        for (RuneRecord rune : players.getRunesInCollection(player, collection)) occupied.add(rune.slot);
+        return RuneStorageRules.freePurchaseSlots(occupied);
+    }
+}

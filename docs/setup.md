@@ -45,16 +45,20 @@ java -Drevolution.mongo.uri=mongodb://localhost:27017 -Drevolution.mongo.databas
 
 ## Сборка из исходников
 
-В `gradle.properties` указан локальный Windows-путь `org.gradle.java.home`. Для другого окружения переопределите его своим JDK 8:
+Установите JDK 8 и укажите его каталог через `JAVA_HOME`. Репозиторий не задаёт локальный `org.gradle.java.home`; личный override при необходимости можно хранить в пользовательском Gradle-конфиге вне репозитория.
+
+В PowerShell после настройки `JAVA_HOME`:
 
 ```powershell
-.\gradlew.bat '-Dorg.gradle.java.home=C:\Program Files\Java\jdk8u504-b01' clean build
+& "$env:JAVA_HOME/bin/java.exe" -version
+.\gradlew.bat -Dnet.minecraftforge.gradle.check.certs=false clean build
 ```
 
-В Linux или GitHub Actions:
+В Linux/GitHub Actions:
 
 ```bash
-./gradlew -Dorg.gradle.java.home="$JAVA_HOME" -Dnet.minecraftforge.gradle.check.certs=false clean build
+java -version
+./gradlew -Dnet.minecraftforge.gradle.check.certs=false clean build
 ```
 
-`JAVA_HOME` должен указывать на JDK 8. Готовый JAR появляется в `build/libs/`. [Проверки и процесс выпуска](development.md).
+Python 3 нужен для architecture guards; при другом имени интерпретатора добавьте `-PpythonExecutable=python3` или его полный путь. Готовый JAR находится в `build/libs/RE-volution-1.3.1.jar`. MongoDB и Minecraft не запускаются regression-задачами. [Проверки и процесс выпуска](development.md).

@@ -1,24 +1,24 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneEconomyConfig;
 import com.example.revolution.network.RuneEnhancementPacket;
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneStatusRegistry;
-import com.example.revolution.resource.ResourceManager;
-
+import com.example.revolution.resource.definition.ResourceDefinitions;
+import com.example.revolution.rune.config.RuneEconomyConfig;
+import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.service.RunePacketFactory;
+import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
 
-final class RuneEnhancementPacketTest {
+public final class RuneEnhancementPacketTest {
     public static void main(String[] args) {
         int[] levels = new int[RuneInventory.BOOST_TYPE_COUNT];
         levels[0] = 0;
         levels[1] = 10;
 
-        RuneEnhancementPacket packet = new RuneEnhancementPacket(levels);
+        RuneEnhancementPacket packet = RunePacketFactory.enhancements(levels);
 
-        check(packet.getStatusId() == RuneStatusRegistry.STATUS_POISON,
+        check(packet.getStatusId() == RuneStatusConfig.STATUS_POISON,
                 "v1.2.9 compatibility payload must describe Poison");
-        check(ResourceManager.RUNE_DUST.equals(packet.getResource()),
+        check(ResourceDefinitions.RUNE_DUST.equals(packet.getResource()),
                 "Poison enhancement GUI must receive rune dust from the server");
         check(Math.abs(packet.getPowerStep() - 0.1D) < 0.000001D,
                 "Poison enhancement GUI must receive the configured power step");
@@ -31,7 +31,7 @@ final class RuneEnhancementPacketTest {
         check(costs[0][2] == 100, "x10 cost must be the sequential ten-level total");
         check(costs[0][3] == 1000, "x100 cost must be the sequential hundred-level total");
         check(costs[1][0] == RuneEconomyConfig.enhancementCost(
-                        RuneStatusRegistry.STATUS_POISON, 10, 1),
+                        RuneStatusConfig.STATUS_POISON, 10, 1),
                 "Each slot cost must be calculated from that slot's current level");
 
         receivedLevels[1] = 999;
@@ -39,14 +39,14 @@ final class RuneEnhancementPacketTest {
         check(packet.getLevels()[1] == 10, "Level getter must return a defensive copy");
         check(packet.getCosts()[0][0] == 10, "Cost getter must return a defensive copy");
 
-        check(ClientRuneEnhancements.shouldPulseSync(true, RuneStatusRegistry.STATUS_POISON,
-                        RuneStatusRegistry.STATUS_POISON, false),
+        check(ClientRuneEnhancements.shouldPulseSync(true, RuneStatusConfig.STATUS_POISON,
+                        RuneStatusConfig.STATUS_POISON, false),
                 "A real same-status enhancement sync must remain eligible for the green pulse");
-        check(!ClientRuneEnhancements.shouldPulseSync(true, RuneStatusRegistry.STATUS_POISON,
-                        RuneStatusRegistry.STATUS_POISON, true),
+        check(!ClientRuneEnhancements.shouldPulseSync(true, RuneStatusConfig.STATUS_POISON,
+                        RuneStatusConfig.STATUS_POISON, true),
                 "A collection/full synchronization must suppress enhancement pulses");
-        check(!ClientRuneEnhancements.shouldPulseSync(true, RuneStatusRegistry.STATUS_POISON,
-                        RuneStatusRegistry.STATUS_POISON + 1, false),
+        check(!ClientRuneEnhancements.shouldPulseSync(true, RuneStatusConfig.STATUS_POISON,
+                        RuneStatusConfig.STATUS_POISON + 1, false),
                 "A status change must never look like a new enhancement");
 
         ClientPlayerStats.setCoins(3_000_000_000L);

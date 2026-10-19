@@ -1,124 +1,34 @@
 package com.example.revolution;
 
-
-
-
-
-
-import com.example.revolution.player.PlayerJoinHandler;
-import com.example.revolution.combat.DamageBonusHandler;
-import com.example.revolution.commands.CustomStatusCommand;
-import com.example.revolution.commands.CustomRunesCommand;
-import com.example.revolution.client.ClientPacketHandler;
-import com.example.revolution.client.EnhancementClickGuard;
-import com.example.revolution.client.GuiFontRenderer;
-import com.example.revolution.client.KeyInputHandler;
-import com.example.revolution.client.RunePurchaseUiHandler;
-import com.example.revolution.client.RuneStatusChatFilter;
-import com.example.revolution.client.RuneTexturePreloader;
-import com.example.revolution.client.RuneUxUiHandler;
-import com.example.revolution.admin.AdminPanelAccess;
-import com.example.revolution.admin.AdminPanelKeyHandler;
-import com.example.revolution.client.hud.HealthBarRenderer;
-import com.example.revolution.client.hud.NameHider;
-import com.example.revolution.commands.AdminPanelCommand;
-import com.example.revolution.commands.CustomMobCommand;
-import com.example.revolution.commands.CustomResourceCommand;
-import com.example.revolution.mob.MobManager;
-import com.example.revolution.network.NetworkHandler;
-import com.example.revolution.number.LargeNumbers;
-import com.example.revolution.number.SettingsKeyHandler;
-import com.example.revolution.persistence.MongoManager;
-import com.example.revolution.resource.ResourceManager;
-
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.common.FMLCommonHandler;
+import com.example.revolution.lifecycle.CommonProxy;
+import com.example.revolution.lifecycle.ServerLifecycle;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
 import org.apache.logging.log4j.Logger;
 
-@Mod(
-        modid = RevolutionMod.MODID,
-        name = RevolutionMod.NAME,
-        version = RevolutionMod.VERSION,
-        acceptableRemoteVersions = "*"
-)
-public class RevolutionMod {
-
+/** Forge bootstrap. Server composition and client initialization live behind side-specific boundaries. */
+@Mod(modid = RevolutionMod.MODID, name = RevolutionMod.NAME, version = RevolutionMod.VERSION, acceptableRemoteVersions = "*")
+public final class RevolutionMod {
     public static final String MODID = "revolution";
     public static final String NAME = "RE:volution Mod";
-    public static final String VERSION = "1.3.0";
-
+    public static final String VERSION = "1.3.1";
     public static Logger logger;
 
-    @Mod.EventHandler
-    public void preInit(FMLPreInitializationEvent event) {
+    @SidedProxy(clientSide = "com.example.revolution.client.ClientProxy", serverSide = "com.example.revolution.lifecycle.CommonProxy")
+    public static CommonProxy proxy;
+
+    @Mod.EventHandler public void preInit(FMLPreInitializationEvent event) {
         logger = event.getModLog();
-
-        if (event.getSide() == Side.SERVER) {
-            NetworkHandler.registerServer();
-            MongoManager.connect();
-            AdminPanelAccess.init(event.getModConfigurationDirectory());
-            MinecraftForge.EVENT_BUS.register(new PlayerJoinHandler());
-            MinecraftForge.EVENT_BUS.register(new MobManager());
-            MinecraftForge.EVENT_BUS.register(new DamageBonusHandler());
-        } else {
-            LargeNumbers.initDisplaySettings(event.getModConfigurationDirectory());
-            NetworkHandler.registerClient();
-        }
-
+        proxy.preInit(event);
         logger.info("RE:volution Mod preInit done");
     }
-
-    @Mod.EventHandler
-    @SideOnly(Side.CLIENT)
-    public void init(FMLInitializationEvent event) {
-        KeyInputHandler.register();
-        AdminPanelKeyHandler.register();
-        SettingsKeyHandler.register();
-        MinecraftForge.EVENT_BUS.register(new KeyInputHandler());
-        MinecraftForge.EVENT_BUS.register(new AdminPanelKeyHandler());
-        MinecraftForge.EVENT_BUS.register(new SettingsKeyHandler());
-        MinecraftForge.EVENT_BUS.register(new ClientPacketHandler());
-        MinecraftForge.EVENT_BUS.register(new HealthBarRenderer());
-        MinecraftForge.EVENT_BUS.register(new NameHider());
-        MinecraftForge.EVENT_BUS.register(new EnhancementClickGuard());
-        MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
-        MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());
-        MinecraftForge.EVENT_BUS.register(new RuneStatusChatFilter());
-        RuneTexturePreloader.register();
-
-        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getMinecraft();
-        GuiFontRenderer.get(minecraft);
-        GuiFontRenderer.heading(minecraft);
-
-        logger.info("RE:volution Mod client init done");
-    }
-
-    @Mod.EventHandler
-    public void serverStarting(FMLServerStartingEvent event) {
-        event.registerServerCommand(new CustomMobCommand());
-        event.registerServerCommand(new CustomRunesCommand());
-        event.registerServerCommand(new CustomStatusCommand());
-        event.registerServerCommand(new CustomResourceCommand());
-        event.registerServerCommand(new AdminPanelCommand());
-
-        ResourceManager.purgeDeprecatedLightnings();
-    }
-
-    @Mod.EventHandler
-    public void serverStarted(FMLServerStartedEvent event) {
-        net.minecraft.server.MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-        if (server == null) {
-            logger.error("MinecraftServer is unavailable during FMLServerStartedEvent; managed mobs were not loaded.");
-            return;
-        }
-        net.minecraft.world.World world = server.getWorld(0);
-        MobManager.loadFromDatabase(world);
-    }
+    @Mod.EventHandler public void init(FMLInitializationEvent event) { proxy.init(); }
+    @Mod.EventHandler public void serverStarting(FMLServerStartingEvent event) { ServerLifecycle.starting(event); }
+    @Mod.EventHandler public void serverStarted(FMLServerStartedEvent event) { ServerLifecycle.started(); }
+    @Mod.EventHandler public void serverStopped(FMLServerStoppedEvent event) { ServerLifecycle.stopped(); }
 }

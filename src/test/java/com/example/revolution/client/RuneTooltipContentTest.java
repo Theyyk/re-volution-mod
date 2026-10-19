@@ -1,11 +1,11 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.PrimaryRuneCatalog;
-import com.example.revolution.rune.RuneInventory;
+import com.example.revolution.rune.definition.PrimaryRuneCatalog;
+import com.example.revolution.rune.state.RuneInventory;
 import java.util.List;
 
-final class RuneTooltipContentTest {
-    static void run() {
+public final class RuneTooltipContentTest {
+    public static void run() {
         List<String> single = RuneTooltipContent.lines(
                 PrimaryRuneCatalog.at(0),
                 RuneInventory.IMPROVED_RANK,

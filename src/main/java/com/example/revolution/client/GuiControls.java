@@ -1,11 +1,12 @@
 package com.example.revolution.client;
-import com.example.revolution.resource.ResourceManager;
 
+import com.example.revolution.resource.definition.ResourceDefinitions;
+import java.util.Locale;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.item.ItemStack;
-
 import static com.example.revolution.client.GuiDrawing.drawSurface;
 import static com.example.revolution.client.GuiTheme.*;
 
@@ -88,7 +89,7 @@ final class GuiControls {
 
         private boolean drawPurchasePriceLine(net.minecraft.client.gui.FontRenderer font,
                                               String text, int textY, int textColor) {
-            String resource = ResourceManager.normalize(ClientPlayerStats.getPurchaseResource());
+            String resource = ResourceDefinitions.normalize(ClientPlayerStats.getPurchaseResource());
             if (!isKnownResource(resource)) return false;
 
             int textWidth = font.getStringWidth(text);

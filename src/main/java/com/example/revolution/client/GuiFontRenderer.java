@@ -1,4 +1,13 @@
 package com.example.revolution.client;
+
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -8,14 +17,6 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
-
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
-import java.util.Arrays;
-import java.io.InputStream;
 
 /** Screen-local typography using the reference client's original Five / Seven faces. */
 public final class GuiFontRenderer extends FontRenderer {
@@ -172,7 +173,7 @@ public final class GuiFontRenderer extends FontRenderer {
         if (text == null || text.isEmpty()) return (int) x;
         // The reference uses light strokes without Minecraft's heavy drop shadow.
         Minecraft minecraft = Minecraft.getMinecraft();
-        matrix.clear();
+        ((java.nio.Buffer) matrix).clear();
         GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, matrix);
         float modelX = matrix.get(0), modelY = matrix.get(5);
         float offsetX = matrix.get(12), offsetY = matrix.get(13);

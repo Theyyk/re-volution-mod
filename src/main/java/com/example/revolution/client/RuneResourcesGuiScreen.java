@@ -1,12 +1,9 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneInventory;
 import com.example.revolution.number.LargeNumbers;
-
-import net.minecraft.client.renderer.GlStateManager;
-
+import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
-
+import net.minecraft.client.renderer.GlStateManager;
 import static com.example.revolution.client.GuiDrawing.drawSurface;
 import static com.example.revolution.client.GuiTheme.*;
 

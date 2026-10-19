@@ -4,11 +4,11 @@
 
 Сборка `clean build` запускает проверки Gradle `check`, включая `runeInventoryRegression` и `guiLayoutRegression`. Последняя проверяет также выбор руны для пробуждения: раскладки разных размеров, границы и промежутки слотов, поиск, другие статусы, неполную коллекцию и максимальные ранги.
 
-Для запуска отдельных проверок из PowerShell используйте свой путь к JDK 8:
+Для отдельных проверок в PowerShell задайте `JAVA_HOME` для JDK 8:
 
 ```powershell
-.\gradlew.bat '-Dorg.gradle.java.home=C:\Program Files\Java\jdk8u504-b01' runeInventoryRegression guiLayoutRegression
-python .github/scripts/check-release-notes.py v1.2.11
+.\gradlew.bat runeInventoryRegression guiLayoutRegression
+python .github/scripts/check-release-notes.py v1.3.1
 git diff --check
 ```
 
@@ -59,3 +59,35 @@ Brief release summary.
 ## Проверка структурной миграции
 
 `clean build` запускает все существующие regression-задачи и новую `runeTransportContractRegression` для байтового формата переименованных пакетов. Дополнительные классы `*TestSupport` находятся только в `src/test`: они сохраняют межпакетные проверки, не открывая внутренние production API. JAR должен содержать новые классы, прежние ресурсы и не содержать тесты/старые имена. CI подтверждается по exact HEAD и завершённому upload артефакта; runtime фиксируется отдельно.
+
+## Проверки архитектурного baseline 1.3.1
+
+```powershell
+.\gradlew.bat -Dnet.minecraftforge.gradle.check.certs=false clean build
+python .github/scripts/check-version-consistency.py
+python .github/scripts/check-release-notes.py v1.3.1
+python .github/scripts/check-structure.py
+python .github/scripts/check-structure.py build/libs/RE-volution-1.3.1.jar
+git diff --check
+```
+
+`check` исполняет 21 Java assertion runner: 16 прежних и 5 новых для Mongo schema, wire bytes, resource/payment actions, combat/reward scope и JSON whitelist. Это standalone main-классы, а не JUnit: отсутствие JUnit-тестов в отчёте `test` не отменяет выполнения этих задач.
+
+`architectureCheck` и `architectureGuardRegression` входят в `check`. Они проверяют контракт зависимостей и негативные примеры нарушений. Таблица regression entry points проверяется на пропущенные runners. Fingerprints фиксируют ресурсы; packaged guard дополнительно отвергает отсутствующие/устаревшие классы и тесты в JAR.
+
+CI запускается на feature/develop и PR в `develop`. Подтверждать следует завершённый workflow **текущего SHA**, включая проверку JAR и upload artifact. Ни успешная компиляция, ни прежний зелёный commit не заменяют эту проверку.
+
+## Runtime-проверка 1.3.1
+
+Проверяется именно новый JAR на тестовом мире и копии существующих Mongo-данных. Этот checklist не отмечает проверки выполненными автоматически. Проверка входа Forge/vanilla-клиента без мода исключена из acceptance 1.3.1 отдельным решением проекта; optional-client protocol contract при этом остаётся частью совместимости кода.
+
+1. Запустить выделенный Forge 1.12.2 / 14.23.5.2859 на Java 8: без client-class loading ошибок, с прежними JVM/config ключами и whitelist. Подтвердить одно подключение Mongo на граф сервера и штатную остановку.
+2. Подключить клиента с модом: вход/повторный вход, `C`, актуальные балансы и расчёт урона, чтение старых коллекций и legacy-слотов. Проверить admin-команды с разрешением и без него, autocomplete и панель.
+3. Проверить покупки x1/x5/x10/x100/all, компенсацию дубликатов, заполнение 26 слотов, пробуждение обоих переходов и оплату. Более высокие ранги и slot enhancements должны сохраняться прежним способом.
+4. Проверить случайные усиления и серии x100/autoclicker: корректное списание, sync/pulse, отсутствие накопления очереди. Переключить коллекции: боевой вклад остаётся глобальным, reward bonus следует активной коллекции.
+5. Проверить managed mobs: spawn/kill, большие HP/награды, click/poison/rage, радиус 2, отсутствие drops/XP, respawn countdown, chunk unload/load и полное обновление admin-командой.
+6. Остановить и повторно запустить сервер с тем же миром/БД: отсутствуют дубликаты/старые entity и двойные подписки, сохранены руны, ранги, усиления, ресурсы и whitelist; transient rage не сохраняется.
+7. Отключить/включить существующий resource pack и выполнить reload: gunpowder fallback, восстановление текстур, tooltip, шрифты и resize работают прежним образом. Варианты 64/128 используют те же пути.
+8. Если используется integrated server, отдельно подтвердить прежнюю доступность команд/resource API и физическую границу core player/mob persistence. Архитектурный релиз не расширяет его исторически неполный игровой режим.
+
+Фиксировать результат с JAR/SHA, версиями Forge/Java, типом клиента и окружением Mongo. Изменение схемы, экономики или поведения по результатам этой проверки оформляется отдельным явным исправлением, а не скрывается в переносе пакетов.

@@ -1,12 +1,10 @@
 package com.example.revolution.network;
 
-
-import com.example.revolution.network.RuneCollectionsPacket;
-import com.example.revolution.network.RuneSlotPacket;
+import com.example.revolution.rune.service.RunePacketFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import net.minecraftforge.fml.common.network.ByteBufUtils;
 import java.util.Arrays;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
 
 /** Pins the pre-cleanup wire layout independently of the renamed Java class names. */
 public final class RuneTransportContractTest {
@@ -25,7 +23,7 @@ public final class RuneTransportContractTest {
                     && decodedSlot.getLayer() == 3 && decodedSlot.isAnimate()
                     && !expectedSlot.isReadable(), "slot decoding changed");
 
-            new RuneCollectionsPacket(Arrays.asList("stored first name", "Other"), 1).toBytes(collections);
+            RunePacketFactory.collections(Arrays.asList("stored first name", "Other"), 1).toBytes(collections);
             expectedCollections.writeInt(2);
             ByteBufUtils.writeUTF8String(expectedCollections, "Яд");
             ByteBufUtils.writeUTF8String(expectedCollections, "Other");

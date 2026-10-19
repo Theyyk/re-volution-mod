@@ -1,12 +1,10 @@
 package com.example.revolution.network;
 
 import com.example.revolution.number.LargeNumbers;
-
 import io.netty.buffer.ByteBuf;
+import java.math.BigDecimal;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-
-import java.math.BigDecimal;
 
 public class PlayerStatsPacket implements IMessage {
     private String coins = "0";

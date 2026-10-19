@@ -1,11 +1,9 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.PrimaryRuneCatalog;
-import com.example.revolution.rune.RuneCompositeEffect;
-import com.example.revolution.rune.RuneProgression;
-import com.example.revolution.rune.RuneStat;
-import com.example.revolution.rune.RuneStatDisplay;
-import com.example.revolution.rune.RuneTargetedPower;
+import com.example.revolution.rune.definition.PrimaryRuneCatalog;
+import com.example.revolution.rune.definition.RuneCompositeEffect;
+import com.example.revolution.rune.definition.RuneTargetedPower;
+import com.example.revolution.rune.rules.RuneProgression;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

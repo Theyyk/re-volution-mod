@@ -1,10 +1,9 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneStatusRegistry;
 import com.example.revolution.number.LargeNumbers;
-import com.example.revolution.resource.ResourceManager;
-
+import com.example.revolution.resource.definition.ResourceDefinitions;
+import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
 
 public final class ClientPlayerStats {
@@ -16,7 +15,7 @@ public final class ClientPlayerStats {
     private static int totalDamage;
     private static double resolvedClickDamage;
     private static double resolvedPoisonDamage;
-    private static int activeRuneStatusId = RuneStatusRegistry.STATUS_POISON;
+    private static int activeRuneStatusId = RuneStatusConfig.STATUS_POISON;
     private static String purchaseResource = "coins";
     private static int purchaseUnitCost = 100;
     private static String awakeningResource = "";
@@ -31,9 +30,9 @@ public final class ClientPlayerStats {
                               String newAwakeningResource, int newAwakeningNormalCost, int newAwakeningImprovedCost) {
         coins = safe(newCoins); crystals = safe(newCrystals); runeDust = safe(newRuneDust); runeShards = safe(newRuneShards); runeCores = safe(newRuneCores);
         totalDamage = newTotalDamage; activeRuneStatusId = newActiveRuneStatusId;
-        purchaseResource = newPurchaseResource == null || newPurchaseResource.trim().isEmpty() ? "coins" : ResourceManager.normalize(newPurchaseResource);
+        purchaseResource = newPurchaseResource == null || newPurchaseResource.trim().isEmpty() ? "coins" : ResourceDefinitions.normalize(newPurchaseResource);
         purchaseUnitCost = Math.max(1, newPurchaseUnitCost);
-        awakeningResource = newAwakeningResource == null ? "" : ResourceManager.normalize(newAwakeningResource);
+        awakeningResource = newAwakeningResource == null ? "" : ResourceDefinitions.normalize(newAwakeningResource);
         awakeningNormalCost = Math.max(0, newAwakeningNormalCost); awakeningImprovedCost = Math.max(0, newAwakeningImprovedCost);
     }
 
@@ -77,12 +76,12 @@ public final class ClientPlayerStats {
     public static int getAwakeningCostForRank(int rank) { return rank >= RuneInventory.IMPROVED_RANK ? awakeningImprovedCost : awakeningNormalCost; }
 
     public static BigDecimal getResourceBalance(String resource) {
-        String normalized = ResourceManager.normalize(resource);
+        String normalized = ResourceDefinitions.normalize(resource);
         if ("coins".equals(normalized)) return coins;
         if ("crystals".equals(normalized)) return crystals;
-        if (ResourceManager.RUNE_DUST.equals(normalized)) return runeDust;
-        if (ResourceManager.RUNE_SHARDS.equals(normalized)) return runeShards;
-        if (ResourceManager.RUNE_CORES.equals(normalized)) return runeCores;
+        if (ResourceDefinitions.RUNE_DUST.equals(normalized)) return runeDust;
+        if (ResourceDefinitions.RUNE_SHARDS.equals(normalized)) return runeShards;
+        if (ResourceDefinitions.RUNE_CORES.equals(normalized)) return runeCores;
         return BigDecimal.valueOf(-1L);
     }
 }
