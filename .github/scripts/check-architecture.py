@@ -103,7 +103,7 @@ def validate():
 
     registrations = [
         ('network/NetworkHandler.java', ['SERVER', 'CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'SERVER', 'CLIENT', 'CLIENT']),
-        ('client/ClientNetworkRegistration.java', ['CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'SERVER', 'CLIENT', 'CLIENT']),
+        ('client/network/ClientNetworkRegistration.java', ['CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'SERVER', 'CLIENT', 'CLIENT']),
     ]
     packets = ['PingPacket', 'PongPacket', 'RuneSlotPacket', 'RuneCollectionsPacket', 'PlayerStatsPacket',
                'AdminPanelRequestPacket', 'AdminPanelStatePacket', 'RuneEnhancementPacket']
