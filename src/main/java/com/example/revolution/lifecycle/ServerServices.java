@@ -1,5 +1,6 @@
 package com.example.revolution.lifecycle;
 
+import com.example.revolution.admin.api.AdminApiServer;
 import com.example.revolution.admin.service.AdminAccessService;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.mob.repository.MobRepository;
@@ -30,12 +31,15 @@ import com.example.revolution.rune.service.RunePurchaseService;
 import com.example.revolution.rune.service.RuneRewardBonusService;
 import com.example.revolution.rune.service.RuneSyncService;
 import com.example.revolution.rune.state.RuneCombatState;
+import java.io.File;
+import java.io.IOException;
 import org.apache.logging.log4j.Logger;
 
 /** One object graph per server lifetime. Only adapters may retrieve it from ServerLifecycle. */
 public final class ServerServices implements AutoCloseable {
     private final MongoConnection connection;
     private final RuneCombatState combatState = new RuneCombatState();
+    private final AdminApiServer adminApi;
     public final AdminAccessService adminAccess = new AdminAccessService(new FileAdminWhitelistRepository());
     public final ResourceService resources;
     public final RuneActionService runeActions;
@@ -51,6 +55,7 @@ public final class ServerServices implements AutoCloseable {
 
     public ServerServices(Logger logger, boolean persistentGameplay) {
         connection = new MongoConnection(logger);
+        adminApi = new AdminApiServer(logger);
         PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
         MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
@@ -75,7 +80,12 @@ public final class ServerServices implements AutoCloseable {
 
     public void connect() { connection.connect(); }
 
+    public void startAdminApi(File configDirectory) throws IOException {
+        adminApi.start(configDirectory);
+    }
+
     @Override public void close() {
+        adminApi.close();
         mobs.clear();
         combatState.clear();
         connection.close();
