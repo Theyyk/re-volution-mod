@@ -3,6 +3,7 @@ package com.example.revolution.lifecycle;
 import com.example.revolution.admin.api.AdminApiServer;
 import com.example.revolution.admin.service.AdminAccessService;
 import com.example.revolution.admin.service.AdminOperationsService;
+import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.ManagedMobService;
 import com.example.revolution.mob.service.MobAdminService;
@@ -33,6 +34,7 @@ import com.example.revolution.rune.service.RuneSyncService;
 import com.example.revolution.rune.state.RuneCombatState;
 import java.io.File;
 import java.io.IOException;
+import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.Logger;
 
 /** One object graph per server lifetime. Only adapters may retrieve it from ServerLifecycle. */
@@ -44,6 +46,7 @@ public final class ServerServices implements AutoCloseable {
     public final ResourceService resources;
     public final RuneActionService runeActions;
     public final AdminOperationsService adminOperations;
+    public final AdminQueryService adminQueries;
     public final ManagedMobService mobs;
     public final MobRewardService mobRewards;
     public final PlayerSessionService sessions;
@@ -55,7 +58,6 @@ public final class ServerServices implements AutoCloseable {
 
     public ServerServices(Logger logger, boolean persistentGameplay) {
         connection = new MongoConnection(logger);
-        adminApi = new AdminApiServer(logger);
         PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
         MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
@@ -73,6 +75,8 @@ public final class ServerServices implements AutoCloseable {
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
         mobs = new ManagedMobService(mobRepository, runeEffects, mobRewards);
         adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements);
+        adminQueries = new AdminQueryService(players, resources, mobRepository);
+        adminApi = new AdminApiServer(logger, adminOperations, adminQueries);
         mobAdmin = new MobAdminService(mobRepository, mobs);
         runeAdmin = new RuneAdminService(players, resources, stats, enhancements);
         collections = new PlayerCollectionService(players, resources, stats);
@@ -80,8 +84,8 @@ public final class ServerServices implements AutoCloseable {
 
     public void connect() { connection.connect(); }
 
-    public void startAdminApi(File configDirectory) throws IOException {
-        adminApi.start(configDirectory);
+    public void startAdminApi(MinecraftServer server, File configDirectory) throws IOException {
+        adminApi.start(server, configDirectory);
     }
 
     @Override public void close() {
