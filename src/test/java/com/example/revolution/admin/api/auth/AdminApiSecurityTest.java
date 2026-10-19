@@ -2,9 +2,11 @@ package com.example.revolution.admin.api.auth;
 
 import com.example.revolution.admin.api.AdminApiBindPolicy;
 import java.io.File;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -16,10 +18,11 @@ public final class AdminApiSecurityTest {
     public static void main(String[] args) throws Exception {
         testBindPolicy();
         testInstallationSecretStability();
+        testInstallationSecretRejectsSymlink();
         testChallengeReplayAndExpiry();
         testSessionExpiryAndShutdown();
         testAuthRateLimit();
-        System.out.println("Admin API loopback, secret, HMAC replay/expiry, session lifecycle and auth rate limits passed");
+        System.out.println("Admin API loopback, secret hardening, HMAC replay/expiry, session lifecycle and auth rate limits passed");
     }
 
     private static void testBindPolicy() throws Exception {
@@ -44,6 +47,30 @@ public final class AdminApiSecurityTest {
             require(java.security.MessageDigest.isEqual(first, second), "installation secret must survive restart");
             java.util.Arrays.fill(first, (byte) 0);
             java.util.Arrays.fill(second, (byte) 0);
+        } finally {
+            deleteRecursively(directory);
+        }
+    }
+
+    private static void testInstallationSecretRejectsSymlink() throws Exception {
+        File directory = Files.createTempDirectory("revolution-admin-secret-link-").toFile();
+        try {
+            Path target = directory.toPath().resolve("target.secret");
+            Files.write(target, Base64.getUrlEncoder().withoutPadding().encode(secret()));
+            Path link = directory.toPath().resolve("revolution-admin.secret");
+            try {
+                Files.createSymbolicLink(link, target.getFileName());
+            } catch (UnsupportedOperationException | IOException | SecurityException unsupported) {
+                return;
+            }
+            try (AdminInstallationSecretStore store = new AdminInstallationSecretStore()) {
+                try {
+                    store.initialize(directory);
+                    throw new AssertionError("symbolic-link installation secret was accepted");
+                } catch (IOException expected) {
+                    // fail-closed behavior
+                }
+            }
         } finally {
             deleteRecursively(directory);
         }
@@ -120,8 +147,8 @@ public final class AdminApiSecurityTest {
     }
 
     private static void deleteRecursively(File file) throws Exception {
-        if (file == null || !file.exists()) return;
-        if (file.isDirectory()) {
+        if (file == null || !Files.exists(file.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)) return;
+        if (file.isDirectory() && !Files.isSymbolicLink(file.toPath())) {
             File[] children = file.listFiles();
             if (children != null) for (File child : children) deleteRecursively(child);
         }
