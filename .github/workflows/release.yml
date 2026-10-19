@@ -1,6 +1,8 @@
 name: Build and Release
 
 on:
+  pull_request:
+    branches: [develop]
   push:
     branches:
       - main
@@ -74,8 +76,13 @@ jobs:
       - name: Check source terminology and package paths
         run: python3 .github/scripts/check-structure.py
 
+      - name: Check architecture and guard regressions
+        run: |
+          python3 .github/scripts/check-architecture.py
+          python3 .github/scripts/test-architecture-guards.py
+
       - name: Build mod
-        run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" -Dnet.minecraftforge.gradle.check.certs=false clean build
+        run: ./gradlew -Dnet.minecraftforge.gradle.check.certs=false clean build
 
       - name: Verify packaged classes and resources
         run: python3 .github/scripts/check-structure.py build/libs/RE-volution-*.jar

@@ -94,7 +94,12 @@ def regressionTests = [
     largeNumberFormatterRegression: 'com.example.revolution.number.LargeNumberFormatterTest',
     mobVirtualHealthRegression: 'com.example.revolution.mob.rules.MobVirtualHealthTest',
     runeTransportContractRegression: 'com.example.revolution.network.RuneTransportContractTest',
-    enhancementRateLimitRegression: 'com.example.revolution.network.EnhancementRequestLimiterTest'
+    enhancementRateLimitRegression: 'com.example.revolution.network.EnhancementRequestLimiterTest',
+    networkWireContractRegression: 'com.example.revolution.network.NetworkWireContractTest',
+    fileAdminWhitelistRepositoryRegression: 'com.example.revolution.persistence.FileAdminWhitelistRepositoryTest',
+    mongoSchemaContractRegression: 'com.example.revolution.persistence.MongoSchemaContractTest',
+    resourceServiceRegression: 'com.example.revolution.resource.service.ResourceServiceTest',
+    runeCombatServiceRegression: 'com.example.revolution.rune.service.RuneCombatServiceTest'
 ]
 regressionTests.each { taskName, entryPoint ->
     def regression = tasks.register(taskName, JavaExec) {
@@ -105,3 +110,12 @@ regressionTests.each { taskName, entryPoint ->
     tasks.named('check').configure { dependsOn regression }
 }
 
+// Can be overridden with -PpythonExecutable=/path/to/python3.
+def pythonExecutable = providers.gradleProperty('pythonExecutable').getOrElse('python')
+tasks.register('architectureCheck', Exec) {
+    commandLine pythonExecutable, '.github/scripts/check-architecture.py'
+}
+tasks.register('architectureGuardRegression', Exec) {
+    commandLine pythonExecutable, '.github/scripts/test-architecture-guards.py'
+}
+tasks.named('check').configure { dependsOn 'architectureCheck', 'architectureGuardRegression' }
