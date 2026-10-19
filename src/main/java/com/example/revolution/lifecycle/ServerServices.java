@@ -1,7 +1,7 @@
 package com.example.revolution.lifecycle;
 
 import com.example.revolution.admin.service.AdminAccessService;
-import com.example.revolution.admin.service.AdminPanelService;
+import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.ManagedMobService;
 import com.example.revolution.mob.service.MobAdminService;
@@ -39,7 +39,7 @@ public final class ServerServices implements AutoCloseable {
     public final AdminAccessService adminAccess = new AdminAccessService(new FileAdminWhitelistRepository());
     public final ResourceService resources;
     public final RuneActionService runeActions;
-    public final AdminPanelService adminPanel;
+    public final AdminOperationsService adminOperations;
     public final ManagedMobService mobs;
     public final MobRewardService mobRewards;
     public final PlayerSessionService sessions;
@@ -67,7 +67,7 @@ public final class ServerServices implements AutoCloseable {
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
         mobs = new ManagedMobService(mobRepository, runeEffects, mobRewards);
-        adminPanel = new AdminPanelService(adminAccess, players, resources, stats, mobRepository, mobs, enhancements);
+        adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements);
         mobAdmin = new MobAdminService(mobRepository, mobs);
         runeAdmin = new RuneAdminService(players, resources, stats, enhancements);
         collections = new PlayerCollectionService(players, resources, stats);
