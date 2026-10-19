@@ -82,6 +82,14 @@ def validate():
     assert 'RateLimitedPingPacketHandler.reset()' in source_map['lifecycle/ServerLifecycle.java'], 'Limiter not reset by lifecycle'
     assert 'stopping.close()' in source_map['lifecycle/ServerLifecycle.java'], 'Server graph not closed'
 
+    # Minecraft 1.12.2 clients can still run on early Java 8. Compiling a direct
+    # FloatBuffer.clear() call on a newer JDK can emit the newer covariant return
+    # descriptor and crash on Java 8u51 with NoSuchMethodError. Keep this reset
+    # explicitly dispatched through Buffer so the bytecode stays compatible.
+    gui_drawing = source_map['client/GuiDrawing.java']
+    assert '((java.nio.Buffer) transform).clear();' in gui_drawing, 'GUI buffer reset lost early-Java-8 compatibility'
+    assert 'transform.clear();' not in gui_drawing, 'Direct FloatBuffer.clear() is unsafe for early Java 8 clients'
+
     registrations = [
         ('network/NetworkHandler.java', ['SERVER', 'CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'SERVER', 'CLIENT', 'CLIENT']),
         ('client/ClientNetworkRegistration.java', ['CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'CLIENT', 'SERVER', 'CLIENT', 'CLIENT']),
@@ -111,7 +119,7 @@ def validate():
                      for path in (ROOT / 'src/main/resources').rglob('*') if path.is_file() and path.name != 'mcmod.info'}
     assert actual_assets == assets, 'Resource assets changed; review the resource contract explicitly'
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, mirrored runners, lifecycle, IDs 0-7, optional client and resource assets passed.')
+    print('Architecture boundaries, Java 8 GUI buffer compatibility, mirrored runners, lifecycle, IDs 0-7, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':
