@@ -1,7 +1,7 @@
 package com.example.revolution.client.input;
 
 import com.example.revolution.RevolutionMod;
-import com.example.revolution.client.RuneGuiPreloader;
+import com.example.revolution.client.ClientUiBridge;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -26,11 +26,11 @@ public class KeyInputHandler {
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
 
-        RuneGuiPreloader.tick();
+        ClientUiBridge.tickRunePreloader();
 
         boolean runesPressed = keyOpenRunes.isPressed();
-        if (runesPressed && !runesWasPressed && !RuneGuiPreloader.isPendingOpen()) {
-            RuneGuiPreloader.beginOpen();
+        if (runesPressed && !runesWasPressed && !ClientUiBridge.isRuneOpenPending()) {
+            ClientUiBridge.beginRuneOpen();
             RevolutionMod.logger.info("Предзагружаю RuneResourcesCardsGuiScreen");
         }
         runesWasPressed = runesPressed;

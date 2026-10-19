@@ -1,8 +1,6 @@
 package com.example.revolution.client.network;
 
-import com.example.revolution.RevolutionMod;
-import com.example.revolution.client.ClientPlayerStats;
-import com.example.revolution.client.RuneGuiPreloader;
+import com.example.revolution.client.ClientUiBridge;
 import com.example.revolution.network.PlayerStatsPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -13,41 +11,9 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
 public class PlayerStatsPacketHandler implements IMessageHandler<PlayerStatsPacket, IMessage> {
-
     @Override
     public IMessage onMessage(PlayerStatsPacket message, MessageContext ctx) {
-        Minecraft.getMinecraft().addScheduledTask(() -> {
-            ClientPlayerStats.update(
-                    message.getCoins(),
-                    message.getCrystals(),
-                    message.getRuneDust(),
-                    message.getRuneShards(),
-                    message.getRuneCores(),
-                    message.getTotalDamage(),
-                    message.getActiveRuneStatusId(),
-                    message.getPurchaseResource(),
-                    message.getPurchaseUnitCost(),
-                    message.getAwakeningResource(),
-                    message.getAwakeningNormalCost(),
-                    message.getAwakeningImprovedCost()
-            );
-            ClientPlayerStats.setResolvedCombat(message.getResolvedClickDamage(), message.getResolvedPoisonDamage());
-            RuneGuiPreloader.noteStats();
-            RevolutionMod.logger.info("Player stats updated on client: coins=" + message.getCoins()
-                    + ", crystals=" + message.getCrystals()
-                    + ", runeDust=" + message.getRuneDust()
-                    + ", runeShards=" + message.getRuneShards()
-                    + ", runeCores=" + message.getRuneCores()
-                    + ", damage=" + message.getTotalDamage()
-                    + ", resolvedClickDamage=" + message.getResolvedClickDamage()
-                    + ", resolvedPoisonDamage=" + message.getResolvedPoisonDamage()
-                    + ", activeRuneStatusId=" + message.getActiveRuneStatusId()
-                    + ", purchaseResource=" + message.getPurchaseResource()
-                    + ", purchaseUnitCost=" + message.getPurchaseUnitCost()
-                    + ", awakeningResource=" + message.getAwakeningResource()
-                    + ", awakeningNormalCost=" + message.getAwakeningNormalCost()
-                    + ", awakeningImprovedCost=" + message.getAwakeningImprovedCost());
-        });
+        Minecraft.getMinecraft().addScheduledTask(() -> ClientUiBridge.acceptPlayerStats(message));
         return null;
     }
 }

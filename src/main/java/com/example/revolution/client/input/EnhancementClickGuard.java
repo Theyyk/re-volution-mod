@@ -1,6 +1,6 @@
 package com.example.revolution.client.input;
 
-import com.example.revolution.client.RunesGuiScreen;
+import com.example.revolution.client.ClientUiBridge;
 import java.util.concurrent.TimeUnit;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraftforge.client.event.GuiScreenEvent;
@@ -21,7 +21,7 @@ public final class EnhancementClickGuard {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onActionPre(GuiScreenEvent.ActionPerformedEvent.Pre event) {
-        if (!(event.getGui() instanceof RunesGuiScreen)) return;
+        if (!ClientUiBridge.isRunesScreen(event.getGui())) return;
 
         GuiButton button = event.getButton();
         if (button == null || button.id != ENHANCE_BUTTON_ID) return;

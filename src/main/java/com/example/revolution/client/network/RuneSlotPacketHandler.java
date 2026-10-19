@@ -1,14 +1,7 @@
 package com.example.revolution.client.network;
 
-import com.example.revolution.client.ClientPlayerStats;
-import com.example.revolution.client.ClientRuneRanks;
-import com.example.revolution.client.RuneCollectionSyncState;
-import com.example.revolution.client.RuneGuiPreloader;
-import com.example.revolution.client.RuneUxUiHandler;
-import com.example.revolution.client.RunesGuiScreen;
+import com.example.revolution.client.ClientUiBridge;
 import com.example.revolution.network.RuneSlotPacket;
-import com.example.revolution.rune.config.RuneStatusConfig;
-import com.example.revolution.rune.state.RuneInventory;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
@@ -18,32 +11,9 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
 public class RuneSlotPacketHandler implements IMessageHandler<RuneSlotPacket, IMessage> {
-
     @Override
     public IMessage onMessage(RuneSlotPacket message, MessageContext ctx) {
-        Minecraft.getMinecraft().addScheduledTask(() -> {
-            RuneGuiPreloader.acceptRune(message);
-            ClientRuneRanks.accept(message);
-            RuneCollectionSyncState.notePacket();
-
-            if (message.isAnimate()
-                    && RuneStatusConfig.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())
-                    && message.getRuneIndex() >= 0
-                    && message.getRuneIndex() < RuneInventory.BOOST_TYPE_COUNT) {
-                RuneUxUiHandler.notePurchase(message.getRuneIndex());
-            }
-
-            if (Minecraft.getMinecraft().currentScreen instanceof RunesGuiScreen) {
-                if (RuneGuiPreloader.shouldSuppressLiveRune(message)) return;
-
-                RunesGuiScreen screen = (RunesGuiScreen) Minecraft.getMinecraft().currentScreen;
-                if (message.getSlot() == -1) {
-                    screen.clearRunes();
-                } else {
-                    screen.addRuneFromServer(message.getSlot(), message.getRuneIndex(), message.getLayer());
-                }
-            }
-        });
+        Minecraft.getMinecraft().addScheduledTask(() -> ClientUiBridge.acceptRune(message));
         return null;
     }
 }

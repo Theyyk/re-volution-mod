@@ -1,6 +1,6 @@
 package com.example.revolution.client.network;
 
-import com.example.revolution.client.ClientRuneEnhancements;
+import com.example.revolution.client.ClientUiBridge;
 import com.example.revolution.network.RuneEnhancementPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -13,7 +13,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 public class RuneEnhancementPacketHandler implements IMessageHandler<RuneEnhancementPacket, IMessage> {
     @Override
     public IMessage onMessage(RuneEnhancementPacket message, MessageContext ctx) {
-        Minecraft.getMinecraft().addScheduledTask(() -> ClientRuneEnhancements.accept(message));
+        Minecraft.getMinecraft().addScheduledTask(() -> ClientUiBridge.acceptEnhancement(message));
         return null;
     }
 }
