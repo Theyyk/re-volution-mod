@@ -1,4 +1,4 @@
-package com.example.revolution.mob;
+package com.example.revolution.mob.event;
 
 import com.example.revolution.mob.service.ManagedMobService;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;

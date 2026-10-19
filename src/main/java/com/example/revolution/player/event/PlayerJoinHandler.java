@@ -1,4 +1,4 @@
-package com.example.revolution.player;
+package com.example.revolution.player.event;
 
 import com.example.revolution.player.service.PlayerSessionService;
 import net.minecraft.entity.player.EntityPlayerMP;

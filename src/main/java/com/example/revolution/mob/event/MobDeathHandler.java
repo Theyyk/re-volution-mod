@@ -1,4 +1,4 @@
-package com.example.revolution.mob;
+package com.example.revolution.mob.event;
 
 import com.example.revolution.RevolutionMod;
 import com.example.revolution.lifecycle.ServerLifecycle;
