@@ -1,6 +1,7 @@
-package com.example.revolution.client;
+package com.example.revolution.client.input;
 
 import com.example.revolution.RevolutionMod;
+import com.example.revolution.client.RuneGuiPreloader;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;

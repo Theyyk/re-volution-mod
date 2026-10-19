@@ -1,5 +1,6 @@
-package com.example.revolution.client;
+package com.example.revolution.client.input;
 
+import com.example.revolution.client.RunesGuiScreen;
 import java.util.concurrent.TimeUnit;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraftforge.client.event.GuiScreenEvent;

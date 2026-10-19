@@ -1,4 +1,4 @@
-package com.example.revolution.client;
+package com.example.revolution.client.input;
 
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.admin.AdminPanelRequestPacket;
