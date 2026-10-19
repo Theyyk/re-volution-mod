@@ -29,9 +29,9 @@ jobs:
 
           # Five/Seven OTF decision and source: docs/permissions/cristalix.md
           forbidden_paths=(
-            "src/main/java/com/example/customguimod/CristalixGuiTheme.java"
-            "src/main/resources/assets/customguimod/themes/cristalix"
-            "src/main/resources/assets/customguimod/textures/gui/cristalix"
+            "src/main/java/com/example/revolution/CristalixGuiTheme.java"
+            "src/main/resources/assets/revolution/themes/cristalix"
+            "src/main/resources/assets/revolution/textures/gui/cristalix"
           )
 
           found=0
@@ -78,7 +78,7 @@ jobs:
         run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" -Dnet.minecraftforge.gradle.check.certs=false clean build
 
       - name: Verify packaged classes and resources
-        run: python3 .github/scripts/check-structure.py build/libs/customguimod-*.jar
+        run: python3 .github/scripts/check-structure.py build/libs/RE-volution-*.jar
 
       - name: Prepare artifact name
         id: artifact_name
@@ -90,8 +90,8 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: customguimod-${{ steps.artifact_name.outputs.ref }}
-          path: build/libs/customguimod-*.jar
+          name: RE-volution-${{ steps.artifact_name.outputs.ref }}
+          path: build/libs/RE-volution-*.jar
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -100,8 +100,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "${GITHUB_REF_NAME}" build/libs/customguimod-*.jar \
-            --title "Custom GUI Mod ${GITHUB_REF_NAME}" \
+          gh release create "${GITHUB_REF_NAME}" build/libs/RE-volution-*.jar \
+            --title "RE:volution Mod ${GITHUB_REF_NAME}" \
             --notes-file ".github/release-notes/${GITHUB_REF_NAME}.md"
 
       - name: Delete merged feature and release branches

@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 BUILD_GRADLE = ROOT / "build.gradle"
 MCMOD_INFO = ROOT / "src/main/resources/mcmod.info"
-MOD_CLASS = ROOT / "src/main/java/com/example/customguimod/CustomGuiMod.java"
+MOD_CLASS = ROOT / "src/main/java/com/example/revolution/RevolutionMod.java"
 
 
 def read_build_version():
@@ -37,7 +37,7 @@ def read_source_version():
     )
     if not match:
         raise ValueError(
-            "src/main/java/com/example/customguimod/CustomGuiMod.java: VERSION constant was not found"
+            "src/main/java/com/example/revolution/RevolutionMod.java: VERSION constant was not found"
         )
     return match.group(1)
 
@@ -54,7 +54,7 @@ def main():
         versions = {
             "build.gradle": read_build_version(),
             "src/main/resources/mcmod.info": read_mcmod_version(),
-            "src/main/java/com/example/customguimod/CustomGuiMod.java": read_source_version(),
+            "src/main/java/com/example/revolution/RevolutionMod.java": read_source_version(),
         }
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"Version consistency check failed: {exc}")

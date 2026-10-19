@@ -28,7 +28,7 @@ git diff --check
 Английский файл сохраняет принятые заголовки:
 
 ```markdown
-## Custom GUI Mod vX.Y.Z
+## RE:volution vX.Y.Z
 
 Brief release summary.
 

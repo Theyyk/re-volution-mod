@@ -1,5 +1,6 @@
-"""Check current Java terminology and the actual packaged artifact (no Minecraft runtime)."""
+"""Check current Java terminology, branding metadata and the packaged artifact."""
 from pathlib import Path
+import json
 import re
 import sys
 import zipfile
@@ -9,6 +10,12 @@ LEXER = re.compile(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|\
 
 
 def check_sources():
+    main_root = ROOT / 'src/main/java/com/example/revolution'
+    allowed_main_root = {'BrandingProperties.java', 'RevolutionMod.java', 'ServerInit.java'}
+    actual_main_root = {p.name for p in main_root.glob('*.java')}
+    assert actual_main_root == allowed_main_root, ('Unexpected root production classes', sorted(actual_main_root))
+    test_root = ROOT / 'src/test/java/com/example/revolution'
+    assert not list(test_root.glob('*.java')), ('Unexpected root test classes', sorted(p.name for p in test_root.glob('*.java')))
     for path in (ROOT / 'src').rglob('*.java'):
         source = path.read_text(encoding='utf-8')
         package = re.search(r'^package ([\w.]+);', source, re.M).group(1)
@@ -22,6 +29,32 @@ def check_sources():
     gradle = (ROOT / 'build.gradle').read_text(encoding='utf-8')
     for name in re.findall(r"mainClass = '([^']+)'", gradle):
         assert (ROOT / 'src/test/java' / (name.replace('.', '/') + '.java')).is_file(), name
+
+
+def check_branding():
+    old_brand = 'Custom' + ' GUI Mod'
+    template_vendor = 'examplemods' + 'areus'
+    for path in ROOT.rglob('*'):
+        if not path.is_file() or '.git' in path.parts:
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError):
+            continue
+        assert old_brand not in text, f'Legacy display branding remains in {path.relative_to(ROOT)}'
+        assert template_vendor not in text, f'Forge template vendor remains in {path.relative_to(ROOT)}'
+
+    gradle = (ROOT / 'build.gradle').read_text(encoding='utf-8')
+    assert 'archivesBaseName = \'RE-volution\'' in gradle
+    assert '"Specification-Title": "RE:volution Mod"' in gradle
+    assert '"Specification-Vendor": "Theyyk"' in gradle
+    assert '"Implementation-Title": "RE:volution Mod"' in gradle
+    assert '"Implementation-Vendor" :"Theyyk"' in gradle
+
+    mcmod = json.loads((ROOT / 'src/main/resources/mcmod.info').read_text(encoding='utf-8'))
+    assert mcmod and mcmod[0]['modid'] == 'revolution'
+    assert mcmod[0]['name'] == 'RE:volution Mod'
+    assert mcmod[0]['authorList'] == ['Theyyk']
 
 
 def check_jar(path):
@@ -38,14 +71,16 @@ def check_jar(path):
             if name.endswith('.class'):
                 assert not re.search(r'Card|Deck|EarthRune|FlyingRune|FlyingCard|TestSupport|Test\$', name), name
                 assert not name.endswith('Test.class'), name
-        assert 'com/example/customguimod/network/RuneSlotPacket.class' in names
-        assert 'com/example/customguimod/RuneCollectionsPacket.class' in names
-        assert 'com/example/customguimod/PrimaryRuneCatalog.class' in names
+        assert 'com/example/revolution/network/RuneSlotPacket.class' in names
+        assert 'com/example/revolution/network/RuneCollectionsPacket.class' in names
+        assert 'com/example/revolution/rune/PrimaryRuneCatalog.class' in names
+        assert 'com/example/revolution/client/RunesGuiScreen.class' in names
 
 
 if __name__ == '__main__':
     check_sources()
+    check_branding()
     if len(sys.argv) > 1:
         check_jar(Path(sys.argv[1]))
-    print('Source terminology, package paths and Gradle test entry points passed.' if len(sys.argv) == 1
-          else 'Source checks and JAR classes/resources/test exclusion passed.')
+    print('Source terminology, branding metadata, package paths and Gradle test entry points passed.' if len(sys.argv) == 1
+          else 'Source/branding checks and JAR classes/resources/test exclusion passed.')
