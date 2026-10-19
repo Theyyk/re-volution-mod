@@ -1,4 +1,5 @@
 package com.example.revolution.client;
+
 /** Existing GUI palette, including icons, ranks and hover/disabled states. */
 final class GuiTheme {
     private GuiTheme() {}

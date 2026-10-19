@@ -1,4 +1,5 @@
 package com.example.revolution.client;
+
 /** Keeps purchase controls hidden only during an explicit rune collection synchronization. */
 final class RuneCollectionSyncState {
     private static final long SETTLE_DELAY_MS = 250L;

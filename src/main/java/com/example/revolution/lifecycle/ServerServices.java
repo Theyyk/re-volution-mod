@@ -1,0 +1,83 @@
+package com.example.revolution.lifecycle;
+
+import com.example.revolution.admin.service.AdminAccessService;
+import com.example.revolution.admin.service.AdminPanelService;
+import com.example.revolution.mob.repository.MobRepository;
+import com.example.revolution.mob.service.ManagedMobService;
+import com.example.revolution.mob.service.MobAdminService;
+import com.example.revolution.mob.service.MobRewardService;
+import com.example.revolution.persistence.FileAdminWhitelistRepository;
+import com.example.revolution.persistence.MongoConnection;
+import com.example.revolution.persistence.MongoMobRepository;
+import com.example.revolution.persistence.MongoPlayerRepository;
+import com.example.revolution.persistence.MongoResourceRepository;
+import com.example.revolution.persistence.MongoRuneEnhancementRepository;
+import com.example.revolution.player.repository.PlayerRepository;
+import com.example.revolution.player.service.PlayerCollectionService;
+import com.example.revolution.player.service.PlayerSessionService;
+import com.example.revolution.player.service.PlayerStatsService;
+import com.example.revolution.player.service.PlayerStatsSyncService;
+import com.example.revolution.resource.service.ResourceService;
+import com.example.revolution.rune.repository.RuneEnhancementRepository;
+import com.example.revolution.rune.service.RuneActionService;
+import com.example.revolution.rune.service.RuneAdminService;
+import com.example.revolution.rune.service.RuneAwakeningPaymentService;
+import com.example.revolution.rune.service.RuneAwakeningService;
+import com.example.revolution.rune.service.RuneCombatService;
+import com.example.revolution.rune.service.RuneEnhancementService;
+import com.example.revolution.rune.service.RuneMobEffectService;
+import com.example.revolution.rune.service.RunePurchaseService;
+import com.example.revolution.rune.service.RuneRewardBonusService;
+import com.example.revolution.rune.service.RuneSyncService;
+import com.example.revolution.rune.state.RuneCombatState;
+import org.apache.logging.log4j.Logger;
+
+/** One object graph per server lifetime. Only adapters may retrieve it from ServerLifecycle. */
+public final class ServerServices implements AutoCloseable {
+    private final MongoConnection connection;
+    private final RuneCombatState combatState = new RuneCombatState();
+    public final AdminAccessService adminAccess = new AdminAccessService(new FileAdminWhitelistRepository());
+    public final ResourceService resources;
+    public final RuneActionService runeActions;
+    public final AdminPanelService adminPanel;
+    public final ManagedMobService mobs;
+    public final MobRewardService mobRewards;
+    public final PlayerSessionService sessions;
+    public final PlayerStatsService playerStats;
+    public final RuneCombatService combat;
+    public final MobAdminService mobAdmin;
+    public final RuneAdminService runeAdmin;
+    public final PlayerCollectionService collections;
+
+    public ServerServices(Logger logger, boolean persistentGameplay) {
+        connection = new MongoConnection(logger);
+        PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
+        MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
+        RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
+        resources = new ResourceService(new MongoResourceRepository(connection));
+        combat = new RuneCombatService(players, enhancements, combatState);
+        RuneMobEffectService runeEffects = new RuneMobEffectService(combat, new RuneRewardBonusService(players, enhancements));
+        playerStats = new PlayerStatsService(players, enhancements);
+        PlayerStatsSyncService stats = new PlayerStatsSyncService(players, resources, playerStats, combat);
+        sessions = new PlayerSessionService(players, resources, stats);
+        RuneSyncService sync = new RuneSyncService(players, enhancements);
+        runeActions = new RuneActionService(players, stats,
+                new RunePurchaseService(players, resources, stats),
+                new RuneEnhancementService(players, resources, stats, enhancements, sync),
+                new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
+        mobRewards = new MobRewardService(resources, runeEffects, stats, players);
+        mobs = new ManagedMobService(mobRepository, runeEffects, mobRewards);
+        adminPanel = new AdminPanelService(adminAccess, players, resources, stats, mobRepository, mobs, enhancements);
+        mobAdmin = new MobAdminService(mobRepository, mobs);
+        runeAdmin = new RuneAdminService(players, resources, stats, enhancements);
+        collections = new PlayerCollectionService(players, resources, stats);
+    }
+
+    public void connect() { connection.connect(); }
+
+    @Override public void close() {
+        mobs.clear();
+        combatState.clear();
+        connection.close();
+    }
+}

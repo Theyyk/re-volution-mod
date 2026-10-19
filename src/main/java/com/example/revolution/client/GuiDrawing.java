@@ -1,7 +1,9 @@
 package com.example.revolution.client;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
+import org.lwjgl.opengl.GL11;
 
 /** Pixel-snapped surface drawing shared by the screen and its controls. */
 final class GuiDrawing extends Gui {
@@ -23,7 +25,9 @@ final class GuiDrawing extends Gui {
 
         GlStateManager.pushMatrix();
         java.nio.FloatBuffer transform = SURFACE_TRANSFORM;
-        transform.clear();
+        // Compile against Buffer.clear() rather than the newer covariant FloatBuffer
+        // signature so the client remains binary-compatible with early Java 8 runtimes.
+        ((java.nio.Buffer) transform).clear();
         org.lwjgl.opengl.GL11.glGetFloat(org.lwjgl.opengl.GL11.GL_MODELVIEW_MATRIX, transform);
         float guiScale = new net.minecraft.client.gui.ScaledResolution(Minecraft.getMinecraft()).getScaleFactor();
         float pixels = Math.max(0.01F, Math.abs(transform.get(0)) * guiScale);

@@ -1,16 +1,14 @@
 package com.example.revolution.client;
 
-import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.NetworkHandler;
+import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.RuneSlotPacket;
-
-import net.minecraft.client.Minecraft;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 /** Collects the first GUI snapshot before the rune screen becomes visible. */
 @SideOnly(Side.CLIENT)

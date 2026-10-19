@@ -55,3 +55,7 @@ CREDITS.txt
 LICENSE*.txt
 changelog.txt
 README.txt
+
+# Python architecture guards
+__pycache__/
+*.pyc

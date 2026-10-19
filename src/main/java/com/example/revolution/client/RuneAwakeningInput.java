@@ -1,7 +1,7 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneStatusRegistry;
+import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.state.RuneInventory;
 import java.util.function.IntPredicate;
 
 /** Resolves awakening input and rune selection using the rendered layout. */
@@ -14,8 +14,8 @@ final class RuneAwakeningInput {
 
     static int runeAt(GuiLayout layout, RuneInventory inventory, int activeCollection,
                       int screenX, int screenY, IntPredicate matchesSearch) {
-        int statusId = RuneStatusRegistry.statusForCollection(activeCollection);
-        if (!RuneStatusRegistry.isRuneStatus(statusId) || !inventory.hasAllCatalogRunes()) return -1;
+        int statusId = RuneStatusConfig.statusForCollection(activeCollection);
+        if (!RuneStatusConfig.isRuneStatus(statusId) || !inventory.hasAllCatalogRunes()) return -1;
 
         boolean allAdvanced = true;
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {

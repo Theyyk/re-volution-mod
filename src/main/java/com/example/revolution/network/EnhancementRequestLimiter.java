@@ -32,4 +32,6 @@ final class EnhancementRequestLimiter {
         });
         return accepted.get();
     }
+
+    void clear() { lastAcceptedAt.clear(); }
 }

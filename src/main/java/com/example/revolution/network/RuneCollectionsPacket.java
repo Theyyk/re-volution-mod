@@ -1,12 +1,10 @@
 package com.example.revolution.network;
 
-import com.example.revolution.rune.RuneStatusRegistry;
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.ByteBufUtils;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 public class RuneCollectionsPacket implements IMessage {
 
@@ -16,10 +14,7 @@ public class RuneCollectionsPacket implements IMessage {
     public RuneCollectionsPacket() {}
 
     public RuneCollectionsPacket(List<String> collectionNames, int activeCollection) {
-        this.collectionNames = new ArrayList<>();
-        for (int i = 0; i < collectionNames.size(); i++) {
-            this.collectionNames.add(RuneStatusRegistry.displayNameForCollection(i, collectionNames.get(i)));
-        }
+        this.collectionNames = new ArrayList<>(collectionNames);
         this.activeCollection = activeCollection;
     }
 

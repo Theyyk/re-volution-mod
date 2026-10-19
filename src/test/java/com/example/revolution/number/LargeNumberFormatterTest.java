@@ -1,14 +1,13 @@
 package com.example.revolution.number;
 
-import com.example.revolution.rune.RuneTestSupport;
-
+import com.example.revolution.rune.definition.RuneTestSupport;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-final class LargeNumberFormatterTest {
-    static void run() {
+public final class LargeNumberFormatterTest {
+    public static void run() {
         checkFormat(0, "0");
         checkFormat(12, "12");
         checkFormat(999, "999");

@@ -1,4 +1,5 @@
 package com.example.revolution.client;
+
 /** Logical canvas geometry and input conversion; independent of Minecraft/OpenGL. */
 final class GuiLayout {
     static final int CANVAS_WIDTH = 1280;

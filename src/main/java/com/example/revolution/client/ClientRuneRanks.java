@@ -1,9 +1,8 @@
 package com.example.revolution.client;
 
-import com.example.revolution.rune.RuneInventory;
-import com.example.revolution.rune.RuneProgression;
 import com.example.revolution.network.RuneSlotPacket;
-
+import com.example.revolution.rune.rules.RuneProgression;
+import com.example.revolution.rune.state.RuneInventory;
 import java.util.Arrays;
 
 final class ClientRuneRanks {

@@ -1,20 +1,19 @@
 buildscript {
     repositories {
         maven { url = 'https://maven.minecraftforge.net/' }
-		maven { url = 'https://repo.spongepowered.org/maven' }
+        maven { url = 'https://repo.spongepowered.org/maven' }
         mavenCentral()
     }
     dependencies {
         classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.73'
     }
 }
-        
+
 apply plugin: 'net.minecraftforge.gradle'
-// Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.3.0'
+version = '1.3.1'
 group = 'com.example.revolution'
 archivesBaseName = 'RE-volution'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
@@ -41,7 +40,7 @@ minecraft {
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2859'
-	implementation 'org.mongodb:mongodb-driver-sync:4.5.1'
+    implementation 'org.mongodb:mongodb-driver-sync:4.5.1'
 }
 configurations.configureEach {
     resolutionStrategy {
@@ -57,7 +56,7 @@ jar {
             "Specification-Version": "1",
             "Implementation-Title": "RE:volution Mod",
             "Implementation-Version": "${version}",
-            "Implementation-Vendor" :"Theyyk",
+            "Implementation-Vendor": "Theyyk",
             "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
@@ -73,134 +72,50 @@ publishing {
     }
     repositories {
         maven {
-            url "file:///${project.projectDir}/mcmodsrepo"
+            url = uri('mcmodsrepo')
         }
     }
 }
 
-// Exercises physical-slot mirroring without starting Minecraft or MongoDB.
-tasks.register('runeInventoryRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.rune.RuneInventoryTest'
+// Standalone assertion runners avoid booting Minecraft, OpenGL or MongoDB in CI.
+def regressionTests = [
+    runeInventoryRegression: 'com.example.revolution.rune.state.RuneInventoryTest',
+    guiLayoutRegression: 'com.example.revolution.client.GuiLayoutTest',
+    runeEconomyRegression: 'com.example.revolution.rune.config.RuneEconomyConfigTest',
+    primaryRuneCatalogRegression: 'com.example.revolution.rune.definition.PrimaryRuneCatalogTest',
+    runeTooltipContentRegression: 'com.example.revolution.client.RuneTooltipContentTest',
+    runeStatContentRegression: 'com.example.revolution.rune.definition.RuneStatContentTest',
+    runeCombatMathRegression: 'com.example.revolution.client.RuneCombatMathTest',
+    mobRewardBonusRegression: 'com.example.revolution.rune.rules.MobRewardBonusTest',
+    runeEnhancementPacketRegression: 'com.example.revolution.client.RuneEnhancementPacketTest',
+    multiStatusRuneRegression: 'com.example.revolution.rune.config.RuneStatusConfigTest',
+    multiStatusRuneEconomyRegression: 'com.example.revolution.rune.config.MultiStatusRuneEconomyTest',
+    resourceActionFoundationRegression: 'com.example.revolution.resource.service.ResourceActionFoundationTest',
+    largeNumberFormatterRegression: 'com.example.revolution.number.LargeNumberFormatterTest',
+    mobVirtualHealthRegression: 'com.example.revolution.mob.rules.MobVirtualHealthTest',
+    runeTransportContractRegression: 'com.example.revolution.network.RuneTransportContractTest',
+    enhancementRateLimitRegression: 'com.example.revolution.network.EnhancementRequestLimiterTest',
+    networkWireContractRegression: 'com.example.revolution.network.NetworkWireContractTest',
+    fileAdminWhitelistRepositoryRegression: 'com.example.revolution.persistence.FileAdminWhitelistRepositoryTest',
+    mongoSchemaContractRegression: 'com.example.revolution.persistence.MongoSchemaContractTest',
+    resourceServiceRegression: 'com.example.revolution.resource.service.ResourceServiceTest',
+    runeCombatServiceRegression: 'com.example.revolution.rune.service.RuneCombatServiceTest'
+]
+regressionTests.each { taskName, entryPoint ->
+    def regression = tasks.register(taskName, JavaExec) {
+        dependsOn testClasses
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = entryPoint
+    }
+    tasks.named('check').configure { dependsOn regression }
 }
-check.dependsOn runeInventoryRegression
 
-// Preserve viewport geometry and pointer mapping independently of Minecraft/OpenGL.
-tasks.register('guiLayoutRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.client.GuiLayoutTest'
+// Can be overridden with -PpythonExecutable=/path/to/python3.
+def pythonExecutable = providers.gradleProperty('pythonExecutable').getOrElse('python')
+tasks.register('architectureCheck', Exec) {
+    commandLine pythonExecutable, '.github/scripts/check-architecture.py'
 }
-check.dependsOn guiLayoutRegression
-
-// Keep the existing configurable economy contract under CI rather than compile-only coverage.
-tasks.register('runeEconomyRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.rune.RuneEconomyConfigTest'
+tasks.register('architectureGuardRegression', Exec) {
+    commandLine pythonExecutable, '.github/scripts/test-architecture-guards.py'
 }
-check.dependsOn runeEconomyRegression
-
-// Keep the fixed poison catalog and rune stat content under CI.
-tasks.register('primaryRuneCatalogRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.rune.PrimaryRuneCatalogTest'
-}
-check.dependsOn primaryRuneCatalogRegression
-
-// Keep player-facing tooltip composition and stat formatting under CI.
-tasks.register('runeTooltipContentRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.client.RuneTooltipContentTest'
-}
-check.dependsOn runeTooltipContentRegression
-
-// Keep reference-backed scalar stat types and structured multi-line effects under CI.
-tasks.register('runeStatContentRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.rune.RuneStatContentTest'
-}
-check.dependsOn runeStatContentRegression
-
-// Keep v1.2.10 click/poison combat channel math and targeted-power ordering under CI.
-tasks.register('runeCombatMathRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.client.RuneCombatMathTest'
-}
-check.dependsOn runeCombatMathRegression
-
-// Mob reward stats apply only to coins and the three rune resources; crystals/compensation stay untouched.
-tasks.register('mobRewardBonusRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.rune.MobRewardBonusTest'
-}
-check.dependsOn mobRewardBonusRegression
-
-// Keep server-authored enhancement metadata ready for the GUI contract.
-tasks.register('runeEnhancementPacketRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.client.RuneEnhancementPacketTest'
-}
-check.dependsOn runeEnhancementPacketRegression
-
-// Prove that collection routing and economy configuration remain isolated across rune statuses.
-tasks.register('multiStatusRuneRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.rune.RuneStatusRegistryTest'
-}
-check.dependsOn multiStatusRuneRegression
-
-tasks.register('multiStatusRuneEconomyRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.rune.MultiStatusRuneEconomyTest'
-}
-check.dependsOn multiStatusRuneEconomyRegression
-
-// Keep the v1.2.8 resource-action contract and retired-resource policy under CI.
-tasks.register('resourceActionFoundationRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.resource.ResourceActionFoundationTest'
-}
-check.dependsOn resourceActionFoundationRegression
-
-// Keep v1.2.11 compact-number thresholds and player-facing suffixes stable.
-tasks.register('largeNumberFormatterRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.number.LargeNumberFormatterTest'
-}
-check.dependsOn largeNumberFormatterRegression
-
-// Keep managed mob HP independent from Minecraft 1.12.2's 1024 generic.maxHealth cap.
-tasks.register('mobVirtualHealthRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.mob.MobVirtualHealthTest'
-}
-check.dependsOn mobVirtualHealthRegression
-
-// Pin renamed rune transport to the existing byte-level protocol.
-tasks.register('runeTransportContractRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.network.RuneTransportContractTest'
-}
-check.dependsOn runeTransportContractRegression
-
-// Keep enhancement packet bursts bounded before they can queue server-thread work.
-tasks.register('enhancementRateLimitRegression', JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.example.revolution.network.EnhancementRequestLimiterTest'
-}
-check.dependsOn enhancementRateLimitRegression
+tasks.named('check').configure { dependsOn 'architectureCheck', 'architectureGuardRegression' }

@@ -1,0 +1,8 @@
+{
+  "src/main/resources/pack.mcmeta": "a94f455eda44e4abab68a6425353cac65c10a0dcd1f4fcad8143f7965a866fe4",
+  "src/main/resources/assets/revolution/fonts/minecraft_five.otf": "afd068f97cacae7d1b08d01719feb6c00c177b3b7d1cb04d27a032417b0e4c29",
+  "src/main/resources/assets/revolution/fonts/minecraft_seven.otf": "3ac46d75d4fe3aae7412d18e09047b70073a8e779488f72560c09f8c474fecc6",
+  "src/main/resources/assets/revolution/fonts/README.md": "9349c5452b2b628a10e80b274118d1bbd331502e5275277a048bb367b5d123db",
+  "src/main/resources/assets/revolution/shaders/post/gui_blur.json": "6226167c597200ecf0b05a2be72a7983ad5f9b1177af0eeed17cca2677692e92",
+  "src/main/resources/assets/revolution/textures/gui/runes/README.md": "ded957eca8f1981aed7bf82c9c42845fa09d74f7904585605f0ded4c0e878dbe"
+}
