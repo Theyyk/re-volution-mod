@@ -19,7 +19,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.Logger;
 
-/** Registers explicit versioned routes and delegates only to typed admin services on the server thread. */
+/** Registers explicit versioned routes and delegates only typed values to admin services on the server thread. */
 final class AdminApiRoutes {
     private static final Set<String> RESOURCE_FIELDS = fields("uuid", "resource", "value");
     private static final Set<String> RESOURCE_ADD_FIELDS = fields("uuid", "resource", "amount");
@@ -47,36 +47,35 @@ final class AdminApiRoutes {
     }
 
     void register(HttpServer http, RouteWrapper wrapper) {
-        read(http, wrapper, "/api/v1/resources", AdminApiCapability.RESOURCES_READ,
-                exchange -> AdminApiJson.resources(serverThread.call(queries::resourceNames)));
-        read(http, wrapper, "/api/v1/players", AdminApiCapability.PLAYERS_READ,
-                exchange -> {
-                    if (!authorized(exchange, AdminApiCapability.RESOURCES_READ)
-                            || !authorized(exchange, AdminApiCapability.RUNES_READ)) return null;
-                    return AdminApiJson.players(serverThread.call(() -> queries.onlinePlayers(server.getPlayerList().getPlayers())));
-                });
-        read(http, wrapper, "/api/v1/mobs", AdminApiCapability.MOBS_READ,
-                exchange -> AdminApiJson.mobs(serverThread.call(queries::mobs)));
+        read(http, wrapper, "/api/v1/resources",
+                () -> AdminApiJson.resources(serverThread.call(queries::resourceNames)),
+                AdminApiCapability.RESOURCES_READ);
+        read(http, wrapper, "/api/v1/players",
+                () -> AdminApiJson.players(serverThread.call(() -> queries.onlinePlayers(server.getPlayerList().getPlayers()))),
+                AdminApiCapability.PLAYERS_READ, AdminApiCapability.RESOURCES_READ, AdminApiCapability.RUNES_READ);
+        read(http, wrapper, "/api/v1/mobs",
+                () -> AdminApiJson.mobs(serverThread.call(queries::mobs)),
+                AdminApiCapability.MOBS_READ);
 
         form(http, wrapper, "/api/v1/resources/set", AdminApiCapability.RESOURCES_WRITE, RESOURCE_FIELDS,
-                (form, exchange) -> withOnlinePlayer(form.get("uuid"), player ->
+                form -> withOnlinePlayer(form.get("uuid"), player ->
                         operations.setResource(player, form.get("resource"), exactNumber(form.get("value"), false))));
         form(http, wrapper, "/api/v1/resources/add", AdminApiCapability.RESOURCES_WRITE, RESOURCE_ADD_FIELDS,
-                (form, exchange) -> withOnlinePlayer(form.get("uuid"), player ->
+                form -> withOnlinePlayer(form.get("uuid"), player ->
                         operations.addResource(player, form.get("resource"), exactNumber(form.get("amount"), true))));
         form(http, wrapper, "/api/v1/resources/zero-all", AdminApiCapability.RESOURCES_WRITE, UUID_FIELDS,
-                (form, exchange) -> withOnlinePlayer(form.get("uuid"), player -> {
+                form -> withOnlinePlayer(form.get("uuid"), player -> {
                     operations.zeroAllResources(player);
                     return true;
                 }));
 
         form(http, wrapper, "/api/v1/runes/clear", AdminApiCapability.RUNES_WRITE, UUID_FIELDS,
-                (form, exchange) -> withOnlinePlayer(form.get("uuid"), player -> {
+                form -> withOnlinePlayer(form.get("uuid"), player -> {
                     operations.clearRunes(player);
                     return true;
                 }));
         form(http, wrapper, "/api/v1/runes/fill", AdminApiCapability.RUNES_WRITE, RUNES_FILL_FIELDS,
-                (form, exchange) -> {
+                form -> {
                     int rank = strictInt(form.get("rank"), 1, 3);
                     return withOnlinePlayer(form.get("uuid"), player -> {
                         operations.fillRunes(player, rank);
@@ -84,36 +83,33 @@ final class AdminApiRoutes {
                     });
                 });
         form(http, wrapper, "/api/v1/runes/reset-enhancements", AdminApiCapability.RUNES_WRITE, UUID_FIELDS,
-                (form, exchange) -> withOnlinePlayer(form.get("uuid"), player -> {
+                form -> withOnlinePlayer(form.get("uuid"), player -> {
                     operations.resetEnhancements(player);
                     return true;
                 }));
 
         form(http, wrapper, "/api/v1/mobs/create", AdminApiCapability.MOBS_WRITE, MOB_CREATE_FIELDS,
-                (form, exchange) -> operations.createMob(
+                form -> operations.createMob(
                         form.get("name"), form.get("type"), form.get("resource"),
                         exactNumber(form.get("amount"), false), exactNumber(form.get("hp"), false),
                         coordinate(form.get("x"), false), coordinate(form.get("y"), true), coordinate(form.get("z"), false)));
         form(http, wrapper, "/api/v1/mobs/delete", AdminApiCapability.MOBS_WRITE, MOB_NAME_FIELDS,
-                (form, exchange) -> operations.deleteMob(form.get("name")));
+                form -> operations.deleteMob(form.get("name")));
         form(http, wrapper, "/api/v1/mobs/set-spawn", AdminApiCapability.MOBS_WRITE, MOB_SPAWN_FIELDS,
-                (form, exchange) -> operations.setMobSpawn(
+                form -> operations.setMobSpawn(
                         form.get("name"), coordinate(form.get("x"), false), coordinate(form.get("y"), true), coordinate(form.get("z"), false)));
     }
 
-    private void read(HttpServer http, RouteWrapper wrapper, String path, AdminApiCapability capability, ReadAction action) {
+    private void read(HttpServer http, RouteWrapper wrapper, String path, ReadAction action,
+                      AdminApiCapability... capabilities) {
         http.createContext(path, wrapper.wrap(path, exchange -> {
             if (!AdminApiHttp.requireMethod(exchange, "GET") || !AdminApiHttp.requireEmptyBody(exchange)) return;
-            if (!authorized(exchange, capability)) {
+            if (!authorized(exchange, capabilities)) {
                 AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
                 return;
             }
             try {
-                String result = action.execute(exchange);
-                if (result != null) AdminApiHttp.respond(exchange, 200, result);
-                else if (!exchange.getResponseHeaders().containsKey("Content-Type")) {
-                    AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
-                }
+                AdminApiHttp.respond(exchange, 200, action.execute());
             } catch (Exception e) {
                 throw asRuntime(e);
             }
@@ -141,7 +137,7 @@ final class AdminApiRoutes {
                 return;
             }
             try {
-                boolean changed = serverThread.call(() -> action.execute(form, exchange));
+                boolean changed = serverThread.call(() -> action.execute(form));
                 if (!changed) {
                     AdminApiHttp.respond(exchange, 400, "{\"error\":\"rejected\"}");
                     audit(path, form, false);
@@ -159,8 +155,13 @@ final class AdminApiRoutes {
         }));
     }
 
-    private boolean authorized(HttpExchange exchange, AdminApiCapability capability) {
-        return auth.authorizeBearer(AdminApiHttp.boundedHeader(exchange, "Authorization", 128), capability);
+    private boolean authorized(HttpExchange exchange, AdminApiCapability... capabilities) {
+        String authorization = AdminApiHttp.boundedHeader(exchange, "Authorization", 128);
+        if (authorization == null) return false;
+        for (AdminApiCapability capability : capabilities) {
+            if (!auth.authorizeBearer(authorization, capability)) return false;
+        }
+        return true;
     }
 
     private boolean withOnlinePlayer(String rawUuid, PlayerAction action) throws Exception {
@@ -245,8 +246,8 @@ final class AdminApiRoutes {
         HttpHandler wrap(String path, HttpHandler delegate);
     }
 
-    private interface ReadAction { String execute(HttpExchange exchange) throws Exception; }
-    private interface FormAction { boolean execute(AdminFormData form, HttpExchange exchange) throws Exception; }
+    private interface ReadAction { String execute() throws Exception; }
+    private interface FormAction { boolean execute(AdminFormData form) throws Exception; }
     private interface PlayerAction { boolean execute(EntityPlayerMP player) throws Exception; }
     private static final class PlayerOfflineException extends Exception {}
 }
