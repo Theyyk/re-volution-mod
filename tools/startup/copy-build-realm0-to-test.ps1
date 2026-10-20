@@ -1,8 +1,12 @@
 param([switch]$CheckOnly)
 $ErrorActionPreference = 'Stop'
-. "$PSScriptRoot\common.ps1"
-. "$PSScriptRoot\world-sync.ps1"
-. "$PSScriptRoot\realm-world-sync.ps1"
+$scriptDirectory = $PSScriptRoot
+if (-not (Test-Path -LiteralPath (Join-Path $scriptDirectory 'common.ps1') -PathType Leaf)) {
+    $scriptDirectory = Split-Path $PSScriptRoot -Parent
+}
+. "$scriptDirectory\common.ps1"
+. "$scriptDirectory\world-sync.ps1"
+. "$scriptDirectory\realm-world-sync.ps1"
 
 $workflowLock = Open-WorldControlLock '.server-workflow.lock'
 try {

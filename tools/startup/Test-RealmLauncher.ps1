@@ -22,7 +22,9 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'build-server-run.ps1') -Destination $scriptDirectory
     foreach ($name in @('copy-build-realm0-to-test.ps1', 'copy-test-realm0-to-build.ps1')) {
-        Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $scriptDirectory
+        $copyDirectory = Join-Path $scriptDirectory 'World-menegment'
+        New-Item -ItemType Directory -Path $copyDirectory -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $copyDirectory
     }
     @'
 function Assert-RealmOverworldSyncReady { Record 'realm-overworld-check' }
@@ -81,10 +83,10 @@ function Reset-TestWorldFromBuild { Record 'world-reset' }
 
     foreach ($name in @('copy-build-realm0-to-test.ps1', 'copy-test-realm0-to-build.ps1')) {
         [IO.File]::WriteAllText((Join-Path $fixture 'calls.txt'), '')
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $scriptDirectory $name) -CheckOnly
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $copyDirectory $name) -CheckOnly
         Require ($LASTEXITCODE -eq 0) 'Manual-copy preflight failed'
         Require (-not (Has-Call 'overworld-reset') -and -not (Has-Call 'reverse-overworld-reset')) 'Manual-copy CheckOnly changed a world'
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $scriptDirectory $name)
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $copyDirectory $name)
         Require ($LASTEXITCODE -eq 0) 'Manual-copy entry point failed'
         $expected = if ($name -eq 'copy-build-realm0-to-test.ps1') { 'overworld-reset' } else { 'reverse-overworld-reset' }
         Require (Has-Call $expected) 'Manual copy called the wrong direction'
