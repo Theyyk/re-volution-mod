@@ -25,7 +25,7 @@ public final class PrimaryRuneCatalogTest {
             check(effectCount <= 3, "Every rune must respect the three-effect limit");
             check(PrimaryRuneCatalog.iconIndex(slot) >= 0 && PrimaryRuneCatalog.iconIndex(slot) <= 10, "Every rune needs a placeholder icon");
             String texture = definition.iconTexture;
-            check(texture.startsWith("revolution:textures/gui/runes/") && texture.endsWith(".png"), "PNG path required");
+            check(texture.startsWith("customguimod:textures/gui/runes/") && texture.endsWith(".png"), "PNG path required");
             textures.add(texture);
             if (slot > 0 && expected[slot].equals(expected[slot - 1]))
                 check(texture.equals(PrimaryRuneCatalog.at(slot - 1).iconTexture), "Duplicates must share PNG paths");
@@ -132,7 +132,7 @@ public final class PrimaryRuneCatalogTest {
         );
         check(coinLines.size() == 1, "Hunter relic should expose one reward line");
         check(coinLines.get(0).equals("Добыча монет +4.5%"),
-                "Hunter relic final value should stay coin-specific");
+                "Hunter relic final value must stay coin-specific");
 
         System.out.println("Fixed 26-position poison status catalog and approved v1.2.10 mechanics regression checks passed");
     }

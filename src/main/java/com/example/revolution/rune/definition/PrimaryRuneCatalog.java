@@ -27,7 +27,7 @@ public final class PrimaryRuneCatalog {
             }
             this.name = name;
             this.type = type;
-            this.iconTexture = "revolution:textures/gui/runes/" + iconFile;
+            this.iconTexture = "customguimod:textures/gui/runes/" + iconFile;
             this.stats = stats == null ? new RuneStat[0] : stats.clone();
             this.targetedPowers = targetedPowers == null ? new RuneTargetedPower[0] : targetedPowers.clone();
             this.compositeEffects = compositeEffects == null ? new RuneCompositeEffect[0] : compositeEffects.clone();
