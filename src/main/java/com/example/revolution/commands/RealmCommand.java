@@ -27,6 +27,7 @@ public final class RealmCommand extends AdminOnlyCommand {
         if (args.length == 1) return getListOfStringsMatchingLastWord(args, "join");
         if (args.length == 2 && "join".equalsIgnoreCase(args[0])) {
             List<String> ids = new ArrayList<>();
+            ids.add("0");
             for (RealmDefinition realm : RealmCatalog.all()) ids.add(Integer.toString(realm.getRealmId()));
             return getListOfStringsMatchingLastWord(args, ids);
         }
@@ -45,7 +46,7 @@ public final class RealmCommand extends AdminOnlyCommand {
         RealmDefinition realm;
         try {
             realm = realms.join(server, player, realmId);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             throw new CommandException(e.getMessage());
         }
         sender.sendMessage(new TextComponentString("Moved " + player.getName() + " to " + realm.getName() + "."));
