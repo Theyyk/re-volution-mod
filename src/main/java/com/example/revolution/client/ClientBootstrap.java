@@ -3,6 +3,7 @@ package com.example.revolution.client;
 import com.example.revolution.RevolutionMod;
 import com.example.revolution.client.hud.HealthBarRenderer;
 import com.example.revolution.client.hud.NameHider;
+import com.example.revolution.client.hud.RealmHudRenderer;
 import com.example.revolution.client.input.EnhancementClickGuard;
 import com.example.revolution.client.input.KeyInputHandler;
 import com.example.revolution.client.settings.SettingsKeyHandler;
@@ -21,6 +22,7 @@ public final class ClientBootstrap {
         MinecraftForge.EVENT_BUS.register(new ClientPacketHandler());
         MinecraftForge.EVENT_BUS.register(new HealthBarRenderer());
         MinecraftForge.EVENT_BUS.register(new NameHider());
+        MinecraftForge.EVENT_BUS.register(new RealmHudRenderer());
         MinecraftForge.EVENT_BUS.register(new EnhancementClickGuard());
         MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());

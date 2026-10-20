@@ -17,6 +17,17 @@ permissions:
   contents: write
 
 jobs:
+  startup-launcher:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify static Realm 0 startup and separate copy entry points
+        shell: powershell
+        run: ./tools/startup/Test-RealmLauncher.ps1
+      - name: Verify directional Realm 0 copies and live Build snapshot recovery
+        shell: powershell
+        run: ./tools/startup/Test-RealmOverworldSync.ps1
+
   build:
     runs-on: ubuntu-latest
 
