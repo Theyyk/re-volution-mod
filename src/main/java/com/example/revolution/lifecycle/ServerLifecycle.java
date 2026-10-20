@@ -6,10 +6,12 @@ import com.example.revolution.commands.CustomMobCommand;
 import com.example.revolution.commands.CustomResourceCommand;
 import com.example.revolution.commands.CustomRunesCommand;
 import com.example.revolution.commands.CustomStatusCommand;
+import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.mob.event.ManagedMobEvents;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
 import com.example.revolution.player.event.PlayerJoinHandler;
+import com.example.revolution.realm.event.RealmLoginHandler;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -53,6 +55,7 @@ public final class ServerLifecycle {
         current.connect();
         current.adminAccess.init(configDirectory);
         listeners.add(new PlayerJoinHandler(current.sessions));
+        listeners.add(new RealmLoginHandler(current.realms));
         listeners.add(new ManagedMobEvents(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         for (Object listener : listeners) MinecraftForge.EVENT_BUS.register(listener);
@@ -72,6 +75,7 @@ public final class ServerLifecycle {
         event.registerServerCommand(new CustomStatusCommand(current.collections));
         event.registerServerCommand(new CustomResourceCommand(current.resources));
         event.registerServerCommand(new AdminPanelCommand(current.adminAccess));
+        event.registerServerCommand(new RealmCommand(current.realms));
         current.resources.purgeDeprecatedLightnings();
     }
 
@@ -82,6 +86,7 @@ public final class ServerLifecycle {
             logger.error("MinecraftServer is unavailable during FMLServerStartedEvent; managed mobs were not loaded.");
             return;
         }
+        current.realms.initialize(server);
         current.mobs.loadFromDatabase(server.getWorld(0));
         if (dedicatedServer) {
             try {
