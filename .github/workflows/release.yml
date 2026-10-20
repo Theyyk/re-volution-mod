@@ -17,6 +17,14 @@ permissions:
   contents: write
 
 jobs:
+  startup-launcher:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify persistent Realm launcher and legacy compatibility
+        shell: powershell
+        run: ./tools/startup/Test-RealmLauncher.ps1
+
   build:
     runs-on: ubuntu-latest
 
