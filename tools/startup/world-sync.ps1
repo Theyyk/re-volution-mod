@@ -106,6 +106,8 @@ function Copy-WorldVerified([string]$Source, [string]$Destination) {
     New-Item -ItemType Directory -Path $Destination | Out-Null
     & robocopy.exe $Source $Destination /E /COPY:DAT /DCOPY:DAT /XJ /XF session.lock /R:1 /W:1 /NFL /NDL /NJH /NJS | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "World copy failed ($LASTEXITCODE); incomplete snapshot retained at $Destination" }
+    # Robocopy uses 0..7 for success; do not leak its 1 (files copied) to callers/CI.
+    $global:LASTEXITCODE = 0
     return @(Assert-WorldCopyMatches $Source $Destination)
 }
 

@@ -59,6 +59,7 @@ try {
     # Locked Build DIM201 must never be read/copied by the overworld operation.
     $excludedWriter = [IO.File]::Open((Join-Path $Build 'world/DIM201/region/template.mca'), 'Open', 'ReadWrite', 'None')
     try { Reset-TestOverworldFromBuild } finally { $excludedWriter.Dispose() }
+    Require ($LASTEXITCODE -eq 0) 'Successful robocopy leaked a failure exit code to the caller'
     Require ((Read-Fixture (Join-Path $Test 'world/level.dat')) -eq 'build-level') 'Overworld metadata not copied'
     Require ((Read-Fixture (Join-Path $Test 'world/region/new.mca')) -eq 'build-overworld') 'Overworld blocks not copied'
     Require (-not (Test-Path -LiteralPath (Join-Path $Test 'world/region/obsolete.mca'))) 'Stale overworld chunk survived'
