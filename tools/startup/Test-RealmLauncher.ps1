@@ -22,7 +22,7 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'build-server-run.ps1') -Destination $scriptDirectory
     foreach ($name in @('copy-build-realm0-to-test.ps1', 'copy-test-realm0-to-build.ps1')) {
-        $copyDirectory = Join-Path $scriptDirectory 'World-menegment'
+        $copyDirectory = Join-Path $scriptDirectory 'World-Management'
         New-Item -ItemType Directory -Path $copyDirectory -Force | Out-Null
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $copyDirectory
     }

@@ -1,7 +1,7 @@
 # Запуск и ручное копирование Realm 0
 
 Скрипты размещаются в `E:\MyProject\RE-volution\Script` рядом с common.ps1.
-Два ручных copy-скрипта размещены в подпапке `World-menegment`; общие файлы
+Два ручных copy-скрипта размещены в подпапке `World-Management`; общие файлы
 common.ps1, world-sync.ps1 и realm-world-sync.ps1 остаются в родительской Script.
 Copy-скрипты поддерживают и прежнее размещение рядом с общими файлами.
 
