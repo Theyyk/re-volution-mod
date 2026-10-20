@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /** Fixed Realm catalog for the v1.3.4 foundation. Location data is deliberately outside this catalog. */
 public final class RealmCatalog {
@@ -36,22 +37,22 @@ public final class RealmCatalog {
     public static RealmDefinition byDimensionId(int dimensionId) { return BY_DIMENSION_ID.get(dimensionId); }
     public static boolean isRealmDimension(int dimensionId) { return BY_DIMENSION_ID.containsKey(dimensionId); }
 
-    /**
-     * Selects the least-populated Realm. Equal population currently falls back to catalog order so
-     * tie policy stays isolated from the rest of the runtime and can be changed later.
-     */
+    /** Selects randomly among all Realms tied for the minimum current population. */
     public static RealmDefinition leastPopulated(Map<Integer, Integer> populationByDimension) {
-        RealmDefinition selected = null;
-        int selectedPopulation = Integer.MAX_VALUE;
+        List<RealmDefinition> candidates = new ArrayList<>();
+        int minimumPopulation = Integer.MAX_VALUE;
         for (RealmDefinition realm : REALMS) {
             Integer value = populationByDimension.get(realm.getDimensionId());
             int population = value == null ? 0 : Math.max(0, value);
-            if (selected == null || population < selectedPopulation) {
-                selected = realm;
-                selectedPopulation = population;
+            if (population < minimumPopulation) {
+                candidates.clear();
+                candidates.add(realm);
+                minimumPopulation = population;
+            } else if (population == minimumPopulation) {
+                candidates.add(realm);
             }
         }
-        if (selected == null) throw new IllegalStateException("Realm catalog is empty");
-        return selected;
+        if (candidates.isEmpty()) throw new IllegalStateException("Realm catalog is empty");
+        return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
     }
 }
