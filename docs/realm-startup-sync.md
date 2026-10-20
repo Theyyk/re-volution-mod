@@ -46,18 +46,19 @@ old-DIM202/old-DIM203 содержат заменённые оригиналы, 
 Заменяются только DIM202/203; DIM201 читается, кроме создания пустого каталога
 при первом запуске. Собственные lock/transaction-файлы находятся в корне save.
 Сам обработчик Forge не заменяет overworld, level.dat, player data, другие
-dimensions или MongoDB. При стандартном локальном запуске overworld отдельно
-обновляет PowerShell launcher. Общие метаданные Minecraft остаются общими
+dimensions или MongoDB. Стандартный локальный запуск тоже сохраняет Realm 0.
+Общие метаданные Minecraft остаются общими
 согласно существующей архитектуре Forge dimensions.
 
-Локальный build-server-run.ps1 раньше заменял весь Test/world из Build/world.
-Теперь для Project с RealmStartupSync.java он обновляет только overworld из
-остановленного Build, сохраняя папки DIM* и playerdata/stats/advancements Test.
-Обе части копируются в отдельный world с проверкой и backup прежнего Test/world.
-Realm 1 остаётся из Test; Forge копирует его в Realm 2/3 до загрузки dimensions.
-Для старых веток без этого обработчика прежний Build→Test workflow сохранён.
-Скрипт нужно держать рядом с существующими common.ps1/world-sync.ps1; подробности
-в tools/startup/README.md. Обёртка preflight-and-run.ps1 изменений не требует.
+Стандартный build-server-run.ps1 не проверяет и не копирует мир Build.
+Realm 0 и 1 остаются из Test; Forge копирует 1 в 2/3 до загрузки dimensions.
+Ветка без RealmStartupSync.java блокируется без копирования мира.
+Отдельные copy-build-realm0-to-test.ps1 и copy-test-realm0-to-build.ps1 вручную
+переносят только overworld с проверкой, backup и сохранением папок DIM* и
+данных игроков назначения. Прямой путь поддерживает работающий Build через
+RCON save-off/save-all flush/save-on; обратный требует остановки обоих серверов.
+Ручные copy-скрипты не выполняют sync 1→2/3 и не запускают сервер.
+Подробности в tools/startup/README.md. Обёртка preflight-and-run.ps1 не меняется.
 Её режим -CheckOnly Forge не запускает и sync не выполняет; PrepareOnly тоже
 не запускает Forge и не выполняет Realm sync.
 
@@ -79,9 +80,8 @@ Realm 1 остаётся из Test; Forge копирует его в Realm 2/3 �
 6. Только на одноразовых копиях проверить отсутствующий DIM201 при существующей
    цели, junction, параллельный запуск с тем же save и незавершённую транзакцию.
    В каждом случае загрузка миров должна блокироваться с сохранением данных.
-7. Проверить реальный Build/Test launcher: для Realm-ветки он должен обновлять
-   Realm 0 из Build и сохранять Test Realm 1. Build должен быть остановлен.
-   Старый полный режим Build→Test остаётся только для прежних веток.
+7. Проверить реальный launcher: Realm 0/1 сохраняются, 2/3 заменяются из 1.
+   Запуск Test не должен зависеть от работающего/остановленного Build.
    Нестандартные level-name/universe проверить прямым запуском Forge: локальный
    исторический launcher по-прежнему рассчитан на world.
 
@@ -95,5 +95,6 @@ Realm 1 остаётся из Test; Forge копирует его в Realm 2/3 �
 для Realm-ветки и прежней ветки на фиктивных серверах без запуска Forge/MongoDB.
 В CI этот тест выполняется отдельным заданием Windows.
 Test-RealmOverworldSync.ps1 проверяет составное копирование на временных мирах,
-два запуска, backup и отказы/rollback. При прямом запуске Forge Realm 0 сохраняется;
-при запуске через стандартный launcher Realm 0 должен соответствовать Build.
+оба направления ручного копирования Realm 0, backup/rollback и восстановление
+save-on при ошибках live Build. Realm 0 сохраняется при обычном запуске;
+меняется только по отдельному запуску copy-скрипта.

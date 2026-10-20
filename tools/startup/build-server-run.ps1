@@ -4,11 +4,8 @@
 )
 
 . "$PSScriptRoot\common.ps1"
-. "$PSScriptRoot\world-sync.ps1"
-. "$PSScriptRoot\realm-world-sync.ps1"
 
-# This launcher builds Project before starting it. Realm-enabled source owns its
-# persistent world; older branches retain the existing Build-to-Test refresh.
+# Normal runtime startup never imports a Build world.
 $preserveRealmWorld = Test-Path -LiteralPath (Join-Path $Project 'src/main/java/com/example/revolution/realm/world/RealmStartupSync.java') -PathType Leaf
 
 $Server = $Test
@@ -39,8 +36,9 @@ try {
     }
 
     Assert-TestStopped -ReadOnly:$CheckOnly
-    if ($preserveRealmWorld) { Assert-RealmOverworldSyncReady }
-    else { Assert-WorldSyncReady }
+    if (-not $preserveRealmWorld) {
+        throw 'Realm runtime startup requires RealmStartupSync.java; select feature/v1.3.4-realm-foundation in Project.'
+    }
 
     $properties = Read-Properties "$Server\server.properties"
 
@@ -52,7 +50,7 @@ try {
         throw 'level-name is missing in server.properties'
     }
 
-    $worldMode = if ($preserveRealmWorld) { 'Build overworld + persistent Test Realm 1' } else { 'legacy Build -> Test refresh' }
+    $worldMode = 'persistent Test Realm 0/1; startup Realm 1 -> 2/3'
     Write-Host "Test server ($worldMode):"
     Write-Host "  Path:     $Server"
     Write-Host "  World:    $($properties['level-name'])"
@@ -62,11 +60,7 @@ try {
 
     if ($CheckOnly) {
         Assert-ServerServicesReady
-        if ($preserveRealmWorld) {
-            Write-Host "Preflight OK. Offline Build overworld will refresh Realm 0; Test Realm 1 stays; Forge syncs 1 -> 2/3."
-        } else {
-            Write-Host "Preflight OK. Legacy startup copies Build/world -> Test/world. MongoDB is not reset."
-        }
+        Write-Host "Preflight OK. Realm 0/1 stay in Test; Forge syncs only Realm 1 -> 2/3. Build is not accessed."
         return
     }
 
@@ -118,15 +112,7 @@ try {
     }
 
     Write-Host ""
-    if ($preserveRealmWorld) {
-        if (-not $PrepareOnly) {
-            Write-Host "=== Refreshing Realm 0 from offline Build; preserving Test Realm 1 ==="
-            Reset-TestOverworldFromBuild
-        }
-    } else {
-        Write-Host "=== Copying Build world to Test (legacy build) ==="
-        Reset-TestWorldFromBuild
-    }
+    Write-Host "=== Preserving Test Realm 0 and Realm 1; no Build world copy ==="
 
     if ($PrepareOnly) {
         Write-Host ""
@@ -136,7 +122,7 @@ try {
 
     Write-Host ""
     Write-Host "=== Starting Test ==="
-    Write-Host "Test MongoDB remains independent. Realm 0 comes from Build; Realm 1 is the persistent Test template."
+    Write-Host "Realm 0/1 stay in Test. Forge syncs Realm 1 -> 2/3 before world loading. MongoDB is unchanged."
     Write-Host ""
 
     Start-Forge $Server $Database

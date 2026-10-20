@@ -82,7 +82,39 @@ try {
     $stable = @(Get-WorldManifest (Join-Path $Test 'world')) | ConvertTo-Json -Depth 4
 
     function Test-WorldServerPort([string]$Server) { return $Server -eq $Build }
+    # Missing RCON still fails closed without touching Test.
     Require-Failure { Reset-TestOverworldFromBuild }
+    Add-Content -LiteralPath (Join-Path $Build 'server.properties') -Value "enable-rcon=true`nrcon.port=25575`nrcon.password=fixture-only"
+    $script:rconCalls = New-Object 'System.Collections.Generic.List[string]'
+    function Invoke-Rcon($Command) { $script:rconCalls.Add($Command) }
+    Assert-RealmOverworldSyncReady
+    Require ($script:rconCalls.Count -eq 0) 'Preflight sent saving commands'
+    $liveLaunch = Open-WorldControlLock '.build-launch.lock'
+    $liveWriter = [IO.File]::Open((Join-Path $Build 'world/region/new.mca'), 'Open', 'ReadWrite', 'ReadWrite')
+    try { Reset-TestOverworldFromBuild } finally { $liveWriter.Dispose(); $liveLaunch.Dispose() }
+    Require (($script:rconCalls -join '|') -eq 'save-off|save-all flush|save-on') 'Live Build was not flushed/frozen/restored'
+    $script:rconCalls.Clear()
+    $liveCopyFunction = (Get-Item Function:\Copy-RealmWorldEntryVerified).ScriptBlock
+    function Copy-RealmWorldEntryVerified($Entry, [string]$Stage) { throw 'Injected live copy failure' }
+    Require-Failure { Reset-TestOverworldFromBuild }
+    Set-Item Function:\Copy-RealmWorldEntryVerified $liveCopyFunction
+    Require (($script:rconCalls -join '|') -eq 'save-off|save-all flush|save-on') 'Live copy failure left saving disabled'
+    $script:rconCalls.Clear()
+    function Invoke-Rcon($Command) {
+        $script:rconCalls.Add($Command)
+        if ($Command -eq 'save-all flush') { throw 'Injected flush failure' }
+    }
+    Require-Failure { Reset-TestOverworldFromBuild }
+    Require (($script:rconCalls -join '|') -eq 'save-off|save-all flush|save-on') 'Flush failure left saving disabled'
+    $script:rconCalls.Clear()
+    function Invoke-Rcon($Command) {
+        $script:rconCalls.Add($Command)
+        if ($Command -eq 'save-on') { throw 'Injected restoration failure' }
+    }
+    Require-Failure { Reset-TestOverworldFromBuild }
+    Require (($script:rconCalls -join '|') -eq 'save-off|save-all flush|save-on|save-on') 'Restoration failure was not retried'
+    Require ((@(Get-WorldManifest (Join-Path $Test 'world')) | ConvertTo-Json -Depth 4) -eq $stable) 'Live snapshot failure modified Test'
+    function Invoke-Rcon($Command) { $script:rconCalls.Add($Command) }
     function Test-WorldServerPort([string]$Server) { return $false }
     $held = Open-WorldControlLock '.build-launch.lock'
     try { Require-Failure { Reset-TestOverworldFromBuild } } finally { $held.Dispose() }
@@ -109,7 +141,27 @@ try {
     Rename-Item -LiteralPath (Join-Path $Test 'world/DIM201-preserved') -NewName 'DIM201'
     Require ((Read-Fixture (Join-Path $Test 'config-sentinel.txt')) -eq 'config') 'Server config changed'
     Require ((Read-Fixture (Join-Path $Test 'mongo-sentinel.txt')) -eq 'mongo') 'Database sentinel changed'
-    Write-Host 'PASS: offline Build overworld refreshed twice; Test Realm 1/dimensions/player data preserved; backups, busy Build, locks, failed copies/publication, interrupted sync and missing template checked.'
+    Write-Fixture (Join-Path $Test 'world/region/test-published.mca') 'publish-test-overworld'
+    $testExportBefore = @(Get-WorldManifest (Join-Path $Test 'world')) | ConvertTo-Json -Depth 4
+    $excludedTestRealm = [IO.File]::Open((Join-Path $Test 'world/DIM201/region/template.mca'), 'Open', 'ReadWrite', 'None')
+    try { Reset-BuildOverworldFromTest } finally { $excludedTestRealm.Dispose() }
+    Require ((Read-Fixture (Join-Path $Build 'world/region/test-published.mca')) -eq 'publish-test-overworld') 'Reverse copy missed Test overworld'
+    Require ((Read-Fixture (Join-Path $Build 'world/DIM201/region/template.mca')) -eq 'DO NOT IMPORT BUILD REALM') 'Reverse copy imported Test Realm 1'
+    Require ((Read-Fixture (Join-Path $Build 'world/DIM-1/region/nether.mca')) -eq 'DO NOT IMPORT BUILD NETHER') 'Reverse copy replaced Build dimensions'
+    Require ((Read-Fixture (Join-Path $Build 'world/playerdata/player.dat')) -eq 'DO NOT IMPORT BUILD PLAYER') 'Reverse copy replaced Build player data'
+    Require ((@(Get-WorldManifest (Join-Path $Test 'world')) | ConvertTo-Json -Depth 4) -eq $testExportBefore) 'Reverse copy changed Test source or Realm 1/2/3'
+    $buildExported = @(Get-WorldManifest (Join-Path $Build 'world')) | ConvertTo-Json -Depth 4
+    function Test-WorldServerPort([string]$Server) { return $true }
+    Require-Failure { Reset-BuildOverworldFromTest }
+    function Test-WorldServerPort([string]$Server) { return $false }
+    function Move-Item($LiteralPath, $Destination) {
+        if ([IO.Path]::GetFileName($LiteralPath) -like '.world-stage-*') { throw 'Injected reverse publication failure' }
+        Microsoft.PowerShell.Management\Move-Item -LiteralPath $LiteralPath -Destination $Destination
+    }
+    Require-Failure { Reset-BuildOverworldFromTest }
+    Remove-Item Function:\Move-Item
+    Require ((@(Get-WorldManifest (Join-Path $Build 'world')) | ConvertTo-Json -Depth 4) -eq $buildExported) 'Reverse publication did not restore Build'
+    Write-Host 'PASS: explicit Realm 0 copies in both directions; Build live RCON success/failure restoration; dimensions/player data preserved; backups, locks, copy failures and publication rollback checked.'
 } finally {
     $resolved = [IO.Path]::GetFullPath($fixture)
     if ([IO.Path]::GetDirectoryName($resolved) -ne [IO.Path]::GetFullPath($PSScriptRoot) -or [IO.Path]::GetFileName($resolved) -notlike '.overworld-fixture-*') {

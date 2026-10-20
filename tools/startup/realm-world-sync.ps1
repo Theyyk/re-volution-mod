@@ -1,4 +1,4 @@
-# Dot-source after world-sync.ps1. Compose an offline save without importing Build dimensions/player data.
+# Dot-source after world-sync.ps1. Explicit Realm 0 import; never used by normal startup.
 $ErrorActionPreference = 'Stop'
 
 function Test-RealmPreservedEntry($Entry) {
@@ -11,8 +11,14 @@ function Test-RealmControlEntry($Entry) {
 
 function Assert-RealmOverworldSyncReady {
     Assert-WorldPair
-    # Copying an open Build world is deliberately forbidden, even with save-off.
-    Assert-WorldServerOffline $Build
+    if (Test-WorldServerPort $Build) {
+        $properties = Read-Properties (Join-Path $Build 'server.properties')
+        $port = 0
+        if ($properties['enable-rcon'] -ne 'true' -or -not $properties['rcon.password'] -or
+            -not [int]::TryParse([string]$properties['rcon.port'], [ref]$port) -or $port -lt 1 -or $port -gt 65535) {
+            throw 'Running Build requires configured RCON for save-off / save-all flush / save-on'
+        }
+    } else { Assert-WorldServerOffline $Build }
     Assert-WorldServerOffline $Test
     $world = Join-Path $Test 'world'
     if (Test-Path -LiteralPath (Join-Path $world '.revolution-realm-sync')) {
@@ -42,27 +48,88 @@ function Copy-RealmWorldEntryVerified($Entry, [string]$Stage) {
     }
 }
 
-function Reset-TestOverworldFromBuild {
+function Assert-TestToBuildRealm0Ready {
+    Assert-WorldPair
+    Assert-WorldServerOffline $Build
+    Assert-WorldServerOffline $Test
+}
+
+function Reset-BuildOverworldFromTest {
     $leases = New-Object 'System.Collections.Generic.List[System.IDisposable]'
+    $fileLeases = New-Object 'System.Collections.Generic.List[System.IDisposable]'
     try {
-        $leases.Add((Open-WorldControlLock '.build-snapshot.lock'))
-        $leases.Add((Open-WorldControlLock '.build-launch.lock'))
-        $leases.Add((Open-WorldControlLock '.test-workflow.lock'))
-        Assert-RealmOverworldSyncReady
+        foreach ($name in @('.build-snapshot.lock', '.build-launch.lock', '.test-workflow.lock')) {
+            $leases.Add((Open-WorldControlLock $name))
+        }
+        Assert-TestToBuildRealm0Ready
         foreach ($server in @($Build, $Test)) {
             $session = Open-WorldSessionLease $server
-            if ($session) { $leases.Add($session) }
+            if ($session) { $fileLeases.Add($session) }
+            $realmLock = Join-Path $server 'world/.revolution-realm.lock'
+            if (Test-Path -LiteralPath $realmLock) { $fileLeases.Add([IO.File]::Open($realmLock, 'Open', 'ReadWrite', 'None')) }
+        }
+        $stage = Join-Path $Build ('.world-stage-' + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $stage | Out-Null
+        foreach ($entry in Get-ChildItem -LiteralPath (Join-Path $Test 'world') -Force) {
+            if (-not (Test-RealmPreservedEntry $entry) -and -not (Test-RealmControlEntry $entry)) {
+                Copy-RealmWorldEntryVerified $entry $stage
+            }
+        }
+        foreach ($entry in Get-ChildItem -LiteralPath (Join-Path $Build 'world') -Force) {
+            if (Test-RealmPreservedEntry $entry) { Copy-RealmWorldEntryVerified $entry $stage }
+        }
+        $manifest = @(Get-WorldManifest $stage)
+        $backup = New-WorldBackupDirectory 'promotion'
+        $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $backup 'world-manifest.json') -Encoding UTF8
+        for ($i = $fileLeases.Count - 1; $i -ge 0; $i--) { $fileLeases[$i].Dispose() }
+        $fileLeases.Clear()
+        $old = Install-WorldStage $stage $Build $backup
+        Write-Host "Test Realm 0 -> Build verified. Test dimensions were excluded; previous Build world: $old"
+    } finally {
+        for ($i = $fileLeases.Count - 1; $i -ge 0; $i--) { $fileLeases[$i].Dispose() }
+        for ($i = $leases.Count - 1; $i -ge 0; $i--) { $leases[$i].Dispose() }
+    }
+}
+
+function Reset-TestOverworldFromBuild {
+    $leases = New-Object 'System.Collections.Generic.List[System.IDisposable]'
+    $fileLeases = New-Object 'System.Collections.Generic.List[System.IDisposable]'
+    $savingDisabled = $false
+    try {
+        $leases.Add((Open-WorldControlLock '.build-snapshot.lock'))
+        $leases.Add((Open-WorldControlLock '.test-workflow.lock'))
+        Assert-RealmOverworldSyncReady
+        # Test must be offline; a running Build is captured after a flushed save with saving paused.
+        $serversToLease = @($Test)
+        if (-not (Test-WorldServerPort $Build)) {
+            $leases.Add((Open-WorldControlLock '.build-launch.lock'))
+            Assert-WorldServerOffline $Build
+            $serversToLease += $Build
+        }
+        foreach ($server in $serversToLease) {
+            $session = Open-WorldSessionLease $server
+            if ($session) { $fileLeases.Add($session) }
             $realmLock = Join-Path $server 'world/.revolution-realm.lock'
             if (Test-Path -LiteralPath $realmLock) {
-                $leases.Add([IO.File]::Open($realmLock, 'Open', 'ReadWrite', 'None'))
+                $fileLeases.Add([IO.File]::Open($realmLock, 'Open', 'ReadWrite', 'None'))
             }
         }
         $stage = Join-Path $Test ('.world-stage-' + [Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $stage | Out-Null
-        foreach ($entry in Get-ChildItem -LiteralPath (Join-Path $Build 'world') -Force) {
-            if (-not (Test-RealmPreservedEntry $entry) -and -not (Test-RealmControlEntry $entry)) {
-                Copy-RealmWorldEntryVerified $entry $stage
+        try {
+            if (Test-WorldServerPort $Build) {
+                # Set first so even an ambiguous save-off/RCON failure triggers save-on.
+                $savingDisabled = $true
+                Invoke-Rcon 'save-off'
+                Invoke-Rcon 'save-all flush'
             }
+            foreach ($entry in Get-ChildItem -LiteralPath (Join-Path $Build 'world') -Force) {
+                if (-not (Test-RealmPreservedEntry $entry) -and -not (Test-RealmControlEntry $entry)) {
+                    Copy-RealmWorldEntryVerified $entry $stage
+                }
+            }
+        } finally {
+            if ($savingDisabled) { Invoke-Rcon 'save-on'; $savingDisabled = $false }
         }
         foreach ($entry in Get-ChildItem -LiteralPath (Join-Path $Test 'world') -Force) {
             if (Test-RealmPreservedEntry $entry) { Copy-RealmWorldEntryVerified $entry $stage }
@@ -72,11 +139,18 @@ function Reset-TestOverworldFromBuild {
         $backup = New-WorldBackupDirectory 'test-reset'
         $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $backup 'world-manifest.json') -Encoding UTF8
         # Windows directory publication requires closing file leases; launcher locks remain held.
-        for ($i = $leases.Count - 1; $i -ge 3; $i--) { $leases[$i].Dispose(); $leases.RemoveAt($i) }
+        for ($i = $fileLeases.Count - 1; $i -ge 0; $i--) { $fileLeases[$i].Dispose() }
+        $fileLeases.Clear()
         $old = Install-WorldStage $stage $Test $backup
         Write-Host "Build overworld -> Test verified; Test Realm 1 and other dimensions/player data preserved. Backup: $old"
-        Write-Host 'Forge will copy Test DIM201 -> DIM202/DIM203 before loading dimensions. MongoDB is unchanged.'
+        Write-Host 'Realm 1/2/3 were not synchronized. That happens on the next normal Forge startup. MongoDB is unchanged.'
     } finally {
-        for ($i = $leases.Count - 1; $i -ge 0; $i--) { $leases[$i].Dispose() }
+        try {
+            # Retry restoration if the first save-on itself failed; never publish after that failure.
+            if ($savingDisabled) { Invoke-Rcon 'save-on' }
+        } finally {
+            for ($i = $fileLeases.Count - 1; $i -ge 0; $i--) { $fileLeases[$i].Dispose() }
+            for ($i = $leases.Count - 1; $i -ge 0; $i--) { $leases[$i].Dispose() }
+        }
     }
 }

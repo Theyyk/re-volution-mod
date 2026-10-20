@@ -1,51 +1,68 @@
-# Стандартный runtime-запуск Realm
+# Запуск и ручное копирование Realm 0
 
-Точка входа остаётся `E:\MyProject\RE-volution\Script\preflight-and-run.ps1`.
-Она сначала вызывает проверку, затем обычный запуск через build-server-run.ps1.
-Файлы этого каталога устанавливаются рядом с существующими common.ps1 и
-preflight-and-run.ps1. world-sync.ps1 содержит прежние функции копирования/backup;
-realm-world-sync.ps1 добавляет сборку составного мира.
+Скрипты размещаются в `E:\MyProject\RE-volution\Script` рядом с common.ps1.
 
-Для проекта с RealmStartupSync.java обычный запуск выполняет:
+| Скрипт | Действие |
+|---|---|
+| preflight-and-run.ps1 | Обычный запуск Test: Realm 0/1 сохраняются; Forge до загрузки worlds заменяет 2/3 копиями 1 |
+| copy-build-realm0-to-test.ps1 | Ручная замена Test Realm 0 из Build; Realm 1–3 Test сохраняются; сервер не запускается |
+| copy-test-realm0-to-build.ps1 | Ручная замена Build Realm 0 из Test; Realm 1–3 Test не читаются/не импортируются; сервер не запускается |
 
-1. Проверку остановленных Build/Test, структуры world, Auth и resource pack.
-2. Подготовку сервисов, сборку `$Project`, установку JAR сервера и клиента.
-3. Подготовку отдельного world: overworld из Build, папки DIM* и общие
-   playerdata/stats/advancements из текущего Test. Папки DIM* и данные игроков
-   Build никогда не импортируются. session.lock и .revolution-* не копируются.
-4. Проверку содержимого, backup прежнего Test/world и замену подготовленным миром.
-5. Запуск Forge: до загрузки dimensions он копирует Test DIM201 в DIM202/DIM203.
+## Обычный запуск
 
-Realm 0 обновляется из Build, Realm 1 сохраняется из Test, 2/3 сбрасываются по
-Realm 1. MongoDB, mods и server config из Build не копируются. Overworld включает
-region, data и корневые файлы, в том числе level.dat; метаданные уровня
-(seed/time/game rules) по-прежнему общие для Forge dimensions. Содержимое DIM201
-сохраняется; независимые метаданные уровня для каждого Realm не вводятся.
+preflight-and-run.ps1 сначала выполняет CheckOnly, затем build-server-run.ps1:
+подготовку Auth/resource pack, сборку `$Project`, установку JAR сервера/клиента
+и запуск Forge. Мир Build не проверяется и не копируется; он может работать.
+Test должен быть остановлен. Realm 0 сохраняет свои изменения между запусками;
+Realm 1 остаётся эталоном, а изменения Realm 2/3 сбрасываются при старте Forge.
 
-Build должен быть остановлен: открытые world-файлы не копируются даже через
-save-off. Запуск Build и другие операции Test блокируются на время подготовки.
-Ошибка копирования оставляет текущий Test/world, ошибка публикации пытается
-вернуть прежний мир из backup. Отсутствие DIM201 при существующих 2/3 и
-незавершённая Realm-транзакция блокируют обновление ещё до копирования.
+Project в common.ps1 должен содержать RealmStartupSync.java. Ветка без него
+блокируется, автоматического возврата к полному Build→Test копированию нет.
+PrepareOnly собирает/устанавливает JAR без запуска и без sync. CheckOnly не
+собирает/не устанавливает JAR, не запускает сервисы/Forge и не меняет миры.
 
-`-CheckOnly` не собирает/не устанавливает JAR, не запускает сервисы/Forge и не
-меняет миры. `-PrepareOnly` для Realm-ветки собирает/устанавливает JAR без
-обновления overworld и без Realm sync. Прежние ветки без RealmStartupSync
-сохраняют исторический полный Build→Test workflow.
+## Ручные операции
 
-Launcher собирает проект, заданный `$Project` в common.ps1. Для runtime 1.3.4
-нужна feature/v1.3.4-realm-foundation именно в этом проекте. Не переключать
-ветку во время сборки/запуска. Обновление скриптов само по себе сервер не запускает.
+Оба copy-скрипта поддерживают CheckOnly без копирования, сборки, запуска серверов
+и команд save-off/save-on. Обычное выполнение подготавливает отдельный world,
+проверяет файлы, сохраняет прежний мир назначения в Script/WorldBackups и только
+затем публикует копию. Ошибка копирования сохраняет прежнюю цель, ошибка
+публикации пытается восстановить её из backup. Блокировки исключают параллельный
+runtime-запуск и конфликтующие операции копирования.
 
-Проверки Windows PowerShell без реальных серверов или MongoDB:
+Из источника берутся только overworld region/data и корневые файлы уровня.
+Все папки DIM*, playerdata/stats/advancements берутся из назначения. session.lock
+и .revolution-* не копируются. Поэтому DIM201/202/203 и данные игроков назначения
+сохраняются; MongoDB, mods и server config не переносятся.
+level.dat, seed/time/game rules остаются общими метаданными Forge dimensions.
+
+### Build → Test Realm 0
+
+Test должен быть остановлен. Если Build работает, нужны включённый RCON,
+rcon.port и пароль в server.properties Build. Выполняются save-off → save-all
+flush → проверенное копирование overworld → save-on. Игроки Build могут
+продолжать играть; в снимок входят данные на момент flush. save-on вызывается
+также при ошибках, а при ошибке самого save-on повторяется попытка восстановления;
+цель при этом не публикуется. Если Build остановлен, используется offline-копия
+без RCON. Папки DIM* Build не импортируются ни в одном режиме.
+
+### Test Realm 0 → Build
+
+Оба сервера должны быть остановлены. Копируется только overworld Test;
+Realm 1/2/3 Test не изменяются и не переносятся в Build. Собственные dimensions
+и данные игроков Build сохраняются. Это отдельная повторяемая операция;
+старый одноразовый promote-test-world-to-build.ps1 для неё не используется.
+
+## Проверки
+
+Test-RealmLauncher.ps1 проверяет отсутствие копирования в обычном запуске,
+CheckOnly/PrepareOnly и отдельные entry points. Test-RealmOverworldSync.ps1
+реально копирует временные миры в обоих направлениях, проверяет сохранность
+dimensions/player data, backup/rollback, блокировки и имитирует RCON для
+работающего Build с успешным копированием и ошибками flush/copy/save-on.
+В тестах не запускаются реальные серверы, Minecraft или MongoDB.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\startup\Test-RealmLauncher.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\startup\Test-RealmOverworldSync.ps1
 ```
-
-Первый тест проверяет вызовы и режимы launcher. Второй реально копирует временные
-миры, проверяет Realm 0 из Build и сохранность Test Realm 1/других dimensions/
-player data на двух запусках, backup, блокировки и отказы/rollback. Закрытый для
-чтения файл внутри Build DIM201 доказывает, что Build Realms не читаются.
-Проверки включены в Windows CI; Java sync проверяется в Linux CI.
