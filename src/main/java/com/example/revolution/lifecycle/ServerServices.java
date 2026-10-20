@@ -19,6 +19,7 @@ import com.example.revolution.player.service.PlayerCollectionService;
 import com.example.revolution.player.service.PlayerSessionService;
 import com.example.revolution.player.service.PlayerStatsService;
 import com.example.revolution.player.service.PlayerStatsSyncService;
+import com.example.revolution.realm.service.RealmService;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.service.RuneActionService;
@@ -55,6 +56,7 @@ public final class ServerServices implements AutoCloseable {
     public final MobAdminService mobAdmin;
     public final RuneAdminService runeAdmin;
     public final PlayerCollectionService collections;
+    public final RealmService realms = new RealmService();
 
     public ServerServices(Logger logger, boolean persistentGameplay) {
         connection = new MongoConnection(logger);
