@@ -9,6 +9,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /** Fixed Realm catalog for the v1.3.4 foundation. Location data is deliberately outside this catalog. */
 public final class RealmCatalog {
+    private static final RealmDefinition ADMIN_REALM = new RealmDefinition(0, 0, "Realm 0", 0, 64, 0);
     private static final List<RealmDefinition> REALMS;
     private static final Map<Integer, RealmDefinition> BY_REALM_ID;
     private static final Map<Integer, RealmDefinition> BY_DIMENSION_ID;
@@ -32,12 +33,14 @@ public final class RealmCatalog {
 
     private RealmCatalog() {}
 
+    /** Player Realms only. Realm 0 is intentionally excluded from balancing and Forge dimension registration. */
     public static List<RealmDefinition> all() { return REALMS; }
-    public static RealmDefinition byRealmId(int realmId) { return BY_REALM_ID.get(realmId); }
-    public static RealmDefinition byDimensionId(int dimensionId) { return BY_DIMENSION_ID.get(dimensionId); }
+    public static RealmDefinition adminRealm() { return ADMIN_REALM; }
+    public static RealmDefinition byRealmId(int realmId) { return realmId == 0 ? ADMIN_REALM : BY_REALM_ID.get(realmId); }
+    public static RealmDefinition byDimensionId(int dimensionId) { return dimensionId == 0 ? ADMIN_REALM : BY_DIMENSION_ID.get(dimensionId); }
     public static boolean isRealmDimension(int dimensionId) { return BY_DIMENSION_ID.containsKey(dimensionId); }
 
-    /** Selects randomly among all Realms tied for the minimum current population. */
+    /** Selects randomly among all player Realms tied for the minimum current population. */
     public static RealmDefinition leastPopulated(Map<Integer, Integer> populationByDimension) {
         List<RealmDefinition> candidates = new ArrayList<>();
         int minimumPopulation = Integer.MAX_VALUE;
