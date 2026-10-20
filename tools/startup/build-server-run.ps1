@@ -5,6 +5,7 @@
 
 . "$PSScriptRoot\common.ps1"
 . "$PSScriptRoot\world-sync.ps1"
+. "$PSScriptRoot\realm-world-sync.ps1"
 
 # This launcher builds Project before starting it. Realm-enabled source owns its
 # persistent world; older branches retain the existing Build-to-Test refresh.
@@ -38,7 +39,8 @@ try {
     }
 
     Assert-TestStopped -ReadOnly:$CheckOnly
-    if (-not $preserveRealmWorld) { Assert-WorldSyncReady }
+    if ($preserveRealmWorld) { Assert-RealmOverworldSyncReady }
+    else { Assert-WorldSyncReady }
 
     $properties = Read-Properties "$Server\server.properties"
 
@@ -50,7 +52,7 @@ try {
         throw 'level-name is missing in server.properties'
     }
 
-    $worldMode = if ($preserveRealmWorld) { 'persistent Realm world' } else { 'legacy Build -> Test refresh' }
+    $worldMode = if ($preserveRealmWorld) { 'Build overworld + persistent Test Realm 1' } else { 'legacy Build -> Test refresh' }
     Write-Host "Test server ($worldMode):"
     Write-Host "  Path:     $Server"
     Write-Host "  World:    $($properties['level-name'])"
@@ -61,7 +63,7 @@ try {
     if ($CheckOnly) {
         Assert-ServerServicesReady
         if ($preserveRealmWorld) {
-            Write-Host "Preflight OK. Current world is preserved; Forge will sync Realm 1 -> 2/3 before world loading."
+            Write-Host "Preflight OK. Offline Build overworld will refresh Realm 0; Test Realm 1 stays; Forge syncs 1 -> 2/3."
         } else {
             Write-Host "Preflight OK. Legacy startup copies Build/world -> Test/world. MongoDB is not reset."
         }
@@ -117,7 +119,10 @@ try {
 
     Write-Host ""
     if ($preserveRealmWorld) {
-        Write-Host "=== Preserving current world; Realm sync runs offline inside Forge startup ==="
+        if (-not $PrepareOnly) {
+            Write-Host "=== Refreshing Realm 0 from offline Build; preserving Test Realm 1 ==="
+            Reset-TestOverworldFromBuild
+        }
     } else {
         Write-Host "=== Copying Build world to Test (legacy build) ==="
         Reset-TestWorldFromBuild
@@ -131,7 +136,7 @@ try {
 
     Write-Host ""
     Write-Host "=== Starting Test ==="
-    Write-Host "Test MongoDB remains independent. Realm-enabled builds preserve the current world."
+    Write-Host "Test MongoDB remains independent. Realm 0 comes from Build; Realm 1 is the persistent Test template."
     Write-Host ""
 
     Start-Forge $Server $Database

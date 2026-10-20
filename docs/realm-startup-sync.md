@@ -45,14 +45,16 @@ old-DIM202/old-DIM203 содержат заменённые оригиналы, 
 Команды /realm sync нет. Административная проверка /realm join сохранена.
 Заменяются только DIM202/203; DIM201 читается, кроме создания пустого каталога
 при первом запуске. Собственные lock/transaction-файлы находятся в корне save.
-Регионы overworld, level.dat, общие player data, другие dimensions и MongoDB
-не заменяются. Общие метаданные Minecraft остаются общими согласно существующей
-архитектуре Forge dimensions.
+Сам обработчик Forge не заменяет overworld, level.dat, player data, другие
+dimensions или MongoDB. При стандартном локальном запуске overworld отдельно
+обновляет PowerShell launcher. Общие метаданные Minecraft остаются общими
+согласно существующей архитектуре Forge dimensions.
 
-Локальный build-server-run.ps1 раньше заменял весь Test/world из Build/world
-при каждом запуске. Это стирало бы и актуальный Realm 1, и изменения Realm 0.
-Исправленная версия включена в tools/startup: если собираемый Project содержит
-RealmStartupSync.java, текущее Test/world сохраняется, а sync выполняет Forge.
+Локальный build-server-run.ps1 раньше заменял весь Test/world из Build/world.
+Теперь для Project с RealmStartupSync.java он обновляет только overworld из
+остановленного Build, сохраняя папки DIM* и playerdata/stats/advancements Test.
+Обе части копируются в отдельный world с проверкой и backup прежнего Test/world.
+Realm 1 остаётся из Test; Forge копирует его в Realm 2/3 до загрузки dimensions.
 Для старых веток без этого обработчика прежний Build→Test workflow сохранён.
 Скрипт нужно держать рядом с существующими common.ps1/world-sync.ps1; подробности
 в tools/startup/README.md. Обёртка preflight-and-run.ps1 изменений не требует.
@@ -77,8 +79,9 @@ RealmStartupSync.java, текущее Test/world сохраняется, а sync
 6. Только на одноразовых копиях проверить отсутствующий DIM201 при существующей
    цели, junction, параллельный запуск с тем же save и незавершённую транзакцию.
    В каждом случае загрузка миров должна блокироваться с сохранением данных.
-7. Проверить реальный Build/Test launcher: для Realm-ветки он должен сохранять
-   Test/world и Realm 1. Старый режим Build→Test остаётся только для прежних веток.
+7. Проверить реальный Build/Test launcher: для Realm-ветки он должен обновлять
+   Realm 0 из Build и сохранять Test Realm 1. Build должен быть остановлен.
+   Старый полный режим Build→Test остаётся только для прежних веток.
    Нестандартные level-name/universe проверить прямым запуском Forge: локальный
    исторический launcher по-прежнему рассчитан на world.
 
@@ -91,3 +94,6 @@ RealmStartupSync.java, текущее Test/world сохраняется, а sync
 Отдельный Test-RealmLauncher.ps1 проверяет обычный запуск, CheckOnly и PrepareOnly
 для Realm-ветки и прежней ветки на фиктивных серверах без запуска Forge/MongoDB.
 В CI этот тест выполняется отдельным заданием Windows.
+Test-RealmOverworldSync.ps1 проверяет составное копирование на временных мирах,
+два запуска, backup и отказы/rollback. При прямом запуске Forge Realm 0 сохраняется;
+при запуске через стандартный launcher Realm 0 должен соответствовать Build.

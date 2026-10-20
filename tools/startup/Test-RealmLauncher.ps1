@@ -21,6 +21,10 @@ try {
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'build-server-run.ps1') -Destination $scriptDirectory
+    @'
+function Assert-RealmOverworldSyncReady { Record 'realm-overworld-check' }
+function Reset-TestOverworldFromBuild { Record 'overworld-reset' }
+'@ | Set-Content -LiteralPath (Join-Path $scriptDirectory 'realm-world-sync.ps1') -Encoding UTF8
     'realm-enabled' | Set-Content -LiteralPath $sourceMarker
     'realm-one' | Set-Content -LiteralPath (Join-Path $serverDirectory 'world/DIM201/keep.dat')
     'overworld' | Set-Content -LiteralPath (Join-Path $serverDirectory 'world/level.dat')
@@ -54,16 +58,20 @@ function Reset-TestWorldFromBuild { Record 'world-reset' }
     Require (Has-Call 'services-check') 'CheckOnly missed service validation'
     Require (-not (Has-Call 'world-reset')) 'CheckOnly reset the world'
     Require (-not (Has-Call 'build-world-check')) 'Realm startup still depends on Build snapshot'
+    Require (Has-Call 'realm-overworld-check') 'Realm preflight missed offline overworld validation'
+    Require (-not (Has-Call 'overworld-reset')) 'CheckOnly refreshed overworld'
     Require (-not (Has-Call 'start')) 'CheckOnly started Forge'
 
     Invoke-Case @('-PrepareOnly')
     Require (Has-Call 'installed-check') 'PrepareOnly missed installed-mod guard'
     Require (-not (Has-Call 'world-reset')) 'Realm PrepareOnly reset the world'
+    Require (-not (Has-Call 'overworld-reset')) 'PrepareOnly refreshed overworld'
     Require (-not (Has-Call 'start')) 'PrepareOnly started Forge'
 
     Invoke-Case @()
     Require (Has-Call 'start') 'Normal startup did not launch Forge'
     Require (-not (Has-Call 'world-reset')) 'Realm startup replaced authoritative world'
+    Require (Has-Call 'overworld-reset') 'Realm startup failed to refresh only overworld'
 
     Remove-Item -LiteralPath $sourceMarker
     Invoke-Case @('-CheckOnly')
@@ -74,7 +82,7 @@ function Reset-TestWorldFromBuild { Record 'world-reset' }
     Require (-not (Has-Call 'start')) 'Legacy PrepareOnly started Forge'
     Invoke-Case @()
     Require ((Has-Call 'world-reset') -and (Has-Call 'start')) 'Legacy normal workflow changed'
-    Write-Host 'PASS: Realm restart preserves world; read-only preflight and PrepareOnly never sync; legacy workflow retained. No real server or database used.'
+    Write-Host 'PASS: Realm startup refreshes only overworld; CheckOnly/PrepareOnly never sync; legacy workflow retained. No real server or database used.'
 } finally {
     $env:APPDATA = $previousAppData
     $resolvedFixture = [IO.Path]::GetFullPath($fixture)
