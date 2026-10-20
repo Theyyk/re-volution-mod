@@ -79,6 +79,7 @@ publishing {
 
 // Standalone assertion runners avoid booting Minecraft, OpenGL or MongoDB in CI.
 def regressionTests = [
+    realmStartupSyncRegression: 'com.example.revolution.realm.world.RealmStartupSyncTest',
     runeInventoryRegression: 'com.example.revolution.rune.state.RuneInventoryTest',
     guiLayoutRegression: 'com.example.revolution.client.GuiLayoutTest',
     runeEconomyRegression: 'com.example.revolution.rune.config.RuneEconomyConfigTest',

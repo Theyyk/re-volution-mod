@@ -12,14 +12,18 @@ import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
 import com.example.revolution.player.event.PlayerJoinHandler;
 import com.example.revolution.realm.event.RealmLoginHandler;
+import com.example.revolution.realm.event.RealmEntityLoadHandler;
+import com.example.revolution.realm.world.RealmStartupSync;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
+import net.minecraftforge.fml.common.event.FMLServerAboutToStartEvent;
 import org.apache.logging.log4j.Logger;
 
 /** Forge lifecycle boundary; application services must never call this locator. */
@@ -28,6 +32,7 @@ public final class ServerLifecycle {
     private static File configDirectory;
     private static Logger logger;
     private static boolean dedicatedServer;
+    private static RealmStartupSync realmSave;
     private static final List<Object> listeners = new ArrayList<>();
     private ServerLifecycle() {}
 
@@ -56,6 +61,7 @@ public final class ServerLifecycle {
         current.adminAccess.init(configDirectory);
         listeners.add(new PlayerJoinHandler(current.sessions));
         listeners.add(new RealmLoginHandler(current.realms));
+        listeners.add(new RealmEntityLoadHandler());
         listeners.add(new ManagedMobEvents(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         for (Object listener : listeners) MinecraftForge.EVENT_BUS.register(listener);
@@ -64,6 +70,22 @@ public final class ServerLifecycle {
     public static ServerServices services() {
         if (current == null) throw new IllegalStateException("Server services are not initialized");
         return current;
+    }
+
+    public static void aboutToStart(FMLServerAboutToStartEvent event) {
+        if (!dedicatedServer || !event.getServer().isDedicatedServer()) return;
+        if (realmSave != null || DimensionManager.getWorlds().length != 0) {
+            throw new IllegalStateException("Realm startup sync requires all Forge worlds to be unloaded");
+        }
+        MinecraftServer server = event.getServer();
+        // getFile resolves --world/--universe without creating a SaveHandler/session.lock.
+        File world = server.getActiveAnvilConverter().getFile(server.getFolderName(), "");
+        try {
+            realmSave = RealmStartupSync.prepare(world.toPath());
+            logger.info("Realm startup sync complete: DIM201 -> DIM202/DIM203; dimension 0 excluded.");
+        } catch (IOException e) {
+            throw new IllegalStateException("Realm startup sync failed; refusing to load worlds", e);
+        }
     }
 
     public static void starting(FMLServerStartingEvent event) {
@@ -103,6 +125,14 @@ public final class ServerLifecycle {
         ServerServices stopping = current;
         current = null;
         RateLimitedPingPacketHandler.reset();
-        if (stopping != null) stopping.close();
+        try {
+            if (stopping != null) stopping.close();
+        } finally {
+            if (realmSave != null) {
+                try { realmSave.close(); }
+                catch (IOException e) { logger.error("Could not release Realm save lock", e); }
+                finally { realmSave = null; }
+            }
+        }
     }
 }

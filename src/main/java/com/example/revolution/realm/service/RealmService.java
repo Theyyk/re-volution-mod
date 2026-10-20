@@ -59,6 +59,8 @@ public final class RealmService {
     }
 
     private void ensureStartPlatform(WorldServer world, RealmDefinition realm) {
+        // Saved template blocks are authoritative, including edits at the spawn platform.
+        if (world.getChunkProvider().isChunkGeneratedAt(realm.getStartX() >> 4, realm.getStartZ() >> 4)) return;
         int y = realm.getStartY() - 1;
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {

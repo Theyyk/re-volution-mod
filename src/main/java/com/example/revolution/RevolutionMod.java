@@ -7,6 +7,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerAboutToStartEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
@@ -30,6 +31,7 @@ public final class RevolutionMod {
         logger.info("RE:volution Mod preInit done");
     }
     @Mod.EventHandler public void init(FMLInitializationEvent event) { proxy.init(); }
+    @Mod.EventHandler public void serverAboutToStart(FMLServerAboutToStartEvent event) { ServerLifecycle.aboutToStart(event); }
     @Mod.EventHandler public void serverStarting(FMLServerStartingEvent event) { ServerLifecycle.starting(event); }
     @Mod.EventHandler public void serverStarted(FMLServerStartedEvent event) { ServerLifecycle.started(); }
     @Mod.EventHandler public void serverStopped(FMLServerStoppedEvent event) { ServerLifecycle.stopped(); }

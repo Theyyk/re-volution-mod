@@ -7,6 +7,7 @@
 - [Установка, настройка MongoDB, запуск и сборка](setup.md).
 - [Игровые системы и интерфейс](gameplay.md).
 - [Команды](commands.md).
+- [Синхронизация Realm при старте и локальная приёмка 1.3.4](realm-startup-sync.md).
 - [Архитектура проекта](architecture.md).
 - [Проверки и обязательный процесс выпуска](development.md).
 - [Источник шрифтов Cristalix и подтверждение поддержки](permissions/cristalix.md).
