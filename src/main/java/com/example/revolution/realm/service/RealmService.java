@@ -31,6 +31,16 @@ public final class RealmService {
     public RealmDefinition join(MinecraftServer server, EntityPlayerMP player, int realmId) {
         RealmDefinition realm = RealmCatalog.byRealmId(realmId);
         if (realm == null) throw new IllegalArgumentException("Unknown Realm ID: " + realmId);
+
+        if (realmId == 0) {
+            WorldServer overworld = server.getWorld(0);
+            if (overworld == null) throw new IllegalStateException("Overworld dimension 0 is unavailable");
+            BlockPos spawn = overworld.getSpawnPoint();
+            RealmDefinition destination = new RealmDefinition(0, 0, realm.getName(), spawn.getX(), spawn.getY(), spawn.getZ());
+            transfer(server, player, overworld, destination);
+            return realm;
+        }
+
         WorldServer target = requireWorld(server, realm);
         ensureStartPlatform(target, realm);
         transfer(server, player, target, realm);
