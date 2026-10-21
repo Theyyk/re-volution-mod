@@ -3,12 +3,14 @@ package com.example.revolution.location;
 import com.example.revolution.location.definition.LocationCatalog;
 import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.MobSpawnDefinition;
+import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.MovementMode;
 import com.example.revolution.location.definition.SpawnMode;
 import com.example.revolution.location.definition.SpawnRealmScope;
 import com.example.revolution.location.service.LocationService;
 import com.example.revolution.location.service.LocationService.HorizontalPoint;
 import com.example.revolution.location.service.LocationService.ResolvedFixedSpawn;
+import com.example.revolution.location.service.MobZoneLayout;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -23,6 +25,8 @@ public final class LocationFoundationTest {
         randomPointsStayInsideLocationCircle();
         playerRealmsShareSpawnGeometry();
         realmZeroRequiresExplicitScope();
+        mobZoneIdsRoundTripWorldLocationAndSlot();
+        mobZonePopulationUsesStableHalfSplitAndDiskLayout();
         System.out.println("LocationFoundationTest passed");
     }
 
@@ -93,6 +97,29 @@ public final class LocationFoundationTest {
             rejected = true;
         }
         assertTrue(rejected, "player-Realm spawn must not auto-apply to Realm 0");
+    }
+
+    private static void mobZoneIdsRoundTripWorldLocationAndSlot() {
+        int encoded = MobZoneIds.encode(17, 8);
+        assertTrue(MobZoneIds.isMobZoneId(encoded), "encoded ID must be recognized as mob zone");
+        assertEquals(17, MobZoneIds.worldLocationId(encoded), "world Location ID round-trip");
+        assertEquals(8, MobZoneIds.mobSlotId(encoded), "mob slot ID round-trip");
+        assertTrue(!MobZoneIds.isMobZoneId(17), "legacy Location IDs must remain distinct");
+    }
+
+    private static void mobZonePopulationUsesStableHalfSplitAndDiskLayout() {
+        assertEquals(10, MobZoneLayout.fixedCount(20), "even fixed split");
+        assertEquals(10, MobZoneLayout.randomCount(20), "even random split");
+        assertEquals(11, MobZoneLayout.fixedCount(21), "odd fixed split gets extra mob");
+        assertEquals(10, MobZoneLayout.randomCount(21), "odd random split");
+
+        int fixedCount = MobZoneLayout.fixedCount(20);
+        for (int i = 0; i < fixedCount; i++) {
+            MobZoneLayout.HorizontalPoint point = MobZoneLayout.fixedPoint(i, fixedCount, 12.0D, -4.0D, 15.0D);
+            double dx = point.getX() - 12.0D;
+            double dz = point.getZ() + 4.0D;
+            assertTrue(dx * dx + dz * dz < 15.0D * 15.0D, "fixed point must stay inside mob zone");
+        }
     }
 
     private static LocationCatalog catalog() {
