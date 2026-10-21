@@ -11,19 +11,19 @@ import com.example.revolution.mob.event.ManagedMobEvents;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
 import com.example.revolution.player.event.PlayerJoinHandler;
-import com.example.revolution.realm.event.RealmLoginHandler;
 import com.example.revolution.realm.event.RealmEntityLoadHandler;
+import com.example.revolution.realm.event.RealmLoginHandler;
 import com.example.revolution.realm.world.RealmStartupSync;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.server.MinecraftServer;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerAboutToStartEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import org.apache.logging.log4j.Logger;
 
 /** Forge lifecycle boundary; application services must never call this locator. */
@@ -109,7 +109,7 @@ public final class ServerLifecycle {
             return;
         }
         current.realms.initialize(server);
-        current.mobs.loadFromDatabase(server.getWorld(0));
+        current.mobs.loadFromDatabase(server);
         if (dedicatedServer) {
             try {
                 current.startAdminApi(server, configDirectory);
