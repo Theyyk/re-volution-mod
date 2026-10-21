@@ -48,6 +48,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
 
@@ -60,6 +61,7 @@ public final class ManagedMobService {
     private static final int COMBAT_PAUSE_TICKS = 20;
     private static final int ROAM_TARGET_ATTEMPTS = 16;
     private static final int SEPARATION_CHECK_INTERVAL = 10;
+    private static final long LOCKED_NOTICE_COOLDOWN_TICKS = 40L;
     private static final double HARD_BOUNDARY_MARGIN = 2.0D;
     private static final double SOFT_BOUNDARY_MARGIN = 1.0D;
     private static final double ROAM_SPEED = 1.0D;
@@ -77,9 +79,11 @@ public final class ManagedMobService {
     private final LocationRepository locationRepository;
     private final RuneMobEffectService runeEffects;
     private final MobRewardService rewards;
+    private final MobProgressionService progression;
     private final Random random = new Random();
     private final List<MobRuntimeState> spawns = new ArrayList<>();
     private final Set<UUID> poisonDamagePlayers = new HashSet<>();
+    private final Map<UUID, Long> progressionNoticeTicks = new HashMap<>();
     private MinecraftServer server;
     private LocationService locationService;
     private int poisonTickCounter;
@@ -89,16 +93,19 @@ public final class ManagedMobService {
             MobRepository mobRepository,
             LocationRepository locationRepository,
             RuneMobEffectService runeEffects,
-            MobRewardService rewards) {
+            MobRewardService rewards,
+            MobProgressionService progression) {
         this.mobRepository = mobRepository;
         this.locationRepository = locationRepository;
         this.runeEffects = runeEffects;
         this.rewards = rewards;
+        this.progression = progression;
     }
 
     public void loadFromDatabase(MinecraftServer server) {
         this.server = server;
         poisonDamagePlayers.clear();
+        progressionNoticeTicks.clear();
         poisonTickCounter = 0;
         managedSessionId = UUID.randomUUID().toString();
         spawns.clear();
@@ -151,6 +158,7 @@ public final class ManagedMobService {
             acceptedStoredSpawns.clear();
             mobsWithCustomSpawns.clear();
         }
+        progression.reloadConfiguration(locations, acceptedStoredSpawns);
 
         if (locationService != null) {
             for (StoredMobSpawn stored : acceptedStoredSpawns) {
@@ -724,6 +732,10 @@ public final class ManagedMobService {
             if (!spawn.isLegacy()) {
                 pruneContributions(spawn);
                 if (!isPlayerInsideContributionZone(spawn, player)) return true;
+                if (!progression.isUnlocked(player.getUniqueID(), spawn.location.getLocationId())) {
+                    notifyProgressionLocked(spawn, player);
+                    return true;
+                }
             }
 
             if (!isApplyingPoisonDamage(player.getUniqueID())) {
@@ -753,6 +765,16 @@ public final class ManagedMobService {
         return false;
     }
 
+    private void notifyProgressionLocked(MobRuntimeState spawn, EntityPlayerMP player) {
+        long now = player.world.getTotalWorldTime();
+        Long previousNotice = progressionNoticeTicks.get(player.getUniqueID());
+        if (previousNotice != null && now - previousNotice < LOCKED_NOTICE_COOLDOWN_TICKS) return;
+        progressionNoticeTicks.put(player.getUniqueID(), now);
+        Integer required = progression.previousRequiredSlot(spawn.location.getLocationId());
+        String suffix = required == null ? "" : " (предыдущий mobSlot " + required + ")";
+        player.sendMessage(new TextComponentString("§cЭтот моб пока закрыт. Сначала победи предыдущего моба в этой Location" + suffix + "."));
+    }
+
     public void died(EntityLivingBase entity, DamageSource source) {
         for (MobRuntimeState spawn : spawns) {
             if (spawn.entity != entity) continue;
@@ -777,6 +799,18 @@ public final class ManagedMobService {
                     + " spawnKey=" + spawn.definition.spawnKey + " player=" + progressOwner
                     + " contribution=" + LargeNumbers.canonical(spawn.contributions.amount(progressOwner))
                     + "/" + LargeNumbers.canonical(totalContribution));
+            EntityPlayerMP winner = server.getPlayerList().getPlayerByUUID(progressOwner);
+            if (isPlayerInsideContributionZone(spawn, winner)) {
+                MobProgressionService.UnlockResult unlock = progression.unlockNext(progressOwner, spawn.location.getLocationId());
+                if (unlock != null) {
+                    String mobLabel = unlock.mobName == null || unlock.mobName.isEmpty() ? "mobSlot " + unlock.mobSlotId : unlock.mobName;
+                    winner.sendMessage(new TextComponentString("§aОткрыт следующий моб: " + mobLabel
+                            + " (Location " + unlock.worldLocationId + ", mobSlot " + unlock.mobSlotId + ")."));
+                    RevolutionMod.logger.info("Mob progression unlocked: player=" + progressOwner
+                            + " location=" + unlock.worldLocationId + " mobSlot=" + unlock.mobSlotId
+                            + " mob=" + unlock.mobName);
+                }
+            }
         }
     }
 
@@ -889,6 +923,7 @@ public final class ManagedMobService {
     public void clear() {
         spawns.clear();
         poisonDamagePlayers.clear();
+        progressionNoticeTicks.clear();
         server = null;
         locationService = null;
         poisonTickCounter = 0;
