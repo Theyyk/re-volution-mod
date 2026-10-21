@@ -13,6 +13,7 @@ public final class MobRuntimeState {
     public final int dimensionId;
     public final LocationDefinition location;
     public final MobSpawnDefinition spawnDefinition;
+    public final MobContributionLedger contributions = new MobContributionLedger();
     public BigDecimal currentHp;
     public EntityLiving entity;
     public int respawnTimer;
