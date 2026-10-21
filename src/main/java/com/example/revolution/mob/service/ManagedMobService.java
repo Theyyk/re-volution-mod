@@ -592,8 +592,20 @@ public final class ManagedMobService {
         spawn.currentHp = BigDecimal.ZERO;
         spawn.entity.setDead();
         spawn.entity = null;
+
+        boolean randomAreaRespawn = spawn.spawnDefinition != null
+                && spawn.spawnDefinition.getSpawnMode() == SpawnMode.RANDOM_AREA;
+        if (randomAreaRespawn) {
+            spawn.initialResolved = false;
+            World world = worldFor(spawn);
+            if (world != null && resolveInitialPosition(spawn, world)) {
+                world.getChunkFromBlockCoords(spawnPosition(spawn));
+            }
+        }
+
         spawn.respawnTimer = 10;
-        RevolutionMod.logger.info("Mob " + spawn.definition.name + " killed. Respawn in 0.5s at its slot initial point.");
+        RevolutionMod.logger.info("Mob " + spawn.definition.name + " killed. Respawn in 0.5s "
+                + (randomAreaRespawn ? "at a freshly rolled random Location point." : "at its fixed slot point."));
     }
 
     public void tick() {
