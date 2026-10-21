@@ -23,6 +23,7 @@ public final class ClientBootstrap {
         MinecraftForge.EVENT_BUS.register(new HealthBarRenderer());
         MinecraftForge.EVENT_BUS.register(new NameHider());
         MinecraftForge.EVENT_BUS.register(new RealmHudRenderer());
+        MinecraftForge.EVENT_BUS.register(new MobZoneOverlayRenderer());
         MinecraftForge.EVENT_BUS.register(new EnhancementClickGuard());
         MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());
