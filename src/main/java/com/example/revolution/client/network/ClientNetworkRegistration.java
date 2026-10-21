@@ -1,5 +1,7 @@
 package com.example.revolution.client.network;
 
+import com.example.revolution.network.MobZoneOverlayPacket;
+import com.example.revolution.network.MobZoneOverlayRequestPacket;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.PlayerStatsPacket;
@@ -19,5 +21,7 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(PlayerStatsPacketHandler.class, PlayerStatsPacket.class, 4, Side.CLIENT);
         // Discriminators 5 and 6 remain reserved for the removed Minecraft admin-panel transport.
         NetworkHandler.INSTANCE.registerMessage(RuneEnhancementPacketHandler.class, RuneEnhancementPacket.class, 7, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(MobZoneOverlayRequestClientHandler.class, MobZoneOverlayRequestPacket.class, 8, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(MobZoneOverlayPacketClientHandler.class, MobZoneOverlayPacket.class, 9, Side.CLIENT);
     }
 }
