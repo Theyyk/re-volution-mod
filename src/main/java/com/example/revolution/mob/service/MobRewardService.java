@@ -2,6 +2,7 @@ package com.example.revolution.mob.service;
 
 import com.example.revolution.RevolutionMod;
 import com.example.revolution.mob.definition.ManagedMobDefinition;
+import com.example.revolution.mob.rules.MobContributionRules;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PongPacket;
 import com.example.revolution.number.LargeNumbers;
@@ -32,15 +33,31 @@ public final class MobRewardService {
     }
 
     public void grant(EntityPlayerMP player, ManagedMobDefinition definition) {
+        grantResolved(player, definition, definition.amount);
+    }
 
-            BigDecimal rewardAmount = runeEffects.rewardAmount(player.getUniqueID(), definition.resource, definition.amount);
-            if (resources.grantPlayerResource(player.getUniqueID(), definition.resource, rewardAmount)) {
-                BigDecimal newBalance = resources.getPlayerResourceValue(player.getUniqueID(), definition.resource);
-                player.sendMessage(new TextComponentString("§6+" + LargeNumbers.format(rewardAmount) + " "
-                        + ResourceDefinitions.getDisplayName(definition.resource) + "! Баланс: " + LargeNumbers.format(newBalance)));
-                stats.sendTo(player);
-            } else RevolutionMod.logger.warn("Skipped invalid mob reward resource: " + definition.resource);
-            }
+    public void grantProportional(
+            EntityPlayerMP player,
+            ManagedMobDefinition definition,
+            BigDecimal contribution,
+            BigDecimal totalContribution) {
+        BigDecimal baseShare = MobContributionRules.proportionalReward(
+                definition.amount, contribution, totalContribution);
+        if (baseShare.signum() <= 0) return;
+        grantResolved(player, definition, baseShare);
+    }
+
+    private void grantResolved(EntityPlayerMP player, ManagedMobDefinition definition, BigDecimal baseReward) {
+        BigDecimal rewardAmount = runeEffects.rewardAmount(player.getUniqueID(), definition.resource, baseReward);
+        if (resources.grantPlayerResource(player.getUniqueID(), definition.resource, rewardAmount)) {
+            BigDecimal newBalance = resources.getPlayerResourceValue(player.getUniqueID(), definition.resource);
+            player.sendMessage(new TextComponentString("§6+" + LargeNumbers.format(rewardAmount) + " "
+                    + ResourceDefinitions.getDisplayName(definition.resource) + "! Баланс: " + LargeNumbers.format(newBalance)));
+            stats.sendTo(player);
+        } else {
+            RevolutionMod.logger.warn("Skipped invalid mob reward resource: " + definition.resource);
+        }
+    }
 
     /** Retains the legacy name-based 50-coin reward, including integer balance semantics. */
     public void grantLegacyCoins(EntityPlayerMP player) {
