@@ -101,8 +101,13 @@ public final class MobAdminService {
             populateMobZone(player, args);
             return;
         }
+        if (args.length == 4 && args[1].equalsIgnoreCase("remove")) {
+            removeMobZone(player, args);
+            return;
+        }
         player.sendMessage(new TextComponentString("§c/custommob location set <locationId> <mobSlotId> <radius>"));
         player.sendMessage(new TextComponentString("§c/custommob location populate <locationId> <mobSlotId> <mobName> <count>"));
+        player.sendMessage(new TextComponentString("§c/custommob location remove <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§c/custommob location here | location list <locationId>"));
     }
 
@@ -190,6 +195,27 @@ public final class MobAdminService {
             mobs.respawnAll();
         } catch (RuntimeException e) {
             player.sendMessage(new TextComponentString("§cНе удалось заполнить mob zone: " + e.getMessage()));
+        }
+    }
+
+    private void removeMobZone(EntityPlayerMP player, String[] args) {
+        try {
+            int worldLocationId = Integer.parseInt(args[2]);
+            int mobSlotId = Integer.parseInt(args[3]);
+            int internalId = MobZoneIds.encode(worldLocationId, mobSlotId);
+            LocationDefinition zone = locations.getLocation(internalId);
+            List<StoredMobSpawn> existing = locations.getMobSpawns(internalId);
+            if (zone == null && existing.isEmpty()) {
+                player.sendMessage(new TextComponentString("§cMob zone не найдена: location=" + worldLocationId + " slot=" + mobSlotId));
+                return;
+            }
+            int removedSpawns = clearZonePopulation(internalId);
+            locations.deleteLocation(internalId);
+            player.sendMessage(new TextComponentString("§aMob zone удалена: location=" + worldLocationId + " slot=" + mobSlotId
+                    + " removedSpawns=" + removedSpawns));
+            mobs.respawnAll();
+        } catch (RuntimeException e) {
+            player.sendMessage(new TextComponentString("§cНе удалось удалить mob zone: " + e.getMessage()));
         }
     }
 
@@ -319,6 +345,7 @@ public final class MobAdminService {
         player.sendMessage(new TextComponentString("§e/custommob create <name> <resource> <amount> <hp> <type>"));
         player.sendMessage(new TextComponentString("§e/custommob location set <locationId> <mobSlotId> <radius>"));
         player.sendMessage(new TextComponentString("§e/custommob location populate <locationId> <mobSlotId> <mobName> <count>"));
+        player.sendMessage(new TextComponentString("§e/custommob location remove <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§e/custommob location here | location list <locationId>"));
         player.sendMessage(new TextComponentString("§e/custommob spawn set <locationId> <spawnId> <mobName> <fixed|random> <stationary|roaming> <player|realm0>"));
         player.sendMessage(new TextComponentString("§e/custommob spawn list <locationId> | spawn remove <locationId> <spawnId>"));
