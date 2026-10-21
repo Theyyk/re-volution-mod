@@ -4,12 +4,14 @@ import com.example.revolution.admin.api.AdminApiServer;
 import com.example.revolution.admin.service.AdminAccessService;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
+import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.ManagedMobService;
 import com.example.revolution.mob.service.MobAdminService;
 import com.example.revolution.mob.service.MobRewardService;
 import com.example.revolution.persistence.FileAdminWhitelistRepository;
 import com.example.revolution.persistence.MongoConnection;
+import com.example.revolution.persistence.MongoLocationRepository;
 import com.example.revolution.persistence.MongoMobRepository;
 import com.example.revolution.persistence.MongoPlayerRepository;
 import com.example.revolution.persistence.MongoResourceRepository;
@@ -62,6 +64,7 @@ public final class ServerServices implements AutoCloseable {
         connection = new MongoConnection(logger);
         PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
         MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
+        LocationRepository locationRepository = new MongoLocationRepository(connection, persistentGameplay);
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
         resources = new ResourceService(new MongoResourceRepository(connection));
         combat = new RuneCombatService(players, enhancements, combatState);
@@ -75,11 +78,11 @@ public final class ServerServices implements AutoCloseable {
                 new RuneEnhancementService(players, resources, stats, enhancements, sync),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
-        mobs = new ManagedMobService(mobRepository, runeEffects, mobRewards);
+        mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards);
         adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements);
         adminQueries = new AdminQueryService(players, resources, mobRepository);
         adminApi = new AdminApiServer(logger, adminOperations, adminQueries);
-        mobAdmin = new MobAdminService(mobRepository, mobs);
+        mobAdmin = new MobAdminService(mobRepository, locationRepository, mobs);
         runeAdmin = new RuneAdminService(players, resources, stats, enhancements);
         collections = new PlayerCollectionService(players, resources, stats);
     }
