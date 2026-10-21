@@ -63,13 +63,13 @@ public final class MongoPlayerRepository implements PlayerRepository {
         if (doc == null) return result;
         List<Document> collections = (List<Document>) doc.get("decks");
         if (collections == null || collectionIndex < 0 || collectionIndex >= collections.size()) {
-            RevolutionMod.logger.warn("getCardsInDeck: deck " + collectionIndex + " not found");
+            RevolutionMod.logger.warn("getRunesInCollection: collection " + collectionIndex + " not found");
             return result;
         }
         Document collection = collections.get(collectionIndex);
         List<Document> runes = (List<Document>) collection.get("cards");
         if (runes == null) {
-            RevolutionMod.logger.info("getCardsInDeck: deck " + collectionIndex + " has no cards field");
+            RevolutionMod.logger.info("getRunesInCollection: collection " + collectionIndex + " has no rune storage");
             return result;
         }
         for (Document c : runes) {
@@ -118,7 +118,7 @@ public final class MongoPlayerRepository implements PlayerRepository {
             collections.add(new Document("name", name).append("cards", new ArrayList<Document>()));
             connection.collection("players").insertOne(new Document("_id", uuid.toString()).append("balance", 0).append("crystals", 0)
                     .append("activeDeck", 0).append("decks", collections));
-            RevolutionMod.logger.info("addDeck: created player doc + deck '" + name + "'");
+            RevolutionMod.logger.info("addCollection: created player doc + collection '" + name + "'");
             return;
         }
         List<Document> collections = (List<Document>) doc.get("decks");
@@ -126,7 +126,7 @@ public final class MongoPlayerRepository implements PlayerRepository {
         collections.add(new Document("name", name).append("cards", new ArrayList<Document>()));
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
-        RevolutionMod.logger.info("addDeck: added deck '" + name + "', total decks: " + collections.size());
+        RevolutionMod.logger.info("addCollection: added collection '" + name + "', total collections: " + collections.size());
     }
 
     @SuppressWarnings("unchecked")
@@ -147,13 +147,13 @@ public final class MongoPlayerRepository implements PlayerRepository {
     @SuppressWarnings("unchecked")
     @Override
     public void addRuneToCollection(UUID uuid, int collectionIndex, int slot, int runeIndex, int layer, int level) {
-        if (!enabled || !connection.isConnected()) { RevolutionMod.logger.warn("addCardToDeck: !connection.isConnected()"); return; }
+        if (!enabled || !connection.isConnected()) { RevolutionMod.logger.warn("addRuneToCollection: !connection.isConnected()"); return; }
         Document doc = connection.collection("players").find(new Document("_id", uuid.toString())).first();
-        if (doc == null) { RevolutionMod.logger.warn("addCardToDeck: doc not found for " + uuid); return; }
+        if (doc == null) { RevolutionMod.logger.warn("addRuneToCollection: player document not found for " + uuid); return; }
         List<Document> collections = (List<Document>) doc.get("decks");
-        if (collections == null) { RevolutionMod.logger.warn("addCardToDeck: decks == null"); return; }
+        if (collections == null) { RevolutionMod.logger.warn("addRuneToCollection: collections == null"); return; }
         if (collectionIndex < 0 || collectionIndex >= collections.size()) {
-            RevolutionMod.logger.warn("addCardToDeck: deck " + collectionIndex + " not found (size: " + collections.size() + ")"); return;
+            RevolutionMod.logger.warn("addRuneToCollection: collection " + collectionIndex + " not found (size: " + collections.size() + ")"); return;
         }
         Document collection = collections.get(collectionIndex);
         List<Document> runes = (List<Document>) collection.get("cards");
@@ -162,7 +162,7 @@ public final class MongoPlayerRepository implements PlayerRepository {
         collection.put("cards", runes); collections.set(collectionIndex, collection);
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
-        RevolutionMod.logger.info("addCardToDeck: added card to deck " + collectionIndex + " (total in deck: " + runes.size() + ", slot=" + slot + ")");
+        RevolutionMod.logger.debug("addRuneToCollection: added rune to collection " + collectionIndex + " (total in collection: " + runes.size() + ", slot=" + slot + ")");
     }
 
     @SuppressWarnings("unchecked")
@@ -188,7 +188,7 @@ public final class MongoPlayerRepository implements PlayerRepository {
         collection.put("cards", runes); collections.set(collectionIndex, collection);
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
-        RevolutionMod.logger.info("setRuneRank: deck=" + collectionIndex + ", rune=" + runeIndex + ", rank=" + layer);
+        RevolutionMod.logger.info("setRuneRank: collection=" + collectionIndex + ", rune=" + runeIndex + ", rank=" + layer);
         return true;
     }
 
