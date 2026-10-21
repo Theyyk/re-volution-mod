@@ -4,6 +4,9 @@ import com.example.revolution.network.MobZoneOverlayPacket;
 import com.example.revolution.network.MobZoneOverlayRequestPacket;
 import com.example.revolution.network.MobZoneOverlayState;
 import com.example.revolution.network.NetworkHandler;
+import net.minecraft.block.BlockLeaves;
+import net.minecraft.block.BlockLog;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -15,12 +18,12 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
-/** Admin-only lightweight world overlay for configured circular mob-zone boundaries. */
+/** Lightweight world overlay for configured circular mob-zone boundaries. */
 public final class MobZoneOverlayRenderer {
     private static final int SEGMENTS = 96;
     private static final int REQUEST_INTERVAL_TICKS = 40;
     private static final double VIEW_DISTANCE = 64.0D;
-    private static final double HEIGHT_OFFSET = 0.15D;
+    private static final double HEIGHT_OFFSET = 0.12D;
     private static final float RED = 0.31F;
     private static final float GREEN = 0.86F;
     private static final float BLUE = 0.47F;
@@ -93,15 +96,28 @@ public final class MobZoneOverlayRenderer {
             double angle = Math.PI * 2.0D * i / SEGMENTS;
             double worldX = zone.getCenterX() + Math.cos(angle) * zone.getRadius();
             double worldZ = zone.getCenterZ() + Math.sin(angle) * zone.getRadius();
-            BlockPos probe = new BlockPos(worldX, mc.player.posY, worldZ);
-            double worldY = mc.player.posY + HEIGHT_OFFSET;
-            if (mc.world.isBlockLoaded(probe)) {
-                worldY = mc.world.getHeight(new BlockPos(worldX, 0, worldZ)).getY() + HEIGHT_OFFSET;
-            }
+            double worldY = terrainY(mc, worldX, worldZ);
             buffer.pos(worldX - cameraX, worldY - cameraY, worldZ - cameraZ)
                     .color(RED, GREEN, BLUE, ALPHA)
                     .endVertex();
         }
         tessellator.draw();
+    }
+
+    private double terrainY(Minecraft mc, double worldX, double worldZ) {
+        int x = (int) Math.floor(worldX);
+        int z = (int) Math.floor(worldZ);
+        BlockPos column = new BlockPos(x, 0, z);
+        if (!mc.world.isBlockLoaded(column)) return mc.player.posY + HEIGHT_OFFSET;
+
+        int top = Math.min(mc.world.getHeight(column).getY(), mc.world.getActualHeight() - 1);
+        for (int y = top; y >= 1; y--) {
+            BlockPos groundPos = new BlockPos(x, y - 1, z);
+            IBlockState ground = mc.world.getBlockState(groundPos);
+            if (ground.getBlock() instanceof BlockLeaves || ground.getBlock() instanceof BlockLog) continue;
+            if (!ground.getMaterial().blocksMovement() || ground.getMaterial().isLiquid()) continue;
+            return y + HEIGHT_OFFSET;
+        }
+        return mc.player.posY + HEIGHT_OFFSET;
     }
 }
