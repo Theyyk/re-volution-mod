@@ -1,10 +1,10 @@
 # RE:volution Mod — Forge 1.12.2
 
-Серверно-авторитетный игровой мод для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику RE:volution: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm foundation и хранение данных игроков в MongoDB.
+Серверно-авторитетный игровой мод для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику RE:volution: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm foundation/runtime и хранение данных игроков в MongoDB.
 
-**Текущая стабильная версия: `v1.3.4`.**
+**Текущая стабильная версия: `v1.3.6`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Изменения v1.3.4](docs/releases/v1.3.4.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Изменения v1.3.6](docs/releases/v1.3.6.md)
 
 ## Границы проекта
 
@@ -18,9 +18,9 @@ Gameplay-мод не должен содержать приватные launcher
 
 ## Текущая архитектурная база
 
-### Realm foundation — v1.3.4
+### Realm foundation/runtime
 
-- **Realm 0** — существующий административный overworld / dimension `0`.
+- **Realm 0** — административный overworld / dimension `0`.
 - **Realm 1** — dimension `201`, основной player Realm и эталон мира для стартовой синхронизации.
 - **Realm 2** — dimension `202`.
 - **Realm 3** — dimension `203`.
@@ -29,9 +29,40 @@ Gameplay-мод не должен содержать приватные launcher
 - `/realm join <realmId> [player]` остаётся административной командой и поддерживает Realm 0.
 - На каждом старте dedicated-сервера `DIM202` и `DIM203` полностью подготавливаются из сохранённого `DIM201` **до загрузки миров Forge**. Во время работы сервера Realm 1/2/3 независимы; изменения Realm 2/3 сбрасываются на следующем старте.
 - Realm 0 не входит в startup sync.
-- Realm ID, Dimension ID, будущий Location ID / Mob Position ID и UUID сущности являются разными идентификаторами и не должны смешиваться.
+- Runtime managed-мобов не должен принудительно загружать пустые Realm-измерения. После ухода игроков idle Realm остаётся выгруженным до нормальной загрузки Minecraft/Forge.
+- Realm ID, Dimension ID, Location ID, Mob Slot ID / Spawn ID и UUID сущности являются разными идентификаторами и не должны смешиваться.
 
 Подробный контракт и runtime-проверки: [docs/realm-startup-sync.md](docs/realm-startup-sync.md).
+
+### Location / Mob Position foundation и managed-мобы
+
+Начиная с `v1.3.5` и `v1.3.6`, runtime managed-мобов использует отдельную Location/Mob Spawn модель поверх существующих логических определений мобов.
+
+- Один Mob Spawn соответствует одной физической сущности.
+- Несколько spawn-slot могут использовать один и тот же логический `mobId`.
+- Поддерживаются `FIXED_POINT` и `RANDOM_AREA`.
+- Поддерживаются `STATIONARY` и `ROAMING`.
+- Обычный flow `location populate` создаёт `ROAMING`-мобов и делит population примерно 50/50 между fixed и random slots; при нечётном количестве дополнительный slot получает `FIXED_POINT`.
+- Одна gameplay Location может содержать несколько независимых mob-зон, адресуемых парой `locationId + mobSlotId`.
+- Конфигурация player Realm применяется к Realm 1/2/3, Realm 0 остаётся explicit-only.
+- `RANDOM_AREA` выбирает новую независимую позицию на каждую новую физическую жизнь моба.
+- Generated/random spawn surface не принимает листву/брёвна и не поднимается более чем на 3 блока выше базового Y зоны.
+- `ROAMING` удерживает мобов в своей зоне, раздвигает слишком плотные группы и делает паузу примерно 1 секунду после прямого удара игрока; повторный удар перезапускает паузу.
+
+Основные команды mob-zone:
+
+```text
+/custommob location set <locationId> <mobSlotId> <radius>
+/custommob location populate <locationId> <mobSlotId> <mobName> <count>
+/custommob location here
+/custommob location list <locationId>
+/custommob location clear <locationId> <mobSlotId>
+/custommob location remove <locationId> <mobSlotId>
+```
+
+`location clear` удаляет population/spawn slots, но сохраняет геометрию зоны. `location remove` удаляет и population, и геометрию зоны.
+
+Низкоуровневые `/custommob spawn set|list|remove` остаются доступны для ручной и специальной конфигурации, включая будущих `STATIONARY`-боссов.
 
 ## Игровые системы
 
@@ -47,7 +78,7 @@ Gameplay-мод не должен содержать приватные launcher
 - Фиксированный каталог ресурсов: `coins`, `crystals`, `rune_dust`, `rune_shards`, `rune_cores`.
 - Общий серверный контракт игровых ресурсов: проверка достаточности, безопасное списание и выдача без отрицательных балансов.
 - Каркас 16 слотов снаряжения и пяти сборок; полноценные игровые механики экипировки пока не являются завершённой системой.
-- Managed-мобы, HP, награды и команды администрирования существуют в текущем gameplay baseline, но новая Location/Mob Position модель и последующие фиксированные мобы входят в следующие этапы roadmap.
+- Managed-мобы, runtime HP, награды и команды администрирования работают поверх текущей Location/Mob Spawn базы. Contribution/rewards/HP rollback остаются отдельным этапом `v1.3.7`.
 - Данные игроков сохраняются в MongoDB; URI и имя базы задаются серверной конфигурацией.
 
 Интерфейс gameplay-мода открывается клавишей `C`. Подробнее: [игровые системы](docs/gameplay.md) · [команды](docs/commands.md).
@@ -76,7 +107,7 @@ Realm 0 переносится между Build и Test только отдел�
 
 ## Resource Pack
 
-Актуальные rune-ассеты находятся в [RE:volution Resource Pack](https://github.com/Theyyk/re-volution-resource-pack/releases/latest). Resource Pack отвечает только за визуальные ресурсы; состояние, геометрия GUI и игровая логика находятся в моде.
+Актуальные rune-ассеты находятся в [RE:volution Resource Pack](https://github.com/Theyyk/re-volution-resource-pack/releases/latest). Resource Pack отвечает за визуальные ресурсы; состояние, геометрия GUI и игровая логика находятся в моде.
 
 Текущий namespace rune-ассетов Resource Pack: `customguimod`. При отсутствии нужной текстуры gameplay GUI использует безопасный vanilla fallback.
 
@@ -95,15 +126,25 @@ CI проверяет, среди прочего:
 
 CI не заменяет runtime-приёмку там, где изменение зависит от реального Forge lifecycle, клиента или сохранённых миров.
 
-## Roadmap после v1.3.4
+### Обязательный release gate для README
 
-Следующие gameplay-этапы развиваются отдельно, чтобы не смешивать контракты:
+`README.md` является частью release contract и **обязан быть актуализирован до или в составе release/promotion PR**.
 
-1. `v1.3.5` — Location / Mob Position foundation;
-2. `v1.3.6` — fixed mobs;
-3. `v1.3.7` — contribution, rewards и HP rollback;
-4. `v1.3.8` — progression;
-5. `v1.3.9` — scaling.
+Перед каждым новым стабильным релизом необходимо проверить и при необходимости обновить:
+
+- текущую стабильную версию и ссылку на её release notes;
+- фактически доступные gameplay-возможности;
+- публичные команды и их актуальную семантику;
+- текущую архитектурную базу и runtime-ограничения;
+- roadmap и следующий незавершённый этап.
+
+Promotion `develop -> main` не считается полностью подготовленным к релизу, если README описывает старую версию или уже изменившееся поведение. README должен отражать **текущее состояние проекта**, а `docs/releases/` и GitHub Releases сохраняют подробную историю конкретных версий.
+
+## Roadmap после v1.3.6
+
+1. `v1.3.7` — contribution, rewards и HP rollback;
+2. `v1.3.8` — progression;
+3. `v1.3.9` — scaling.
 
 ## Скриншоты
 
