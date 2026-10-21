@@ -35,6 +35,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.SharedMonsterAttributes;
+import net.minecraft.entity.ai.EntityAITasks;
 import net.minecraft.entity.monster.EntitySkeleton;
 import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -50,7 +51,7 @@ public final class ManagedMobService {
     private static final int POISON_TICK_INTERVAL = 20;
     private static final int INITIAL_SPAWN_DELAY_TICKS = 20;
     private static final int LOST_ENTITY_RESPAWN_DELAY_TICKS = 1;
-    private static final int RANDOM_SURFACE_ATTEMPTS = 16;
+    private static final int RANDOM_SURFACE_ATTEMPTS = 64;
     private static final double HARD_BOUNDARY_MARGIN = 2.0D;
     private static final double SOFT_BOUNDARY_MARGIN = 1.0D;
     private static final double ROAM_SPEED = 1.0D;
@@ -155,8 +156,6 @@ public final class ManagedMobService {
             }
         }
 
-        // Backward compatibility: an enabled legacy mob keeps its original Realm 0 spawn until
-        // at least one v1.3.6 Mob Spawn slot is configured for that logical mob definition.
         for (MobDefinition mob : mobs) {
             if (!mob.enabled || mobsWithCustomSpawns.contains(mob.name)) continue;
             ManagedMobDefinition definition = managedDefinition(mob, mob.x, mob.y, mob.z,
@@ -225,7 +224,7 @@ public final class ManagedMobService {
         }
         for (int attempt = 0; attempt < RANDOM_SURFACE_ATTEMPTS; attempt++) {
             LocationService.HorizontalPoint point = locationService.randomPoint(spawn.location.getLocationId(), random);
-            Double y = findSafeSurfaceY(world, point.getX(), point.getZ());
+            Double y = findSafeSurfaceY(world, point.getX(), point.getZ(), spawn.definition.y);
             if (y == null) continue;
             spawn.initialX = point.getX();
             spawn.initialY = y;
@@ -251,32 +250,49 @@ public final class ManagedMobService {
         return false;
     }
 
+    private Double findSafeSurfaceY(World world, double x, double z, double preferredY) {
+        int centerY = MathHelper.clamp(MathHelper.floor(preferredY), 2, Math.max(2, world.getActualHeight() - 2));
+        for (int offset = 0; offset <= 24; offset++) {
+            int up = centerY + offset;
+            if (up < world.getActualHeight() - 1) {
+                Double y = safeStandingYAtBlock(world, x, up, z);
+                if (y != null) return y;
+            }
+            if (offset == 0) continue;
+            int down = centerY - offset;
+            if (down >= 2) {
+                Double y = safeStandingYAtBlock(world, x, down, z);
+                if (y != null) return y;
+            }
+        }
+        return findSafeSurfaceY(world, x, z);
+    }
+
     private Double findSafeSurfaceY(World world, double x, double z) {
         int blockX = MathHelper.floor(x);
         int blockZ = MathHelper.floor(z);
         int top = Math.min(world.getActualHeight() - 2, Math.max(2, world.getHeight(new BlockPos(blockX, 0, blockZ)).getY() + 1));
         for (int y = top; y >= 2; y--) {
-            BlockPos ground = new BlockPos(blockX, y - 1, blockZ);
-            BlockPos feet = new BlockPos(blockX, y, blockZ);
-            BlockPos head = new BlockPos(blockX, y + 1, blockZ);
-            IBlockState state = world.getBlockState(ground);
-            if (!state.getMaterial().blocksMovement() || state.getMaterial().isLiquid()) continue;
-            if (world.isAirBlock(feet) && world.isAirBlock(head)) return (double) y;
+            Double standing = safeStandingYAtBlock(world, x, y, z);
+            if (standing != null) return standing;
         }
         return null;
     }
 
-    private Double safeStandingY(World world, double x, double y, double z) {
+    private Double safeStandingYAtBlock(World world, double x, int y, double z) {
         int blockX = MathHelper.floor(x);
-        int blockY = MathHelper.floor(y);
         int blockZ = MathHelper.floor(z);
-        BlockPos ground = new BlockPos(blockX, blockY - 1, blockZ);
-        BlockPos feet = new BlockPos(blockX, blockY, blockZ);
-        BlockPos head = new BlockPos(blockX, blockY + 1, blockZ);
+        BlockPos ground = new BlockPos(blockX, y - 1, blockZ);
+        BlockPos feet = new BlockPos(blockX, y, blockZ);
+        BlockPos head = new BlockPos(blockX, y + 1, blockZ);
         IBlockState state = world.getBlockState(ground);
         if (state.getMaterial().blocksMovement() && !state.getMaterial().isLiquid()
-                && world.isAirBlock(feet) && world.isAirBlock(head)) return (double) blockY;
+                && world.isAirBlock(feet) && world.isAirBlock(head)) return (double) y;
         return null;
+    }
+
+    private Double safeStandingY(World world, double x, double y, double z) {
+        return safeStandingYAtBlock(world, x, MathHelper.floor(y), z);
     }
 
     private void purgeLoadedManagedMobs(World world) {
@@ -390,9 +406,7 @@ public final class ManagedMobService {
         entity.getEntityAttribute(SharedMonsterAttributes.ARMOR).setBaseValue(0.0D);
         boolean roaming = spawn.spawnDefinition != null && spawn.spawnDefinition.getMovementMode() == MovementMode.ROAMING;
         entity.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(roaming ? 0.23D : 0.0D);
-        if (roaming && entity.getEntityAttribute(SharedMonsterAttributes.FOLLOW_RANGE) != null) {
-            entity.getEntityAttribute(SharedMonsterAttributes.FOLLOW_RANGE).setBaseValue(0.0D);
-        }
+        if (roaming) clearVanillaTasks(entity);
         entity.setNoAI(!roaming);
         entity.forceSpawn = true;
         if (!world.spawnEntity(entity)) {
@@ -421,6 +435,17 @@ public final class ManagedMobService {
         }
     }
 
+    private void clearVanillaTasks(EntityLiving entity) {
+        for (EntityAITasks.EntityAITaskEntry entry : new ArrayList<>(entity.tasks.taskEntries)) {
+            entity.tasks.removeTask(entry.action);
+        }
+        for (EntityAITasks.EntityAITaskEntry entry : new ArrayList<>(entity.targetTasks.taskEntries)) {
+            entity.targetTasks.removeTask(entry.action);
+        }
+        entity.setAttackTarget(null);
+        entity.getNavigator().clearPath();
+    }
+
     private void maintainMovement(MobRuntimeState spawn, EntityLiving entity) {
         if (spawn.spawnDefinition == null || spawn.location == null
                 || spawn.spawnDefinition.getMovementMode() == MovementMode.STATIONARY) {
@@ -444,22 +469,35 @@ public final class ManagedMobService {
         }
 
         if (distance >= Math.max(0.0D, spawn.location.getRadius() - SOFT_BOUNDARY_MARGIN)) {
-            moveToward(entity, spawn.location.getCenterX(), spawn.location.getCenterZ());
+            if (spawn.roamCooldown <= 0 || entity.getNavigator().noPath()) {
+                moveToward(entity, spawn.location.getCenterX(), spawn.location.getCenterZ());
+            }
             spawn.roamCooldown = 20;
             return;
         }
 
-        if (spawn.roamCooldown > 0) spawn.roamCooldown--;
-        if (spawn.roamCooldown > 0 && !entity.getNavigator().noPath()) return;
-        LocationService.HorizontalPoint target = locationService.randomPoint(spawn.location.getLocationId(), random);
-        moveToward(entity, target.getX(), target.getZ());
-        spawn.roamCooldown = 40 + random.nextInt(61);
+        if (spawn.roamCooldown > 0) {
+            spawn.roamCooldown--;
+            return;
+        }
+
+        boolean pathStarted = false;
+        for (int attempt = 0; attempt < 8 && !pathStarted; attempt++) {
+            LocationService.HorizontalPoint target = locationService.randomPoint(spawn.location.getLocationId(), random);
+            pathStarted = moveToward(entity, target.getX(), target.getZ());
+        }
+        if (!pathStarted) {
+            moveToward(entity, spawn.location.getCenterX(), spawn.location.getCenterZ());
+            spawn.roamCooldown = 20;
+        } else {
+            spawn.roamCooldown = 40 + random.nextInt(61);
+        }
     }
 
-    private void moveToward(EntityLiving entity, double x, double z) {
-        Double y = findSafeSurfaceY(entity.world, x, z);
-        if (y == null) return;
-        entity.getNavigator().tryMoveToXYZ(x, y, z, ROAM_SPEED);
+    private boolean moveToward(EntityLiving entity, double x, double z) {
+        Double y = findSafeSurfaceY(entity.world, x, z, entity.posY);
+        if (y == null) return false;
+        return entity.getNavigator().tryMoveToXYZ(x, y, z, ROAM_SPEED);
     }
 
     private void syncMobMetadata(MobRuntimeState spawn, EntityLiving entity) {
