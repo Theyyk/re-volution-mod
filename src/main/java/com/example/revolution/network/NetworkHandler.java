@@ -22,6 +22,8 @@ public class NetworkHandler {
         INSTANCE.registerMessage(PlayerStatsPacketServerHandler.class, PlayerStatsPacket.class, 4, Side.CLIENT);
         // Discriminators 5 and 6 are reserved for the removed Minecraft admin-panel transport.
         INSTANCE.registerMessage(RuneEnhancementPacketServerHandler.class, RuneEnhancementPacket.class, 7, Side.CLIENT);
+        INSTANCE.registerMessage(MobZoneOverlayRequestHandler.class, MobZoneOverlayRequestPacket.class, 8, Side.SERVER);
+        INSTANCE.registerMessage(MobZoneOverlayPacketHandler.class, MobZoneOverlayPacket.class, 9, Side.CLIENT);
     }
 
     /**
