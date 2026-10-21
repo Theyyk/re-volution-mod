@@ -35,7 +35,12 @@ public final class RuneActionService {
     public void handle(EntityPlayerMP player, String action) {
         if (action == null) return;
 
-        RevolutionMod.logger.info("Packet from " + player.getName() + ": " + logActionName(action));
+        String loggedAction = logActionName(action);
+        if (isImportantPlayerAction(action)) {
+            RevolutionMod.logger.info("Player action from " + player.getName() + ": " + loggedAction);
+        } else {
+            RevolutionMod.logger.debug("Packet from " + player.getName() + ": " + loggedAction);
+        }
 
         List<String> collectionNames = players.getCollectionNames(player.getUniqueID());
         int collectionIndex = players.getActiveCollection(player.getUniqueID());
@@ -120,6 +125,12 @@ public final class RuneActionService {
         }
     }
 
+    private static boolean isImportantPlayerAction(String action) {
+        return action.equals("buy_card")
+                || action.startsWith("buy_cards:")
+                || action.startsWith("enhance_rune:")
+                || action.startsWith("upgrade_rune:");
+    }
     private static String logActionName(String action) {
         if (action == null) return "null";
         if (action.equals("buy_card")) return "buy_rune";

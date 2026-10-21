@@ -30,7 +30,7 @@ public final class RuneSyncService {
         NetworkHandler.sendToClient(new RuneSlotPacket(-1, 0, 0, false), player);
         List<RuneRecord> runes = players.getRunesInCollection(player.getUniqueID(), collectionIndex);
         int statusId = RuneStatusConfig.statusForCollection(collectionIndex);
-        RevolutionMod.logger.info("Sending runes to client for status " + statusId + ": " + runes.size());
+        RevolutionMod.logger.debug("Sending runes to client for status " + statusId + ": " + runes.size());
         for (RuneRecord rune : runes) {
             NetworkHandler.sendToClient(new RuneSlotPacket(rune.slot, rune.runeIndex, rune.layer, false), player);
         }
