@@ -13,6 +13,7 @@ import com.example.revolution.location.service.LocationService;
 import com.example.revolution.mob.definition.ManagedMobDefinition;
 import com.example.revolution.mob.definition.MobDefinition;
 import com.example.revolution.mob.repository.MobRepository;
+import com.example.revolution.mob.rules.MobContributionRules;
 import com.example.revolution.mob.rules.MobHealthRules;
 import com.example.revolution.mob.state.MobRuntimeState;
 import com.example.revolution.number.LargeNumbers;
@@ -387,6 +388,40 @@ public final class ManagedMobService {
         return world.getEntityByID(entity.getEntityId()) == entity;
     }
 
+    private void resetCombatAttempt(MobRuntimeState spawn) {
+        if (spawn == null) return;
+        spawn.currentHp = spawn.definition.hp;
+        spawn.contributions.clear();
+        spawn.combatPauseTicks = 0;
+    }
+
+    private void syncFullHealth(MobRuntimeState spawn, EntityLiving entity) {
+        if (spawn == null || entity == null || entity.isDead) return;
+        syncMobMetadata(spawn, entity);
+        entity.setHealth((float) MobHealthRules.nativeHealthFor(spawn.definition.hp));
+    }
+
+    private boolean isPlayerInsideContributionZone(MobRuntimeState spawn, EntityPlayerMP player) {
+        if (spawn == null || player == null || spawn.isLegacy()) return false;
+        World world = worldFor(spawn);
+        return world != null && player.world == world && spawn.location.contains(player.posX, player.posZ);
+    }
+
+    private void pruneContributions(MobRuntimeState spawn) {
+        if (spawn == null || spawn.isLegacy() || spawn.contributions.isEmpty()) return;
+        for (UUID playerUuid : new ArrayList<>(spawn.contributions.participants())) {
+            EntityPlayerMP player = server == null ? null : server.getPlayerList().getPlayerByUUID(playerUuid);
+            if (isPlayerInsideContributionZone(spawn, player)) continue;
+            BigDecimal returned = spawn.contributions.remove(playerUuid);
+            if (returned.signum() <= 0) continue;
+            spawn.currentHp = MobContributionRules.restoreHealth(spawn.currentHp, spawn.definition.hp, returned);
+            if (spawn.entity != null && !spawn.entity.isDead) syncFullHealth(spawn, spawn.entity);
+            RevolutionMod.logger.debug("Rolled back managed mob contribution after player left zone: spawnKey="
+                    + spawn.definition.spawnKey + " player=" + playerUuid + " returnedHp=" + LargeNumbers.canonical(returned)
+                    + " currentHp=" + LargeNumbers.canonical(spawn.currentHp));
+        }
+    }
+
     private void spawnMob(MobRuntimeState spawn) {
         World world = worldFor(spawn);
         if (world == null) return;
@@ -405,8 +440,7 @@ public final class ManagedMobService {
         BlockPos spawnPos = spawnPosition(spawn);
         world.getChunkFromBlockCoords(spawnPos);
         EntityLiving entity = spawn.definition.type.equalsIgnoreCase("skeleton") ? new EntitySkeleton(world) : new EntityZombie(world);
-        spawn.currentHp = spawn.definition.hp;
-        spawn.combatPauseTicks = 0;
+        resetCombatAttempt(spawn);
         float yaw = spawn.spawnDefinition == null ? 0.0F : spawn.spawnDefinition.getYaw();
         float pitch = spawn.spawnDefinition == null ? 0.0F : spawn.spawnDefinition.getPitch();
         entity.setLocationAndAngles(spawn.initialX, spawn.initialY, spawn.initialZ, yaw, pitch);
@@ -655,9 +689,10 @@ public final class ManagedMobService {
         for (MobRuntimeState spawn : spawns) {
             if (worldFor(spawn) != world || !isSpawnChunk(spawn, chunkX, chunkZ)) continue;
             spawn.chunkWasUnloaded = true;
+            resetCombatAttempt(spawn);
             spawn.entity = null;
             spawn.respawnTimer = LOST_ENTITY_RESPAWN_DELAY_TICKS;
-            RevolutionMod.logger.debug("Managed mob spawn chunk unloaded: " + spawn.definition.spawnKey);
+            RevolutionMod.logger.debug("Managed mob spawn chunk unloaded; combat attempt reset: " + spawn.definition.spawnKey);
         }
     }
 
@@ -668,12 +703,15 @@ public final class ManagedMobService {
             spawn.chunkWasUnloaded = false;
             EntityLiving existing = findExistingCurrentSessionEntity(spawn);
             if (existing != null) {
+                resetCombatAttempt(spawn);
                 spawn.entity = existing;
+                syncFullHealth(spawn, existing);
                 continue;
             }
+            resetCombatAttempt(spawn);
             spawn.entity = null;
             spawn.respawnTimer = LOST_ENTITY_RESPAWN_DELAY_TICKS;
-            RevolutionMod.logger.debug("Managed mob spawn chunk loaded; scheduling clean respawn: " + spawn.definition.spawnKey);
+            RevolutionMod.logger.debug("Managed mob spawn chunk loaded; scheduling clean full-HP respawn: " + spawn.definition.spawnKey);
         }
     }
 
@@ -682,13 +720,29 @@ public final class ManagedMobService {
             if (spawn.entity != entity) continue;
             if (!(source.getTrueSource() instanceof EntityPlayerMP)) return true;
             EntityPlayerMP player = (EntityPlayerMP) source.getTrueSource();
+
+            if (!spawn.isLegacy()) {
+                pruneContributions(spawn);
+                if (!isPlayerInsideContributionZone(spawn, player)) return true;
+            }
+
             if (!isApplyingPoisonDamage(player.getUniqueID())) {
                 spawn.combatPauseTicks = COMBAT_PAUSE_TICKS;
                 spawn.entity.getNavigator().clearPath();
                 spawn.entity.motionX = 0.0D;
                 spawn.entity.motionZ = 0.0D;
             }
-            spawn.currentHp = MobHealthRules.remainingHealthAfterDamage(spawn.currentHp, Math.max(0.0D, damage));
+
+            if (spawn.isLegacy()) {
+                spawn.currentHp = MobHealthRules.remainingHealthAfterDamage(spawn.currentHp, Math.max(0.0D, damage));
+            } else {
+                BigDecimal effectiveDamage = MobContributionRules.effectiveDamage(spawn.currentHp, Math.max(0.0D, damage));
+                if (effectiveDamage.signum() <= 0) return true;
+                spawn.contributions.add(player.getUniqueID(), effectiveDamage);
+                BigDecimal remaining = spawn.currentHp.subtract(effectiveDamage);
+                spawn.currentHp = remaining.signum() <= 0 ? BigDecimal.ZERO : LargeNumbers.normalize(remaining);
+            }
+
             if (spawn.currentHp.signum() <= 0) finishManagedDeath(spawn, player);
             else {
                 syncMobMetadata(spawn, spawn.entity);
@@ -708,10 +762,33 @@ public final class ManagedMobService {
         }
     }
 
+    private void grantContributionRewards(MobRuntimeState spawn) {
+        if (spawn == null || spawn.isLegacy() || spawn.contributions.isEmpty() || server == null) return;
+        Map<UUID, BigDecimal> contributionSnapshot = spawn.contributions.snapshot();
+        BigDecimal totalContribution = spawn.contributions.total();
+        UUID progressOwner = spawn.contributions.leadingContributor();
+        for (Map.Entry<UUID, BigDecimal> item : contributionSnapshot.entrySet()) {
+            EntityPlayerMP participant = server.getPlayerList().getPlayerByUUID(item.getKey());
+            if (!isPlayerInsideContributionZone(spawn, participant)) continue;
+            rewards.grantProportional(participant, spawn.definition, item.getValue(), totalContribution);
+        }
+        if (progressOwner != null) {
+            RevolutionMod.logger.info("Managed mob contribution winner: mob=" + spawn.definition.name
+                    + " spawnKey=" + spawn.definition.spawnKey + " player=" + progressOwner
+                    + " contribution=" + LargeNumbers.canonical(spawn.contributions.amount(progressOwner))
+                    + "/" + LargeNumbers.canonical(totalContribution));
+        }
+    }
+
     private void finishManagedDeath(MobRuntimeState spawn, EntityPlayerMP player) {
         if (spawn == null || spawn.entity == null) return;
-        if (player != null) rewards.grant(player, spawn.definition);
+        if (spawn.isLegacy()) {
+            if (player != null) rewards.grant(player, spawn.definition);
+        } else {
+            grantContributionRewards(spawn);
+        }
         spawn.currentHp = BigDecimal.ZERO;
+        spawn.contributions.clear();
         spawn.combatPauseTicks = 0;
         spawn.entity.setDead();
         spawn.entity = null;
@@ -741,6 +818,7 @@ public final class ManagedMobService {
             }
             boolean spawnChunkLoaded = world.isBlockLoaded(spawnPosition(spawn));
             if (!spawnChunkLoaded) {
+                if (!spawn.chunkWasUnloaded) resetCombatAttempt(spawn);
                 spawn.chunkWasUnloaded = true;
                 continue;
             }
@@ -755,10 +833,13 @@ public final class ManagedMobService {
                     spawn.respawnTimer = LOST_ENTITY_RESPAWN_DELAY_TICKS;
                     continue;
                 }
+                resetCombatAttempt(spawn);
+                syncFullHealth(spawn, spawn.entity);
             }
 
             if (spawn.entity != null && !spawn.entity.isDead) {
                 if (isRegisteredInWorld(spawn, spawn.entity)) {
+                    pruneContributions(spawn);
                     if (spawn.entity.isBurning()) spawn.entity.extinguish();
                     maintainMovement(spawn, spawn.entity);
                     continue;
@@ -767,6 +848,7 @@ public final class ManagedMobService {
                         + spawn.definition.spawnKey + " entityId=" + spawn.entity.getEntityId());
                 spawn.entity.setDead();
                 spawn.entity = null;
+                resetCombatAttempt(spawn);
                 spawn.respawnTimer = LOST_ENTITY_RESPAWN_DELAY_TICKS;
                 continue;
             }
