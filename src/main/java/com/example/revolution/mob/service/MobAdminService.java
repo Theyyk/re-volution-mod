@@ -16,6 +16,9 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import net.minecraft.block.BlockLeaves;
+import net.minecraft.block.BlockLog;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.math.BlockPos;
@@ -24,6 +27,9 @@ import net.minecraft.util.text.TextComponentString;
 
 public final class MobAdminService {
     private static final int MAX_POPULATE_COUNT = 500;
+    private static final int MAX_SPAWN_RISE = 3;
+    private static final int SAFE_POINT_RING_COUNT = 4;
+    private static final int SAFE_POINT_ANGLES = 12;
 
     private final MobRepository mobRepository;
     private final LocationRepository locations;
@@ -101,12 +107,17 @@ public final class MobAdminService {
             populateMobZone(player, args);
             return;
         }
+        if (args.length == 4 && args[1].equalsIgnoreCase("clear")) {
+            clearMobZone(player, args);
+            return;
+        }
         if (args.length == 4 && args[1].equalsIgnoreCase("remove")) {
             removeMobZone(player, args);
             return;
         }
         player.sendMessage(new TextComponentString("§c/custommob location set <locationId> <mobSlotId> <radius>"));
         player.sendMessage(new TextComponentString("§c/custommob location populate <locationId> <mobSlotId> <mobName> <count>"));
+        player.sendMessage(new TextComponentString("§c/custommob location clear <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§c/custommob location remove <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§c/custommob location here | location list <locationId>"));
     }
@@ -156,45 +167,73 @@ public final class MobAdminService {
                 return;
             }
 
-            clearZonePopulation(internalId);
             int fixedCount = MobZoneLayout.fixedCount(count);
             int randomCount = MobZoneLayout.randomCount(count);
+            double baseY = player.posY;
+            List<StoredMobSpawn> generated = new ArrayList<>();
             for (int i = 0; i < count; i++) {
                 boolean fixed = i < fixedCount;
-                double x;
-                double z;
+                double preferredX;
+                double preferredZ;
                 if (fixed) {
                     MobZoneLayout.HorizontalPoint point = MobZoneLayout.fixedPoint(i, fixedCount,
                             zone.getCenterX(), zone.getCenterZ(), zone.getRadius());
-                    x = point.getX();
-                    z = point.getZ();
+                    preferredX = point.getX();
+                    preferredZ = point.getZ();
                 } else {
-                    x = zone.getCenterX();
-                    z = zone.getCenterZ();
+                    preferredX = zone.getCenterX();
+                    preferredZ = zone.getCenterZ();
                 }
-                double y = surfaceY(player, x, z);
+                double[] safe = findGeneratedSafePoint(player, zone, preferredX, preferredZ, baseY);
+                if (safe == null) {
+                    throw new IllegalArgumentException("no safe surface for generated spawn slot " + (i + 1)
+                            + " (tree/high surfaces are rejected)");
+                }
                 StoredMobSpawn spawn = new StoredMobSpawn(
                         internalId,
                         i + 1,
                         mobName,
-                        x,
-                        y,
-                        z,
+                        safe[0],
+                        safe[1],
+                        safe[2],
                         0.0F,
                         0.0F,
                         fixed ? SpawnMode.FIXED_POINT : SpawnMode.RANDOM_AREA,
                         MovementMode.ROAMING,
                         SpawnRealmScope.PLAYER_REALMS,
                         true);
-                locations.upsertMobSpawn(spawn);
+                generated.add(spawn);
             }
+
+            clearZonePopulation(internalId);
+            for (StoredMobSpawn spawn : generated) locations.upsertMobSpawn(spawn);
 
             player.sendMessage(new TextComponentString("§aMob zone заполнена: location=" + worldLocationId + " slot=" + mobSlotId
                     + " mob=" + mobName + " count=" + count + " fixed=" + fixedCount + " random=" + randomCount));
             player.sendMessage(new TextComponentString("§7Все обычные мобы: ROAMING. Для нечётного count лишний моб относится к FIXED_POINT."));
+            player.sendMessage(new TextComponentString("§7Spawn surface: не выше baseY + " + MAX_SPAWN_RISE + ", листья и брёвна исключены."));
             mobs.respawnAll();
         } catch (RuntimeException e) {
             player.sendMessage(new TextComponentString("§cНе удалось заполнить mob zone: " + e.getMessage()));
+        }
+    }
+
+    private void clearMobZone(EntityPlayerMP player, String[] args) {
+        try {
+            int worldLocationId = Integer.parseInt(args[2]);
+            int mobSlotId = Integer.parseInt(args[3]);
+            int internalId = MobZoneIds.encode(worldLocationId, mobSlotId);
+            LocationDefinition zone = locations.getLocation(internalId);
+            if (zone == null) {
+                player.sendMessage(new TextComponentString("§cMob zone не найдена: location=" + worldLocationId + " slot=" + mobSlotId));
+                return;
+            }
+            int removedSpawns = clearZonePopulation(internalId);
+            player.sendMessage(new TextComponentString("§aMob zone очищена: location=" + worldLocationId + " slot=" + mobSlotId
+                    + " removedSpawns=" + removedSpawns + ". Геометрия зоны сохранена."));
+            mobs.respawnAll();
+        } catch (RuntimeException e) {
+            player.sendMessage(new TextComponentString("§cНе удалось очистить mob zone: " + e.getMessage()));
         }
     }
 
@@ -283,11 +322,53 @@ public final class MobAdminService {
         return existing.size();
     }
 
-    private double surfaceY(EntityPlayerMP player, double x, double z) {
-        BlockPos height = player.world.getHeight(new BlockPos(MathHelper.floor(x), 0, MathHelper.floor(z)));
-        int y = height.getY();
-        if (y <= 1 || y >= player.world.getActualHeight() - 1) return player.posY;
-        return y;
+    private double[] findGeneratedSafePoint(
+            EntityPlayerMP player,
+            LocationDefinition zone,
+            double preferredX,
+            double preferredZ,
+            double baseY) {
+        Double y = surfaceY(player, preferredX, preferredZ, baseY);
+        if (y != null) return new double[] {preferredX, y, preferredZ};
+        for (int ring = 1; ring <= SAFE_POINT_RING_COUNT; ring++) {
+            double radius = ring;
+            for (int index = 0; index < SAFE_POINT_ANGLES; index++) {
+                double angle = (Math.PI * 2.0D * index / SAFE_POINT_ANGLES) + ring * 0.37D;
+                double x = preferredX + Math.cos(angle) * radius;
+                double z = preferredZ + Math.sin(angle) * radius;
+                if (!zone.contains(x, z)) continue;
+                y = surfaceY(player, x, z, baseY);
+                if (y != null) return new double[] {x, y, z};
+            }
+        }
+        return null;
+    }
+
+    private Double surfaceY(EntityPlayerMP player, double x, double z, double baseY) {
+        int centerY = MathHelper.clamp(MathHelper.floor(baseY), 2, Math.max(2, player.world.getActualHeight() - 2));
+        for (int offset = 0; offset <= MAX_SPAWN_RISE; offset++) {
+            int up = centerY + offset;
+            if (up < player.world.getActualHeight() - 1 && isSafeStandingSurface(player, x, up, z)) return (double) up;
+            if (offset == 0) continue;
+            int down = centerY - offset;
+            if (down >= 2 && isSafeStandingSurface(player, x, down, z)) return (double) down;
+        }
+        for (int y = centerY - MAX_SPAWN_RISE - 1; y >= 2; y--) {
+            if (isSafeStandingSurface(player, x, y, z)) return (double) y;
+        }
+        return null;
+    }
+
+    private boolean isSafeStandingSurface(EntityPlayerMP player, double x, int y, double z) {
+        int blockX = MathHelper.floor(x);
+        int blockZ = MathHelper.floor(z);
+        BlockPos ground = new BlockPos(blockX, y - 1, blockZ);
+        BlockPos feet = new BlockPos(blockX, y, blockZ);
+        BlockPos head = new BlockPos(blockX, y + 1, blockZ);
+        IBlockState state = player.world.getBlockState(ground);
+        if (state.getBlock() instanceof BlockLeaves || state.getBlock() instanceof BlockLog) return false;
+        return state.getMaterial().blocksMovement() && !state.getMaterial().isLiquid()
+                && player.world.isAirBlock(feet) && player.world.isAirBlock(head);
     }
 
     private void handleSpawn(EntityPlayerMP player, String[] args) {
@@ -345,6 +426,7 @@ public final class MobAdminService {
         player.sendMessage(new TextComponentString("§e/custommob create <name> <resource> <amount> <hp> <type>"));
         player.sendMessage(new TextComponentString("§e/custommob location set <locationId> <mobSlotId> <radius>"));
         player.sendMessage(new TextComponentString("§e/custommob location populate <locationId> <mobSlotId> <mobName> <count>"));
+        player.sendMessage(new TextComponentString("§e/custommob location clear <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§e/custommob location remove <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§e/custommob location here | location list <locationId>"));
         player.sendMessage(new TextComponentString("§e/custommob spawn set <locationId> <spawnId> <mobName> <fixed|random> <stationary|roaming> <player|realm0>"));
