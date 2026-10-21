@@ -144,6 +144,8 @@ def validate():
             ('RuneCollectionsPacket', 3, 'CLIENT'),
             ('PlayerStatsPacket', 4, 'CLIENT'),
             ('RuneEnhancementPacket', 7, 'CLIENT'),
+            ('MobZoneOverlayRequestPacket', 8, 'SERVER'),
+            ('MobZoneOverlayPacket', 9, 'CLIENT'),
         ],
         'client/network/ClientNetworkRegistration.java': [
             ('PingPacket', 0, 'CLIENT'),
@@ -152,6 +154,8 @@ def validate():
             ('RuneCollectionsPacket', 3, 'CLIENT'),
             ('PlayerStatsPacket', 4, 'CLIENT'),
             ('RuneEnhancementPacket', 7, 'CLIENT'),
+            ('MobZoneOverlayRequestPacket', 8, 'CLIENT'),
+            ('MobZoneOverlayPacket', 9, 'CLIENT'),
         ],
     }
     for path, expected in expected_registrations.items():
