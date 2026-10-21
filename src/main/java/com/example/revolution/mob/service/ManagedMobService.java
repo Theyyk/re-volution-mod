@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.block.BlockLeaves;
+import net.minecraft.block.BlockLog;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
@@ -53,9 +55,17 @@ public final class ManagedMobService {
     private static final int INITIAL_SPAWN_DELAY_TICKS = 20;
     private static final int LOST_ENTITY_RESPAWN_DELAY_TICKS = 1;
     private static final int RANDOM_SURFACE_ATTEMPTS = 64;
+    private static final int MAX_SPAWN_RISE = 3;
+    private static final int COMBAT_PAUSE_TICKS = 20;
+    private static final int ROAM_TARGET_ATTEMPTS = 16;
+    private static final int SEPARATION_CHECK_INTERVAL = 10;
     private static final double HARD_BOUNDARY_MARGIN = 2.0D;
     private static final double SOFT_BOUNDARY_MARGIN = 1.0D;
     private static final double ROAM_SPEED = 1.0D;
+    private static final double SEPARATION_RADIUS = 3.5D;
+    private static final double HARD_PERSONAL_SPACE = 1.5D;
+    private static final double PREFERRED_TARGET_SPACING = 4.0D;
+    private static final double SEPARATION_STEP = 2.5D;
     private static final String SESSION_TAG = "revolutionManagedSession";
     private static final String SPAWN_KEY_TAG = "revolutionManagedSpawnKey";
     private static final String LOCATION_ID_TAG = "revolutionLocationId";
@@ -212,11 +222,28 @@ public final class ManagedMobService {
 
     private boolean resolveInitialPosition(MobRuntimeState spawn, World world) {
         if (spawn.initialResolved) return true;
-        if (spawn.isLegacy() || spawn.spawnDefinition.getSpawnMode() == SpawnMode.FIXED_POINT) {
+        if (spawn.isLegacy()) {
             spawn.initialX = spawn.definition.x;
             spawn.initialY = spawn.definition.y;
             spawn.initialZ = spawn.definition.z;
             spawn.initialResolved = true;
+            return true;
+        }
+        if (spawn.spawnDefinition.getSpawnMode() == SpawnMode.FIXED_POINT) {
+            Double fixedY = findSafeSurfaceY(world, spawn.definition.x, spawn.definition.z, spawn.definition.y);
+            if (fixedY == null) {
+                if (!spawn.spawnFailureLogged) {
+                    spawn.spawnFailureLogged = true;
+                    RevolutionMod.logger.warn("No safe surface found for fixed Mob Spawn " + spawn.spawnDefinition.getSpawnId()
+                            + " in Location " + spawn.location.getLocationId() + "; retrying later.");
+                }
+                return false;
+            }
+            spawn.initialX = spawn.definition.x;
+            spawn.initialY = fixedY;
+            spawn.initialZ = spawn.definition.z;
+            spawn.initialResolved = true;
+            spawn.spawnFailureLogged = false;
             return true;
         }
         for (int attempt = 0; attempt < RANDOM_SURFACE_ATTEMPTS; attempt++) {
@@ -227,14 +254,16 @@ public final class ManagedMobService {
             spawn.initialY = y;
             spawn.initialZ = point.getZ();
             spawn.initialResolved = true;
+            spawn.spawnFailureLogged = false;
             return true;
         }
-        Double fallbackY = safeStandingY(world, spawn.definition.x, spawn.definition.y, spawn.definition.z);
+        Double fallbackY = findSafeSurfaceY(world, spawn.definition.x, spawn.definition.z, spawn.definition.y);
         if (fallbackY != null) {
             spawn.initialX = spawn.definition.x;
             spawn.initialY = fallbackY;
             spawn.initialZ = spawn.definition.z;
             spawn.initialResolved = true;
+            spawn.spawnFailureLogged = false;
             RevolutionMod.logger.warn("Random-area surface lookup failed for Mob Spawn "
                     + spawn.spawnDefinition.getSpawnId() + "; using configured fallback point.");
             return true;
@@ -249,7 +278,7 @@ public final class ManagedMobService {
 
     private Double findSafeSurfaceY(World world, double x, double z, double preferredY) {
         int centerY = MathHelper.clamp(MathHelper.floor(preferredY), 2, Math.max(2, world.getActualHeight() - 2));
-        for (int offset = 0; offset <= 24; offset++) {
+        for (int offset = 0; offset <= MAX_SPAWN_RISE; offset++) {
             int up = centerY + offset;
             if (up < world.getActualHeight() - 1) {
                 Double y = safeStandingYAtBlock(world, x, up, z);
@@ -262,14 +291,7 @@ public final class ManagedMobService {
                 if (y != null) return y;
             }
         }
-        return findSafeSurfaceY(world, x, z);
-    }
-
-    private Double findSafeSurfaceY(World world, double x, double z) {
-        int blockX = MathHelper.floor(x);
-        int blockZ = MathHelper.floor(z);
-        int top = Math.min(world.getActualHeight() - 2, Math.max(2, world.getHeight(new BlockPos(blockX, 0, blockZ)).getY() + 1));
-        for (int y = top; y >= 2; y--) {
+        for (int y = centerY - MAX_SPAWN_RISE - 1; y >= 2; y--) {
             Double standing = safeStandingYAtBlock(world, x, y, z);
             if (standing != null) return standing;
         }
@@ -283,6 +305,7 @@ public final class ManagedMobService {
         BlockPos feet = new BlockPos(blockX, y, blockZ);
         BlockPos head = new BlockPos(blockX, y + 1, blockZ);
         IBlockState state = world.getBlockState(ground);
+        if (state.getBlock() instanceof BlockLeaves || state.getBlock() instanceof BlockLog) return null;
         if (state.getMaterial().blocksMovement() && !state.getMaterial().isLiquid()
                 && world.isAirBlock(feet) && world.isAirBlock(head)) return (double) y;
         return null;
@@ -383,6 +406,7 @@ public final class ManagedMobService {
         world.getChunkFromBlockCoords(spawnPos);
         EntityLiving entity = spawn.definition.type.equalsIgnoreCase("skeleton") ? new EntitySkeleton(world) : new EntityZombie(world);
         spawn.currentHp = spawn.definition.hp;
+        spawn.combatPauseTicks = 0;
         float yaw = spawn.spawnDefinition == null ? 0.0F : spawn.spawnDefinition.getYaw();
         float pitch = spawn.spawnDefinition == null ? 0.0F : spawn.spawnDefinition.getPitch();
         entity.setLocationAndAngles(spawn.initialX, spawn.initialY, spawn.initialZ, yaw, pitch);
@@ -419,6 +443,7 @@ public final class ManagedMobService {
         spawn.spawnFailureLogged = false;
         spawn.entity = entity;
         spawn.roamCooldown = 1;
+        spawn.separationCooldown = random.nextInt(SEPARATION_CHECK_INTERVAL + 1);
         if (!spawn.hasSpawnedOnce) {
             spawn.hasSpawnedOnce = true;
             RevolutionMod.logger.info("Spawned mob: " + spawn.definition.name + " (" + spawn.definition.type + ") at "
@@ -465,6 +490,14 @@ public final class ManagedMobService {
             return;
         }
 
+        if (spawn.combatPauseTicks > 0) {
+            spawn.combatPauseTicks--;
+            entity.getNavigator().clearPath();
+            entity.motionX = 0.0D;
+            entity.motionZ = 0.0D;
+            return;
+        }
+
         if (distance >= Math.max(0.0D, spawn.location.getRadius() - SOFT_BOUNDARY_MARGIN)) {
             if (spawn.roamCooldown <= 0 || entity.getNavigator().noPath()) {
                 moveToward(entity, spawn.location.getCenterX(), spawn.location.getCenterZ());
@@ -473,22 +506,108 @@ public final class ManagedMobService {
             return;
         }
 
+        if (spawn.separationCooldown > 0) spawn.separationCooldown--;
+        else if (trySeparate(spawn, entity)) {
+            spawn.separationCooldown = SEPARATION_CHECK_INTERVAL;
+            spawn.roamCooldown = Math.max(spawn.roamCooldown, SEPARATION_CHECK_INTERVAL);
+            return;
+        } else {
+            spawn.separationCooldown = SEPARATION_CHECK_INTERVAL;
+        }
+
         if (spawn.roamCooldown > 0) {
             spawn.roamCooldown--;
             return;
         }
 
-        boolean pathStarted = false;
-        for (int attempt = 0; attempt < 8 && !pathStarted; attempt++) {
-            LocationService.HorizontalPoint target = locationService.randomPoint(spawn.location.getLocationId(), random);
-            pathStarted = moveToward(entity, target.getX(), target.getZ());
-        }
+        boolean pathStarted = moveTowardSpacedTarget(spawn, entity);
         if (!pathStarted) {
             moveToward(entity, spawn.location.getCenterX(), spawn.location.getCenterZ());
             spawn.roamCooldown = 20;
         } else {
             spawn.roamCooldown = 40 + random.nextInt(61);
         }
+    }
+
+    private boolean trySeparate(MobRuntimeState spawn, EntityLiving entity) {
+        double pushX = 0.0D;
+        double pushZ = 0.0D;
+        double nearestSq = Double.POSITIVE_INFINITY;
+        boolean found = false;
+        double radiusSq = SEPARATION_RADIUS * SEPARATION_RADIUS;
+        for (MobRuntimeState other : spawns) {
+            if (other == spawn || other.realmId != spawn.realmId || other.location == null || other.entity == null || other.entity.isDead) continue;
+            if (other.location.getLocationId() != spawn.location.getLocationId() || other.entity.world != entity.world) continue;
+            double dx = entity.posX - other.entity.posX;
+            double dz = entity.posZ - other.entity.posZ;
+            double distSq = dx * dx + dz * dz;
+            if (distSq > radiusSq) continue;
+            found = true;
+            nearestSq = Math.min(nearestSq, distSq);
+            if (distSq < 0.0001D) {
+                double angle = random.nextDouble() * Math.PI * 2.0D;
+                pushX += Math.cos(angle);
+                pushZ += Math.sin(angle);
+                continue;
+            }
+            double dist = Math.sqrt(distSq);
+            double weight = (SEPARATION_RADIUS - dist) / SEPARATION_RADIUS;
+            if (dist < HARD_PERSONAL_SPACE) weight += 1.0D;
+            pushX += (dx / dist) * weight;
+            pushZ += (dz / dist) * weight;
+        }
+        if (!found) return false;
+        double magnitude = Math.sqrt(pushX * pushX + pushZ * pushZ);
+        if (magnitude < 0.0001D) return false;
+        double step = nearestSq < HARD_PERSONAL_SPACE * HARD_PERSONAL_SPACE ? SEPARATION_STEP + 1.0D : SEPARATION_STEP;
+        double targetX = entity.posX + (pushX / magnitude) * step;
+        double targetZ = entity.posZ + (pushZ / magnitude) * step;
+        double[] clamped = clampToLocation(spawn.location, targetX, targetZ);
+        return moveToward(entity, clamped[0], clamped[1]);
+    }
+
+    private boolean moveTowardSpacedTarget(MobRuntimeState spawn, EntityLiving entity) {
+        double bestSpacingSq = -1.0D;
+        double bestX = Double.NaN;
+        double bestY = Double.NaN;
+        double bestZ = Double.NaN;
+        for (int attempt = 0; attempt < ROAM_TARGET_ATTEMPTS; attempt++) {
+            LocationService.HorizontalPoint target = locationService.randomPoint(spawn.location.getLocationId(), random);
+            Double y = findSafeSurfaceY(entity.world, target.getX(), target.getZ(), entity.posY);
+            if (y == null) continue;
+            double spacingSq = minimumNeighborDistanceSq(spawn, entity, target.getX(), target.getZ());
+            if (spacingSq > bestSpacingSq) {
+                bestSpacingSq = spacingSq;
+                bestX = target.getX();
+                bestY = y;
+                bestZ = target.getZ();
+            }
+            if (spacingSq >= PREFERRED_TARGET_SPACING * PREFERRED_TARGET_SPACING && attempt >= 3) break;
+        }
+        if (Double.isNaN(bestX)) return false;
+        return entity.getNavigator().tryMoveToXYZ(bestX, bestY, bestZ, ROAM_SPEED);
+    }
+
+    private double minimumNeighborDistanceSq(MobRuntimeState spawn, EntityLiving entity, double x, double z) {
+        double minimum = Double.POSITIVE_INFINITY;
+        for (MobRuntimeState other : spawns) {
+            if (other == spawn || other.realmId != spawn.realmId || other.location == null || other.entity == null || other.entity.isDead) continue;
+            if (other.location.getLocationId() != spawn.location.getLocationId() || other.entity.world != entity.world) continue;
+            double dx = x - other.entity.posX;
+            double dz = z - other.entity.posZ;
+            minimum = Math.min(minimum, dx * dx + dz * dz);
+        }
+        return minimum;
+    }
+
+    private double[] clampToLocation(LocationDefinition location, double x, double z) {
+        double dx = x - location.getCenterX();
+        double dz = z - location.getCenterZ();
+        double distance = Math.sqrt(dx * dx + dz * dz);
+        double allowed = Math.max(0.5D, location.getRadius() - 0.5D);
+        if (distance <= allowed || distance < 0.0001D) return new double[] {x, z};
+        double scale = allowed / distance;
+        return new double[] {location.getCenterX() + dx * scale, location.getCenterZ() + dz * scale};
     }
 
     private boolean moveToward(EntityLiving entity, double x, double z) {
@@ -563,6 +682,12 @@ public final class ManagedMobService {
             if (spawn.entity != entity) continue;
             if (!(source.getTrueSource() instanceof EntityPlayerMP)) return true;
             EntityPlayerMP player = (EntityPlayerMP) source.getTrueSource();
+            if (!isApplyingPoisonDamage(player.getUniqueID())) {
+                spawn.combatPauseTicks = COMBAT_PAUSE_TICKS;
+                spawn.entity.getNavigator().clearPath();
+                spawn.entity.motionX = 0.0D;
+                spawn.entity.motionZ = 0.0D;
+            }
             spawn.currentHp = MobHealthRules.remainingHealthAfterDamage(spawn.currentHp, Math.max(0.0D, damage));
             if (spawn.currentHp.signum() <= 0) finishManagedDeath(spawn, player);
             else {
@@ -587,6 +712,7 @@ public final class ManagedMobService {
         if (spawn == null || spawn.entity == null) return;
         if (player != null) rewards.grant(player, spawn.definition);
         spawn.currentHp = BigDecimal.ZERO;
+        spawn.combatPauseTicks = 0;
         spawn.entity.setDead();
         spawn.entity = null;
 

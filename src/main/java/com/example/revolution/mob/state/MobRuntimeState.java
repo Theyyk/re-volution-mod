@@ -17,6 +17,8 @@ public final class MobRuntimeState {
     public EntityLiving entity;
     public int respawnTimer;
     public int roamCooldown;
+    public int separationCooldown;
+    public int combatPauseTicks;
     public boolean spawnFailureLogged, chunkWasUnloaded, hasSpawnedOnce, initialResolved;
     public double initialX, initialY, initialZ;
 

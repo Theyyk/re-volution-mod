@@ -28,7 +28,7 @@ public class CustomMobCommand extends AdminOnlyCommand {
                 Arrays.asList("create", "location", "spawn", "setspawn", "unspawn", "delete", "list"));
         if (args.length == 2) {
             if (args[0].equalsIgnoreCase("location")) {
-                return getListOfStringsMatchingLastWord(args, Arrays.asList("set", "populate", "remove", "here", "list"));
+                return getListOfStringsMatchingLastWord(args, Arrays.asList("set", "populate", "clear", "remove", "here", "list"));
             }
             if (args[0].equalsIgnoreCase("spawn")) return getListOfStringsMatchingLastWord(args, Arrays.asList("set", "list", "remove"));
             if (args[0].equalsIgnoreCase("create")) return getListOfStringsMatchingLastWord(args, Arrays.asList("<name>"));
@@ -54,7 +54,7 @@ public class CustomMobCommand extends AdminOnlyCommand {
                 if (args.length == 5) return getListOfStringsMatchingLastWord(args, mobNames());
                 if (args.length == 6) return getListOfStringsMatchingLastWord(args, Arrays.asList("<count>"));
             }
-            if (args[1].equalsIgnoreCase("remove")) {
+            if (args[1].equalsIgnoreCase("clear") || args[1].equalsIgnoreCase("remove")) {
                 if (args.length == 3) return getListOfStringsMatchingLastWord(args, Arrays.asList("<locationId>"));
                 if (args.length == 4) return getListOfStringsMatchingLastWord(args, Arrays.asList("<mobSlotId>"));
             }
