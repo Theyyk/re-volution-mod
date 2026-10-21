@@ -6,13 +6,16 @@ import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.location.service.MobZoneOverlayService;
+import com.example.revolution.mob.repository.MobProgressionRepository;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.ManagedMobService;
 import com.example.revolution.mob.service.MobAdminService;
+import com.example.revolution.mob.service.MobProgressionService;
 import com.example.revolution.mob.service.MobRewardService;
 import com.example.revolution.persistence.FileAdminWhitelistRepository;
 import com.example.revolution.persistence.MongoConnection;
 import com.example.revolution.persistence.MongoLocationRepository;
+import com.example.revolution.persistence.MongoMobProgressionRepository;
 import com.example.revolution.persistence.MongoMobRepository;
 import com.example.revolution.persistence.MongoPlayerRepository;
 import com.example.revolution.persistence.MongoResourceRepository;
@@ -53,6 +56,7 @@ public final class ServerServices implements AutoCloseable {
     public final AdminQueryService adminQueries;
     public final ManagedMobService mobs;
     public final MobRewardService mobRewards;
+    public final MobProgressionService mobProgression;
     public final MobZoneOverlayService mobZoneOverlay;
     public final PlayerSessionService sessions;
     public final PlayerStatsService playerStats;
@@ -67,6 +71,7 @@ public final class ServerServices implements AutoCloseable {
         PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
         MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
         LocationRepository locationRepository = new MongoLocationRepository(connection, persistentGameplay);
+        MobProgressionRepository progressionRepository = new MongoMobProgressionRepository(connection, persistentGameplay);
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
         resources = new ResourceService(new MongoResourceRepository(connection));
         combat = new RuneCombatService(players, enhancements, combatState);
@@ -79,8 +84,9 @@ public final class ServerServices implements AutoCloseable {
                 new RunePurchaseService(players, resources, stats),
                 new RuneEnhancementService(players, resources, stats, enhancements, sync),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
+        mobProgression = new MobProgressionService(progressionRepository);
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
-        mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards);
+        mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
         adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements);
         adminQueries = new AdminQueryService(players, resources, mobRepository);
@@ -99,6 +105,7 @@ public final class ServerServices implements AutoCloseable {
     @Override public void close() {
         adminApi.close();
         mobs.clear();
+        mobProgression.clear();
         combatState.clear();
         connection.close();
     }
