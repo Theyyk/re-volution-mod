@@ -46,6 +46,7 @@ import net.minecraft.util.DamageSource;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
+import net.minecraftforge.common.DimensionManager;
 
 public final class ManagedMobService {
     private static final int POISON_TICK_INTERVAL = 20;
@@ -191,11 +192,6 @@ public final class ManagedMobService {
     private void addRuntimeSpawn(MobDefinition mob, LocationDefinition location, MobSpawnDefinition spawnDefinition, int realmId) {
         RealmDefinition realm = RealmCatalog.byRealmId(realmId);
         if (realm == null) return;
-        if (server == null || server.getWorld(realm.getDimensionId()) == null) {
-            RevolutionMod.logger.warn("Skipping Mob Spawn " + spawnDefinition.getSpawnId() + " for Realm " + realmId
-                    + ": dimension " + realm.getDimensionId() + " is unavailable");
-            return;
-        }
         String key = "location|" + location.getLocationId() + "|spawn|" + spawnDefinition.getSpawnId()
                 + "|realm|" + realmId + "|mob|" + mob.name;
         ManagedMobDefinition definition = managedDefinition(mob,
@@ -210,7 +206,8 @@ public final class ManagedMobService {
     }
 
     private World worldFor(MobRuntimeState spawn) {
-        return server == null || spawn == null ? null : server.getWorld(spawn.dimensionId);
+        if (server == null || spawn == null) return null;
+        return DimensionManager.getWorld(spawn.dimensionId);
     }
 
     private boolean resolveInitialPosition(MobRuntimeState spawn, World world) {
