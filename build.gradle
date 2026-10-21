@@ -93,6 +93,7 @@ def regressionTests = [
     multiStatusRuneEconomyRegression: 'com.example.revolution.rune.config.MultiStatusRuneEconomyTest',
     resourceActionFoundationRegression: 'com.example.revolution.resource.service.ResourceActionFoundationTest',
     realmFoundationRegression: 'com.example.revolution.realm.definition.RealmCatalogTest',
+    locationFoundationRegression: 'com.example.revolution.location.LocationFoundationTest',
     largeNumberFormatterRegression: 'com.example.revolution.number.LargeNumberFormatterTest',
     mobVirtualHealthRegression: 'com.example.revolution.mob.rules.MobVirtualHealthTest',
     runeTransportContractRegression: 'com.example.revolution.network.RuneTransportContractTest',
