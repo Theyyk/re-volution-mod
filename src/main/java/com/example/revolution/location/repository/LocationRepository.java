@@ -9,6 +9,7 @@ public interface LocationRepository {
     List<LocationDefinition> getLocations();
     LocationDefinition getLocation(int locationId);
     void upsertLocation(LocationDefinition location);
+    void deleteLocation(int locationId);
     List<StoredMobSpawn> getMobSpawns();
     List<StoredMobSpawn> getMobSpawns(int locationId);
     StoredMobSpawn getMobSpawn(int locationId, int spawnId);

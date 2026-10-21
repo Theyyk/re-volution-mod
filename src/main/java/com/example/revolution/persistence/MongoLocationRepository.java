@@ -72,6 +72,12 @@ public final class MongoLocationRepository implements LocationRepository {
     }
 
     @Override
+    public void deleteLocation(int locationId) {
+        if (!enabled || !connection.isConnected()) return;
+        locations().deleteOne(new Document("locationId", locationId));
+    }
+
+    @Override
     public List<StoredMobSpawn> getMobSpawns() {
         List<StoredMobSpawn> result = new ArrayList<>();
         if (!enabled || !connection.isConnected()) return result;
