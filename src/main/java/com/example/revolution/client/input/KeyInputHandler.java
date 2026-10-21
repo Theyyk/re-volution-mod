@@ -31,7 +31,7 @@ public class KeyInputHandler {
         boolean runesPressed = keyOpenRunes.isPressed();
         if (runesPressed && !runesWasPressed && !ClientUiBridge.isRuneOpenPending()) {
             ClientUiBridge.beginRuneOpen();
-            RevolutionMod.logger.info("Предзагружаю RuneResourcesCardsGuiScreen");
+            RevolutionMod.logger.debug("Предзагружаю интерфейс рун");
         }
         runesWasPressed = runesPressed;
     }

@@ -20,10 +20,10 @@ public final class PlayerSessionService {
     public void joined(EntityPlayerMP player) {
         java.util.UUID uuid = player.getUniqueID();
 
-        // Создаём основную колоду, если её нет
+        // Создаём основную коллекцию, если её нет
         if (players.getCollectionNames(uuid).isEmpty()) {
             players.addCollection(uuid, "Основная");
-            RevolutionMod.logger.info("Created default deck for " + player.getName());
+            RevolutionMod.logger.info("Created default collection for " + player.getName());
         }
 
         // v1.2.2: полностью удаляем устаревшее поле lightnings,
