@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Dispatch exact ref and SHA to Docker repository
         env:
-          GH_TOKEN: ${{ secrets.DOCKER_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.RE_VOLUTION_DOCKER }}
           SOURCE_REF: ${{ github.ref_name }}
           SOURCE_SHA: ${{ github.sha }}
         shell: bash
@@ -22,7 +22,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "DOCKER_DISPATCH_TOKEN is not configured in this repository."
+            echo "RE_VOLUTION_DOCKER is not configured in this repository."
             exit 1
           fi
 
