@@ -1,11 +1,15 @@
 package com.example.revolution.location.service;
 
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.MobZoneIds;
+import java.util.Arrays;
 
 public final class StageTransitionServiceTest {
     public static void main(String[] args) {
         legacyLocationHasNoTransitionPoint();
         explicitTransitionPointRetainsCoordinatesAndRotation();
+        transitionPointMayBeOutsideMobZoneGeometry();
+        nearestConfiguredStageUsesTransitionPoint();
         transitionPointMustBeFinite();
         System.out.println("v1.3.9 explicit stage transition point regression checks passed");
     }
@@ -17,7 +21,7 @@ public final class StageTransitionServiceTest {
 
     private static void explicitTransitionPointRetainsCoordinatesAndRotation() {
         LocationDefinition location = new LocationDefinition(
-                1000002,
+                MobZoneIds.encode(1, 1),
                 "Configured",
                 30.0D,
                 -4.0D,
@@ -36,11 +40,44 @@ public final class StageTransitionServiceTest {
         check(Math.abs(location.getTransitionPitch() - 12.5F) < 1.0E-6F, "Transition pitch must be retained");
     }
 
+    private static void transitionPointMayBeOutsideMobZoneGeometry() {
+        LocationDefinition stage = new LocationDefinition(
+                MobZoneIds.encode(1, 2),
+                "Stage 2",
+                100.0D,
+                100.0D,
+                5.0D,
+                80.0D,
+                64.0D,
+                80.0D,
+                0.0F,
+                0.0F);
+        check(!stage.contains(stage.getTransitionX(), stage.getTransitionZ()),
+                "Transition point must be representable outside mob-zone geometry");
+    }
+
+    private static void nearestConfiguredStageUsesTransitionPoint() {
+        LocationDefinition first = new LocationDefinition(
+                MobZoneIds.encode(1, 1), "Stage 1", 10.0D, 10.0D, 3.0D,
+                20.0D, 64.0D, 20.0D, 0.0F, 0.0F);
+        LocationDefinition second = new LocationDefinition(
+                MobZoneIds.encode(1, 2), "Stage 2", 40.0D, 40.0D, 3.0D,
+                60.0D, 64.0D, 60.0D, 0.0F, 0.0F);
+        LocationDefinition otherLocation = new LocationDefinition(
+                MobZoneIds.encode(2, 1), "Other", 22.0D, 22.0D, 3.0D,
+                21.0D, 64.0D, 21.0D, 0.0F, 0.0F);
+
+        LocationDefinition resolved = StageTransitionService.nearestConfiguredStage(
+                Arrays.asList(first, second, otherLocation), 1, 23.0D, 23.0D);
+        check(resolved != null && resolved.getLocationId() == first.getLocationId(),
+                "Nearest stage context must use transition points from the same world Location only");
+    }
+
     private static void transitionPointMustBeFinite() {
         boolean failed = false;
         try {
             new LocationDefinition(
-                    1000003,
+                    MobZoneIds.encode(1, 3),
                     "Invalid",
                     0.0D,
                     0.0D,
