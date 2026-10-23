@@ -1,0 +1,40 @@
+name: Dispatch stable Docker image
+on:
+  release:
+    types: [published]
+  workflow_run:
+    workflows: ['Build and Release']
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  dispatch:
+    if: >-
+      github.event_name == 'release' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch published release only after successful source build
+        env:
+          GH_TOKEN: ${{ secrets.RE_VOLUTION_DOCKER }}
+          READ_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          text=$(GH_TOKEN="$READ_TOKEN" gh api "repos/$GITHUB_REPOSITORY/contents/build.gradle?ref=$SOURCE_SHA" --jq .content | base64 --decode)
+          version=$(printf '%s\n' "$text" | sed -nE "s/^[[:space:]]*version[[:space:]]*=[[:space:]]*['\"]([0-9]+\.[0-9]+\.[0-9]+)['\"][[:space:]]*$/\1/p")
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="v$version"
+          if ! release=$(GH_TOKEN="$READ_TOKEN" gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" 2>/dev/null); then
+            echo "No published release for this source; skip."
+            exit 0
+          fi
+          if [ "$(printf '%s' "$release" | jq '.draft or .prerelease')" != false ]; then exit 0; fi
+          commit=$(GH_TOKEN="$READ_TOKEN" gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)
+          if [ "$commit" != "$SOURCE_SHA" ]; then echo "Source run is not the release commit; skip."; exit 0; fi
+          gh api --method POST /repos/Theyyk/re-volution-docker/dispatches \
+            -f event_type=mod-stable-build -f "client_payload[tag]=$tag" -f "client_payload[commit_sha]=$commit"
