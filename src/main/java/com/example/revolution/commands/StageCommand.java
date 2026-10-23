@@ -2,11 +2,15 @@ package com.example.revolution.commands;
 
 import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.MobZoneIds;
+import com.example.revolution.location.definition.StageTransitionTriggerDefinition;
+import com.example.revolution.location.definition.StageTransitionTriggerDefinition.DisplayMode;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionService.Direction;
 import com.example.revolution.location.service.StageTransitionService.TransitionResult;
+import com.example.revolution.location.service.StageTransitionTriggerService;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import javax.annotation.Nullable;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -18,22 +22,48 @@ import net.minecraft.util.text.TextComponentString;
 /** Admin-only DEV/manual acceptance command for v1.3.9 stage transport. */
 public final class StageCommand extends AdminOnlyCommand {
     private final StageTransitionService transitions;
+    private final StageTransitionTriggerService triggers;
 
-    public StageCommand(StageTransitionService transitions) {
+    public StageCommand(StageTransitionService transitions, StageTransitionTriggerService triggers) {
         this.transitions = transitions;
+        this.triggers = triggers;
     }
 
     @Override public String getName() { return "stage"; }
     @Override public String getUsage(ICommandSender sender) {
-        return "/stage <next|previous> [player] | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]] | /stage clearpoint <locationId> <mobSlotId>";
+        return "/stage <next|previous> [player] | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]]"
+                + " | /stage clearpoint <locationId> <mobSlotId>"
+                + " | /stage settrigger <locationId> <mobSlotId> <radius> <halfHeight> [x y z]"
+                + " | /stage cleartrigger <locationId> <mobSlotId>"
+                + " | /stage setmessage <locationId> <mobSlotId> <locked|entering> <text...>"
+                + " | /stage clearmessage <locationId> <mobSlotId> <locked|entering>"
+                + " | /stage display <locationId> <mobSlotId> <chat|actionbar>"
+                + " | /stage auto <on|off> [player]";
     }
 
     @Override
     public List<String> getTabCompletions(
             MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
-        if (args.length == 1) return getListOfStringsMatchingLastWord(args, "next", "previous", "setpoint", "clearpoint");
-        if (args.length == 2 && ("next".equalsIgnoreCase(args[0]) || "previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0]))) {
+        if (args.length == 1) {
+            return getListOfStringsMatchingLastWord(args,
+                    "next", "previous", "setpoint", "clearpoint", "settrigger", "cleartrigger",
+                    "setmessage", "clearmessage", "display", "auto");
+        }
+        if (args.length == 2 && ("next".equalsIgnoreCase(args[0])
+                || "previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
+        }
+        if (args.length == 2 && "auto".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(args, "on", "off");
+        }
+        if (args.length == 3 && "auto".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
+        }
+        if (args.length == 4 && ("setmessage".equalsIgnoreCase(args[0]) || "clearmessage".equalsIgnoreCase(args[0]))) {
+            return getListOfStringsMatchingLastWord(args, "locked", "entering");
+        }
+        if (args.length == 4 && "display".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(args, "chat", "actionbar");
         }
         return new ArrayList<>();
     }
@@ -41,19 +71,23 @@ public final class StageCommand extends AdminOnlyCommand {
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
         if (args.length < 1) throw new CommandException(getUsage(sender));
-        if ("setpoint".equalsIgnoreCase(args[0])) {
-            configurePoint(sender, args);
-            return;
-        }
-        if ("clearpoint".equalsIgnoreCase(args[0])) {
-            clearPoint(sender, args);
-            return;
+        String action = args[0].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "setpoint": configurePoint(sender, args); return;
+            case "clearpoint": clearPoint(sender, args); return;
+            case "settrigger": configureTrigger(sender, args); return;
+            case "cleartrigger": clearTrigger(sender, args); return;
+            case "setmessage": setMessage(sender, args); return;
+            case "clearmessage": clearMessage(sender, args); return;
+            case "display": setDisplay(sender, args); return;
+            case "auto": setAuto(server, sender, args); return;
+            default: break;
         }
 
         if (args.length > 2) throw new CommandException(getUsage(sender));
         Direction direction;
-        if ("next".equalsIgnoreCase(args[0])) direction = Direction.NEXT;
-        else if ("previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0])) direction = Direction.PREVIOUS;
+        if ("next".equals(action)) direction = Direction.NEXT;
+        else if ("previous".equals(action) || "prev".equals(action)) direction = Direction.PREVIOUS;
         else throw new CommandException(getUsage(sender));
 
         EntityPlayerMP player = args.length == 2
@@ -75,10 +109,7 @@ public final class StageCommand extends AdminOnlyCommand {
     }
 
     private void configurePoint(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 3 && args.length != 6 && args.length != 8) {
-            throw new CommandException(getUsage(sender));
-        }
-
+        if (args.length != 3 && args.length != 6 && args.length != 8) throw new CommandException(getUsage(sender));
         int worldLocationId = parseInt(args[1]);
         int mobSlotId = parseInt(args[2]);
         LocationDefinition updated;
@@ -86,51 +117,135 @@ public final class StageCommand extends AdminOnlyCommand {
             if (args.length == 3) {
                 EntityPlayerMP player = getCommandSenderAsPlayer(sender);
                 updated = transitions.configureTransitionPoint(
-                        worldLocationId,
-                        mobSlotId,
-                        player.posX,
-                        player.posY,
-                        player.posZ,
-                        player.rotationYaw,
-                        player.rotationPitch);
+                        worldLocationId, mobSlotId,
+                        player.posX, player.posY, player.posZ,
+                        player.rotationYaw, player.rotationPitch);
             } else {
                 double x = parseDouble(args[3]);
                 double y = parseDouble(args[4]);
                 double z = parseDouble(args[5]);
                 float yaw = args.length == 8 ? (float) parseDouble(args[6]) : 0.0F;
                 float pitch = args.length == 8 ? (float) parseDouble(args[7]) : 0.0F;
-                updated = transitions.configureTransitionPoint(
-                        worldLocationId, mobSlotId, x, y, z, yaw, pitch);
+                updated = transitions.configureTransitionPoint(worldLocationId, mobSlotId, x, y, z, yaw, pitch);
             }
         } catch (IllegalArgumentException | IllegalStateException e) {
             throw new CommandException(e.getMessage());
         }
-
         sender.sendMessage(new TextComponentString(
-                "Transition point saved for Location " + worldLocationId
-                        + ", mobSlot " + mobSlotId
-                        + " at " + format(updated.getTransitionX())
-                        + ", " + format(updated.getTransitionY())
+                "Transition point saved for Location " + worldLocationId + ", mobSlot " + mobSlotId
+                        + " at " + format(updated.getTransitionX()) + ", " + format(updated.getTransitionY())
                         + ", " + format(updated.getTransitionZ()) + "."));
     }
 
     private void clearPoint(ICommandSender sender, String[] args) throws CommandException {
         if (args.length != 3) throw new CommandException(getUsage(sender));
-
         int worldLocationId = parseInt(args[1]);
         int mobSlotId = parseInt(args[2]);
-        try {
-            transitions.clearTransitionPoint(worldLocationId, mobSlotId);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            throw new CommandException(e.getMessage());
-        }
-
+        try { transitions.clearTransitionPoint(worldLocationId, mobSlotId); }
+        catch (IllegalArgumentException | IllegalStateException e) { throw new CommandException(e.getMessage()); }
         sender.sendMessage(new TextComponentString(
-                "Transition point cleared for Location " + worldLocationId
-                        + ", mobSlot " + mobSlotId + "."));
+                "Transition point cleared for Location " + worldLocationId + ", mobSlot " + mobSlotId + "."));
+    }
+
+    private void configureTrigger(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 5 && args.length != 8) throw new CommandException(getUsage(sender));
+        int worldLocationId = parseInt(args[1]);
+        int mobSlotId = parseInt(args[2]);
+        double radius = parseDouble(args[3], 0.01D);
+        double halfHeight = parseDouble(args[4], 0.01D);
+        double x;
+        double y;
+        double z;
+        if (args.length == 5) {
+            EntityPlayerMP player = getCommandSenderAsPlayer(sender);
+            x = player.posX; y = player.posY; z = player.posZ;
+        } else {
+            x = parseDouble(args[5]); y = parseDouble(args[6]); z = parseDouble(args[7]);
+        }
+        StageTransitionTriggerDefinition trigger;
+        try { trigger = triggers.configureTrigger(worldLocationId, mobSlotId, x, y, z, radius, halfHeight); }
+        catch (IllegalArgumentException | IllegalStateException e) { throw new CommandException(e.getMessage()); }
+        sender.sendMessage(new TextComponentString(
+                "Transition trigger saved for Location " + worldLocationId + ", mobSlot " + mobSlotId
+                        + " at " + format(trigger.getCenterX()) + ", " + format(trigger.getCenterY()) + ", "
+                        + format(trigger.getCenterZ()) + " radius=" + format(trigger.getRadius())
+                        + " halfHeight=" + format(trigger.getHalfHeight()) + "."));
+    }
+
+    private void clearTrigger(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 3) throw new CommandException(getUsage(sender));
+        int worldLocationId = parseInt(args[1]);
+        int mobSlotId = parseInt(args[2]);
+        triggers.clearTrigger(worldLocationId, mobSlotId);
+        sender.sendMessage(new TextComponentString(
+                "Transition trigger cleared for Location " + worldLocationId + ", mobSlot " + mobSlotId + "."));
+    }
+
+    private void setMessage(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length < 5) throw new CommandException(getUsage(sender));
+        int worldLocationId = parseInt(args[1]);
+        int mobSlotId = parseInt(args[2]);
+        boolean locked = messageKind(args[3]);
+        StringBuilder text = new StringBuilder();
+        for (int i = 4; i < args.length; i++) {
+            if (text.length() > 0) text.append(' ');
+            text.append(args[i]);
+        }
+        try { triggers.setMessage(worldLocationId, mobSlotId, locked, text.toString()); }
+        catch (IllegalArgumentException | IllegalStateException e) { throw new CommandException(e.getMessage()); }
+        sender.sendMessage(new TextComponentString(
+                "Transition " + (locked ? "locked" : "entering") + " message saved for Location "
+                        + worldLocationId + ", mobSlot " + mobSlotId + "."));
+    }
+
+    private void clearMessage(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 4) throw new CommandException(getUsage(sender));
+        int worldLocationId = parseInt(args[1]);
+        int mobSlotId = parseInt(args[2]);
+        boolean locked = messageKind(args[3]);
+        try { triggers.clearMessage(worldLocationId, mobSlotId, locked); }
+        catch (IllegalArgumentException | IllegalStateException e) { throw new CommandException(e.getMessage()); }
+        sender.sendMessage(new TextComponentString(
+                "Transition " + (locked ? "locked" : "entering") + " message cleared for Location "
+                        + worldLocationId + ", mobSlot " + mobSlotId + "."));
+    }
+
+    private void setDisplay(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 4) throw new CommandException(getUsage(sender));
+        int worldLocationId = parseInt(args[1]);
+        int mobSlotId = parseInt(args[2]);
+        DisplayMode mode;
+        if ("chat".equalsIgnoreCase(args[3])) mode = DisplayMode.CHAT;
+        else if ("actionbar".equalsIgnoreCase(args[3])) mode = DisplayMode.ACTION_BAR;
+        else throw new CommandException("Display mode must be chat or actionbar");
+        try { triggers.setDisplayMode(worldLocationId, mobSlotId, mode); }
+        catch (IllegalArgumentException | IllegalStateException e) { throw new CommandException(e.getMessage()); }
+        sender.sendMessage(new TextComponentString(
+                "Transition display mode set to " + mode.name() + " for Location "
+                        + worldLocationId + ", mobSlot " + mobSlotId + "."));
+    }
+
+    private void setAuto(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 2 && args.length != 3) throw new CommandException(getUsage(sender));
+        boolean enabled;
+        if ("on".equalsIgnoreCase(args[1])) enabled = true;
+        else if ("off".equalsIgnoreCase(args[1])) enabled = false;
+        else throw new CommandException("auto must be on or off");
+        EntityPlayerMP player = args.length == 3
+                ? getPlayer(server, sender, args[2])
+                : getCommandSenderAsPlayer(sender);
+        triggers.setAutoTransitionEnabled(player.getUniqueID(), enabled);
+        sender.sendMessage(new TextComponentString(
+                "Auto stage transitions " + (enabled ? "enabled" : "disabled") + " for " + player.getName() + "."));
+    }
+
+    private boolean messageKind(String value) throws CommandException {
+        if ("locked".equalsIgnoreCase(value)) return true;
+        if ("entering".equalsIgnoreCase(value)) return false;
+        throw new CommandException("Message kind must be locked or entering");
     }
 
     private String format(double value) {
-        return String.format(java.util.Locale.ROOT, "%.2f", value);
+        return String.format(Locale.ROOT, "%.2f", value);
     }
 }

@@ -110,7 +110,7 @@ public final class StageTransitionService {
         return updated;
     }
 
-    /** Executes one explicit manual transition. Automatic edge handling is intentionally separate. */
+    /** Executes one explicit manual transition. Automatic trigger handling is intentionally separate. */
     public TransitionResult move(EntityPlayerMP player, Direction direction) {
         if (player == null) throw new IllegalArgumentException("player is required");
         if (direction == null) throw new IllegalArgumentException("direction is required");
@@ -133,8 +133,36 @@ public final class StageTransitionService {
         if (MobZoneIds.worldLocationId(target.getLocationId()) != worldLocationId) {
             throw new IllegalStateException("Refusing cross-Location mob stage transition");
         }
+        return teleport(player, current.getLocationId(), target);
+    }
+
+    /**
+     * Executes a transition to an exact configured target stage. Used by independent trigger zones,
+     * so it deliberately does not require the player to stand in or near a mob-zone circle.
+     */
+    public TransitionResult moveToStage(EntityPlayerMP player, int targetInternalLocationId) {
+        if (player == null) throw new IllegalArgumentException("player is required");
+        if (!MobZoneIds.isMobZoneId(targetInternalLocationId)) {
+            throw new IllegalArgumentException("targetInternalLocationId must identify a mob stage");
+        }
+        if (!progression.isUnlocked(player.getUniqueID(), targetInternalLocationId)) {
+            throw new IllegalStateException("Target mob stage is locked");
+        }
+        LocationDefinition target = locations.getLocation(targetInternalLocationId);
+        if (target == null || !MobZoneIds.isMobZoneId(target.getLocationId())) {
+            throw new IllegalStateException("Target mob stage geometry is unavailable: " + targetInternalLocationId);
+        }
+
+        Integer fromId = lastStageByPlayer.get(player.getUniqueID());
+        LocationDefinition inside = findCurrentMobZone(player.posX, player.posZ);
+        if (inside != null) fromId = inside.getLocationId();
+        if (fromId == null) fromId = targetInternalLocationId;
+        return teleport(player, fromId, target);
+    }
+
+    private TransitionResult teleport(EntityPlayerMP player, int fromInternalLocationId, LocationDefinition target) {
         if (!target.hasTransitionPoint()) {
-            throw new IllegalStateException("Target mob stage has no transition point configured: " + targetId);
+            throw new IllegalStateException("Target mob stage has no transition point configured: " + target.getLocationId());
         }
 
         ensureSafeDestination(player, target);
@@ -150,7 +178,7 @@ public final class StageTransitionService {
         player.fallDistance = 0.0F;
         lastStageByPlayer.put(player.getUniqueID(), target.getLocationId());
         return new TransitionResult(
-                current.getLocationId(),
+                fromInternalLocationId,
                 target.getLocationId(),
                 target.getTransitionX(),
                 target.getTransitionY(),
