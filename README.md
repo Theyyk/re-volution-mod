@@ -1,10 +1,12 @@
 # RE:volution Mod — Forge 1.12.2
 
-Серверно-авторитетный игровой мод для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику RE:volution: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm foundation/runtime и хранение данных игроков в MongoDB.
+Серверно-авторитетный игровой мод для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику RE:volution: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm foundation/runtime, mob-zone progression и хранение данных игроков в MongoDB.
 
-**Текущая release-версия: `v1.3.7`.**
+**Стабильная release-версия: `v1.3.7`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Изменения v1.3.7](docs/releases/v1.3.7.md)
+**Следующий release candidate: `v1.3.8` — progression, runtime-приёмка завершена; stable release ещё не опубликован.**
+
+[Скачать актуальный стабильный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.3.8](docs/releases/v1.3.8.md)
 
 ## Границы проекта
 
@@ -74,13 +76,33 @@ Runtime managed-мобов использует Location/Mob Spawn модель 
 - После возвращения игрок начинает contribution заново с нуля.
 - После смерти награда делится между актуальными участниками пропорционально их effective damage.
 - Rune reward bonus применяется отдельно к уже вычисленной доле конкретного игрока.
-- Определяется max contributor для последующей progression-логики; при точной ничьей выигрывает игрок, который раньше достиг итогового равного значения contribution.
+- Определяется max contributor для progression-логики; при точной ничьей выигрывает игрок, который раньше достиг итогового равного значения contribution.
 - Respawn и unload/load физического mob-slot очищают contribution state и восстанавливают полный HP.
 - Legacy Realm 0 managed-мобы без Location/Mob Spawn сохраняют прежнюю last-hit reward семантику.
 
-Одиночная runtime-приёмка `v1.3.7` пройдена. Multiplayer-проверки пропорционального reward, max contributor и tie-break выполняются после production rollout, когда к тесту можно подключить второго игрока через актуальный клиент.
+Runtime-приёмка contribution/reward foundation, включая multiplayer/max-contributor regression, подтверждена в ходе подготовки `v1.3.8`.
 
-Полный контракт и checklist: [docs/releases/v1.3.7.md](docs/releases/v1.3.7.md).
+Полный контракт: [docs/releases/v1.3.7.md](docs/releases/v1.3.7.md).
+
+### Персональная mob progression (`v1.3.8`)
+
+Progression строится отдельно для каждого world Location ID поверх заполненных mob-zone.
+
+- В progression chain входят только существующие заполненные mob-zone.
+- Стадии идут по возрастающему `mobSlotId`; номера не обязаны быть последовательными.
+- Первый заполненный mobSlot открыт игроку автоматически.
+- Победа на текущей стадии открывает ровно следующий заполненный mobSlot этой Location.
+- Повторная победа на уже пройденной стадии не перескакивает через следующую.
+- Progression credit получает только текущий `max contributor`, а не last hit.
+- Физические managed-мобы остаются общими для игроков Realm, но доступ к стадии персональный.
+- Если stage закрыт для игрока, урон подавляется, contribution и combat pause не создаются.
+- Открытые стадии сохраняются в MongoDB в коллекции `mob_progression` по `playerUuid + locationId` и не привязаны к конкретному Realm 1/2/3.
+- Progression сохраняется после relog, restart сервера и смены Realm.
+- Legacy Realm 0 и конфигурации вне обычной mob-zone progression сохраняют совместимое поведение.
+
+Runtime-приёмка `v1.3.8` завершена: проверены последовательный unlock, locked damage gate, отсутствие перескока стадий, persistence после выхода/restart, сохранение между Realm, разные progression state игроков и max-contributor flow.
+
+Полный контракт и checklist: [docs/releases/v1.3.8.md](docs/releases/v1.3.8.md).
 
 ## Игровые системы
 
@@ -95,23 +117,28 @@ Runtime managed-мобов использует Location/Mob Spawn модель 
 - Фиксированный каталог ресурсов: `coins`, `crystals`, `rune_dust`, `rune_shards`, `rune_cores`.
 - Общий серверный контракт игровых ресурсов не допускает отрицательных балансов.
 - Каркас 16 слотов снаряжения и пяти сборок существует, полноценные механики экипировки пока не завершены.
-- Данные игроков сохраняются в MongoDB; URI и имя базы задаются серверной конфигурацией.
+- Данные игроков и progression сохраняются в MongoDB; URI и имя базы задаются серверной конфигурацией.
 
 Интерфейс gameplay-мода открывается клавишей `C`. Подробнее: [игровые системы](docs/gameplay.md) · [команды](docs/commands.md).
 
-## Startup и работа с мирами
+## DEV / PROD и runtime
 
-Основной тестовый запуск использует `tools/startup` и локальный orchestration-слой проекта. Последовательность для dedicated-сервера:
+Основная инфраструктурная модель проекта разделяет DEV и PROD.
 
-1. preflight;
-2. подготовка Auth/resource-pack окружения;
-3. сборка и установка актуального JAR;
-4. запуск Forge;
-5. серверный Realm startup sync внутри lifecycle Forge до `loadAllWorlds`.
+- **DEV** используется для development/gameplay acceptance и может принимать допустимые development-ветки.
+- **PROD** используется только для stable gameplay из `main` с annotated release tag и проверенным server image.
+- DEV и PROD используют отдельные Minecraft runtime/world и отдельные Mongo namespace.
+- DEV build сам по себе не становится PROD.
+- При контролируемой PROD synchronization world и Mongo заменяются DEV snapshot только после backup; это не merge данных.
+- Runtime rollback опирается на сохранённые snapshots, а не на Git.
 
-Realm 0 переносится между Build и Test только отдельными ручными скриптами и не копируется автоматически при обычном старте сервера.
+Основной пользовательский интерфейс инфраструктуры — `REvolutionControl.exe`, GUI-оболочка над orchestration backend. Обычный gameplay flow: обновить DEV, выполнить Smoke Check, запустить DEV client и проверить механику. PowerShell остаётся backend/debug fallback.
+
+Внутри dedicated Forge сохраняется Realm startup contract: до загрузки миров `DIM202` и `DIM203` подготавливаются из сохранённого `DIM201`; во время runtime Realm независимы.
 
 ## Установка вручную
+
+Ручная установка является fallback для разработки и диагностики. Для обычного игрока используется RE:volution Client.
 
 1. Установите Java 8 и Minecraft Forge **1.12.2 / 14.23.5.2859**.
 2. Скачайте `RE-volution-<version>.jar` из [актуального GitHub Release](https://github.com/Theyyk/re-volution-mod/releases/latest).
@@ -131,6 +158,8 @@ Realm 0 переносится между Build и Test только отдел�
 
 Основная ветка разработки — `develop`, стабильная ветка — `main`. Изменения gameplay обычно проходят через feature-ветку и PR в `develop`, затем release/promotion в `main`.
 
+CI использует component change detection, dependency/build caches, concurrency, path filtering и exact artifact handoff, чтобы не запускать тяжёлые jobs без необходимости и не публиковать устаревший DEV candidate поверх более нового.
+
 CI проверяет, среди прочего:
 
 - согласованность версии;
@@ -138,7 +167,8 @@ CI проверяет, среди прочего:
 - архитектурные guard-проверки;
 - сборку Forge-мода;
 - содержимое итогового JAR;
-- Windows startup/Realm orchestration contracts.
+- startup/Realm orchestration contracts;
+- DEV publication invariants и artifact consistency.
 
 CI не заменяет runtime-приёмку там, где изменение зависит от реального Forge lifecycle, клиента, multiplayer или сохранённых миров.
 
@@ -148,18 +178,20 @@ CI не заменяет runtime-приёмку там, где изменени�
 
 Перед каждым новым стабильным релизом необходимо проверить и при необходимости обновить:
 
-- текущую release-версию и ссылку на её release notes;
+- текущую stable-версию и готовящийся release candidate;
 - фактически доступные gameplay-возможности;
 - публичные команды и их актуальную семантику;
 - текущую архитектурную базу и runtime-ограничения;
 - roadmap и следующий незавершённый этап.
 
-Promotion `develop -> main` не считается полностью подготовленным к релизу, если README описывает старую версию или уже изменившееся поведение.
+Promotion `develop -> main` не считается полностью подготовленным к релизу, если README описывает старую модель или уже изменившееся поведение.
 
-## Roadmap после v1.3.7
+## Roadmap после v1.3.8
 
-1. `v1.3.8` — progression;
-2. `v1.3.9` — scaling.
+1. `v1.3.9` — mob-stage transition foundation внутри одной Location: progression остаётся привязана к `mobSlot`, а переход использует состояние progression для выбора следующей доступной стадии;
+2. основной режим v1.3.9 — ручной переход через transition zone у края/в чаще Location с плавным переносом к следующей стадии;
+3. заложить переключаемый `autoTransitionEnabled` как функцию перехода игрока, без отдельного transition-флага на каждом `mobSlot`; автоматический переход включать отдельным последующим этапом;
+4. scaling и дальнейшая оптимизация под большую нагрузку выполняются отдельным этапом после transition foundation и не считаются уже подтверждённой вместимостью.
 
 ## Скриншоты
 
