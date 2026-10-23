@@ -114,6 +114,7 @@ def regressionTests = [
     realmFoundationRegression: 'com.example.revolution.realm.definition.RealmCatalogTest',
     locationFoundationRegression: 'com.example.revolution.location.LocationFoundationTest',
     stageTransitionRegression: 'com.example.revolution.location.service.StageTransitionServiceTest',
+    stageTransitionTriggerDefinitionRegression: 'com.example.revolution.location.service.StageTransitionTriggerDefinitionTest',
     largeNumberFormatterRegression: 'com.example.revolution.number.LargeNumberFormatterTest',
     mobVirtualHealthRegression: 'com.example.revolution.mob.rules.MobVirtualHealthTest',
     mobContributionRegression: 'com.example.revolution.mob.rules.MobContributionTest',
