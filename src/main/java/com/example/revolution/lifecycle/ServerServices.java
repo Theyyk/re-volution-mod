@@ -6,6 +6,7 @@ import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.location.service.MobZoneOverlayService;
+import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.mob.repository.MobProgressionRepository;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.ManagedMobService;
@@ -58,6 +59,7 @@ public final class ServerServices implements AutoCloseable {
     public final MobRewardService mobRewards;
     public final MobProgressionService mobProgression;
     public final MobZoneOverlayService mobZoneOverlay;
+    public final StageTransitionService stageTransitions;
     public final PlayerSessionService sessions;
     public final PlayerStatsService playerStats;
     public final RuneCombatService combat;
@@ -85,6 +87,7 @@ public final class ServerServices implements AutoCloseable {
                 new RuneEnhancementService(players, resources, stats, enhancements, sync),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
+        stageTransitions = new StageTransitionService(locationRepository, mobProgression);
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
