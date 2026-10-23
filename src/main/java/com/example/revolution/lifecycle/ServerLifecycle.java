@@ -8,6 +8,7 @@ import com.example.revolution.commands.CustomRunesCommand;
 import com.example.revolution.commands.CustomStatusCommand;
 import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.commands.StageCommand;
+import com.example.revolution.location.event.StageTransitionTriggerHandler;
 import com.example.revolution.mob.event.ManagedMobEvents;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
@@ -65,6 +66,7 @@ public final class ServerLifecycle {
         listeners.add(new RealmEntityLoadHandler());
         listeners.add(new ManagedMobEvents(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
+        listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
         for (Object listener : listeners) MinecraftForge.EVENT_BUS.register(listener);
     }
 
@@ -99,7 +101,7 @@ public final class ServerLifecycle {
         event.registerServerCommand(new CustomResourceCommand(current.resources));
         event.registerServerCommand(new AdminPanelCommand(current.adminAccess));
         event.registerServerCommand(new RealmCommand(current.realms));
-        event.registerServerCommand(new StageCommand(current.stageTransitions));
+        event.registerServerCommand(new StageCommand(current.stageTransitions, current.stageTransitionTriggers));
         current.resources.purgeDeprecatedLightnings();
     }
 
