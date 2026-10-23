@@ -56,10 +56,7 @@ public final class StageTransitionService {
         this.progression = progression;
     }
 
-    /**
-     * Stores an explicit player entry point for one Location + mobSlot pair.
-     * The point may be outside the mob-zone circle, but it must remain inside its parent world Location.
-     */
+    /** Stores an explicit player entry point for one Location + mobSlot pair. */
     public LocationDefinition configureTransitionPoint(
             int worldLocationId,
             int mobSlotId,
@@ -74,12 +71,9 @@ public final class StageTransitionService {
             throw new IllegalArgumentException(
                     "Unknown mob stage: Location " + worldLocationId + ", mobSlot " + mobSlotId);
         }
-
-        LocationDefinition parent = requireWorldLocation(worldLocationId);
-        if (!parent.contains(x, z)) {
-            throw new IllegalArgumentException(
-                    "Transition point must be inside Location " + worldLocationId
-                            + " (it may be outside the mob zone)");
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
+                || !Float.isFinite(yaw) || !Float.isFinite(pitch)) {
+            throw new IllegalArgumentException("Transition coordinates and rotation must be finite");
         }
 
         LocationDefinition updated = new LocationDefinition(
@@ -93,6 +87,25 @@ public final class StageTransitionService {
                 z,
                 yaw,
                 pitch);
+        locations.upsertLocation(updated);
+        return updated;
+    }
+
+    /** Clears only the transition point for one Location + mobSlot pair. */
+    public LocationDefinition clearTransitionPoint(int worldLocationId, int mobSlotId) {
+        int internalLocationId = MobZoneIds.encode(worldLocationId, mobSlotId);
+        LocationDefinition location = locations.getLocation(internalLocationId);
+        if (location == null || !MobZoneIds.isMobZoneId(location.getLocationId())) {
+            throw new IllegalArgumentException(
+                    "Unknown mob stage: Location " + worldLocationId + ", mobSlot " + mobSlotId);
+        }
+
+        LocationDefinition updated = new LocationDefinition(
+                location.getLocationId(),
+                location.getName(),
+                location.getCenterX(),
+                location.getCenterZ(),
+                location.getRadius());
         locations.upsertLocation(updated);
         return updated;
     }
@@ -124,12 +137,6 @@ public final class StageTransitionService {
             throw new IllegalStateException("Target mob stage has no transition point configured: " + targetId);
         }
 
-        LocationDefinition parent = requireWorldLocation(worldLocationId);
-        if (!parent.contains(target.getTransitionX(), target.getTransitionZ())) {
-            throw new IllegalStateException(
-                    "Target mob stage transition point is outside Location " + worldLocationId + ": " + targetId);
-        }
-
         ensureSafeDestination(player, target);
         player.connection.setPlayerLocation(
                 target.getTransitionX(),
@@ -152,7 +159,7 @@ public final class StageTransitionService {
 
     /**
      * Resolves stage context even when the player is between mob-zone circles.
-     * Priority: current zone -> last successful stage in this Location -> nearest configured stage point.
+     * Priority: current zone -> remembered stage -> nearest configured stage point.
      */
     LocationDefinition resolveCurrentStage(EntityPlayerMP player) {
         LocationDefinition insideZone = findCurrentMobZone(player.posX, player.posZ);
@@ -161,21 +168,16 @@ public final class StageTransitionService {
             return insideZone;
         }
 
-        LocationDefinition parent = requireCurrentWorldLocation(player.posX, player.posZ);
-        int worldLocationId = parent.getLocationId();
         Integer rememberedId = lastStageByPlayer.get(player.getUniqueID());
-        if (rememberedId != null
-                && MobZoneIds.isMobZoneId(rememberedId)
-                && MobZoneIds.worldLocationId(rememberedId) == worldLocationId) {
+        if (rememberedId != null && MobZoneIds.isMobZoneId(rememberedId)) {
             LocationDefinition remembered = locations.getLocation(rememberedId);
             if (remembered != null) return remembered;
         }
 
         LocationDefinition nearest = nearestConfiguredStage(
-                locations.getLocations(), worldLocationId, player.posX, player.posZ);
+                locations.getLocations(), player.posX, player.posZ);
         if (nearest == null) {
-            throw new IllegalStateException(
-                    "Cannot resolve current mob stage outside a mob zone in Location " + worldLocationId);
+            throw new IllegalStateException("Cannot resolve current mob stage outside a mob zone");
         }
         lastStageByPlayer.put(player.getUniqueID(), nearest.getLocationId());
         return nearest;
@@ -198,56 +200,30 @@ public final class StageTransitionService {
         return match;
     }
 
-    private LocationDefinition requireCurrentWorldLocation(double x, double z) {
-        List<LocationDefinition> all = locations.getLocations();
-        LocationDefinition match = null;
-        if (all != null) {
-            for (LocationDefinition location : all) {
-                if (location == null || MobZoneIds.isMobZoneId(location.getLocationId()) || !location.contains(x, z)) continue;
-                if (match != null) {
-                    throw new IllegalStateException(
-                            "Player position belongs to multiple Locations: "
-                                    + match.getLocationId() + " and " + location.getLocationId());
-                }
-                match = location;
-            }
-        }
-        if (match == null) throw new IllegalStateException("Player is not inside a configured Location");
-        return match;
-    }
-
-    private LocationDefinition requireWorldLocation(int worldLocationId) {
-        LocationDefinition parent = locations.getLocation(worldLocationId);
-        if (parent == null || MobZoneIds.isMobZoneId(parent.getLocationId())) {
-            throw new IllegalArgumentException("Unknown world Location: " + worldLocationId);
-        }
-        return parent;
-    }
-
-    static LocationDefinition nearestConfiguredStage(
-            List<LocationDefinition> all,
-            int worldLocationId,
-            double x,
-            double z) {
+    static LocationDefinition nearestConfiguredStage(List<LocationDefinition> all, double x, double z) {
         LocationDefinition best = null;
         double bestDistance = Double.POSITIVE_INFINITY;
+        int bestLocation = Integer.MAX_VALUE;
         int bestSlot = Integer.MAX_VALUE;
         if (all == null) return null;
 
         for (LocationDefinition location : all) {
             if (location == null
                     || !MobZoneIds.isMobZoneId(location.getLocationId())
-                    || MobZoneIds.worldLocationId(location.getLocationId()) != worldLocationId
                     || !location.hasTransitionPoint()) {
                 continue;
             }
             double dx = location.getTransitionX() - x;
             double dz = location.getTransitionZ() - z;
             double distance = dx * dx + dz * dz;
+            int worldLocation = MobZoneIds.worldLocationId(location.getLocationId());
             int slot = MobZoneIds.mobSlotId(location.getLocationId());
-            if (distance < bestDistance || (distance == bestDistance && slot < bestSlot)) {
+            if (distance < bestDistance
+                    || (distance == bestDistance && worldLocation < bestLocation)
+                    || (distance == bestDistance && worldLocation == bestLocation && slot < bestSlot)) {
                 best = location;
                 bestDistance = distance;
+                bestLocation = worldLocation;
                 bestSlot = slot;
             }
         }
