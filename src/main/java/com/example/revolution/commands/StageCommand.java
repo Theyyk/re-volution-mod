@@ -1,6 +1,7 @@
 package com.example.revolution.commands;
 
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionService.Direction;
 import com.example.revolution.location.service.StageTransitionService.TransitionResult;
@@ -24,7 +25,7 @@ public final class StageCommand extends AdminOnlyCommand {
 
     @Override public String getName() { return "stage"; }
     @Override public String getUsage(ICommandSender sender) {
-        return "/stage <next|previous> [player] | /stage setpoint [zoneId [x y z [yaw pitch]]]";
+        return "/stage <next|previous> [player] | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]]";
     }
 
     @Override
@@ -62,45 +63,48 @@ public final class StageCommand extends AdminOnlyCommand {
         }
 
         sender.sendMessage(new TextComponentString(
-                "Moved " + player.getName() + " from stage " + result.getFromInternalLocationId()
-                        + " to " + result.getToInternalLocationId() + "."));
+                "Moved " + player.getName()
+                        + " from Location " + MobZoneIds.worldLocationId(result.getFromInternalLocationId())
+                        + ", mobSlot " + MobZoneIds.mobSlotId(result.getFromInternalLocationId())
+                        + " to Location " + MobZoneIds.worldLocationId(result.getToInternalLocationId())
+                        + ", mobSlot " + MobZoneIds.mobSlotId(result.getToInternalLocationId()) + "."));
     }
 
     private void configurePoint(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 1 && args.length != 2 && args.length != 5 && args.length != 7) {
+        if (args.length != 3 && args.length != 6 && args.length != 8) {
             throw new CommandException(getUsage(sender));
         }
 
+        int worldLocationId = parseInt(args[1]);
+        int mobSlotId = parseInt(args[2]);
         LocationDefinition updated;
         try {
-            if (args.length == 1) {
-                updated = transitions.configureCurrentTransitionPoint(getCommandSenderAsPlayer(sender));
+            if (args.length == 3) {
+                EntityPlayerMP player = getCommandSenderAsPlayer(sender);
+                updated = transitions.configureTransitionPoint(
+                        worldLocationId,
+                        mobSlotId,
+                        player.posX,
+                        player.posY,
+                        player.posZ,
+                        player.rotationYaw,
+                        player.rotationPitch);
             } else {
-                int zoneId = parseInt(args[1]);
-                if (args.length == 2) {
-                    EntityPlayerMP player = getCommandSenderAsPlayer(sender);
-                    updated = transitions.configureTransitionPoint(
-                            zoneId,
-                            player.posX,
-                            player.posY,
-                            player.posZ,
-                            player.rotationYaw,
-                            player.rotationPitch);
-                } else {
-                    double x = parseDouble(args[2]);
-                    double y = parseDouble(args[3]);
-                    double z = parseDouble(args[4]);
-                    float yaw = args.length == 7 ? (float) parseDouble(args[5]) : 0.0F;
-                    float pitch = args.length == 7 ? (float) parseDouble(args[6]) : 0.0F;
-                    updated = transitions.configureTransitionPoint(zoneId, x, y, z, yaw, pitch);
-                }
+                double x = parseDouble(args[3]);
+                double y = parseDouble(args[4]);
+                double z = parseDouble(args[5]);
+                float yaw = args.length == 8 ? (float) parseDouble(args[6]) : 0.0F;
+                float pitch = args.length == 8 ? (float) parseDouble(args[7]) : 0.0F;
+                updated = transitions.configureTransitionPoint(
+                        worldLocationId, mobSlotId, x, y, z, yaw, pitch);
             }
         } catch (IllegalArgumentException | IllegalStateException e) {
             throw new CommandException(e.getMessage());
         }
 
         sender.sendMessage(new TextComponentString(
-                "Transition point saved for stage " + updated.getLocationId()
+                "Transition point saved for Location " + worldLocationId
+                        + ", mobSlot " + mobSlotId
                         + " at " + format(updated.getTransitionX())
                         + ", " + format(updated.getTransitionY())
                         + ", " + format(updated.getTransitionZ()) + "."));
