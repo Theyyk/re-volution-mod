@@ -6,14 +6,14 @@ import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.mob.service.MobProgressionService;
 import java.util.List;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.math.AxisAlignedBB;
 
 /**
  * Player/Location runtime boundary for movement between already-unlocked mob stages.
  * mobSlot remains progression/order data only; this service owns transition execution.
  */
 public final class StageTransitionService {
-    private static final double MAX_ENTRY_INSET = 1.5D;
-    private static final double ENTRY_INSET_FACTOR = 0.25D;
+    private static final double SUPPORT_PROBE = 0.05D;
 
     public enum Direction {
         NEXT,
@@ -42,16 +42,6 @@ public final class StageTransitionService {
         public double getZ() { return z; }
     }
 
-    static final class HorizontalPoint {
-        final double x;
-        final double z;
-
-        HorizontalPoint(double x, double z) {
-            this.x = x;
-            this.z = z;
-        }
-    }
-
     private final LocationRepository locations;
     private final MobProgressionService progression;
 
@@ -60,6 +50,36 @@ public final class StageTransitionService {
         if (progression == null) throw new IllegalArgumentException("progression is required");
         this.locations = locations;
         this.progression = progression;
+    }
+
+    /** Stores an explicit player entry point for one configured mob-zone. */
+    public LocationDefinition configureTransitionPoint(
+            int internalLocationId,
+            double x,
+            double y,
+            double z,
+            float yaw,
+            float pitch) {
+        LocationDefinition location = locations.getLocation(internalLocationId);
+        if (location == null || !MobZoneIds.isMobZoneId(location.getLocationId())) {
+            throw new IllegalArgumentException("Unknown mob stage: " + internalLocationId);
+        }
+        if (!location.contains(x, z)) {
+            throw new IllegalArgumentException("Transition point must be inside mob stage " + internalLocationId);
+        }
+        LocationDefinition updated = new LocationDefinition(
+                location.getLocationId(),
+                location.getName(),
+                location.getCenterX(),
+                location.getCenterZ(),
+                location.getRadius(),
+                x,
+                y,
+                z,
+                yaw,
+                pitch);
+        locations.upsertLocation(updated);
+        return updated;
     }
 
     /** Executes one explicit manual transition. Automatic edge handling is intentionally separate. */
@@ -84,15 +104,30 @@ public final class StageTransitionService {
         if (MobZoneIds.worldLocationId(target.getLocationId()) != MobZoneIds.worldLocationId(current.getLocationId())) {
             throw new IllegalStateException("Refusing cross-Location mob stage transition");
         }
+        if (!target.hasTransitionPoint()) {
+            throw new IllegalStateException("Target mob stage has no transition point configured: " + targetId);
+        }
+        if (!target.contains(target.getTransitionX(), target.getTransitionZ())) {
+            throw new IllegalStateException("Target mob stage transition point is outside its zone: " + targetId);
+        }
 
-        HorizontalPoint point = entryPoint(current, target, player.posX, player.posZ);
-        double y = player.posY;
-        player.connection.setPlayerLocation(point.x, y, point.z, player.rotationYaw, player.rotationPitch);
+        ensureSafeDestination(player, target);
+        player.connection.setPlayerLocation(
+                target.getTransitionX(),
+                target.getTransitionY(),
+                target.getTransitionZ(),
+                target.getTransitionYaw(),
+                target.getTransitionPitch());
         player.motionX = 0.0D;
         player.motionY = 0.0D;
         player.motionZ = 0.0D;
         player.fallDistance = 0.0F;
-        return new TransitionResult(current.getLocationId(), target.getLocationId(), point.x, y, point.z);
+        return new TransitionResult(
+                current.getLocationId(),
+                target.getLocationId(),
+                target.getTransitionX(),
+                target.getTransitionY(),
+                target.getTransitionZ());
     }
 
     LocationDefinition requireCurrentMobZone(double x, double z) {
@@ -113,33 +148,16 @@ public final class StageTransitionService {
         return match;
     }
 
-    /**
-     * Places the player just inside the target circle at the side nearest the source/player.
-     * The target is always strictly inside its Location; vertical placement is preserved by move().
-     */
-    static HorizontalPoint entryPoint(
-            LocationDefinition source,
-            LocationDefinition target,
-            double sourceX,
-            double sourceZ) {
-        if (source == null || target == null) throw new IllegalArgumentException("source and target are required");
-
-        double dx = sourceX - target.getCenterX();
-        double dz = sourceZ - target.getCenterZ();
-        double length = Math.sqrt(dx * dx + dz * dz);
-        if (length < 1.0E-9D) {
-            dx = source.getCenterX() - target.getCenterX();
-            dz = source.getCenterZ() - target.getCenterZ();
-            length = Math.sqrt(dx * dx + dz * dz);
+    private void ensureSafeDestination(EntityPlayerMP player, LocationDefinition target) {
+        double dx = target.getTransitionX() - player.posX;
+        double dy = target.getTransitionY() - player.posY;
+        double dz = target.getTransitionZ() - player.posZ;
+        AxisAlignedBB destination = player.getEntityBoundingBox().offset(dx, dy, dz);
+        if (!player.world.getCollisionBoxes(player, destination).isEmpty()) {
+            throw new IllegalStateException("Target mob stage transition point is obstructed: " + target.getLocationId());
         }
-        if (length < 1.0E-9D) {
-            return new HorizontalPoint(target.getCenterX(), target.getCenterZ());
+        if (player.world.getCollisionBoxes(player, destination.offset(0.0D, -SUPPORT_PROBE, 0.0D)).isEmpty()) {
+            throw new IllegalStateException("Target mob stage transition point has no solid support: " + target.getLocationId());
         }
-
-        double inset = Math.min(MAX_ENTRY_INSET, target.getRadius() * ENTRY_INSET_FACTOR);
-        double distance = Math.max(0.0D, target.getRadius() - inset);
-        return new HorizontalPoint(
-                target.getCenterX() + dx / length * distance,
-                target.getCenterZ() + dz / length * distance);
     }
 }
