@@ -1,0 +1,11 @@
+{
+  "src/main/New.java": [
+    "build"
+  ],
+  "tools/startup/helper.ps1": [
+    "startup"
+  ],
+  "gradle/wrapper/gradle-wrapper.properties": [
+    "build"
+  ]
+}

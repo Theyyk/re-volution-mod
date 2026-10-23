@@ -178,3 +178,5 @@ README описывает текущее состояние проекта. Ве
 ### Шрифты Cristalix
 
 Шрифты получены из клиента Cristalix с сохранением исходных метаданных. Условия, ответ поддержки и область использования описаны в [docs/permissions/cristalix.md](docs/permissions/cristalix.md).
+
+CI scheduling, cache, concurrency and artifact policy: [README-CI.md](README-CI.md).
