@@ -9,7 +9,9 @@ public final class StageTransitionServiceTest {
         legacyLocationHasNoTransitionPoint();
         explicitTransitionPointRetainsCoordinatesAndRotation();
         transitionPointMayBeOutsideMobZoneGeometry();
-        nearestConfiguredStageUsesTransitionPoint();
+        transitionPointMayBeAnywhereInWorldCoordinates();
+        clearedTransitionPointHasNoDestination();
+        nearestConfiguredStageUsesTransitionPointAcrossLocations();
         transitionPointMustBeFinite();
         System.out.println("v1.3.9 explicit stage transition point regression checks passed");
     }
@@ -56,7 +58,33 @@ public final class StageTransitionServiceTest {
                 "Transition point must be representable outside mob-zone geometry");
     }
 
-    private static void nearestConfiguredStageUsesTransitionPoint() {
+    private static void transitionPointMayBeAnywhereInWorldCoordinates() {
+        LocationDefinition stage = new LocationDefinition(
+                MobZoneIds.encode(1, 3),
+                "Stage 3",
+                0.0D,
+                0.0D,
+                5.0D,
+                50000.0D,
+                200.0D,
+                -50000.0D,
+                180.0F,
+                0.0F);
+        check(stage.hasTransitionPoint(), "Far-away transition point must remain valid");
+        check(!stage.contains(stage.getTransitionX(), stage.getTransitionZ()),
+                "Far-away transition point must not be constrained by stage geometry");
+    }
+
+    private static void clearedTransitionPointHasNoDestination() {
+        LocationDefinition configured = new LocationDefinition(
+                MobZoneIds.encode(1, 4), "Stage 4", 10.0D, 10.0D, 3.0D,
+                100.0D, 70.0D, 100.0D, 45.0F, 5.0F);
+        LocationDefinition cleared = new LocationDefinition(
+                configured.getLocationId(), configured.getName(), configured.getCenterX(), configured.getCenterZ(), configured.getRadius());
+        check(!cleared.hasTransitionPoint(), "Cleared stage definition must have no transition destination");
+    }
+
+    private static void nearestConfiguredStageUsesTransitionPointAcrossLocations() {
         LocationDefinition first = new LocationDefinition(
                 MobZoneIds.encode(1, 1), "Stage 1", 10.0D, 10.0D, 3.0D,
                 20.0D, 64.0D, 20.0D, 0.0F, 0.0F);
@@ -68,9 +96,9 @@ public final class StageTransitionServiceTest {
                 21.0D, 64.0D, 21.0D, 0.0F, 0.0F);
 
         LocationDefinition resolved = StageTransitionService.nearestConfiguredStage(
-                Arrays.asList(first, second, otherLocation), 1, 23.0D, 23.0D);
-        check(resolved != null && resolved.getLocationId() == first.getLocationId(),
-                "Nearest stage context must use transition points from the same world Location only");
+                Arrays.asList(first, second, otherLocation), 23.0D, 23.0D);
+        check(resolved != null && resolved.getLocationId() == otherLocation.getLocationId(),
+                "Outside zones, nearest configured transition point may resolve across world Locations");
     }
 
     private static void transitionPointMustBeFinite() {
