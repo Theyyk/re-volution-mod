@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   dispatch:
@@ -31,5 +32,12 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$GH_TOKEN"
+          # A successful documentation-only run has no gameplay artifact.
+          count=$(GH_TOKEN="${{ github.token }}" gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts?per_page=100" --jq '[.artifacts[] | select((.name | startswith("RE-volution-")) and .expired == false)] | length')
+          if [ "$count" = 0 ]; then
+            echo "No gameplay artifact; no downstream Docker/client chain."
+            exit 0
+          fi
+          test "$count" = 1
           gh api --method POST /repos/Theyyk/re-volution-docker/dispatches \
             -f event_type=mod-dev-build -f "client_payload[run_id]=$SOURCE_RUN_ID"

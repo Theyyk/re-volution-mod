@@ -48,6 +48,25 @@ configurations.configureEach {
     }
 }
 
+// Stable across clean/warm builds of one source revision, including manual builds.
+def sourceEpoch = System.getenv('SOURCE_DATE_EPOCH')
+if (sourceEpoch == null) {
+    def result = new ByteArrayOutputStream()
+    def status = exec {
+        commandLine 'git', 'log', '-1', '--format=%ct'
+        standardOutput = result
+        ignoreExitValue = true
+    }
+    sourceEpoch = status.exitValue == 0 ? result.toString().trim() : '0'
+}
+sourceEpoch = Long.parseLong(sourceEpoch)
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    // Forge reobfuscation mutates the archive; never restore the finished JAR from task cache.
+    outputs.cacheIf { false }
+}
+
 jar {
     manifest {
         attributes([
@@ -57,7 +76,7 @@ jar {
             "Implementation-Title": "RE:volution Mod",
             "Implementation-Version": "${version}",
             "Implementation-Vendor": "Theyyk",
-            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+            "Implementation-Timestamp": new Date(sourceEpoch * 1000L).format("yyyy-MM-dd'T'HH:mm:ssZ", TimeZone.getTimeZone("UTC"))
         ])
     }
 }
@@ -129,3 +148,5 @@ tasks.register('adminApiSecurityCheck', Exec) {
     commandLine pythonExecutable, '.github/scripts/check-admin-api-security.py'
 }
 tasks.named('check').configure { dependsOn 'architectureCheck', 'architectureGuardRegression', 'adminApiSecurityCheck' }
+
+apply from: 'gradle/reproducible-jar.gradle'

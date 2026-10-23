@@ -1,0 +1,18 @@
+{
+  "build": [
+    ".github/workflows/*",
+    ".github/ci/*",
+    "src/*",
+    "build.gradle",
+    "settings.gradle*",
+    "gradle*",
+    "buildSrc/*",
+    ".github/scripts/*",
+    "docs/contracts/*"
+  ],
+  "startup": [
+    ".github/workflows/*",
+    ".github/ci/*",
+    "tools/startup/*"
+  ]
+}
