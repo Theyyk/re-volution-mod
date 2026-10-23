@@ -24,7 +24,7 @@ public final class StageCommand extends AdminOnlyCommand {
 
     @Override public String getName() { return "stage"; }
     @Override public String getUsage(ICommandSender sender) {
-        return "/stage <next|previous> [player] | /stage setpoint <zoneId> [x y z [yaw pitch]]";
+        return "/stage <next|previous> [player] | /stage setpoint [zoneId [x y z [yaw pitch]]]";
     }
 
     @Override
@@ -67,37 +67,38 @@ public final class StageCommand extends AdminOnlyCommand {
     }
 
     private void configurePoint(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 2 && args.length != 5 && args.length != 7) {
+        if (args.length != 1 && args.length != 2 && args.length != 5 && args.length != 7) {
             throw new CommandException(getUsage(sender));
-        }
-        int zoneId = parseInt(args[1]);
-        double x;
-        double y;
-        double z;
-        float yaw;
-        float pitch;
-
-        if (args.length == 2) {
-            EntityPlayerMP player = getCommandSenderAsPlayer(sender);
-            x = player.posX;
-            y = player.posY;
-            z = player.posZ;
-            yaw = player.rotationYaw;
-            pitch = player.rotationPitch;
-        } else {
-            x = parseDouble(args[2]);
-            y = parseDouble(args[3]);
-            z = parseDouble(args[4]);
-            yaw = args.length == 7 ? (float) parseDouble(args[5]) : 0.0F;
-            pitch = args.length == 7 ? (float) parseDouble(args[6]) : 0.0F;
         }
 
         LocationDefinition updated;
         try {
-            updated = transitions.configureTransitionPoint(zoneId, x, y, z, yaw, pitch);
+            if (args.length == 1) {
+                updated = transitions.configureCurrentTransitionPoint(getCommandSenderAsPlayer(sender));
+            } else {
+                int zoneId = parseInt(args[1]);
+                if (args.length == 2) {
+                    EntityPlayerMP player = getCommandSenderAsPlayer(sender);
+                    updated = transitions.configureTransitionPoint(
+                            zoneId,
+                            player.posX,
+                            player.posY,
+                            player.posZ,
+                            player.rotationYaw,
+                            player.rotationPitch);
+                } else {
+                    double x = parseDouble(args[2]);
+                    double y = parseDouble(args[3]);
+                    double z = parseDouble(args[4]);
+                    float yaw = args.length == 7 ? (float) parseDouble(args[5]) : 0.0F;
+                    float pitch = args.length == 7 ? (float) parseDouble(args[6]) : 0.0F;
+                    updated = transitions.configureTransitionPoint(zoneId, x, y, z, yaw, pitch);
+                }
+            }
         } catch (IllegalArgumentException | IllegalStateException e) {
             throw new CommandException(e.getMessage());
         }
+
         sender.sendMessage(new TextComponentString(
                 "Transition point saved for stage " + updated.getLocationId()
                         + " at " + format(updated.getTransitionX())
