@@ -4,47 +4,56 @@ import com.example.revolution.location.definition.LocationDefinition;
 
 public final class StageTransitionServiceTest {
     public static void main(String[] args) {
-        entersTargetNearClosestEdge();
-        fallsBackToCentersWhenPlayerMatchesTargetCenter();
-        sameCenterStagesStaySafe();
-        System.out.println("v1.3.9 stage transition geometry regression checks passed");
+        legacyLocationHasNoTransitionPoint();
+        explicitTransitionPointRetainsCoordinatesAndRotation();
+        transitionPointMustBeFinite();
+        System.out.println("v1.3.9 explicit stage transition point regression checks passed");
     }
 
-    private static void entersTargetNearClosestEdge() {
-        LocationDefinition source = new LocationDefinition(1000001, "Source", 0.0D, 0.0D, 10.0D);
-        LocationDefinition target = new LocationDefinition(1000002, "Target", 30.0D, 0.0D, 10.0D);
-
-        StageTransitionService.HorizontalPoint point = StageTransitionService.entryPoint(source, target, 8.0D, 0.0D);
-        check(close(point.x, 21.5D), "Target entry must be 1.5 blocks inside the near edge for a radius-10 zone");
-        check(close(point.z, 0.0D), "Straight-line transition must preserve the target-center Z axis");
-        check(target.contains(point.x, point.z), "Resolved entry point must be inside the target zone");
-        check(distance(target, point) < target.getRadius(), "Resolved entry point must be strictly inside the target boundary");
+    private static void legacyLocationHasNoTransitionPoint() {
+        LocationDefinition location = new LocationDefinition(1000001, "Legacy", 0.0D, 0.0D, 10.0D);
+        check(!location.hasTransitionPoint(), "Legacy location constructor must remain compatible and leave transition point unset");
     }
 
-    private static void fallsBackToCentersWhenPlayerMatchesTargetCenter() {
-        LocationDefinition source = new LocationDefinition(1000001, "Source", 0.0D, 0.0D, 10.0D);
-        LocationDefinition target = new LocationDefinition(1000002, "Target", 30.0D, 0.0D, 4.0D);
+    private static void explicitTransitionPointRetainsCoordinatesAndRotation() {
+        LocationDefinition location = new LocationDefinition(
+                1000002,
+                "Configured",
+                30.0D,
+                -4.0D,
+                12.0D,
+                28.5D,
+                71.0D,
+                -3.5D,
+                90.0F,
+                12.5F);
 
-        StageTransitionService.HorizontalPoint point = StageTransitionService.entryPoint(source, target, 30.0D, 0.0D);
-        check(close(point.x, 27.0D), "Center fallback must enter from the source-facing edge with radius-relative inset");
-        check(close(point.z, 0.0D), "Center fallback must retain the source-target axis");
-        check(target.contains(point.x, point.z), "Fallback entry must remain inside the target zone");
+        check(location.hasTransitionPoint(), "Explicit constructor must mark transition point configured");
+        check(close(location.getTransitionX(), 28.5D), "Transition X must be retained");
+        check(close(location.getTransitionY(), 71.0D), "Transition Y must be retained");
+        check(close(location.getTransitionZ(), -3.5D), "Transition Z must be retained");
+        check(Math.abs(location.getTransitionYaw() - 90.0F) < 1.0E-6F, "Transition yaw must be retained");
+        check(Math.abs(location.getTransitionPitch() - 12.5F) < 1.0E-6F, "Transition pitch must be retained");
     }
 
-    private static void sameCenterStagesStaySafe() {
-        LocationDefinition source = new LocationDefinition(1000001, "Source", 5.0D, -2.0D, 8.0D);
-        LocationDefinition target = new LocationDefinition(1000002, "Target", 5.0D, -2.0D, 6.0D);
-
-        StageTransitionService.HorizontalPoint point = StageTransitionService.entryPoint(source, target, 5.0D, -2.0D);
-        check(close(point.x, 5.0D) && close(point.z, -2.0D),
-                "Coincident stage centers must safely resolve to the shared center instead of producing NaN");
-        check(target.contains(point.x, point.z), "Shared-center fallback must be inside target geometry");
-    }
-
-    private static double distance(LocationDefinition location, StageTransitionService.HorizontalPoint point) {
-        double dx = point.x - location.getCenterX();
-        double dz = point.z - location.getCenterZ();
-        return Math.sqrt(dx * dx + dz * dz);
+    private static void transitionPointMustBeFinite() {
+        boolean failed = false;
+        try {
+            new LocationDefinition(
+                    1000003,
+                    "Invalid",
+                    0.0D,
+                    0.0D,
+                    5.0D,
+                    Double.NaN,
+                    64.0D,
+                    0.0D,
+                    0.0F,
+                    0.0F);
+        } catch (IllegalArgumentException expected) {
+            failed = true;
+        }
+        check(failed, "Non-finite transition coordinates must be rejected");
     }
 
     private static boolean close(double actual, double expected) {

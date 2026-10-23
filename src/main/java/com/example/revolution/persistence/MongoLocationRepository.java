@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.bson.Document;
 
-/** Mongo adapter for v1.3.6 Location geometry and one-entity-per-slot mob spawn configuration. */
+/** Mongo adapter for Location geometry, stage transition points, and one-entity-per-slot mob spawn configuration. */
 public final class MongoLocationRepository implements LocationRepository {
     private static final String LOCATIONS = "custom_locations";
     private static final String SPAWNS = "custom_mob_spawns";
@@ -32,16 +32,8 @@ public final class MongoLocationRepository implements LocationRepository {
         List<LocationDefinition> result = new ArrayList<>();
         if (!enabled || !connection.isConnected()) return result;
         for (Document doc : locations().find()) {
-            try {
-                result.add(new LocationDefinition(
-                        doc.getInteger("locationId"),
-                        doc.getString("name"),
-                        number(doc, "centerX", 0.0D),
-                        number(doc, "centerZ", 0.0D),
-                        number(doc, "radius", 5.0D)));
-            } catch (RuntimeException ignored) {
-                // Invalid persisted entries are ignored; runtime validation reports missing references later.
-            }
+            LocationDefinition location = fromLocationDocument(doc);
+            if (location != null) result.add(location);
         }
         return result;
     }
@@ -50,13 +42,7 @@ public final class MongoLocationRepository implements LocationRepository {
     public LocationDefinition getLocation(int locationId) {
         if (!enabled || !connection.isConnected()) return null;
         Document doc = locations().find(new Document("locationId", locationId)).first();
-        if (doc == null) return null;
-        try {
-            return new LocationDefinition(locationId, doc.getString("name"),
-                    number(doc, "centerX", 0.0D), number(doc, "centerZ", 0.0D), number(doc, "radius", 5.0D));
-        } catch (RuntimeException ignored) {
-            return null;
-        }
+        return fromLocationDocument(doc);
     }
 
     @Override
@@ -68,6 +54,13 @@ public final class MongoLocationRepository implements LocationRepository {
                 .append("centerX", location.getCenterX())
                 .append("centerZ", location.getCenterZ())
                 .append("radius", location.getRadius());
+        if (location.hasTransitionPoint()) {
+            values.append("transitionX", location.getTransitionX())
+                    .append("transitionY", location.getTransitionY())
+                    .append("transitionZ", location.getTransitionZ())
+                    .append("transitionYaw", (double) location.getTransitionYaw())
+                    .append("transitionPitch", (double) location.getTransitionPitch());
+        }
         locations().updateOne(filter, new Document("$set", values), new UpdateOptions().upsert(true));
     }
 
@@ -131,6 +124,35 @@ public final class MongoLocationRepository implements LocationRepository {
         spawns().deleteOne(new Document("locationId", locationId).append("spawnId", spawnId));
     }
 
+    private LocationDefinition fromLocationDocument(Document doc) {
+        if (doc == null) return null;
+        try {
+            Integer locationId = doc.getInteger("locationId");
+            String name = doc.getString("name");
+            if (locationId == null || name == null) return null;
+            double centerX = number(doc, "centerX", 0.0D);
+            double centerZ = number(doc, "centerZ", 0.0D);
+            double radius = number(doc, "radius", 5.0D);
+            if (hasNumber(doc, "transitionX") && hasNumber(doc, "transitionY") && hasNumber(doc, "transitionZ")) {
+                return new LocationDefinition(
+                        locationId,
+                        name,
+                        centerX,
+                        centerZ,
+                        radius,
+                        number(doc, "transitionX", 0.0D),
+                        number(doc, "transitionY", 64.0D),
+                        number(doc, "transitionZ", 0.0D),
+                        (float) number(doc, "transitionYaw", 0.0D),
+                        (float) number(doc, "transitionPitch", 0.0D));
+            }
+            return new LocationDefinition(locationId, name, centerX, centerZ, radius);
+        } catch (RuntimeException ignored) {
+            // Invalid persisted entries are ignored; runtime validation reports missing references later.
+            return null;
+        }
+    }
+
     private StoredMobSpawn fromDocument(Document doc) {
         if (doc == null) return null;
         try {
@@ -154,6 +176,10 @@ public final class MongoLocationRepository implements LocationRepository {
         } catch (RuntimeException ignored) {
             return null;
         }
+    }
+
+    private boolean hasNumber(Document doc, String key) {
+        return doc.get(key) instanceof Number;
     }
 
     private double number(Document doc, String key, double fallback) {

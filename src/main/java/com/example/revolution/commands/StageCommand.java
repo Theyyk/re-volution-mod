@@ -1,5 +1,6 @@
 package com.example.revolution.commands;
 
+import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionService.Direction;
 import com.example.revolution.location.service.StageTransitionService.TransitionResult;
@@ -22,20 +23,29 @@ public final class StageCommand extends AdminOnlyCommand {
     }
 
     @Override public String getName() { return "stage"; }
-    @Override public String getUsage(ICommandSender sender) { return "/stage <next|previous> [player]"; }
+    @Override public String getUsage(ICommandSender sender) {
+        return "/stage <next|previous> [player] | /stage setpoint [zoneId [x y z [yaw pitch]]]";
+    }
 
     @Override
     public List<String> getTabCompletions(
             MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
-        if (args.length == 1) return getListOfStringsMatchingLastWord(args, "next", "previous");
-        if (args.length == 2) return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
+        if (args.length == 1) return getListOfStringsMatchingLastWord(args, "next", "previous", "setpoint");
+        if (args.length == 2 && ("next".equalsIgnoreCase(args[0]) || "previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0]))) {
+            return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
+        }
         return new ArrayList<>();
     }
 
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-        if (args.length < 1 || args.length > 2) throw new CommandException(getUsage(sender));
+        if (args.length < 1) throw new CommandException(getUsage(sender));
+        if ("setpoint".equalsIgnoreCase(args[0])) {
+            configurePoint(sender, args);
+            return;
+        }
 
+        if (args.length > 2) throw new CommandException(getUsage(sender));
         Direction direction;
         if ("next".equalsIgnoreCase(args[0])) direction = Direction.NEXT;
         else if ("previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0])) direction = Direction.PREVIOUS;
@@ -54,5 +64,49 @@ public final class StageCommand extends AdminOnlyCommand {
         sender.sendMessage(new TextComponentString(
                 "Moved " + player.getName() + " from stage " + result.getFromInternalLocationId()
                         + " to " + result.getToInternalLocationId() + "."));
+    }
+
+    private void configurePoint(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 1 && args.length != 2 && args.length != 5 && args.length != 7) {
+            throw new CommandException(getUsage(sender));
+        }
+
+        LocationDefinition updated;
+        try {
+            if (args.length == 1) {
+                updated = transitions.configureCurrentTransitionPoint(getCommandSenderAsPlayer(sender));
+            } else {
+                int zoneId = parseInt(args[1]);
+                if (args.length == 2) {
+                    EntityPlayerMP player = getCommandSenderAsPlayer(sender);
+                    updated = transitions.configureTransitionPoint(
+                            zoneId,
+                            player.posX,
+                            player.posY,
+                            player.posZ,
+                            player.rotationYaw,
+                            player.rotationPitch);
+                } else {
+                    double x = parseDouble(args[2]);
+                    double y = parseDouble(args[3]);
+                    double z = parseDouble(args[4]);
+                    float yaw = args.length == 7 ? (float) parseDouble(args[5]) : 0.0F;
+                    float pitch = args.length == 7 ? (float) parseDouble(args[6]) : 0.0F;
+                    updated = transitions.configureTransitionPoint(zoneId, x, y, z, yaw, pitch);
+                }
+            }
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new CommandException(e.getMessage());
+        }
+
+        sender.sendMessage(new TextComponentString(
+                "Transition point saved for stage " + updated.getLocationId()
+                        + " at " + format(updated.getTransitionX())
+                        + ", " + format(updated.getTransitionY())
+                        + ", " + format(updated.getTransitionZ()) + "."));
+    }
+
+    private String format(double value) {
+        return String.format(java.util.Locale.ROOT, "%.2f", value);
     }
 }
