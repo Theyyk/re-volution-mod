@@ -78,7 +78,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Five/Seven OTF decision and source: docs/permissions/cristalix.md
           forbidden_paths=(
             "src/main/java/com/example/revolution/CristalixGuiTheme.java"
             "src/main/resources/assets/revolution/themes/cristalix"
@@ -141,6 +140,31 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" build/libs/RE-volution-*.jar \
             --title "RE:volution Mod ${GITHUB_REF_NAME}" \
             --notes-file ".github/release-notes/${GITHUB_REF_NAME}.md"
+
+      - name: Trigger production gameplay manifest rollout
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.CLIENT_DISPATCH_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::CLIENT_DISPATCH_TOKEN is not configured. The stable release exists, but instant production manifest rollout cannot be triggered. The scheduled fallback remains available in re-volution-client."
+            exit 1
+          fi
+
+          jq -n \
+            --arg release_tag "$RELEASE_TAG" \
+            --arg release_sha "$RELEASE_SHA" \
+            --arg source_repository "$SOURCE_REPOSITORY" \
+            '{event_type:"gameplay-release",client_payload:{release_tag:$release_tag,release_sha:$release_sha,source_repository:$source_repository}}' \
+            | gh api --method POST repos/Theyyk/re-volution-client/dispatches --input -
+
+          echo "Triggered production gameplay manifest rollout for ${RELEASE_TAG}."
 
       - name: Delete merged feature and release branches
         if: startsWith(github.ref, 'refs/tags/')
