@@ -7,6 +7,7 @@ import com.example.revolution.commands.CustomResourceCommand;
 import com.example.revolution.commands.CustomRunesCommand;
 import com.example.revolution.commands.CustomStatusCommand;
 import com.example.revolution.commands.RealmCommand;
+import com.example.revolution.commands.StageCommand;
 import com.example.revolution.mob.event.ManagedMobEvents;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
@@ -98,6 +99,7 @@ public final class ServerLifecycle {
         event.registerServerCommand(new CustomResourceCommand(current.resources));
         event.registerServerCommand(new AdminPanelCommand(current.adminAccess));
         event.registerServerCommand(new RealmCommand(current.realms));
+        event.registerServerCommand(new StageCommand(current.stageTransitions));
         current.resources.purgeDeprecatedLightnings();
     }
 
