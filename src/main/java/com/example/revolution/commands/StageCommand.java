@@ -25,13 +25,13 @@ public final class StageCommand extends AdminOnlyCommand {
 
     @Override public String getName() { return "stage"; }
     @Override public String getUsage(ICommandSender sender) {
-        return "/stage <next|previous> [player] | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]]";
+        return "/stage <next|previous> [player] | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]] | /stage clearpoint <locationId> <mobSlotId>";
     }
 
     @Override
     public List<String> getTabCompletions(
             MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
-        if (args.length == 1) return getListOfStringsMatchingLastWord(args, "next", "previous", "setpoint");
+        if (args.length == 1) return getListOfStringsMatchingLastWord(args, "next", "previous", "setpoint", "clearpoint");
         if (args.length == 2 && ("next".equalsIgnoreCase(args[0]) || "previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
         }
@@ -43,6 +43,10 @@ public final class StageCommand extends AdminOnlyCommand {
         if (args.length < 1) throw new CommandException(getUsage(sender));
         if ("setpoint".equalsIgnoreCase(args[0])) {
             configurePoint(sender, args);
+            return;
+        }
+        if ("clearpoint".equalsIgnoreCase(args[0])) {
+            clearPoint(sender, args);
             return;
         }
 
@@ -108,6 +112,22 @@ public final class StageCommand extends AdminOnlyCommand {
                         + " at " + format(updated.getTransitionX())
                         + ", " + format(updated.getTransitionY())
                         + ", " + format(updated.getTransitionZ()) + "."));
+    }
+
+    private void clearPoint(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 3) throw new CommandException(getUsage(sender));
+
+        int worldLocationId = parseInt(args[1]);
+        int mobSlotId = parseInt(args[2]);
+        try {
+            transitions.clearTransitionPoint(worldLocationId, mobSlotId);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new CommandException(e.getMessage());
+        }
+
+        sender.sendMessage(new TextComponentString(
+                "Transition point cleared for Location " + worldLocationId
+                        + ", mobSlot " + mobSlotId + "."));
     }
 
     private String format(double value) {
