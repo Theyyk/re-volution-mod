@@ -52,6 +52,19 @@ public final class StageTransitionService {
         this.progression = progression;
     }
 
+    /** Captures the current player position and look direction for the mob-zone they are standing in. */
+    public LocationDefinition configureCurrentTransitionPoint(EntityPlayerMP player) {
+        if (player == null) throw new IllegalArgumentException("player is required");
+        LocationDefinition current = requireCurrentMobZone(player.posX, player.posZ);
+        return configureTransitionPoint(
+                current.getLocationId(),
+                player.posX,
+                player.posY,
+                player.posZ,
+                player.rotationYaw,
+                player.rotationPitch);
+    }
+
     /** Stores an explicit player entry point for one configured mob-zone. */
     public LocationDefinition configureTransitionPoint(
             int internalLocationId,
