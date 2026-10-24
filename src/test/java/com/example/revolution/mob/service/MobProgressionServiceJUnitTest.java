@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MobProgressionServiceJUnitTest {
     private final UUID player = UUID.fromString("00000000-0000-0000-0000-000000001310");
-    private final UUID other = UUID.fromString("00000000-0000-0000-0000-000000001311");
     private InMemoryMobProgressionRepository repository;
     private MobProgressionService service;
 
@@ -48,7 +47,7 @@ class MobProgressionServiceJUnitTest {
     }
 
     @Test void lastConfiguredBossStopsCleanlyWhenFutureLocationDoesNotExist() {
-        unlockAll(player);
+        unlockAll();
         assertTrue(service.isFinalStage(id(3, 9)));
         int writes = repository.unlockWrites;
         assertNull(service.unlockNext(player, id(3, 9)));
@@ -57,7 +56,7 @@ class MobProgressionServiceJUnitTest {
     }
 
     @Test void failedUnlockDoesNotOpenNavigationOrPoisonRetry() {
-        openLocation(player, 2);
+        openLocation(2);
         repository.failUnlock = true;
         assertNull(service.unlockNext(player, id(2, 2)));
         assertFalse(service.isUnlocked(player, id(2, 5)));
@@ -68,7 +67,7 @@ class MobProgressionServiceJUnitTest {
     }
 
     @Test void repeatedUnlockDoesNotWriteOrNotifyTwice() {
-        openLocation(player, 2);
+        openLocation(2);
         final int[] notifications = {0};
         service.setUnlockListener((uuid, result) -> notifications[0]++);
         assertNotNull(service.unlockNext(player, id(2, 2)));
@@ -82,8 +81,14 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(2, 5)));
     }
 
+    @Test void orphanLaterStageRecordCannotBypassLocationOpener() {
+        repository.seed(player, 2, 5);
+        service.reloadConfiguration(allZones(), allSpawns());
+        assertFalse(service.isUnlocked(player, id(2, 5)));
+    }
+
     @Test void revokeClosesRequestedStageAndEveryLaterLocation() {
-        unlockAll(player);
+        unlockAll();
         assertTrue(service.revokeFrom(player, 2, 5));
         assertTrue(service.isUnlocked(player, id(1, 9)));
         assertTrue(service.isUnlocked(player, id(2, 2)));
@@ -94,7 +99,7 @@ class MobProgressionServiceJUnitTest {
     }
 
     @Test void resetFromLaterLocationDoesNotReopenItsFirstStage() {
-        unlockAll(player);
+        unlockAll();
         assertTrue(service.resetFromLocation(player, 2));
         assertTrue(service.isUnlocked(player, id(1, 9)));
         assertFalse(service.isUnlocked(player, id(2, 2)));
@@ -102,7 +107,7 @@ class MobProgressionServiceJUnitTest {
     }
 
     @Test void failedRevokeReplacementDoesNotClearLaterLocations() {
-        unlockAll(player);
+        unlockAll();
         repository.failReplace = true;
         assertFalse(service.revokeFrom(player, 2, 5));
         assertEquals(0, repository.clearWrites);
@@ -111,7 +116,7 @@ class MobProgressionServiceJUnitTest {
     }
 
     @Test void failedResetRetainsCachedAndPersistedUnlocksAndCanBeRetried() {
-        unlockAll(player);
+        unlockAll();
         repository.failClear = true;
         assertFalse(service.resetFromLocation(player, 2));
         assertTrue(service.isUnlocked(player, id(2, 9)));
@@ -147,8 +152,8 @@ class MobProgressionServiceJUnitTest {
     }
 
     @Test void clearEvictsCachedUnlocksBeforeFreshConfiguration() {
-        repository.seed(player, 2, 2, 5);
-        assertFalse(service.isUnlocked(player, id(2, 5))); // Location 2 itself is not reachable yet from Location 1 state.
+        repository.seed(player, 2, 5);
+        assertFalse(service.isUnlocked(player, id(2, 5)));
         service.clear();
         assertTrue(service.configuredSlots(2).isEmpty());
         repository.seed(player, 2);
@@ -161,13 +166,12 @@ class MobProgressionServiceJUnitTest {
         assertNotNull(service.unlockNext(player, id(1, 5)));
     }
 
-    private void openLocation(UUID user, int location) {
-        repository.seed(user, location, 2);
+    private void openLocation(int location) {
+        assertTrue(repository.unlockSlot(player, location, 2));
         service.reloadConfiguration(allZones(), allSpawns());
     }
 
-    private void unlockAll(UUID user) {
-        if (!user.equals(player)) throw new IllegalArgumentException("fixture only supports primary player");
+    private void unlockAll() {
         assertNotNull(service.unlockNext(player, id(1, 2)));
         assertNotNull(service.unlockNext(player, id(1, 5)));
         assertNotNull(service.unlockNext(player, id(1, 9)));
