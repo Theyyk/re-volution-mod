@@ -31,7 +31,8 @@ public final class StageTravelMenuRequestHandler implements IMessageHandler<Stag
                         services.mobProgression.isUnlocked(player.getUniqueID(), internalId),
                         zone.hasTransitionPoint()));
             }
-            NetworkHandler.sendToClient(new StageTravelMenuPacket(entries), player);
+            NetworkHandler.sendToClient(new StageTravelMenuPacket(
+                    entries, services.fastAuto.isEnabled(player.getUniqueID())), player);
         });
         return null;
     }
