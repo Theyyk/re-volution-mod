@@ -13,12 +13,11 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.3.9'
+version = '1.3.10'
 group = 'com.example.revolution'
 archivesBaseName = 'RE-volution'
-sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
 
-// Keep Russian GUI labels intact on Windows as well as Linux.
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
@@ -68,7 +67,6 @@ configurations.configureEach {
     }
 }
 
-// Stable across clean/warm builds of one source revision, including manual builds.
 def sourceEpoch = System.getenv('SOURCE_DATE_EPOCH')
 if (sourceEpoch == null) {
     def result = new ByteArrayOutputStream()
@@ -83,7 +81,6 @@ sourceEpoch = Long.parseLong(sourceEpoch)
 tasks.withType(AbstractArchiveTask).configureEach {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
-    // Forge reobfuscation mutates the archive; never restore the finished JAR from task cache.
     outputs.cacheIf { false }
 }
 
@@ -110,13 +107,10 @@ publishing {
         }
     }
     repositories {
-        maven {
-            url = uri('mcmodsrepo')
-        }
+        maven { url = uri('mcmodsrepo') }
     }
 }
 
-// Standalone assertion runners avoid booting Minecraft, OpenGL or MongoDB in CI.
 def regressionTests = [
     realmStartupSyncRegression: 'com.example.revolution.realm.world.RealmStartupSyncTest',
     runeInventoryRegression: 'com.example.revolution.rune.state.RuneInventoryTest',
@@ -158,7 +152,6 @@ regressionTests.each { taskName, entryPoint ->
     tasks.named('check').configure { dependsOn regression }
 }
 
-// Can be overridden with -PpythonExecutable=/path/to/python3.
 def pythonExecutable = providers.gradleProperty('pythonExecutable').getOrElse('python')
 tasks.register('architectureCheck', Exec) {
     commandLine pythonExecutable, '.github/scripts/check-architecture.py'
