@@ -20,8 +20,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
 
-/** Runtime for 180/180 stage boundary rings, data-driven messages, and per-player auto preference. */
+/** Runtime for 180/180 stage boundary rings, delayed transitions, and data-driven messages. */
 public final class StageTransitionTriggerService {
+    private static final long TRANSITION_DELAY_TICKS = 20L;
     private static final long TELEPORT_COOLDOWN_TICKS = 10L;
 
     private final StageTransitionTriggerRepository repository;
@@ -32,6 +33,7 @@ public final class StageTransitionTriggerService {
     private final Map<String, StageTransitionTriggerDefinition> triggers = new ConcurrentHashMap<>();
     private final Map<UUID, Set<String>> insideByPlayer = new ConcurrentHashMap<>();
     private final Map<UUID, Long> cooldownUntilTick = new ConcurrentHashMap<>();
+    private final Map<UUID, PendingTransition> pendingByPlayer = new ConcurrentHashMap<>();
 
     public StageTransitionTriggerService(
             StageTransitionTriggerRepository repository,
@@ -60,8 +62,9 @@ public final class StageTransitionTriggerService {
         }
     }
 
-    /** Configures one outer ring around the source mob-zone. The ring is split into forward/backward halves. */
-    public StageTransitionTriggerDefinition configureTrigger(int worldLocationId, int sourceMobSlotId, double width) {
+    /** Configures one annular trigger around the source mob-zone. */
+    public StageTransitionTriggerDefinition configureTrigger(
+            int worldLocationId, int sourceMobSlotId, double offset, double radius) {
         int sourceId = MobZoneIds.encode(worldLocationId, sourceMobSlotId);
         LocationDefinition source = locations.getLocation(sourceId);
         if (source == null || !MobZoneIds.isMobZoneId(source.getLocationId())) {
@@ -72,7 +75,8 @@ public final class StageTransitionTriggerService {
         StageTransitionTriggerDefinition configured = new StageTransitionTriggerDefinition(
                 worldLocationId,
                 sourceMobSlotId,
-                width,
+                offset,
+                radius,
                 previous == null ? DisplayMode.ACTION_BAR : previous.getDisplayMode(),
                 previous == null ? null : previous.getLockedMessage(),
                 previous == null ? null : previous.getForwardMessage(),
@@ -87,6 +91,7 @@ public final class StageTransitionTriggerService {
         String removedKey = key(worldLocationId, sourceMobSlotId);
         triggers.remove(removedKey);
         for (Set<String> inside : insideByPlayer.values()) inside.remove(removedKey);
+        pendingByPlayer.entrySet().removeIf(entry -> removedKey.equals(entry.getValue().triggerKey));
     }
 
     public StageTransitionTriggerDefinition setMessage(
@@ -124,6 +129,7 @@ public final class StageTransitionTriggerService {
 
     public void setAutoTransitionEnabled(UUID playerUuid, boolean enabled) {
         preferences.setAutoTransitionEnabled(playerUuid, enabled);
+        if (!enabled) pendingByPlayer.remove(playerUuid);
     }
 
     /** Called on the END phase of the server player tick. */
@@ -143,9 +149,11 @@ public final class StageTransitionTriggerService {
             if (!previousInside.contains(trigger.key())) entered.add(trigger);
         }
         insideByPlayer.put(playerId, nowInside);
-        if (entered.isEmpty()) return;
 
         long now = player.world.getTotalWorldTime();
+        if (processPending(player, playerId, now, nowInside)) return;
+
+        if (entered.isEmpty() || pendingByPlayer.containsKey(playerId)) return;
         Long cooldown = cooldownUntilTick.get(playerId);
         if (cooldown != null && now < cooldown) return;
 
@@ -167,24 +175,46 @@ public final class StageTransitionTriggerService {
             }
             if (!preferences.isAutoTransitionEnabled(playerId)) continue;
 
-            try {
-                transitions.moveToStage(player, targetId);
-            } catch (IllegalArgumentException | IllegalStateException ignored) {
-                continue;
-            }
             sendConfiguredMessage(
                     player,
                     forwardHalf ? trigger.getForwardMessage() : trigger.getBackwardMessage(),
                     trigger.getDisplayMode());
-            cooldownUntilTick.put(playerId, now + TELEPORT_COOLDOWN_TICKS);
+            pendingByPlayer.put(playerId,
+                    new PendingTransition(trigger.key(), targetId, now + TRANSITION_DELAY_TICKS));
             break;
         }
+    }
+
+    private boolean processPending(
+            EntityPlayerMP player, UUID playerId, long now, Set<String> nowInside) {
+        PendingTransition pending = pendingByPlayer.get(playerId);
+        if (pending == null) return false;
+        if (!nowInside.contains(pending.triggerKey)
+                || !preferences.isAutoTransitionEnabled(playerId)) {
+            pendingByPlayer.remove(playerId);
+            return false;
+        }
+        if (now < pending.executeAtTick) return true;
+        if (!progression.isUnlocked(playerId, pending.targetInternalLocationId)) {
+            pendingByPlayer.remove(playerId);
+            return false;
+        }
+        try {
+            transitions.moveToStage(player, pending.targetInternalLocationId);
+        } catch (IllegalArgumentException | IllegalStateException ignored) {
+            pendingByPlayer.remove(playerId);
+            return false;
+        }
+        pendingByPlayer.remove(playerId);
+        cooldownUntilTick.put(playerId, now + TELEPORT_COOLDOWN_TICKS);
+        return true;
     }
 
     public void forgetPlayer(UUID playerUuid) {
         if (playerUuid == null) return;
         insideByPlayer.remove(playerUuid);
         cooldownUntilTick.remove(playerUuid);
+        pendingByPlayer.remove(playerUuid);
     }
 
     private LocationDefinition sourceStage(StageTransitionTriggerDefinition trigger) {
@@ -261,6 +291,18 @@ public final class StageTransitionTriggerService {
         AdjacentStages(Integer previousId, Integer nextId) {
             this.previousId = previousId;
             this.nextId = nextId;
+        }
+    }
+
+    private static final class PendingTransition {
+        final String triggerKey;
+        final int targetInternalLocationId;
+        final long executeAtTick;
+
+        PendingTransition(String triggerKey, int targetInternalLocationId, long executeAtTick) {
+            this.triggerKey = triggerKey;
+            this.targetInternalLocationId = targetInternalLocationId;
+            this.executeAtTick = executeAtTick;
         }
     }
 }
