@@ -2,7 +2,7 @@
 
 ## Проверки перед публикацией
 
-Сборка `clean build` запускает проверки Gradle `check`, включая `runeInventoryRegression` и `guiLayoutRegression`. Последняя проверяет также выбор руны для пробуждения: раскладки разных размеров, границы и промежутки слотов, поиск, другие статусы, неполную коллекцию и максимальные ранги.
+Сборка `clean build` запускает Gradle `check`: 30 существующих Java regression tasks, 22 новых JUnit-теста и архитектурные guards. Задача `test` выполняет JUnit; отдельные прежние runners остаются доступны по именам, например `runeInventoryRegression` и `guiLayoutRegression`. Последняя проверяет также выбор руны для пробуждения: раскладки разных размеров, границы и промежутки слотов, поиск, другие статусы, неполную коллекцию и максимальные ранги. [Аудит baseline, команды и отчёты JUnit](test-foundation.md).
 
 Для отдельных проверок в PowerShell задайте `JAVA_HOME` для JDK 8:
 
@@ -71,7 +71,7 @@ python .github/scripts/check-structure.py build/libs/RE-volution-1.3.1.jar
 git diff --check
 ```
 
-`check` исполняет 21 Java assertion runner: 16 прежних и 5 новых для Mongo schema, wire bytes, resource/payment actions, combat/reward scope и JSON whitelist. Это standalone main-классы, а не JUnit: отсутствие JUnit-тестов в отчёте `test` не отменяет выполнения этих задач.
+На этапе 1.3.1 `check` исполнял 21 Java assertion runner: 16 прежних и 5 новых для Mongo schema, wire bytes, resource/payment actions, combat/reward scope и JSON whitelist. Это standalone main-классы. В baseline v1.3.9 их уже 30; Test Foundation добавляет рядом стандартный JUnit-набор, не заменяя эти задачи.
 
 `architectureCheck` и `architectureGuardRegression` входят в `check`. Они проверяют контракт зависимостей и негативные примеры нарушений. Таблица regression entry points проверяется на пропущенные runners. Fingerprints фиксируют ресурсы; packaged guard дополнительно отвергает отсутствующие/устаревшие классы и тесты в JAR.
 
@@ -93,24 +93,27 @@ CI запускается на всех branch push и PR в `develop`. Подт
 Фиксировать результат с JAR/SHA, версиями Forge/Java, типом клиента и окружением Mongo. Изменение схемы, экономики или поведения по результатам этой проверки оформляется отдельным явным исправлением, а не скрывается в переносе пакетов.
 
 
-## Unified DEV channel
+## Единый DEV-канал
 
-`release.yml` builds every branch push. The default-main `dispatch-dev-docker.yml`
-uses `workflow_run` only after the entire official Build and Release run succeeds;
-PR/fork runs and main/master/stable/release (including their slash namespaces)
-never enter DEV. No branch code executes in this privileged dispatcher. It sends
-the source CI run ID using the existing `RE_VOLUTION_DOCKER` secret.
+`release.yml` проверяет каждый branch push. Dispatcher из default main запускается
+после успешного официального Build and Release, но принимает **только push в
+`develop` этого репозитория**. Stable tag (`v*`), main, feature/fix ветки, PR и fork
+не отправляют `mod-dev-build`. Код рабочей ветки в привилегированном dispatcher
+не исполняется. Передаётся ID source CI run через существующий секрет
+`RE_VOLUTION_DOCKER`; отсутствие gameplay JAR означает пропуск downstream chain.
+[Правила и regression-проверка](dev-dispatcher.md).
 
-Docker validates the run through GitHub API and embeds its exact uploaded gameplay
-JAR in an immutable image, recording its digest/revision/branch/JAR hash. Client
-publication validates both successful runs and publishes one unified manifest.
-The greatest source `(created_at, run_id)` wins regardless of branch or image
-completion time; reruns of an older source never overtake a newer source. Image
-build IDs/attempts only break ties within a source run. The manifest watermark is
-checked under a single publishing lock before promotion.
+Docker проверяет source run через GitHub API и включает точный загруженный JAR в
+неизменяемый image, сохраняя digest, revision, branch и JAR hash. Публикация Client
+проверяет обе успешные сборки и обновляет единый DEV manifest. Побеждает наибольшая
+пара source `(created_at, run_id)`, независимо от порядка завершения image builds;
+перезапуск старого source не обгоняет новый. Номера image build/attempt разрешают
+равенство только внутри одного source run. Watermark проверяется под общей
+блокировкой публикации.
 
-Create feature/fix/hotfix/arbitrary development branches from updated develop.
-Old branches must merge/rebase the workflow update to gain triggers they lacked.
-No gameplay version bump, stable tag or production signed manifest is needed for
-DEV infrastructure updates. See [DEV lifecycle and schema](https://github.com/Theyyk/re-volution-client/blob/develop/docs/dev-channel.md)
-and [Docker acceptance/rollback](https://github.com/Theyyk/re-volution-docker/blob/main/README-Two-Channels.md).
+Рабочая ветка → PR → обычный merge в `develop`, без squash/rebase/force. Для
+Test Foundation отдельно зафиксирован старт от stable v1.3.9 и обычный merge
+инфраструктурного исправления. Перед merge требуется CI точного head SHA, после
+merge — CI нового develop SHA. Инфраструктурное обновление не требует stable tag,
+смены gameplay version или production manifest. См. [жизненный цикл DEV](https://github.com/Theyyk/re-volution-client/blob/develop/docs/dev-channel.md)
+и [приёмку/откат Docker](https://github.com/Theyyk/re-volution-docker/blob/main/README-Two-Channels.md).

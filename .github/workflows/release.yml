@@ -115,6 +115,17 @@ jobs:
       - name: Build mod
         run: ./gradlew -Dnet.minecraftforge.gradle.check.certs=false clean build --build-cache
 
+      - name: Upload JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-reports-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/test-results/test/
+            build/reports/tests/test/
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Verify packaged classes and resources
         run: python3 .github/scripts/check-structure.py build/libs/RE-volution-*.jar
 

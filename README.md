@@ -4,7 +4,7 @@
 
 **Стабильная release-версия: `v1.3.9`.**
 
-**Следующий технический этап: `v1.3.10 Test Foundation` - JUnit и фундамент автоматических regression tests поверх стабильной v1.3.9.**
+**Текущий технический этап: `v1.3.10 Test Foundation` — JUnit/Gradle и 22 новых service regression tests поверх стабильной v1.3.9, с сохранением 30 существующих regression tasks. [Аудит и запуск тестов](docs/test-foundation.md).**
 
 [Скачать актуальный стабильный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.3.9](docs/releases/v1.3.9.md)
 
@@ -204,7 +204,7 @@ Promotion `develop -> main` не считается полностью подг�
 ## Roadmap после v1.3.9
 
 1. От стабильной `v1.3.9` создать отдельную ветку для технической итерации `v1.3.10 Test Foundation`.
-2. Подключить JUnit к Gradle и структуру `src/test/java`.
+2. Подключить JUnit к Gradle в уже существующей структуре `src/test/java`, сохранив прежние regression tasks.
 3. При необходимости выделить критичную бизнес-логику из Forge/Minecraft API, чтобы unit/regression tests не требовали полноценного клиента или dedicated-сервера.
 4. Сохранить v1.3.9 как контрольную точку с известным runtime-поведением и строить новые regression tests относительно неё.
 5. Scaling и дальнейшая нагрузочная оптимизация остаются отдельным будущим этапом и не считаются подтверждённой вместимостью текущего runtime.

@@ -10,6 +10,8 @@
 - [Синхронизация Realm при старте и локальная приёмка 1.3.4](realm-startup-sync.md).
 - [Архитектура проекта](architecture.md).
 - [Проверки и обязательный процесс выпуска](development.md).
+- [v1.3.10 Test Foundation: аудит, JUnit и границы покрытия](test-foundation.md).
+- [DEV dispatcher: допуск только develop и защита от stable tags](dev-dispatcher.md).
 - [Источник шрифтов Cristalix и подтверждение поддержки](permissions/cristalix.md).
 
 - [Аудит и карта первого cleanup-этапа перед финальным package split](cleanup-v1.3-plan.md).
