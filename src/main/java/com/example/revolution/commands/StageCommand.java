@@ -8,6 +8,7 @@ import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionService.Direction;
 import com.example.revolution.location.service.StageTransitionService.TransitionResult;
 import com.example.revolution.location.service.StageTransitionTriggerService;
+import com.example.revolution.mob.service.MobProgressionService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -23,10 +24,15 @@ import net.minecraft.util.text.TextComponentString;
 public final class StageCommand extends AdminOnlyCommand {
     private final StageTransitionService transitions;
     private final StageTransitionTriggerService triggers;
+    private final MobProgressionService progression;
 
-    public StageCommand(StageTransitionService transitions, StageTransitionTriggerService triggers) {
+    public StageCommand(
+            StageTransitionService transitions,
+            StageTransitionTriggerService triggers,
+            MobProgressionService progression) {
         this.transitions = transitions;
         this.triggers = triggers;
+        this.progression = progression;
     }
 
     @Override public String getName() { return "stage"; }
@@ -38,7 +44,9 @@ public final class StageCommand extends AdminOnlyCommand {
                 + " | /stage setmessage <locationId> <mobSlotId> <locked|forward|backward> <text...>"
                 + " | /stage clearmessage <locationId> <mobSlotId> <locked|forward|backward>"
                 + " | /stage display <locationId> <mobSlotId> <chat|actionbar>"
-                + " | /stage auto <on|off> [player]";
+                + " | /stage auto <on|off> [player]"
+                + " | /stage revoke <locationId> <mobSlotId> [player]"
+                + " | /stage reset <locationId> [player]";
     }
 
     @Override
@@ -47,7 +55,7 @@ public final class StageCommand extends AdminOnlyCommand {
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(args,
                     "next", "previous", "setpoint", "clearpoint", "settrigger", "cleartrigger",
-                    "setmessage", "clearmessage", "display", "auto");
+                    "setmessage", "clearmessage", "display", "auto", "revoke", "reset");
         }
         if (args.length == 2 && ("next".equalsIgnoreCase(args[0])
                 || "previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0]))) {
@@ -57,6 +65,12 @@ public final class StageCommand extends AdminOnlyCommand {
             return getListOfStringsMatchingLastWord(args, "on", "off");
         }
         if (args.length == 3 && "auto".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
+        }
+        if (args.length == 4 && "revoke".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
+        }
+        if (args.length == 3 && "reset".equalsIgnoreCase(args[0])) {
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
         }
         if (args.length == 4 && ("setmessage".equalsIgnoreCase(args[0]) || "clearmessage".equalsIgnoreCase(args[0]))) {
@@ -81,6 +95,8 @@ public final class StageCommand extends AdminOnlyCommand {
             case "clearmessage": clearMessage(sender, args); return;
             case "display": setDisplay(sender, args); return;
             case "auto": setAuto(server, sender, args); return;
+            case "revoke": revoke(server, sender, args); return;
+            case "reset": reset(server, sender, args); return;
             default: break;
         }
 
@@ -228,6 +244,37 @@ public final class StageCommand extends AdminOnlyCommand {
         triggers.setAutoTransitionEnabled(player.getUniqueID(), enabled);
         sender.sendMessage(new TextComponentString(
                 "Auto stage transitions " + (enabled ? "enabled" : "disabled") + " for " + player.getName() + "."));
+    }
+
+    private void revoke(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 3 && args.length != 4) throw new CommandException(getUsage(sender));
+        int worldLocationId = parseInt(args[1], 0);
+        int mobSlotId = parseInt(args[2], 1, 99);
+        EntityPlayerMP player = args.length == 4
+                ? getPlayer(server, sender, args[3])
+                : getCommandSenderAsPlayer(sender);
+        if (!progression.revokeFrom(player.getUniqueID(), worldLocationId, mobSlotId)) {
+            throw new CommandException("Could not revoke progression from Location " + worldLocationId
+                    + ", mobSlot " + mobSlotId + ". Check that the stage exists and persistence is available.");
+        }
+        sender.sendMessage(new TextComponentString(
+                "Progression revoked for " + player.getName() + " from Location " + worldLocationId
+                        + ", mobSlot " + mobSlotId + " onward, including all later Locations."));
+    }
+
+    private void reset(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 2 && args.length != 3) throw new CommandException(getUsage(sender));
+        int worldLocationId = parseInt(args[1], 0);
+        EntityPlayerMP player = args.length == 3
+                ? getPlayer(server, sender, args[2])
+                : getCommandSenderAsPlayer(sender);
+        if (!progression.resetFromLocation(player.getUniqueID(), worldLocationId)) {
+            throw new CommandException("Could not reset progression from Location " + worldLocationId
+                    + ". Persistence may be unavailable.");
+        }
+        sender.sendMessage(new TextComponentString(
+                "Progression reset for " + player.getName() + " from Location " + worldLocationId
+                        + " onward, including all later Locations."));
     }
 
     private String messageKind(String value) throws CommandException {
