@@ -1,8 +1,10 @@
 package com.example.revolution.location.service;
 
+import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.StageTransitionTriggerDefinition;
 import com.example.revolution.location.definition.StageTransitionTriggerDefinition.DisplayMode;
+import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.location.repository.StageTransitionPreferenceRepository;
 import com.example.revolution.location.repository.StageTransitionTriggerRepository;
 import com.example.revolution.mob.service.MobProgressionService;
@@ -18,12 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
 
-/** Runtime for independent transition trigger zones, messages, and per-player auto preference. */
+/** Runtime for 180/180 stage boundary rings, data-driven messages, and per-player auto preference. */
 public final class StageTransitionTriggerService {
     private static final long TELEPORT_COOLDOWN_TICKS = 10L;
 
     private final StageTransitionTriggerRepository repository;
     private final StageTransitionPreferenceRepository preferences;
+    private final LocationRepository locations;
     private final MobProgressionService progression;
     private final StageTransitionService transitions;
     private final Map<String, StageTransitionTriggerDefinition> triggers = new ConcurrentHashMap<>();
@@ -33,14 +36,17 @@ public final class StageTransitionTriggerService {
     public StageTransitionTriggerService(
             StageTransitionTriggerRepository repository,
             StageTransitionPreferenceRepository preferences,
+            LocationRepository locations,
             MobProgressionService progression,
             StageTransitionService transitions) {
         if (repository == null) throw new IllegalArgumentException("repository is required");
         if (preferences == null) throw new IllegalArgumentException("preferences is required");
+        if (locations == null) throw new IllegalArgumentException("locations is required");
         if (progression == null) throw new IllegalArgumentException("progression is required");
         if (transitions == null) throw new IllegalArgumentException("transitions is required");
         this.repository = repository;
         this.preferences = preferences;
+        this.locations = locations;
         this.progression = progression;
         this.transitions = transitions;
     }
@@ -54,60 +60,58 @@ public final class StageTransitionTriggerService {
         }
     }
 
-    public StageTransitionTriggerDefinition configureTrigger(
-            int worldLocationId,
-            int mobSlotId,
-            double x,
-            double y,
-            double z,
-            double radius,
-            double halfHeight) {
-        int targetId = MobZoneIds.encode(worldLocationId, mobSlotId);
-        if (!MobZoneIds.isMobZoneId(targetId)) {
-            throw new IllegalArgumentException("Invalid stage target");
+    /** Configures one outer ring around the source mob-zone. The ring is split into forward/backward halves. */
+    public StageTransitionTriggerDefinition configureTrigger(int worldLocationId, int sourceMobSlotId, double width) {
+        int sourceId = MobZoneIds.encode(worldLocationId, sourceMobSlotId);
+        LocationDefinition source = locations.getLocation(sourceId);
+        if (source == null || !MobZoneIds.isMobZoneId(source.getLocationId())) {
+            throw new IllegalArgumentException(
+                    "Unknown mob stage: Location " + worldLocationId + ", mobSlot " + sourceMobSlotId);
         }
-        StageTransitionTriggerDefinition previous = triggers.get(key(worldLocationId, mobSlotId));
+        StageTransitionTriggerDefinition previous = triggers.get(key(worldLocationId, sourceMobSlotId));
         StageTransitionTriggerDefinition configured = new StageTransitionTriggerDefinition(
                 worldLocationId,
-                mobSlotId,
-                x,
-                y,
-                z,
-                radius,
-                halfHeight,
+                sourceMobSlotId,
+                width,
                 previous == null ? DisplayMode.ACTION_BAR : previous.getDisplayMode(),
                 previous == null ? null : previous.getLockedMessage(),
-                previous == null ? null : previous.getEnteringMessage());
+                previous == null ? null : previous.getForwardMessage(),
+                previous == null ? null : previous.getBackwardMessage());
         repository.upsert(configured);
         triggers.put(configured.key(), configured);
         return configured;
     }
 
-    public void clearTrigger(int worldLocationId, int mobSlotId) {
-        repository.delete(worldLocationId, mobSlotId);
-        triggers.remove(key(worldLocationId, mobSlotId));
-        String removedKey = key(worldLocationId, mobSlotId);
+    public void clearTrigger(int worldLocationId, int sourceMobSlotId) {
+        repository.delete(worldLocationId, sourceMobSlotId);
+        String removedKey = key(worldLocationId, sourceMobSlotId);
+        triggers.remove(removedKey);
         for (Set<String> inside : insideByPlayer.values()) inside.remove(removedKey);
     }
 
     public StageTransitionTriggerDefinition setMessage(
-            int worldLocationId, int mobSlotId, boolean locked, String message) {
-        StageTransitionTriggerDefinition trigger = requireTrigger(worldLocationId, mobSlotId);
-        StageTransitionTriggerDefinition updated = locked
-                ? trigger.withMessages(message, trigger.getEnteringMessage())
-                : trigger.withMessages(trigger.getLockedMessage(), message);
+            int worldLocationId, int sourceMobSlotId, String kind, String message) {
+        StageTransitionTriggerDefinition trigger = requireTrigger(worldLocationId, sourceMobSlotId);
+        String locked = trigger.getLockedMessage();
+        String forward = trigger.getForwardMessage();
+        String backward = trigger.getBackwardMessage();
+        if ("locked".equals(kind)) locked = message;
+        else if ("forward".equals(kind)) forward = message;
+        else if ("backward".equals(kind)) backward = message;
+        else throw new IllegalArgumentException("Message kind must be locked, forward or backward");
+        StageTransitionTriggerDefinition updated = trigger.withMessages(locked, forward, backward);
         repository.upsert(updated);
         triggers.put(updated.key(), updated);
         return updated;
     }
 
-    public StageTransitionTriggerDefinition clearMessage(int worldLocationId, int mobSlotId, boolean locked) {
-        return setMessage(worldLocationId, mobSlotId, locked, null);
+    public StageTransitionTriggerDefinition clearMessage(int worldLocationId, int sourceMobSlotId, String kind) {
+        return setMessage(worldLocationId, sourceMobSlotId, kind, null);
     }
 
     public StageTransitionTriggerDefinition setDisplayMode(
-            int worldLocationId, int mobSlotId, DisplayMode mode) {
-        StageTransitionTriggerDefinition trigger = requireTrigger(worldLocationId, mobSlotId);
+            int worldLocationId, int sourceMobSlotId, DisplayMode mode) {
+        StageTransitionTriggerDefinition trigger = requireTrigger(worldLocationId, sourceMobSlotId);
         StageTransitionTriggerDefinition updated = trigger.withDisplayMode(mode);
         repository.upsert(updated);
         triggers.put(updated.key(), updated);
@@ -133,7 +137,8 @@ public final class StageTransitionTriggerService {
         List<StageTransitionTriggerDefinition> entered = new ArrayList<>();
 
         for (StageTransitionTriggerDefinition trigger : ordered) {
-            if (!trigger.contains(player.posX, player.posY, player.posZ)) continue;
+            LocationDefinition source = sourceStage(trigger);
+            if (source == null || !trigger.containsBoundaryRing(source, player.posX, player.posZ)) continue;
             nowInside.add(trigger.key());
             if (!previousInside.contains(trigger.key())) entered.add(trigger);
         }
@@ -145,18 +150,32 @@ public final class StageTransitionTriggerService {
         if (cooldown != null && now < cooldown) return;
 
         for (StageTransitionTriggerDefinition trigger : entered) {
-            int targetId = MobZoneIds.encode(trigger.getWorldLocationId(), trigger.getMobSlotId());
+            LocationDefinition source = sourceStage(trigger);
+            if (source == null) continue;
+            AdjacentStages adjacent = adjacentStages(trigger.getWorldLocationId(), trigger.getSourceMobSlotId());
+            double[] forwardAxis = forwardAxis(source, adjacent);
+            if (forwardAxis == null) continue;
+
+            boolean forwardHalf = trigger.isForwardHalf(
+                    source, player.posX, player.posZ, forwardAxis[0], forwardAxis[1]);
+            Integer targetId = forwardHalf ? adjacent.nextId : adjacent.previousId;
+            if (targetId == null) continue;
+
             if (!progression.isUnlocked(playerId, targetId)) {
-                sendConfiguredMessage(player, trigger.getLockedMessage(), trigger.getDisplayMode());
+                if (forwardHalf) sendConfiguredMessage(player, trigger.getLockedMessage(), trigger.getDisplayMode());
                 continue;
             }
             if (!preferences.isAutoTransitionEnabled(playerId)) continue;
+
             try {
                 transitions.moveToStage(player, targetId);
             } catch (IllegalArgumentException | IllegalStateException ignored) {
                 continue;
             }
-            sendConfiguredMessage(player, trigger.getEnteringMessage(), trigger.getDisplayMode());
+            sendConfiguredMessage(
+                    player,
+                    forwardHalf ? trigger.getForwardMessage() : trigger.getBackwardMessage(),
+                    trigger.getDisplayMode());
             cooldownUntilTick.put(playerId, now + TELEPORT_COOLDOWN_TICKS);
             break;
         }
@@ -168,11 +187,50 @@ public final class StageTransitionTriggerService {
         cooldownUntilTick.remove(playerUuid);
     }
 
-    private StageTransitionTriggerDefinition requireTrigger(int worldLocationId, int mobSlotId) {
-        StageTransitionTriggerDefinition trigger = triggers.get(key(worldLocationId, mobSlotId));
+    private LocationDefinition sourceStage(StageTransitionTriggerDefinition trigger) {
+        if (trigger == null) return null;
+        return locations.getLocation(MobZoneIds.encode(
+                trigger.getWorldLocationId(), trigger.getSourceMobSlotId()));
+    }
+
+    private AdjacentStages adjacentStages(int worldLocationId, int sourceMobSlotId) {
+        List<Integer> configured = progression.configuredSlots(worldLocationId);
+        int index = configured.indexOf(sourceMobSlotId);
+        if (index < 0) return new AdjacentStages(null, null);
+        Integer previous = index > 0 ? MobZoneIds.encode(worldLocationId, configured.get(index - 1)) : null;
+        Integer next = index + 1 < configured.size()
+                ? MobZoneIds.encode(worldLocationId, configured.get(index + 1))
+                : null;
+        return new AdjacentStages(previous, next);
+    }
+
+    /** Forward points toward next stage. On the final stage it points directly away from previous. */
+    private double[] forwardAxis(LocationDefinition source, AdjacentStages adjacent) {
+        if (adjacent.nextId != null) {
+            LocationDefinition next = locations.getLocation(adjacent.nextId);
+            if (next != null) {
+                double x = next.getCenterX() - source.getCenterX();
+                double z = next.getCenterZ() - source.getCenterZ();
+                if (x * x + z * z > 1.0E-12D) return new double[] { x, z };
+            }
+        }
+        if (adjacent.previousId != null) {
+            LocationDefinition previous = locations.getLocation(adjacent.previousId);
+            if (previous != null) {
+                double x = source.getCenterX() - previous.getCenterX();
+                double z = source.getCenterZ() - previous.getCenterZ();
+                if (x * x + z * z > 1.0E-12D) return new double[] { x, z };
+            }
+        }
+        return null;
+    }
+
+    private StageTransitionTriggerDefinition requireTrigger(int worldLocationId, int sourceMobSlotId) {
+        StageTransitionTriggerDefinition trigger = triggers.get(key(worldLocationId, sourceMobSlotId));
         if (trigger == null) {
             throw new IllegalStateException(
-                    "Transition trigger is not configured for Location " + worldLocationId + ", mobSlot " + mobSlotId);
+                    "Transition trigger is not configured for Location " + worldLocationId
+                            + ", mobSlot " + sourceMobSlotId);
         }
         return trigger;
     }
@@ -181,7 +239,7 @@ public final class StageTransitionTriggerService {
         List<StageTransitionTriggerDefinition> ordered = new ArrayList<>(triggers.values());
         ordered.sort(Comparator
                 .comparingInt(StageTransitionTriggerDefinition::getWorldLocationId)
-                .thenComparingInt(StageTransitionTriggerDefinition::getMobSlotId));
+                .thenComparingInt(StageTransitionTriggerDefinition::getSourceMobSlotId));
         return ordered;
     }
 
@@ -192,7 +250,17 @@ public final class StageTransitionTriggerService {
         else player.sendStatusMessage(component, true);
     }
 
-    private String key(int worldLocationId, int mobSlotId) {
-        return worldLocationId + ":" + mobSlotId;
+    private String key(int worldLocationId, int sourceMobSlotId) {
+        return worldLocationId + ":" + sourceMobSlotId;
+    }
+
+    private static final class AdjacentStages {
+        final Integer previousId;
+        final Integer nextId;
+
+        AdjacentStages(Integer previousId, Integer nextId) {
+            this.previousId = previousId;
+            this.nextId = nextId;
+        }
     }
 }
