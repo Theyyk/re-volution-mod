@@ -97,7 +97,7 @@ public final class ServerServices implements AutoCloseable {
         mobProgression = new MobProgressionService(progressionRepository);
         stageTransitions = new StageTransitionService(locationRepository, mobProgression);
         stageTransitionTriggers = new StageTransitionTriggerService(
-                triggerRepository, transitionPreferences, mobProgression, stageTransitions);
+                triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
