@@ -2,12 +2,13 @@ package com.example.revolution.commands;
 
 import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.MobZoneIds;
-import com.example.revolution.location.definition.StageTransitionTriggerDefinition;
 import com.example.revolution.location.definition.StageTransitionTriggerDefinition.DisplayMode;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionService.Direction;
 import com.example.revolution.location.service.StageTransitionService.TransitionResult;
 import com.example.revolution.location.service.StageTransitionTriggerService;
+import com.example.revolution.mob.definition.MobDefinition;
+import com.example.revolution.mob.service.MobAdminService;
 import com.example.revolution.mob.service.MobProgressionService;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,19 +26,23 @@ public final class StageCommand extends AdminOnlyCommand {
     private final StageTransitionService transitions;
     private final StageTransitionTriggerService triggers;
     private final MobProgressionService progression;
+    private final MobAdminService mobAdmin;
 
     public StageCommand(
             StageTransitionService transitions,
             StageTransitionTriggerService triggers,
-            MobProgressionService progression) {
+            MobProgressionService progression,
+            MobAdminService mobAdmin) {
         this.transitions = transitions;
         this.triggers = triggers;
         this.progression = progression;
+        this.mobAdmin = mobAdmin;
     }
 
     @Override public String getName() { return "stage"; }
     @Override public String getUsage(ICommandSender sender) {
         return "/stage <next|previous> [player] | /stage teleport <locationId> <mobSlotId> [player]"
+                + " | /stage location <set|populate|clear|remove|here|list> ..."
                 + " | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]]"
                 + " | /stage clearpoint <locationId> <mobSlotId>"
                 + " | /stage settrigger <locationId> <offset> <radius>"
@@ -55,8 +60,32 @@ public final class StageCommand extends AdminOnlyCommand {
             MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(args,
-                    "next", "previous", "teleport", "setpoint", "clearpoint", "settrigger", "cleartrigger",
+                    "next", "previous", "teleport", "location", "setpoint", "clearpoint", "settrigger", "cleartrigger",
                     "setmessage", "clearmessage", "display", "auto", "revoke", "reset");
+        }
+        if (args.length >= 2 && "location".equalsIgnoreCase(args[0])) {
+            if (args.length == 2) {
+                return getListOfStringsMatchingLastWord(args, "set", "populate", "clear", "remove", "here", "list");
+            }
+            if ("set".equalsIgnoreCase(args[1])) {
+                if (args.length == 3) return getListOfStringsMatchingLastWord(args, "<locationId>");
+                if (args.length == 4) return getListOfStringsMatchingLastWord(args, "<mobSlotId>");
+                if (args.length == 5) return getListOfStringsMatchingLastWord(args, "<radius>");
+            }
+            if ("populate".equalsIgnoreCase(args[1])) {
+                if (args.length == 3) return getListOfStringsMatchingLastWord(args, "<locationId>");
+                if (args.length == 4) return getListOfStringsMatchingLastWord(args, "<mobSlotId>");
+                if (args.length == 5) return getListOfStringsMatchingLastWord(args, mobNames());
+                if (args.length == 6) return getListOfStringsMatchingLastWord(args, "<count>");
+            }
+            if ("clear".equalsIgnoreCase(args[1]) || "remove".equalsIgnoreCase(args[1])) {
+                if (args.length == 3) return getListOfStringsMatchingLastWord(args, "<locationId>");
+                if (args.length == 4) return getListOfStringsMatchingLastWord(args, "<mobSlotId>");
+            }
+            if ("list".equalsIgnoreCase(args[1]) && args.length == 3) {
+                return getListOfStringsMatchingLastWord(args, "<locationId>");
+            }
+            return new ArrayList<>();
         }
         if (args.length == 2 && ("next".equalsIgnoreCase(args[0])
                 || "previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0]))) {
@@ -93,6 +122,7 @@ public final class StageCommand extends AdminOnlyCommand {
         switch (action) {
             case "teleport":
             case "tp": teleport(server, sender, args); return;
+            case "location": mobAdmin.execute(sender, args); return;
             case "setpoint": configurePoint(sender, args); return;
             case "clearpoint": clearPoint(sender, args); return;
             case "settrigger": configureTrigger(sender, args); return;
@@ -338,6 +368,12 @@ public final class StageCommand extends AdminOnlyCommand {
             throw new CommandException("No configured mob stages found for Location " + worldLocationId);
         }
         return slots;
+    }
+
+    private List<String> mobNames() {
+        List<String> names = new ArrayList<>();
+        for (MobDefinition mob : mobAdmin.definitions()) names.add(mob.name);
+        return names;
     }
 
     private String messageKind(String value) throws CommandException {
