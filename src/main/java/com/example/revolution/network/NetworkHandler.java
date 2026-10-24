@@ -27,6 +27,7 @@ public class NetworkHandler {
         INSTANCE.registerMessage(StageTravelMenuRequestHandler.class, StageTravelMenuRequestPacket.class, 10, Side.SERVER);
         INSTANCE.registerMessage(StageTravelMenuPacketServerHandler.class, StageTravelMenuPacket.class, 11, Side.CLIENT);
         INSTANCE.registerMessage(StageTravelTeleportRequestHandler.class, StageTravelTeleportRequestPacket.class, 12, Side.SERVER);
+        INSTANCE.registerMessage(FastAutoTogglePacketHandler.class, FastAutoTogglePacket.class, 13, Side.SERVER);
     }
 
     /**

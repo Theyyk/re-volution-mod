@@ -1,5 +1,6 @@
 package com.example.revolution.client.network;
 
+import com.example.revolution.network.FastAutoTogglePacket;
 import com.example.revolution.network.MobZoneOverlayPacket;
 import com.example.revolution.network.MobZoneOverlayRequestPacket;
 import com.example.revolution.network.NetworkHandler;
@@ -29,5 +30,6 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(StageTravelMenuRequestClientHandler.class, StageTravelMenuRequestPacket.class, 10, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(StageTravelMenuPacketClientHandler.class, StageTravelMenuPacket.class, 11, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(StageTravelTeleportRequestClientHandler.class, StageTravelTeleportRequestPacket.class, 12, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(FastAutoTogglePacketClientHandler.class, FastAutoTogglePacket.class, 13, Side.CLIENT);
     }
 }

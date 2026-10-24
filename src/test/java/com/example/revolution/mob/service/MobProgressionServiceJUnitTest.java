@@ -1,6 +1,7 @@
 package com.example.revolution.mob.service;
 
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.LocationKind;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.MovementMode;
 import com.example.revolution.location.definition.SpawnMode;
@@ -18,7 +19,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MobProgressionServiceJUnitTest {
     private final UUID player = UUID.fromString("00000000-0000-0000-0000-000000001310");
-    private final UUID other = UUID.fromString("00000000-0000-0000-0000-000000001311");
     private InMemoryMobProgressionRepository repository;
     private MobProgressionService service;
 
@@ -28,7 +28,83 @@ class MobProgressionServiceJUnitTest {
         loadThreeLocations();
     }
 
+    @Test void onlyFirstConfiguredLocationStartsOpen() {
+        assertTrue(service.isUnlocked(player, id(1, 2)));
+        assertFalse(service.isUnlocked(player, id(2, 2)));
+        assertFalse(service.isUnlocked(player, id(3, 2)));
+    }
+
+    @Test void explicitBossUnlocksFirstStageOfNextLocation() {
+        unlockLocationOneThroughBoss();
+        assertTrue(service.isBossStage(id(1, 9)));
+        assertTrue(service.isFinalStage(id(1, 9)));
+        assertFalse(service.isUnlocked(player, id(2, 2)));
+        MobProgressionService.UnlockResult result = service.unlockNext(player, id(1, 9));
+        assertNotNull(result);
+        assertEquals(2, result.worldLocationId);
+        assertEquals(2, result.mobSlotId);
+        assertEquals("stage-2-2", result.mobName);
+        assertTrue(service.isUnlocked(player, id(2, 2)));
+        assertEquals(Integer.valueOf(id(2, 2)), service.nextUnlockedInternalLocationId(player, id(1, 9)));
+        assertEquals(Integer.valueOf(id(1, 9)), service.previousUnlockedInternalLocationId(player, id(2, 2)));
+    }
+
+    @Test void bossUnlocksEmptyFirstStageOfNextLocation() {
+        List<LocationDefinition> zones = Arrays.asList(
+                zone(1, 1), zone(1, 2), bossZone(1, 3), zone(2, 1));
+        List<StoredMobSpawn> spawns = Arrays.asList(
+                spawn(1, 1, true), spawn(1, 2, true), spawn(1, 3, true));
+        service.reloadConfiguration(zones, spawns);
+
+        assertEquals(Arrays.asList(1, 2, 3), service.configuredSlots(1));
+        assertEquals(Collections.singletonList(1), service.configuredSlots(2));
+        assertNotNull(service.unlockNext(player, id(1, 1)));
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertFalse(service.isUnlocked(player, id(2, 1)));
+
+        MobProgressionService.UnlockResult result = service.unlockNext(player, id(1, 3));
+        assertNotNull(result);
+        assertEquals(2, result.worldLocationId);
+        assertEquals(1, result.mobSlotId);
+        assertEquals("", result.mobName);
+        assertTrue(service.isUnlocked(player, id(2, 1)));
+    }
+
+    @Test void ordinaryLastNormalStageDoesNotCompleteLocation() {
+        List<LocationDefinition> zones = Arrays.asList(zone(1, 2), zone(1, 5), zone(1, 9), zone(2, 2), bossZone(2, 9));
+        List<StoredMobSpawn> spawns = Arrays.asList(spawn(1, 2, true), spawn(1, 5, true), spawn(1, 9, true), spawn(2, 2, true), spawn(2, 9, true));
+        service.reloadConfiguration(zones, spawns);
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertNotNull(service.unlockNext(player, id(1, 5)));
+        assertFalse(service.isFinalStage(id(1, 9)));
+        assertNull(service.unlockNext(player, id(1, 9)));
+        assertFalse(service.isUnlocked(player, id(2, 2)));
+        assertNull(service.nextConfiguredInternalLocationId(id(1, 9)));
+    }
+
+    @Test void bossMustBeFinalConfiguredStageToCompleteLocation() {
+        List<LocationDefinition> zones = Arrays.asList(zone(1, 2), bossZone(1, 5), zone(1, 9), zone(2, 2));
+        List<StoredMobSpawn> spawns = Arrays.asList(spawn(1, 2, true), spawn(1, 5, true), spawn(1, 9, true), spawn(2, 2, true));
+        service.reloadConfiguration(zones, spawns);
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertTrue(service.isBossStage(id(1, 5)));
+        assertFalse(service.isFinalStage(id(1, 5)));
+        assertNotNull(service.unlockNext(player, id(1, 5))); // ordinary in-location progression still reaches slot 9
+        assertNull(service.unlockNext(player, id(1, 9)));
+        assertFalse(service.isUnlocked(player, id(2, 2)));
+    }
+
+    @Test void lastConfiguredBossStopsCleanlyWhenFutureLocationDoesNotExist() {
+        unlockAll();
+        assertTrue(service.isFinalStage(id(3, 9)));
+        int writes = repository.unlockWrites;
+        assertNull(service.unlockNext(player, id(3, 9)));
+        assertNull(service.nextConfiguredInternalLocationId(id(3, 9)));
+        assertEquals(writes, repository.unlockWrites);
+    }
+
     @Test void failedUnlockDoesNotOpenNavigationOrPoisonRetry() {
+        openLocation(2);
         repository.failUnlock = true;
         assertNull(service.unlockNext(player, id(2, 2)));
         assertFalse(service.isUnlocked(player, id(2, 5)));
@@ -36,48 +112,50 @@ class MobProgressionServiceJUnitTest {
         repository.failUnlock = false;
         assertNotNull(service.unlockNext(player, id(2, 2)));
         assertEquals(Integer.valueOf(id(2, 5)), service.nextUnlockedInternalLocationId(player, id(2, 2)));
-        assertEquals(Collections.singleton(5), repository.getUnlockedSlots(player, 2));
     }
 
     @Test void repeatedUnlockDoesNotWriteOrNotifyTwice() {
-        MobProgressionService.UnlockResult result = service.unlockNext(player, id(2, 2));
-        assertNotNull(result);
-        assertEquals(2, result.worldLocationId);
-        assertEquals(5, result.mobSlotId);
-        assertEquals("stage-2-5", result.mobName);
+        openLocation(2);
+        final int[] notifications = {0};
+        service.setUnlockListener((uuid, result) -> notifications[0]++);
+        assertNotNull(service.unlockNext(player, id(2, 2)));
         assertNull(service.unlockNext(player, id(2, 2)));
-        assertEquals(1, repository.unlockWrites);
+        assertEquals(2, repository.unlockWrites);
+        assertEquals(1, notifications[0]);
     }
 
-    @Test void revokeInvalidatesWarmLaterCachesAndPreservesEarlierLocationsAndOtherPlayer() {
-        seedAndWarmBothPlayers();
+    @Test void lockedFutureLocationCannotUnlockItsOwnStages() {
+        assertNull(service.unlockNext(player, id(2, 2)));
+        assertFalse(service.isUnlocked(player, id(2, 5)));
+    }
+
+    @Test void orphanLaterStageRecordCannotBypassLocationOpener() {
+        repository.seed(player, 2, 5);
+        service.reloadConfiguration(allZones(), allSpawns());
+        assertFalse(service.isUnlocked(player, id(2, 5)));
+    }
+
+    @Test void revokeClosesRequestedStageAndEveryLaterLocation() {
+        unlockAll();
         assertTrue(service.revokeFrom(player, 2, 5));
         assertTrue(service.isUnlocked(player, id(1, 9)));
         assertTrue(service.isUnlocked(player, id(2, 2)));
         assertFalse(service.isUnlocked(player, id(2, 5)));
         assertFalse(service.isUnlocked(player, id(2, 9)));
-        assertFalse(service.isUnlocked(player, id(3, 5)));
+        assertFalse(service.isUnlocked(player, id(3, 2)));
         assertFalse(service.isUnlocked(player, id(3, 9)));
-        assertNull(service.nextUnlockedInternalLocationId(player, id(2, 2)));
-        assertTrue(service.isUnlocked(other, id(2, 9)));
-        assertTrue(service.isUnlocked(other, id(3, 9)));
     }
 
-    @Test void resetInvalidatesWarmCachesFromInclusiveLocationOnly() {
-        seedAndWarmBothPlayers();
+    @Test void resetFromLaterLocationDoesNotReopenItsFirstStage() {
+        unlockAll();
         assertTrue(service.resetFromLocation(player, 2));
         assertTrue(service.isUnlocked(player, id(1, 9)));
-        for (int location : Arrays.asList(2, 3)) {
-            assertTrue(service.isUnlocked(player, id(location, 2)));
-            assertFalse(service.isUnlocked(player, id(location, 5)));
-            assertFalse(service.isUnlocked(player, id(location, 9)));
-            assertTrue(repository.getUnlockedSlots(player, location).isEmpty());
-            assertTrue(service.isUnlocked(other, id(location, 9)));
-        }
+        assertFalse(service.isUnlocked(player, id(2, 2)));
+        assertFalse(service.isUnlocked(player, id(3, 2)));
     }
 
     @Test void failedRevokeReplacementDoesNotClearLaterLocations() {
-        seedAndWarmBothPlayers();
+        unlockAll();
         repository.failReplace = true;
         assertFalse(service.revokeFrom(player, 2, 5));
         assertEquals(0, repository.clearWrites);
@@ -86,20 +164,25 @@ class MobProgressionServiceJUnitTest {
     }
 
     @Test void failedResetRetainsCachedAndPersistedUnlocksAndCanBeRetried() {
-        seedAndWarmBothPlayers();
+        unlockAll();
         repository.failClear = true;
         assertFalse(service.resetFromLocation(player, 2));
         assertTrue(service.isUnlocked(player, id(2, 9)));
-        assertEquals(new java.util.HashSet<>(Arrays.asList(5, 9)), repository.getUnlockedSlots(player, 2));
         repository.failClear = false;
         assertTrue(service.resetFromLocation(player, 2));
-        assertFalse(service.isUnlocked(player, id(2, 9)));
+        assertFalse(service.isUnlocked(player, id(2, 2)));
+    }
+
+    @Test void configuredResolverCrossesLocationBoundaryBothWaysThroughBoss() {
+        assertEquals(Integer.valueOf(id(2, 2)), service.nextConfiguredInternalLocationId(id(1, 9)));
+        assertEquals(Integer.valueOf(id(1, 9)), service.previousConfiguredInternalLocationId(id(2, 2)));
+        assertEquals(Integer.valueOf(id(1, 5)), service.previousConfiguredInternalLocationId(id(1, 9)));
+        assertEquals(Integer.valueOf(id(2, 5)), service.nextConfiguredInternalLocationId(id(2, 2)));
     }
 
     @Test void invalidMutationRequestsNeverWrite() {
         assertNull(service.unlockNext(null, id(1, 2)));
         assertNull(service.unlockNext(player, 1));
-        assertNull(service.unlockNext(player, id(1, 9)));
         assertFalse(service.revokeFrom(player, 1, 3));
         assertFalse(service.revokeFrom(null, 1, 2));
         assertFalse(service.resetFromLocation(player, -1));
@@ -107,17 +190,22 @@ class MobProgressionServiceJUnitTest {
         assertEquals(0, repository.unlockWrites + repository.replaceWrites + repository.clearWrites);
     }
 
-    @Test void configurationIgnoresDisabledMissingAndDuplicateSpawnStages() {
-        service.reloadConfiguration(Arrays.asList(zone(4, 2), zone(4, 5)), Arrays.asList(
+    @Test void zoneDefinitionsRemainConfiguredWithoutEnabledPopulation() {
+        service.reloadConfiguration(Arrays.asList(zone(4, 2), bossZone(4, 5)), Arrays.asList(
                 spawn(4, 2, true), spawn(4, 2, true), spawn(4, 5, false), spawn(4, 9, true)));
-        assertEquals(Collections.singletonList(2), service.configuredSlots(4));
-        assertNull(service.unlockNext(player, id(4, 2)));
-        assertThrows(UnsupportedOperationException.class, () -> service.configuredSlots(4).add(5));
+        assertEquals(Arrays.asList(2, 5), service.configuredSlots(4));
+        assertTrue(service.isFinalStage(id(4, 5)));
+        MobProgressionService.UnlockResult result = service.unlockNext(player, id(4, 2));
+        assertNotNull(result);
+        assertEquals(5, result.mobSlotId);
+        assertEquals("", result.mobName);
+        assertNull(service.unlockNext(player, id(4, 5)));
+        assertThrows(UnsupportedOperationException.class, () -> service.configuredSlots(4).add(9));
     }
 
     @Test void clearEvictsCachedUnlocksBeforeFreshConfiguration() {
         repository.seed(player, 2, 5);
-        assertTrue(service.isUnlocked(player, id(2, 5)));
+        assertFalse(service.isUnlocked(player, id(2, 5)));
         service.clear();
         assertTrue(service.configuredSlots(2).isEmpty());
         repository.seed(player, 2);
@@ -125,34 +213,54 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(2, 5)));
     }
 
-    private void seedAndWarmBothPlayers() {
-        for (UUID user : Arrays.asList(player, other)) {
-            for (int location : Arrays.asList(1, 2, 3)) {
-                repository.seed(user, location, 5, 9);
-                assertTrue(service.isUnlocked(user, id(location, 9)));
-            }
-        }
+    private void unlockLocationOneThroughBoss() {
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertNotNull(service.unlockNext(player, id(1, 5)));
     }
 
-    private void loadThreeLocations() {
+    private void openLocation(int location) {
+        assertTrue(repository.unlockSlot(player, location, 2));
+        service.reloadConfiguration(allZones(), allSpawns());
+    }
+
+    private void unlockAll() {
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertNotNull(service.unlockNext(player, id(1, 5)));
+        assertNotNull(service.unlockNext(player, id(1, 9)));
+        assertNotNull(service.unlockNext(player, id(2, 2)));
+        assertNotNull(service.unlockNext(player, id(2, 5)));
+        assertNotNull(service.unlockNext(player, id(2, 9)));
+        assertNotNull(service.unlockNext(player, id(3, 2)));
+        assertNotNull(service.unlockNext(player, id(3, 5)));
+    }
+
+    private List<LocationDefinition> allZones() {
         List<LocationDefinition> zones = new ArrayList<>();
-        List<StoredMobSpawn> spawns = new ArrayList<>();
         for (int location : Arrays.asList(1, 2, 3)) {
-            for (int slot : Arrays.asList(9, 2, 5)) {
-                zones.add(zone(location, slot));
-                spawns.add(spawn(location, slot, true));
-            }
+            zones.add(zone(location, 2));
+            zones.add(zone(location, 5));
+            zones.add(bossZone(location, 9));
         }
-        service.reloadConfiguration(zones, spawns);
+        return zones;
     }
 
+    private List<StoredMobSpawn> allSpawns() {
+        List<StoredMobSpawn> spawns = new ArrayList<>();
+        for (int location : Arrays.asList(1, 2, 3)) for (int slot : Arrays.asList(9, 2, 5)) spawns.add(spawn(location, slot, true));
+        return spawns;
+    }
+
+    private void loadThreeLocations() { service.reloadConfiguration(allZones(), allSpawns()); }
     private static int id(int location, int slot) { return MobZoneIds.encode(location, slot); }
     private static LocationDefinition zone(int location, int slot) {
-        return new LocationDefinition(id(location, slot), "stage", slot * 20.0D, 0.0D, 4.0D);
+        return new LocationDefinition(id(location, slot), "stage", slot * 20.0D, location * 100.0D, 4.0D, LocationKind.MOB_ZONE);
+    }
+    private static LocationDefinition bossZone(int location, int slot) {
+        return new LocationDefinition(id(location, slot), "boss", slot * 20.0D, location * 100.0D, 4.0D, LocationKind.BOSS_ZONE);
     }
     private static StoredMobSpawn spawn(int location, int slot, boolean enabled) {
         return new StoredMobSpawn(id(location, slot), slot, "stage-" + location + "-" + slot,
-                slot * 20.0D, 64.0D, 0.0D, 0.0F, 0.0F,
+                slot * 20.0D, 64.0D, location * 100.0D, 0.0F, 0.0F,
                 SpawnMode.FIXED_POINT, MovementMode.STATIONARY, SpawnRealmScope.PLAYER_REALMS, enabled);
     }
 }

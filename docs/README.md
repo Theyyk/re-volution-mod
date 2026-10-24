@@ -11,6 +11,8 @@
 - [Архитектура проекта](architecture.md).
 - [Проверки и обязательный процесс выпуска](development.md).
 - [v1.3.10 Test Foundation: аудит, JUnit и границы покрытия](test-foundation.md).
+- [v1.3.11: Location progression, Boss Zone и fast-auto](releases/v1.3.11.md).
+- [DEV implementation notes v1.3.11](v1.3.11-location-progression.md).
 - [DEV dispatcher: допуск только develop и защита от stable tags](dev-dispatcher.md).
 - [Источник шрифтов Cristalix и подтверждение поддержки](permissions/cristalix.md).
 

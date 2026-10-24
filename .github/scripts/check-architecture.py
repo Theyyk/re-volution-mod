@@ -87,6 +87,7 @@ def validate():
         'client/network/StageTravelMenuRequestClientHandler.java',
         'client/network/StageTravelMenuPacketClientHandler.java',
         'client/network/StageTravelTeleportRequestClientHandler.java',
+        'client/network/FastAutoTogglePacketClientHandler.java',
         'client/input/KeyInputHandler.java',
         'client/input/EnhancementClickGuard.java',
         'mob/event/ManagedMobEvents.java',
@@ -112,7 +113,6 @@ def validate():
     stale_adapters = sorted(forbidden_old_adapter_paths.intersection(source_map))
     assert not stale_adapters, 'Removed/relocated adapters returned: ' + ', '.join(stale_adapters)
 
-    # The only global accessor is at framework boundaries, never in application services.
     assert sum('MongoClients.create(' in source for source in source_map.values()) == 1, 'Expected one Mongo client owner'
     assert 'acceptableRemoteVersions = "*"' in source_map['RevolutionMod.java'], 'Optional-client handshake changed'
     assert 'clientHasRevolutionMod(player)' in source_map['network/NetworkHandler.java'], 'Missing optional-client send guard'
@@ -120,11 +120,6 @@ def validate():
     assert 'RateLimitedPingPacketHandler.reset()' in source_map['lifecycle/ServerLifecycle.java'], 'Limiter not reset by lifecycle'
     assert 'stopping.close()' in source_map['lifecycle/ServerLifecycle.java'], 'Server graph not closed'
 
-    # Minecraft 1.12.2 clients can still run on early Java 8. When source is compiled
-    # against a newer JDK, direct calls such as FloatBuffer.clear()/flip()/position()
-    # can be linked with newer covariant return descriptors and then fail on Java 8u51.
-    # Any mutable NIO operation on a typed buffer must therefore be dispatched through
-    # java.nio.Buffer explicitly. Scan every production source instead of guarding one GUI.
     nio_types = r'(?:Byte|Char|Double|Float|Int|Long|Short)Buffer'
     nio_mutators = r'(?:clear|flip|rewind|mark|reset|position|limit)'
     unsafe_nio = []
@@ -152,6 +147,7 @@ def validate():
             ('StageTravelMenuRequestPacket', 10, 'SERVER'),
             ('StageTravelMenuPacket', 11, 'CLIENT'),
             ('StageTravelTeleportRequestPacket', 12, 'SERVER'),
+            ('FastAutoTogglePacket', 13, 'SERVER'),
         ],
         'client/network/ClientNetworkRegistration.java': [
             ('PingPacket', 0, 'CLIENT'),
@@ -165,6 +161,7 @@ def validate():
             ('StageTravelMenuRequestPacket', 10, 'CLIENT'),
             ('StageTravelMenuPacket', 11, 'CLIENT'),
             ('StageTravelTeleportRequestPacket', 12, 'CLIENT'),
+            ('FastAutoTogglePacket', 13, 'CLIENT'),
         ],
     }
     for path, expected in expected_registrations.items():
@@ -173,6 +170,7 @@ def validate():
         assert compact == expected, path
         assert all(number not in {5, 6} for _, number, _ in compact), path + ': admin packet IDs 5/6 must stay reserved'
         assert ('RuneEnhancementPacket', 7, 'CLIENT') in compact, path + ': discriminator 7 changed'
+        assert ('FastAutoTogglePacket', 13, 'SERVER' if path.startswith('network/') else 'CLIENT') in compact, path + ': discriminator 13 changed'
         if path.startswith('network/'):
             assert actual[0][0] == 'RateLimitedPingPacketHandler', 'Enhancement anti-spam bypassed'
 
@@ -193,7 +191,7 @@ def validate():
                      for path in (ROOT / 'src/main/resources').rglob('*') if path.is_file() and path.name != 'mcmod.info'}
     assert actual_assets == assets, 'Resource assets changed; review the resource contract explicitly'
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12, optional client and resource assets passed.')
+    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':

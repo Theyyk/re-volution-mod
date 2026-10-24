@@ -28,24 +28,25 @@ public final class NetworkWireContractTest {
                     new PlayerStatsPacket(), expected);
 
             expected.writeInt(1); ByteBufUtils.writeUTF8String(expected, "rune_dust"); expected.writeDouble(0.1D).writeInt(26);
-            for (int rune = 0; rune < 26; rune++) {
-                expected.writeInt(0).writeInt(10).writeInt(50).writeInt(100).writeInt(1000);
-            }
+            for (int rune = 0; rune < 26; rune++) expected.writeInt(0).writeInt(10).writeInt(50).writeInt(100).writeInt(1000);
             verify(RunePacketFactory.enhancements(new int[26]), new RuneEnhancementPacket(), expected);
 
             verify(new StageTravelMenuRequestPacket(), new StageTravelMenuRequestPacket(), expected);
 
-            expected.writeInt(2);
-            expected.writeInt(1).writeInt(1).writeBoolean(true).writeBoolean(true);
-            expected.writeInt(1).writeInt(2).writeBoolean(false).writeBoolean(true);
+            expected.writeBoolean(true).writeInt(2);
+            expected.writeInt(1).writeInt(1).writeBoolean(true).writeBoolean(true).writeBoolean(false);
+            expected.writeInt(1).writeInt(2).writeBoolean(false).writeBoolean(true).writeBoolean(true);
             verify(new StageTravelMenuPacket(Arrays.asList(
-                    new StageTravelMenuPacket.Entry(1, 1, true, true),
-                    new StageTravelMenuPacket.Entry(1, 2, false, true))), new StageTravelMenuPacket(), expected);
+                    new StageTravelMenuPacket.Entry(1, 1, true, true, false),
+                    new StageTravelMenuPacket.Entry(1, 2, false, true, true)), true), new StageTravelMenuPacket(), expected);
 
             expected.writeInt(2).writeInt(3);
             verify(new StageTravelTeleportRequestPacket(2, 3), new StageTravelTeleportRequestPacket(), expected);
+
+            expected.writeBoolean(true);
+            verify(new FastAutoTogglePacket(true), new FastAutoTogglePacket(), expected);
         } finally { expected.release(); }
-        System.out.println("Network byte goldens and decoder round trips passed for IDs 0/1/4/7/10/11/12; IDs 5/6 remain reserved");
+        System.out.println("Network byte goldens and decoder round trips passed for IDs 0/1/4/7/10/11/12/13; IDs 5/6 remain reserved");
     }
 
     private static void verify(IMessage message, IMessage decoded, ByteBuf expected) {
