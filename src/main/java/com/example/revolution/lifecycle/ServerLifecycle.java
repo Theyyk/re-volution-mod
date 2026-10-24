@@ -102,7 +102,7 @@ public final class ServerLifecycle {
         event.registerServerCommand(new AdminPanelCommand(current.adminAccess));
         event.registerServerCommand(new RealmCommand(current.realms));
         event.registerServerCommand(new StageCommand(
-                current.stageTransitions, current.stageTransitionTriggers, current.mobProgression));
+                current.stageTransitions, current.stageTransitionTriggers, current.mobProgression, current.mobAdmin));
         current.resources.purgeDeprecatedLightnings();
     }
 

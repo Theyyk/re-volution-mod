@@ -2,12 +2,13 @@ package com.example.revolution.commands;
 
 import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.MobZoneIds;
-import com.example.revolution.location.definition.StageTransitionTriggerDefinition;
 import com.example.revolution.location.definition.StageTransitionTriggerDefinition.DisplayMode;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionService.Direction;
 import com.example.revolution.location.service.StageTransitionService.TransitionResult;
 import com.example.revolution.location.service.StageTransitionTriggerService;
+import com.example.revolution.mob.definition.MobDefinition;
+import com.example.revolution.mob.service.MobAdminService;
 import com.example.revolution.mob.service.MobProgressionService;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,30 +21,34 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
 
-/** Admin-only DEV/manual acceptance command for v1.3.9 stage transport. */
+/** Admin-only DEV/manual acceptance command for v1.3.9 stage and Location administration. */
 public final class StageCommand extends AdminOnlyCommand {
     private final StageTransitionService transitions;
     private final StageTransitionTriggerService triggers;
     private final MobProgressionService progression;
+    private final MobAdminService mobAdmin;
 
     public StageCommand(
             StageTransitionService transitions,
             StageTransitionTriggerService triggers,
-            MobProgressionService progression) {
+            MobProgressionService progression,
+            MobAdminService mobAdmin) {
         this.transitions = transitions;
         this.triggers = triggers;
         this.progression = progression;
+        this.mobAdmin = mobAdmin;
     }
 
     @Override public String getName() { return "stage"; }
     @Override public String getUsage(ICommandSender sender) {
         return "/stage <next|previous> [player] | /stage teleport <locationId> <mobSlotId> [player]"
+                + " | /stage location <set|populate|clear|remove|here|list> ..."
                 + " | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]]"
                 + " | /stage clearpoint <locationId> <mobSlotId>"
-                + " | /stage settrigger <locationId> <mobSlotId> <offset> <radius>"
-                + " | /stage cleartrigger <locationId> <mobSlotId>"
-                + " | /stage setmessage <locationId> <mobSlotId> <locked|forward|backward> <text...>"
-                + " | /stage clearmessage <locationId> <mobSlotId> <locked|forward|backward>"
+                + " | /stage settrigger <locationId> <offset> <radius>"
+                + " | /stage cleartrigger <locationId>"
+                + " | /stage setmessage <locked|forward|backward> <locationId> <text...>"
+                + " | /stage clearmessage <locked|forward|backward> <locationId>"
                 + " | /stage display <locationId> <mobSlotId> <chat|actionbar>"
                 + " | /stage auto <on|off> [player]"
                 + " | /stage revoke <locationId> <mobSlotId> [player]"
@@ -55,8 +60,32 @@ public final class StageCommand extends AdminOnlyCommand {
             MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(args,
-                    "next", "previous", "teleport", "setpoint", "clearpoint", "settrigger", "cleartrigger",
+                    "next", "previous", "teleport", "location", "setpoint", "clearpoint", "settrigger", "cleartrigger",
                     "setmessage", "clearmessage", "display", "auto", "revoke", "reset");
+        }
+        if (args.length >= 2 && "location".equalsIgnoreCase(args[0])) {
+            if (args.length == 2) {
+                return getListOfStringsMatchingLastWord(args, "set", "populate", "clear", "remove", "here", "list");
+            }
+            if ("set".equalsIgnoreCase(args[1])) {
+                if (args.length == 3) return getListOfStringsMatchingLastWord(args, "<locationId>");
+                if (args.length == 4) return getListOfStringsMatchingLastWord(args, "<mobSlotId>");
+                if (args.length == 5) return getListOfStringsMatchingLastWord(args, "<radius>");
+            }
+            if ("populate".equalsIgnoreCase(args[1])) {
+                if (args.length == 3) return getListOfStringsMatchingLastWord(args, "<locationId>");
+                if (args.length == 4) return getListOfStringsMatchingLastWord(args, "<mobSlotId>");
+                if (args.length == 5) return getListOfStringsMatchingLastWord(args, mobNames());
+                if (args.length == 6) return getListOfStringsMatchingLastWord(args, "<count>");
+            }
+            if ("clear".equalsIgnoreCase(args[1]) || "remove".equalsIgnoreCase(args[1])) {
+                if (args.length == 3) return getListOfStringsMatchingLastWord(args, "<locationId>");
+                if (args.length == 4) return getListOfStringsMatchingLastWord(args, "<mobSlotId>");
+            }
+            if ("list".equalsIgnoreCase(args[1]) && args.length == 3) {
+                return getListOfStringsMatchingLastWord(args, "<locationId>");
+            }
+            return new ArrayList<>();
         }
         if (args.length == 2 && ("next".equalsIgnoreCase(args[0])
                 || "previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0]))) {
@@ -77,7 +106,7 @@ public final class StageCommand extends AdminOnlyCommand {
         if (args.length == 3 && "reset".equalsIgnoreCase(args[0])) {
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
         }
-        if (args.length == 4 && ("setmessage".equalsIgnoreCase(args[0]) || "clearmessage".equalsIgnoreCase(args[0]))) {
+        if (args.length == 2 && ("setmessage".equalsIgnoreCase(args[0]) || "clearmessage".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(args, "locked", "forward", "backward");
         }
         if (args.length == 4 && "display".equalsIgnoreCase(args[0])) {
@@ -93,6 +122,7 @@ public final class StageCommand extends AdminOnlyCommand {
         switch (action) {
             case "teleport":
             case "tp": teleport(server, sender, args); return;
+            case "location": mobAdmin.execute(sender, args); return;
             case "setpoint": configurePoint(sender, args); return;
             case "clearpoint": clearPoint(sender, args); return;
             case "settrigger": configureTrigger(sender, args); return;
@@ -191,57 +221,85 @@ public final class StageCommand extends AdminOnlyCommand {
     }
 
     private void configureTrigger(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 5) throw new CommandException(getUsage(sender));
+        if (args.length != 4) throw new CommandException(getUsage(sender));
         int worldLocationId = parseInt(args[1]);
-        int mobSlotId = parseInt(args[2]);
-        double offset = parseDouble(args[3], 0.0D);
-        double radius = parseDouble(args[4], 0.01D);
-        StageTransitionTriggerDefinition trigger;
-        try { trigger = triggers.configureTrigger(worldLocationId, mobSlotId, offset, radius); }
-        catch (IllegalArgumentException | IllegalStateException e) { throw new CommandException(e.getMessage()); }
+        double offset = parseDouble(args[2], 0.0D);
+        double radius = parseDouble(args[3], 0.01D);
+        List<Integer> slots = configuredSlots(worldLocationId);
+        int updated = 0;
+        try {
+            for (Integer mobSlotId : slots) {
+                triggers.configureTrigger(worldLocationId, mobSlotId, offset, radius);
+                updated++;
+            }
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new CommandException(e.getMessage());
+        }
         sender.sendMessage(new TextComponentString(
-                "Boundary trigger saved for Location " + worldLocationId + ", mobSlot " + mobSlotId
-                        + " offset=" + format(trigger.getOffset())
-                        + " radius=" + format(trigger.getRadius())
+                "Boundary trigger saved for all " + updated + " mob stages in Location " + worldLocationId
+                        + ": offset=" + format(offset) + ", radius=" + format(radius)
                         + " (forward/backward 180 degrees, 1s delay)."));
     }
 
     private void clearTrigger(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 3) throw new CommandException(getUsage(sender));
+        if (args.length != 2) throw new CommandException(getUsage(sender));
         int worldLocationId = parseInt(args[1]);
-        int mobSlotId = parseInt(args[2]);
-        triggers.clearTrigger(worldLocationId, mobSlotId);
+        List<Integer> slots = configuredSlots(worldLocationId);
+        for (Integer mobSlotId : slots) triggers.clearTrigger(worldLocationId, mobSlotId);
         sender.sendMessage(new TextComponentString(
-                "Boundary trigger cleared for Location " + worldLocationId + ", mobSlot " + mobSlotId + "."));
+                "Boundary triggers cleared for all " + slots.size() + " mob stages in Location "
+                        + worldLocationId + "."));
     }
 
     private void setMessage(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length < 5) throw new CommandException(getUsage(sender));
-        int worldLocationId = parseInt(args[1]);
-        int mobSlotId = parseInt(args[2]);
-        String kind = messageKind(args[3]);
+        if (args.length < 4) throw new CommandException(getUsage(sender));
+        String kind = messageKind(args[1]);
+        int worldLocationId = parseInt(args[2]);
         StringBuilder text = new StringBuilder();
-        for (int i = 4; i < args.length; i++) {
+        for (int i = 3; i < args.length; i++) {
             if (text.length() > 0) text.append(' ');
             text.append(args[i]);
         }
-        try { triggers.setMessage(worldLocationId, mobSlotId, kind, text.toString()); }
-        catch (IllegalArgumentException | IllegalStateException e) { throw new CommandException(e.getMessage()); }
+        List<Integer> slots = configuredSlots(worldLocationId);
+        int updated = 0;
+        try {
+            for (Integer mobSlotId : slots) {
+                if (triggers.overlayGeometry(worldLocationId, mobSlotId) == null) continue;
+                triggers.setMessage(worldLocationId, mobSlotId, kind, text.toString());
+                updated++;
+            }
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new CommandException(e.getMessage());
+        }
+        if (updated == 0) {
+            throw new CommandException("No transition triggers are configured for Location " + worldLocationId);
+        }
         sender.sendMessage(new TextComponentString(
-                "Transition " + kind + " message saved for Location "
-                        + worldLocationId + ", mobSlot " + mobSlotId + "."));
+                "Transition " + kind + " message saved for " + updated
+                        + " trigger stages in Location " + worldLocationId + "."));
     }
 
     private void clearMessage(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 4) throw new CommandException(getUsage(sender));
-        int worldLocationId = parseInt(args[1]);
-        int mobSlotId = parseInt(args[2]);
-        String kind = messageKind(args[3]);
-        try { triggers.clearMessage(worldLocationId, mobSlotId, kind); }
-        catch (IllegalArgumentException | IllegalStateException e) { throw new CommandException(e.getMessage()); }
+        if (args.length != 3) throw new CommandException(getUsage(sender));
+        String kind = messageKind(args[1]);
+        int worldLocationId = parseInt(args[2]);
+        List<Integer> slots = configuredSlots(worldLocationId);
+        int updated = 0;
+        try {
+            for (Integer mobSlotId : slots) {
+                if (triggers.overlayGeometry(worldLocationId, mobSlotId) == null) continue;
+                triggers.clearMessage(worldLocationId, mobSlotId, kind);
+                updated++;
+            }
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new CommandException(e.getMessage());
+        }
+        if (updated == 0) {
+            throw new CommandException("No transition triggers are configured for Location " + worldLocationId);
+        }
         sender.sendMessage(new TextComponentString(
-                "Transition " + kind + " message cleared for Location "
-                        + worldLocationId + ", mobSlot " + mobSlotId + "."));
+                "Transition " + kind + " message cleared for " + updated
+                        + " trigger stages in Location " + worldLocationId + "."));
     }
 
     private void setDisplay(ICommandSender sender, String[] args) throws CommandException {
@@ -302,6 +360,20 @@ public final class StageCommand extends AdminOnlyCommand {
         sender.sendMessage(new TextComponentString(
                 "Progression reset for " + player.getName() + " from Location " + worldLocationId
                         + " onward, including all later Locations."));
+    }
+
+    private List<Integer> configuredSlots(int worldLocationId) throws CommandException {
+        List<Integer> slots = progression.configuredSlots(worldLocationId);
+        if (slots == null || slots.isEmpty()) {
+            throw new CommandException("No configured mob stages found for Location " + worldLocationId);
+        }
+        return slots;
+    }
+
+    private List<String> mobNames() {
+        List<String> names = new ArrayList<>();
+        for (MobDefinition mob : mobAdmin.definitions()) names.add(mob.name);
+        return names;
     }
 
     private String messageKind(String value) throws CommandException {
