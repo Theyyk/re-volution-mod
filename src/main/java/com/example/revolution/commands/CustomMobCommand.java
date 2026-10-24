@@ -19,14 +19,15 @@ public class CustomMobCommand extends AdminOnlyCommand {
 
     @Override public String getName() { return "custommob"; }
     @Override public String getUsage(ICommandSender sender) {
-        return "/custommob create|location|spawn|setspawn|unspawn|delete|list";
+        return "/custommob create|spawn|setspawn|unspawn|delete|list";
     }
 
     @Override
     public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
         if (args.length == 1) return getListOfStringsMatchingLastWord(args,
-                Arrays.asList("create", "location", "spawn", "setspawn", "unspawn", "delete", "list"));
+                Arrays.asList("create", "spawn", "setspawn", "unspawn", "delete", "list"));
         if (args.length == 2) {
+            // Legacy /custommob location remains accepted, but /stage location is canonical.
             if (args[0].equalsIgnoreCase("location")) {
                 return getListOfStringsMatchingLastWord(args, Arrays.asList("set", "populate", "clear", "remove", "here", "list"));
             }
