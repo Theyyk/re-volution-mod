@@ -2,11 +2,11 @@
 
 Серверно-авторитетный игровой мод для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику RE:volution: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm foundation/runtime, mob-zone progression, переходы между стадиями и хранение данных игроков в MongoDB.
 
-**Стабильная release-версия: `v1.3.9`.**
+**Стабильная release-версия: `v1.3.10`.**
 
-**Текущий технический этап: `v1.3.10 Test Foundation` — JUnit/Gradle и 22 новых service regression tests поверх стабильной v1.3.9, с сохранением 30 существующих regression tasks. [Аудит и запуск тестов](docs/test-foundation.md).**
+**Текущий release candidate: `v1.3.11` - cross-Location progression, явная Boss Zone, Fast-auto и динамическое отображение босса в меню `L`.**
 
-[Скачать актуальный стабильный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.3.9](docs/releases/v1.3.9.md)
+[Скачать актуальный стабильный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.3.11](docs/releases/v1.3.11.md)
 
 ## Границы проекта
 
@@ -45,24 +45,28 @@ Runtime managed-мобов использует Location/Mob Spawn модель 
 - Поддерживаются `FIXED_POINT` и `RANDOM_AREA`.
 - Поддерживаются `STATIONARY` и `ROAMING`.
 - Обычный flow `location populate` создаёт `ROAMING`-мобов и делит population примерно 50/50 между fixed и random slots.
-- Одна gameplay Location может содержать несколько независимых mob-зон, адресуемых парой `locationId + mobSlotId`.
+- Одна gameplay Location может содержать несколько независимых stage, адресуемых парой `locationId + mobSlotId`.
+- Существование progression stage определяется `LocationDefinition`; population отвечает за наполнение stage мобами.
+- Stage может быть `MOB_ZONE` или `BOSS_ZONE`.
 - Конфигурация player Realm применяется к Realm 1/2/3, Realm 0 остаётся explicit-only.
 - `RANDOM_AREA` выбирает новую независимую позицию на каждую новую физическую жизнь моба.
 - Generated/random spawn surface не принимает листву/брёвна и не поднимается более чем на 3 блока выше базового Y зоны.
 - `ROAMING` удерживает мобов в своей зоне, раздвигает слишком плотные группы и делает паузу примерно 1 секунду после прямого удара игрока; повторный удар перезапускает паузу.
 
-Канонические команды mob-zone:
+Канонические команды stage-zone:
 
 ```text
 /stage location set <locationId> <mobSlotId> <radius>
 /stage location populate <locationId> <mobSlotId> <mobName> <count>
+/stage location setboss <locationId> <mobSlotId>
+/stage location clearboss <locationId> <mobSlotId>
 /stage location here
 /stage location list [locationId]
 /stage location clear <locationId> <mobSlotId>
 /stage location remove <locationId> <mobSlotId>
 ```
 
-`location clear` удаляет population/spawn slots, но сохраняет геометрию зоны. `location remove` удаляет и population, и геометрию зоны. Старый `/custommob location ...` сохранён как legacy alias для обратной совместимости.
+`location clear` удаляет population/spawn slots, но сохраняет геометрию зоны. `location remove` удаляет и population, и геометрию зоны. `setboss/clearboss` меняют доменный тип существующей stage без отдельной BossZone-сущности мира и без потери геометрии/transition point. Старый `/custommob location ...` сохранён как legacy alias для обратной совместимости.
 
 Клиент RE:volution визуализирует границу настроенных mob-зон тонким полупрозрачным зелёным кольцом. Кольцо следует по поверхности земли, игнорирует листву и брёвна, не изменяет блоки и отображается игрокам с установленным модом в пределах рабочей дистанции визуализации.
 
@@ -84,40 +88,66 @@ Runtime managed-мобов использует Location/Mob Spawn модель 
 
 ### Персональная mob progression (`v1.3.8`)
 
-Progression строится отдельно для каждого world Location ID поверх заполненных mob-zone.
+Progression хранится отдельно для каждого игрока и строится поверх configured stage.
 
-- В progression chain входят только существующие заполненные mob-zone.
-- Стадии идут по возрастающему `mobSlotId`; номера не обязаны быть последовательными.
-- Первый заполненный mobSlot открыт игроку автоматически.
-- Победа на текущей стадии открывает ровно следующий заполненный mobSlot этой Location.
-- Повторная победа на уже пройденной стадии не перескакивает через следующую.
+- Стадии внутри Location идут по возрастающему `mobSlotId`; номера не обязаны быть последовательными.
+- Первая stage первой configured Location является стартовой точкой progression.
+- Победа на текущей stage открывает следующую stage текущей Location.
+- Повторная победа на уже пройденной stage не перескакивает через следующую.
 - Progression credit получает только текущий `max contributor`, а не last hit.
-- Физические managed-мобы остаются общими для игроков Realm, но доступ к стадии персональный.
-- Если stage закрыт для игрока, урон подавляется, contribution и combat pause не создаются.
-- Открытые стадии сохраняются в MongoDB в коллекции `mob_progression` по `playerUuid + locationId` и не привязаны к конкретному Realm 1/2/3.
+- Физические managed-мобы остаются общими для игроков Realm, но доступ к stage персональный.
+- Если stage закрыта для игрока, урон подавляется, contribution и combat pause не создаются.
+- Открытые стадии сохраняются в MongoDB в коллекции `mob_progression` и не привязаны к конкретному Realm 1/2/3.
 - Progression сохраняется после relog, restart сервера и смены Realm.
 
-Полный контракт и checklist: [docs/releases/v1.3.8.md](docs/releases/v1.3.8.md).
+Исторический контракт: [docs/releases/v1.3.8.md](docs/releases/v1.3.8.md).
 
 ### Переходы между mob stages (`v1.3.9`)
 
-`v1.3.9` добавляет navigation/transition слой поверх progression, не смешивая transport с unlock-логикой.
+`v1.3.9` добавил navigation/transition слой поверх progression, не смешивая transport с unlock-логикой.
 
 - Для каждого stage можно задать explicit transition point через `/stage setpoint`.
 - Сервер проверяет bounding box и опору destination перед телепортом.
-- `/stage next` и `/stage previous` переходят только между уже открытыми соседними stage.
 - `/stage teleport <locationId> <mobSlotId> [player]` использует point выбранного stage и не открывает progression.
-- `/stage auto <on|off> [player]` управляет единым per-player auto-transition flag.
-- Trigger-кольцо задаётся сразу для всей Location через `/stage settrigger <locationId> <offset> <radius>`; размеры одинаковы для stage внутри одной Location, но могут отличаться между Location.
-- Trigger делится на forward/backward половины по 180° на основании геометрии соседних stage.
-- `locked`, `forward`, `backward` сообщения задаются сразу для всей Location через `/stage setmessage` и поддерживают Tab completion.
-- Доступный автоматический переход выполняется после 20 ticks и отменяется, если игрок покидает trigger или контекст становится невалидным.
+- `/stage auto <on|off> [player]` управляет trigger-zone auto-transition flag.
+- Trigger-кольцо задаётся сразу для всей Location через `/stage settrigger <locationId> <offset> <radius>`.
+- Trigger делится на forward/backward половины по геометрии соседних stage.
+- `locked`, `forward`, `backward` сообщения задаются через `/stage setmessage`.
+- Доступный trigger-переход выполняется после 20 ticks и отменяется, если игрок покидает trigger или контекст становится невалидным.
 - `/stage revoke` и `/stage reset` поддерживают каскадный сброс progression.
-- Существующий mob-zone overlay отображает trigger geometry по той же серверной геометрии, которая используется runtime-переходами.
-- Клавиша `L` открывает меню Location -> mob/stage для быстрого перехода к уже открытому stage с настроенной transition point.
-- Все player teleport requests повторно валидируются сервером, поэтому клиентское меню не может обойти progression или destination safety.
+- Клавиша `L` открывает меню Location -> stage для быстрого перехода к уже открытому stage с настроенной transition point.
+- Все player teleport requests повторно валидируются сервером.
 
-Полный контракт и runtime acceptance: [docs/releases/v1.3.9.md](docs/releases/v1.3.9.md).
+Полный контракт: [docs/releases/v1.3.9.md](docs/releases/v1.3.9.md).
+
+### Test Foundation (`v1.3.10`)
+
+`v1.3.10` добавил JUnit/Gradle test foundation поверх существующих standalone regression runners без изменения gameplay baseline.
+
+- JUnit Jupiter подключён к стандартному `test`.
+- Service-level тесты работают без полноценного Minecraft client/OpenGL/MongoDB там, где это возможно.
+- CI публикует JUnit reports и не допускает успешный build с нулём выполненных JUnit tests.
+- DEV dispatcher защищён от stable/tag маршрутизации в DEV channel.
+
+Подробности: [docs/releases/v1.3.10.md](docs/releases/v1.3.10.md) · [docs/test-foundation.md](docs/test-foundation.md).
+
+### Cross-Location progression и Boss Zone (`v1.3.11`)
+
+`v1.3.11` расширяет progression на цепочку Location.
+
+- Для завершения Location требуется явная единственная финальная `BOSS_ZONE`.
+- Последний обычный mobSlot сам по себе не завершает Location.
+- Победа в Boss Zone открывает первый configured stage следующей Location.
+- Пустая, но созданная stage следующей Location может быть открыта до `populate`.
+- Если следующая Location отсутствует, progression корректно останавливается на текущем контенте без автогенерации.
+- `/stage next` и `/stage previous` используют общий resolver и поддерживают переход через границу Location.
+- Добавлен отдельный persistent `Fast-auto`, переключаемый в меню `L`; он независим от trigger-zone automation.
+- Fast-auto после обычной stage ведёт на следующую stage текущей Location, а после Boss Zone - в первую stage следующей Location.
+- Меню `L` получает boss-state из server snapshot: обычная stage отображается как `Моб N`, Boss Zone - как `Босс`.
+- После `clearboss` и повторного открытия меню подпись возвращается к `Моб N`.
+- Revoke/reset и GUI/network requests остаются server-authoritative и не могут обойти progression.
+
+Полный контракт и runtime acceptance: [docs/releases/v1.3.11.md](docs/releases/v1.3.11.md).
 
 ## Игровые системы
 
@@ -140,14 +170,14 @@ Progression строится отдельно для каждого world Locati
 
 Основная инфраструктурная модель проекта разделяет DEV и PROD.
 
-- **DEV** используется для development/gameplay acceptance и может принимать допустимые development-ветки.
+- **DEV** используется для development/gameplay acceptance и принимает только допустимый develop pipeline.
 - **PROD** используется только для stable gameplay из `main` с annotated release tag и проверенным server image.
 - DEV и PROD используют отдельные Minecraft runtime/world и отдельные Mongo namespace.
 - DEV build сам по себе не становится PROD.
 - При контролируемой PROD synchronization world и Mongo заменяются DEV snapshot только после backup; это не merge данных.
 - Runtime rollback опирается на сохранённые snapshots, а не на Git.
 
-Основной пользовательский интерфейс инфраструктуры - `REvolutionControl.exe`, GUI-оболочка над orchestration backend. Обычный gameplay flow: обновить DEV, выполнить Smoke Check, запустить DEV client и проверить механику. PowerShell остаётся backend/debug fallback.
+Основной пользовательский интерфейс инфраструктуры - `REvolutionControl.exe`, GUI-оболочка над orchestration backend. Обычный gameplay flow: обновить DEV, выполнить минимальный runtime smoke только для поведения, которое нельзя доказать автоматическими тестами, и принять механику.
 
 Внутри dedicated Forge сохраняется Realm startup contract: до загрузки миров `DIM202` и `DIM203` подготавливаются из сохранённого `DIM201`; во время runtime Realm независимы.
 
@@ -171,43 +201,48 @@ Progression строится отдельно для каждого world Locati
 
 ## Разработка и проверки
 
-Основная ветка разработки - `develop`, стабильная ветка - `main`. Изменения gameplay обычно проходят через feature-ветку и PR в `develop`, затем release/promotion в `main`.
+Основная ветка разработки - `develop`, стабильная ветка - `main`. Изменения gameplay проходят через feature/fix ветку и PR в `develop`, затем отдельный release/promotion в `main`.
 
-CI использует component change detection, dependency/build caches, concurrency, path filtering и exact artifact handoff, чтобы не запускать тяжёлые jobs без необходимости и не публиковать устаревший DEV candidate поверх более нового.
+CI использует component change detection, dependency/build caches, concurrency, path filtering и exact artifact handoff, чтобы не публиковать устаревший DEV candidate поверх более нового.
 
 CI проверяет, среди прочего:
 
 - согласованность версии;
 - release descriptions;
+- JUnit и standalone regression tests;
 - архитектурные guard-проверки;
 - сборку Forge-мода;
 - содержимое итогового JAR;
 - startup/Realm orchestration contracts;
 - DEV publication invariants и artifact consistency.
 
-CI не заменяет runtime-приёмку там, где изменение зависит от реального Forge lifecycle, клиента, multiplayer или сохранённых миров.
+CI не заменяет runtime-приёмку только там, где изменение действительно зависит от реального Forge lifecycle, клиента, multiplayer или визуального поведения.
 
-### Обязательный release gate для README
+### Обязательный release gate
 
-`README.md` является частью release contract и обязан быть актуализирован до или в составе release/promotion PR.
+Перед новым стабильным релизом необходимо:
 
-Перед каждым новым стабильным релизом необходимо проверить и при необходимости обновить:
+- актуализировать README и release docs;
+- синхронизировать `build.gradle`, `mcmod.info` и `RevolutionMod.VERSION`;
+- получить exact-main CI после promotion;
+- создать annotated release tag;
+- проверить GitHub Release JAR hash/size;
+- получить stable Docker image и production signed manifest;
+- выполнить обязательный post-release branch audit/cleanup;
+- повторно проверить remote branches;
+- только после этого считать релиз `RELEASE COMPLETE`.
 
-- текущую stable-версию и статус следующего этапа разработки;
-- фактически доступные gameplay-возможности;
-- публичные команды и их актуальную семантику;
-- текущую архитектурную базу и runtime-ограничения;
-- roadmap и следующий незавершённый этап.
+## Roadmap после v1.3.11
 
-Promotion `develop -> main` не считается полностью подготовленным к релизу, если README описывает старую модель или уже изменившееся поведение.
+Ближайшие gameplay-механики определяются отдельно перед реализацией. Отложены на более позднее будущее:
 
-## Roadmap после v1.3.9
+- автоматическое и процедурное создание новых Location по строительным шаблонам;
+- boss HP scaling от количества игроков в Boss Zone;
+- способность босса как награда;
+- индивидуальные ограничения на убийство босса;
+- boss-specific enter/leave hooks и отдельные respawn/reset policies.
 
-1. От стабильной `v1.3.9` создать отдельную ветку для технической итерации `v1.3.10 Test Foundation`.
-2. Подключить JUnit к Gradle в уже существующей структуре `src/test/java`, сохранив прежние regression tasks.
-3. При необходимости выделить критичную бизнес-логику из Forge/Minecraft API, чтобы unit/regression tests не требовали полноценного клиента или dedicated-сервера.
-4. Сохранить v1.3.9 как контрольную точку с известным runtime-поведением и строить новые regression tests относительно неё.
-5. Scaling и дальнейшая нагрузочная оптимизация остаются отдельным будущим этапом и не считаются подтверждённой вместимостью текущего runtime.
+Эти пункты не являются частью v1.3.11.
 
 ## Скриншоты
 
