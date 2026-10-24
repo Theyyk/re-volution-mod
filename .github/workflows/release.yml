@@ -31,6 +31,8 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -shellcheck= -pyflakes=
       - name: Test change detection policy
         run: python3 .github/ci/test_changes.py
+      - name: Test DEV dispatcher routing policy
+        run: node .github/ci/test_dev_dispatcher.cjs
       - name: Select affected components (manual/tag/unknown diff runs all)
         id: changes
         run: python3 .github/ci/changes.py
