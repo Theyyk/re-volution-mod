@@ -3,6 +3,7 @@ package com.example.revolution.persistence;
 import com.example.revolution.mob.repository.MobProgressionRepository;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.result.UpdateResult;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -44,14 +45,45 @@ public final class MongoMobProgressionRepository implements MobProgressionReposi
 
     @Override
     public boolean unlockSlot(UUID playerUuid, int worldLocationId, int mobSlotId) {
-        if (!enabled || !connection.isConnected() || playerUuid == null || worldLocationId < 0
-                || mobSlotId < 1 || mobSlotId > 99) return false;
+        if (!valid(playerUuid, worldLocationId) || mobSlotId < 1 || mobSlotId > 99) return false;
         Document identity = new Document("playerUuid", playerUuid.toString()).append("locationId", worldLocationId);
         Document update = new Document("$setOnInsert", identity)
                 .append("$addToSet", new Document("unlockedSlots", mobSlotId));
         UpdateResult result = connection.collection(COLLECTION).updateOne(
                 new Document("_id", key(playerUuid, worldLocationId)), update, new UpdateOptions().upsert(true));
         return result != null && (result.getModifiedCount() > 0 || result.getUpsertedId() != null);
+    }
+
+    @Override
+    public boolean replaceUnlockedSlots(UUID playerUuid, int worldLocationId, Set<Integer> unlockedSlots) {
+        if (!valid(playerUuid, worldLocationId) || unlockedSlots == null) return false;
+        List<Integer> sanitized = new ArrayList<>();
+        for (Integer slot : unlockedSlots) {
+            if (slot != null && slot >= 1 && slot <= 99) sanitized.add(slot);
+        }
+        if (sanitized.isEmpty()) {
+            connection.collection(COLLECTION).deleteOne(new Document("_id", key(playerUuid, worldLocationId)));
+            return true;
+        }
+        Document identity = new Document("playerUuid", playerUuid.toString()).append("locationId", worldLocationId);
+        Document update = new Document("$setOnInsert", identity)
+                .append("$set", new Document("unlockedSlots", sanitized));
+        connection.collection(COLLECTION).updateOne(
+                new Document("_id", key(playerUuid, worldLocationId)), update, new UpdateOptions().upsert(true));
+        return true;
+    }
+
+    @Override
+    public boolean clearFromLocation(UUID playerUuid, int worldLocationId) {
+        if (!valid(playerUuid, worldLocationId)) return false;
+        Document filter = new Document("playerUuid", playerUuid.toString())
+                .append("locationId", new Document("$gte", worldLocationId));
+        connection.collection(COLLECTION).deleteMany(filter);
+        return true;
+    }
+
+    private boolean valid(UUID playerUuid, int worldLocationId) {
+        return enabled && connection.isConnected() && playerUuid != null && worldLocationId >= 0;
     }
 
     private String key(UUID playerUuid, int worldLocationId) {
