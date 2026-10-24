@@ -18,16 +18,26 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
-/** Lightweight world overlay for configured circular mob-zone boundaries. */
+/** Lightweight world overlay for configured mob-zone boundaries and stage trigger rings. */
 public final class MobZoneOverlayRenderer {
     private static final int SEGMENTS = 96;
+    private static final int HALF_SEGMENTS = SEGMENTS / 2;
     private static final int REQUEST_INTERVAL_TICKS = 40;
     private static final double VIEW_DISTANCE = 64.0D;
     private static final double HEIGHT_OFFSET = 0.12D;
-    private static final float RED = 0.31F;
-    private static final float GREEN = 0.86F;
-    private static final float BLUE = 0.47F;
-    private static final float ALPHA = 0.28F;
+    private static final float ZONE_RED = 0.31F;
+    private static final float ZONE_GREEN = 0.86F;
+    private static final float ZONE_BLUE = 0.47F;
+    private static final float FORWARD_RED = 0.20F;
+    private static final float FORWARD_GREEN = 0.72F;
+    private static final float FORWARD_BLUE = 1.00F;
+    private static final float BACKWARD_RED = 1.00F;
+    private static final float BACKWARD_GREEN = 0.38F;
+    private static final float BACKWARD_BLUE = 0.24F;
+    private static final float NEUTRAL_RED = 0.90F;
+    private static final float NEUTRAL_GREEN = 0.75F;
+    private static final float NEUTRAL_BLUE = 0.25F;
+    private static final float ALPHA = 0.42F;
     private int requestTicks;
 
     @SubscribeEvent
@@ -69,7 +79,9 @@ public final class MobZoneOverlayRenderer {
 
         for (MobZoneOverlayPacket.Zone zone : MobZoneOverlayState.get()) {
             if (!isNearBoundary(mc, zone)) continue;
-            drawZone(mc, zone, cameraX, cameraY, cameraZ);
+            drawCircle(mc, zone.getCenterX(), zone.getCenterZ(), zone.getRadius(),
+                    cameraX, cameraY, cameraZ, ZONE_RED, ZONE_GREEN, ZONE_BLUE);
+            if (zone.hasTrigger()) drawTrigger(mc, zone, cameraX, cameraY, cameraZ);
         }
 
         GL11.glLineWidth(1.0F);
@@ -84,22 +96,88 @@ public final class MobZoneOverlayRenderer {
         double dx = mc.player.posX - zone.getCenterX();
         double dz = mc.player.posZ - zone.getCenterZ();
         double centerDistance = Math.sqrt(dx * dx + dz * dz);
-        return Math.abs(centerDistance - zone.getRadius()) <= VIEW_DISTANCE
-                || centerDistance <= zone.getRadius() + VIEW_DISTANCE;
+        double visibleRadius = zone.hasTrigger() ? zone.getTriggerOuterRadius() : zone.getRadius();
+        return Math.abs(centerDistance - visibleRadius) <= VIEW_DISTANCE
+                || centerDistance <= visibleRadius + VIEW_DISTANCE;
     }
 
-    private void drawZone(Minecraft mc, MobZoneOverlayPacket.Zone zone, double cameraX, double cameraY, double cameraZ) {
+    private void drawTrigger(Minecraft mc, MobZoneOverlayPacket.Zone zone,
+            double cameraX, double cameraY, double cameraZ) {
+        double axisLength = Math.sqrt(zone.getForwardX() * zone.getForwardX()
+                + zone.getForwardZ() * zone.getForwardZ());
+        if (axisLength <= 1.0E-12D) {
+            drawCircle(mc, zone.getCenterX(), zone.getCenterZ(), zone.getTriggerInnerRadius(),
+                    cameraX, cameraY, cameraZ, NEUTRAL_RED, NEUTRAL_GREEN, NEUTRAL_BLUE);
+            drawCircle(mc, zone.getCenterX(), zone.getCenterZ(), zone.getTriggerOuterRadius(),
+                    cameraX, cameraY, cameraZ, NEUTRAL_RED, NEUTRAL_GREEN, NEUTRAL_BLUE);
+            return;
+        }
+
+        double forwardAngle = Math.atan2(zone.getForwardZ(), zone.getForwardX());
+        double forwardStart = forwardAngle - Math.PI / 2.0D;
+        double backwardStart = forwardAngle + Math.PI / 2.0D;
+
+        drawHalfRing(mc, zone, forwardStart, cameraX, cameraY, cameraZ,
+                FORWARD_RED, FORWARD_GREEN, FORWARD_BLUE);
+        drawHalfRing(mc, zone, backwardStart, cameraX, cameraY, cameraZ,
+                BACKWARD_RED, BACKWARD_GREEN, BACKWARD_BLUE);
+
+        drawSeparator(mc, zone, forwardStart, cameraX, cameraY, cameraZ);
+        drawSeparator(mc, zone, forwardStart + Math.PI, cameraX, cameraY, cameraZ);
+    }
+
+    private void drawHalfRing(Minecraft mc, MobZoneOverlayPacket.Zone zone, double startAngle,
+            double cameraX, double cameraY, double cameraZ, float red, float green, float blue) {
+        drawArc(mc, zone.getCenterX(), zone.getCenterZ(), zone.getTriggerInnerRadius(), startAngle,
+                cameraX, cameraY, cameraZ, red, green, blue);
+        drawArc(mc, zone.getCenterX(), zone.getCenterZ(), zone.getTriggerOuterRadius(), startAngle,
+                cameraX, cameraY, cameraZ, red, green, blue);
+    }
+
+    private void drawArc(Minecraft mc, double centerX, double centerZ, double radius, double startAngle,
+            double cameraX, double cameraY, double cameraZ, float red, float green, float blue) {
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder buffer = tessellator.getBuffer();
+        buffer.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION_COLOR);
+        for (int i = 0; i <= HALF_SEGMENTS; i++) {
+            double angle = startAngle + Math.PI * i / HALF_SEGMENTS;
+            double worldX = centerX + Math.cos(angle) * radius;
+            double worldZ = centerZ + Math.sin(angle) * radius;
+            double worldY = terrainY(mc, worldX, worldZ);
+            buffer.pos(worldX - cameraX, worldY - cameraY, worldZ - cameraZ)
+                    .color(red, green, blue, ALPHA).endVertex();
+        }
+        tessellator.draw();
+    }
+
+    private void drawSeparator(Minecraft mc, MobZoneOverlayPacket.Zone zone, double angle,
+            double cameraX, double cameraY, double cameraZ) {
+        double innerX = zone.getCenterX() + Math.cos(angle) * zone.getTriggerInnerRadius();
+        double innerZ = zone.getCenterZ() + Math.sin(angle) * zone.getTriggerInnerRadius();
+        double outerX = zone.getCenterX() + Math.cos(angle) * zone.getTriggerOuterRadius();
+        double outerZ = zone.getCenterZ() + Math.sin(angle) * zone.getTriggerOuterRadius();
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder buffer = tessellator.getBuffer();
+        buffer.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
+        buffer.pos(innerX - cameraX, terrainY(mc, innerX, innerZ) - cameraY, innerZ - cameraZ)
+                .color(1.0F, 1.0F, 1.0F, ALPHA).endVertex();
+        buffer.pos(outerX - cameraX, terrainY(mc, outerX, outerZ) - cameraY, outerZ - cameraZ)
+                .color(1.0F, 1.0F, 1.0F, ALPHA).endVertex();
+        tessellator.draw();
+    }
+
+    private void drawCircle(Minecraft mc, double centerX, double centerZ, double radius,
+            double cameraX, double cameraY, double cameraZ, float red, float green, float blue) {
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder buffer = tessellator.getBuffer();
         buffer.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION_COLOR);
         for (int i = 0; i <= SEGMENTS; i++) {
             double angle = Math.PI * 2.0D * i / SEGMENTS;
-            double worldX = zone.getCenterX() + Math.cos(angle) * zone.getRadius();
-            double worldZ = zone.getCenterZ() + Math.sin(angle) * zone.getRadius();
+            double worldX = centerX + Math.cos(angle) * radius;
+            double worldZ = centerZ + Math.sin(angle) * radius;
             double worldY = terrainY(mc, worldX, worldZ);
             buffer.pos(worldX - cameraX, worldY - cameraY, worldZ - cameraZ)
-                    .color(RED, GREEN, BLUE, ALPHA)
-                    .endVertex();
+                    .color(red, green, blue, ALPHA).endVertex();
         }
         tessellator.draw();
     }
