@@ -62,26 +62,36 @@ public final class MobProgressionService {
         validBossLayouts.clear();
         unlockCache.clear();
         if (locations == null || storedSpawns == null) return;
-        Map<Integer, LocationDefinition> zones = new HashMap<>();
+
+        Map<Integer, LocationDefinition> zones = new LinkedHashMap<>();
         for (LocationDefinition location : locations) {
-            if (location != null && MobZoneIds.isMobZoneId(location.getLocationId())) zones.put(location.getLocationId(), location);
+            if (location != null && MobZoneIds.isMobZoneId(location.getLocationId())) {
+                zones.put(location.getLocationId(), location);
+            }
         }
-        Map<Integer, String> populatedZones = new LinkedHashMap<>();
+
+        // A stage exists because its zone definition exists. Population is optional metadata and must not
+        // remove an otherwise configured stage from progression topology (for example a freshly created
+        // first stage of the next Location that has not been populated yet).
+        Map<Integer, String> populatedZones = new HashMap<>();
         for (StoredMobSpawn spawn : storedSpawns) {
             if (spawn == null || !spawn.isEnabled()) continue;
             int internalLocationId = spawn.getLocationId();
-            if (!zones.containsKey(internalLocationId) || !MobZoneIds.isMobZoneId(internalLocationId)) continue;
+            if (!zones.containsKey(internalLocationId)) continue;
             populatedZones.putIfAbsent(internalLocationId, spawn.getMobName());
         }
+
         Map<Integer, Map<Integer, Stage>> staged = new LinkedHashMap<>();
-        for (Map.Entry<Integer, String> item : populatedZones.entrySet()) {
-            int internalLocationId = item.getKey();
+        for (LocationDefinition zone : zones.values()) {
+            int internalLocationId = zone.getLocationId();
             int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
             int mobSlotId = MobZoneIds.mobSlotId(internalLocationId);
-            LocationDefinition zone = zones.get(internalLocationId);
+            String mobName = populatedZones.get(internalLocationId);
+            if (mobName == null) mobName = "";
             staged.computeIfAbsent(worldLocationId, ignored -> new LinkedHashMap<>())
-                    .put(mobSlotId, new Stage(internalLocationId, mobSlotId, item.getValue(), zone != null && zone.isBossZone()));
+                    .put(mobSlotId, new Stage(internalLocationId, mobSlotId, mobName, zone.isBossZone()));
         }
+
         List<Integer> worldLocations = new ArrayList<>(staged.keySet());
         Collections.sort(worldLocations);
         for (Integer worldLocationId : worldLocations) {
