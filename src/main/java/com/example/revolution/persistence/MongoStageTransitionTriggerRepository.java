@@ -44,16 +44,17 @@ public final class MongoStageTransitionTriggerRepository implements StageTransit
         if (!enabled || !connection.isConnected() || trigger == null) return;
         Document values = new Document("worldLocationId", trigger.getWorldLocationId())
                 .append("mobSlotId", trigger.getSourceMobSlotId())
-                .append("width", trigger.getWidth())
+                .append("offset", trigger.getOffset())
+                .append("radius", trigger.getRadius())
                 .append("displayMode", trigger.getDisplayMode().name());
         if (trigger.getLockedMessage() != null) values.append("lockedMessage", trigger.getLockedMessage());
         if (trigger.getForwardMessage() != null) values.append("forwardMessage", trigger.getForwardMessage());
         if (trigger.getBackwardMessage() != null) values.append("backwardMessage", trigger.getBackwardMessage());
 
-        Document unset = new Document("centerX", "")
+        Document unset = new Document("width", "")
+                .append("centerX", "")
                 .append("centerY", "")
                 .append("centerZ", "")
-                .append("radius", "")
                 .append("halfHeight", "")
                 .append("enteringMessage", "");
         if (trigger.getLockedMessage() == null) unset.append("lockedMessage", "");
@@ -80,12 +81,23 @@ public final class MongoStageTransitionTriggerRepository implements StageTransit
         try {
             Integer worldLocationId = doc.getInteger("worldLocationId");
             Integer mobSlotId = doc.getInteger("mobSlotId");
-            Object width = doc.get("width");
-            if (worldLocationId == null || mobSlotId == null || !(width instanceof Number)) return null;
+            Object offset = doc.get("offset");
+            Object radius = doc.get("radius");
+            if (worldLocationId == null || mobSlotId == null) return null;
+
+            // Backward compatibility for the short-lived width-only DEV schema.
+            if (!(offset instanceof Number) || !(radius instanceof Number)) {
+                Object width = doc.get("width");
+                if (!(width instanceof Number)) return null;
+                offset = 0.0D;
+                radius = ((Number) width).doubleValue();
+            }
+
             return new StageTransitionTriggerDefinition(
                     worldLocationId,
                     mobSlotId,
-                    ((Number) width).doubleValue(),
+                    ((Number) offset).doubleValue(),
+                    ((Number) radius).doubleValue(),
                     displayMode(doc.getString("displayMode")),
                     doc.getString("lockedMessage"),
                     doc.getString("forwardMessage"),
