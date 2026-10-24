@@ -1,6 +1,7 @@
 package com.example.revolution.mob.service;
 
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.LocationKind;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.MovementMode;
 import com.example.revolution.location.definition.SpawnMode;
@@ -33,8 +34,10 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(3, 2)));
     }
 
-    @Test void finalBossUnlocksFirstStageOfNextLocation() {
+    @Test void explicitBossUnlocksFirstStageOfNextLocation() {
         unlockLocationOneThroughBoss();
+        assertTrue(service.isBossStage(id(1, 9)));
+        assertTrue(service.isFinalStage(id(1, 9)));
         assertFalse(service.isUnlocked(player, id(2, 2)));
         MobProgressionService.UnlockResult result = service.unlockNext(player, id(1, 9));
         assertNotNull(result);
@@ -44,6 +47,30 @@ class MobProgressionServiceJUnitTest {
         assertTrue(service.isUnlocked(player, id(2, 2)));
         assertEquals(Integer.valueOf(id(2, 2)), service.nextUnlockedInternalLocationId(player, id(1, 9)));
         assertEquals(Integer.valueOf(id(1, 9)), service.previousUnlockedInternalLocationId(player, id(2, 2)));
+    }
+
+    @Test void ordinaryLastNormalStageDoesNotCompleteLocation() {
+        List<LocationDefinition> zones = Arrays.asList(zone(1, 2), zone(1, 5), zone(1, 9), zone(2, 2), bossZone(2, 9));
+        List<StoredMobSpawn> spawns = Arrays.asList(spawn(1, 2, true), spawn(1, 5, true), spawn(1, 9, true), spawn(2, 2, true), spawn(2, 9, true));
+        service.reloadConfiguration(zones, spawns);
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertNotNull(service.unlockNext(player, id(1, 5)));
+        assertFalse(service.isFinalStage(id(1, 9)));
+        assertNull(service.unlockNext(player, id(1, 9)));
+        assertFalse(service.isUnlocked(player, id(2, 2)));
+        assertNull(service.nextConfiguredInternalLocationId(id(1, 9)));
+    }
+
+    @Test void bossMustBeFinalConfiguredStageToCompleteLocation() {
+        List<LocationDefinition> zones = Arrays.asList(zone(1, 2), bossZone(1, 5), zone(1, 9), zone(2, 2));
+        List<StoredMobSpawn> spawns = Arrays.asList(spawn(1, 2, true), spawn(1, 5, true), spawn(1, 9, true), spawn(2, 2, true));
+        service.reloadConfiguration(zones, spawns);
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertTrue(service.isBossStage(id(1, 5)));
+        assertFalse(service.isFinalStage(id(1, 5)));
+        assertNotNull(service.unlockNext(player, id(1, 5))); // ordinary in-location progression still reaches slot 9
+        assertNull(service.unlockNext(player, id(1, 9)));
+        assertFalse(service.isUnlocked(player, id(2, 2)));
     }
 
     @Test void lastConfiguredBossStopsCleanlyWhenFutureLocationDoesNotExist() {
@@ -72,7 +99,7 @@ class MobProgressionServiceJUnitTest {
         service.setUnlockListener((uuid, result) -> notifications[0]++);
         assertNotNull(service.unlockNext(player, id(2, 2)));
         assertNull(service.unlockNext(player, id(2, 2)));
-        assertEquals(2, repository.unlockWrites); // location opener + stage 5
+        assertEquals(2, repository.unlockWrites);
         assertEquals(1, notifications[0]);
     }
 
@@ -125,7 +152,7 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(2, 2)));
     }
 
-    @Test void configuredResolverCrossesLocationBoundaryBothWays() {
+    @Test void configuredResolverCrossesLocationBoundaryBothWaysThroughBoss() {
         assertEquals(Integer.valueOf(id(2, 2)), service.nextConfiguredInternalLocationId(id(1, 9)));
         assertEquals(Integer.valueOf(id(1, 9)), service.previousConfiguredInternalLocationId(id(2, 2)));
         assertEquals(Integer.valueOf(id(1, 5)), service.previousConfiguredInternalLocationId(id(1, 9)));
@@ -143,10 +170,10 @@ class MobProgressionServiceJUnitTest {
     }
 
     @Test void configurationIgnoresDisabledMissingAndDuplicateSpawnStages() {
-        service.reloadConfiguration(Arrays.asList(zone(4, 2), zone(4, 5)), Arrays.asList(
+        service.reloadConfiguration(Arrays.asList(zone(4, 2), bossZone(4, 5)), Arrays.asList(
                 spawn(4, 2, true), spawn(4, 2, true), spawn(4, 5, false), spawn(4, 9, true)));
         assertEquals(Collections.singletonList(2), service.configuredSlots(4));
-        assertTrue(service.isFinalStage(id(4, 2)));
+        assertFalse(service.isFinalStage(id(4, 2)));
         assertNull(service.unlockNext(player, id(4, 2)));
         assertThrows(UnsupportedOperationException.class, () -> service.configuredSlots(4).add(5));
     }
@@ -184,7 +211,11 @@ class MobProgressionServiceJUnitTest {
 
     private List<LocationDefinition> allZones() {
         List<LocationDefinition> zones = new ArrayList<>();
-        for (int location : Arrays.asList(1, 2, 3)) for (int slot : Arrays.asList(9, 2, 5)) zones.add(zone(location, slot));
+        for (int location : Arrays.asList(1, 2, 3)) {
+            zones.add(zone(location, 2));
+            zones.add(zone(location, 5));
+            zones.add(bossZone(location, 9));
+        }
         return zones;
     }
 
@@ -197,7 +228,10 @@ class MobProgressionServiceJUnitTest {
     private void loadThreeLocations() { service.reloadConfiguration(allZones(), allSpawns()); }
     private static int id(int location, int slot) { return MobZoneIds.encode(location, slot); }
     private static LocationDefinition zone(int location, int slot) {
-        return new LocationDefinition(id(location, slot), "stage", slot * 20.0D, location * 100.0D, 4.0D);
+        return new LocationDefinition(id(location, slot), "stage", slot * 20.0D, location * 100.0D, 4.0D, LocationKind.MOB_ZONE);
+    }
+    private static LocationDefinition bossZone(int location, int slot) {
+        return new LocationDefinition(id(location, slot), "boss", slot * 20.0D, location * 100.0D, 4.0D, LocationKind.BOSS_ZONE);
     }
     private static StoredMobSpawn spawn(int location, int slot, boolean enabled) {
         return new StoredMobSpawn(id(location, slot), slot, "stage-" + location + "-" + slot,
