@@ -33,7 +33,7 @@ public final class StageCommand extends AdminOnlyCommand {
     @Override public String getUsage(ICommandSender sender) {
         return "/stage <next|previous> [player] | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]]"
                 + " | /stage clearpoint <locationId> <mobSlotId>"
-                + " | /stage settrigger <locationId> <mobSlotId> <width>"
+                + " | /stage settrigger <locationId> <mobSlotId> <offset> <radius>"
                 + " | /stage cleartrigger <locationId> <mobSlotId>"
                 + " | /stage setmessage <locationId> <mobSlotId> <locked|forward|backward> <text...>"
                 + " | /stage clearmessage <locationId> <mobSlotId> <locked|forward|backward>"
@@ -148,16 +148,19 @@ public final class StageCommand extends AdminOnlyCommand {
     }
 
     private void configureTrigger(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 4) throw new CommandException(getUsage(sender));
+        if (args.length != 5) throw new CommandException(getUsage(sender));
         int worldLocationId = parseInt(args[1]);
         int mobSlotId = parseInt(args[2]);
-        double width = parseDouble(args[3], 0.01D);
+        double offset = parseDouble(args[3], 0.0D);
+        double radius = parseDouble(args[4], 0.01D);
         StageTransitionTriggerDefinition trigger;
-        try { trigger = triggers.configureTrigger(worldLocationId, mobSlotId, width); }
+        try { trigger = triggers.configureTrigger(worldLocationId, mobSlotId, offset, radius); }
         catch (IllegalArgumentException | IllegalStateException e) { throw new CommandException(e.getMessage()); }
         sender.sendMessage(new TextComponentString(
                 "Boundary trigger saved for Location " + worldLocationId + ", mobSlot " + mobSlotId
-                        + " width=" + format(trigger.getWidth()) + " (forward/backward 180 degrees)."));
+                        + " offset=" + format(trigger.getOffset())
+                        + " radius=" + format(trigger.getRadius())
+                        + " (forward/backward 180 degrees, 1s delay)."));
     }
 
     private void clearTrigger(ICommandSender sender, String[] args) throws CommandException {
