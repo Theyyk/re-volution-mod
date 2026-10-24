@@ -1,6 +1,7 @@
 package com.example.revolution.location.service;
 
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.LocationKind;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.MovementMode;
 import com.example.revolution.location.definition.SpawnMode;
@@ -28,7 +29,7 @@ class FastAutoServiceJUnitTest {
         progressionRepository = new InMemoryMobProgressionRepository();
         progression = new MobProgressionService(progressionRepository);
         progression.reloadConfiguration(
-                Arrays.asList(zone(1, 1), zone(1, 2), zone(2, 1), zone(2, 2)),
+                Arrays.asList(zone(1, 1), bossZone(1, 2), zone(2, 1), bossZone(2, 2)),
                 Arrays.asList(spawn(1, 1), spawn(1, 2), spawn(2, 1), spawn(2, 2)));
         preferences = new MemoryPreferences();
         fastAuto = new FastAutoService(preferences, progression);
@@ -78,7 +79,10 @@ class FastAutoServiceJUnitTest {
 
     private static int id(int location, int slot) { return MobZoneIds.encode(location, slot); }
     private static LocationDefinition zone(int location, int slot) {
-        return new LocationDefinition(id(location, slot), "stage", slot * 10.0D, location * 100.0D, 4.0D);
+        return new LocationDefinition(id(location, slot), "stage", slot * 10.0D, location * 100.0D, 4.0D, LocationKind.MOB_ZONE);
+    }
+    private static LocationDefinition bossZone(int location, int slot) {
+        return new LocationDefinition(id(location, slot), "boss", slot * 10.0D, location * 100.0D, 4.0D, LocationKind.BOSS_ZONE);
     }
     private static StoredMobSpawn spawn(int location, int slot) {
         return new StoredMobSpawn(id(location, slot), slot, "mob-" + location + "-" + slot,
