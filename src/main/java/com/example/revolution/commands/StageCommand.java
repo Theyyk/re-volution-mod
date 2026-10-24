@@ -37,7 +37,8 @@ public final class StageCommand extends AdminOnlyCommand {
 
     @Override public String getName() { return "stage"; }
     @Override public String getUsage(ICommandSender sender) {
-        return "/stage <next|previous> [player] | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]]"
+        return "/stage <next|previous> [player] | /stage teleport <locationId> <mobSlotId> [player]"
+                + " | /stage setpoint <locationId> <mobSlotId> [x y z [yaw pitch]]"
                 + " | /stage clearpoint <locationId> <mobSlotId>"
                 + " | /stage settrigger <locationId> <mobSlotId> <offset> <radius>"
                 + " | /stage cleartrigger <locationId> <mobSlotId>"
@@ -54,11 +55,14 @@ public final class StageCommand extends AdminOnlyCommand {
             MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(args,
-                    "next", "previous", "setpoint", "clearpoint", "settrigger", "cleartrigger",
+                    "next", "previous", "teleport", "setpoint", "clearpoint", "settrigger", "cleartrigger",
                     "setmessage", "clearmessage", "display", "auto", "revoke", "reset");
         }
         if (args.length == 2 && ("next".equalsIgnoreCase(args[0])
                 || "previous".equalsIgnoreCase(args[0]) || "prev".equalsIgnoreCase(args[0]))) {
+            return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
+        }
+        if (args.length == 4 && ("teleport".equalsIgnoreCase(args[0]) || "tp".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
         }
         if (args.length == 2 && "auto".equalsIgnoreCase(args[0])) {
@@ -87,6 +91,8 @@ public final class StageCommand extends AdminOnlyCommand {
         if (args.length < 1) throw new CommandException(getUsage(sender));
         String action = args[0].toLowerCase(Locale.ROOT);
         switch (action) {
+            case "teleport":
+            case "tp": teleport(server, sender, args); return;
             case "setpoint": configurePoint(sender, args); return;
             case "clearpoint": clearPoint(sender, args); return;
             case "settrigger": configureTrigger(sender, args); return;
@@ -122,6 +128,27 @@ public final class StageCommand extends AdminOnlyCommand {
                         + ", mobSlot " + MobZoneIds.mobSlotId(result.getFromInternalLocationId())
                         + " to Location " + MobZoneIds.worldLocationId(result.getToInternalLocationId())
                         + ", mobSlot " + MobZoneIds.mobSlotId(result.getToInternalLocationId()) + "."));
+    }
+
+    private void teleport(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 3 && args.length != 4) throw new CommandException(getUsage(sender));
+        int worldLocationId = parseInt(args[1], 0);
+        int mobSlotId = parseInt(args[2], 1, 99);
+        if (!progression.configuredSlots(worldLocationId).contains(mobSlotId)) {
+            throw new CommandException("Target mob stage is not configured/populated");
+        }
+        EntityPlayerMP player = args.length == 4
+                ? getPlayer(server, sender, args[3])
+                : getCommandSenderAsPlayer(sender);
+        TransitionResult result;
+        try {
+            result = transitions.moveToStage(player, MobZoneIds.encode(worldLocationId, mobSlotId));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new CommandException(e.getMessage());
+        }
+        sender.sendMessage(new TextComponentString(
+                "Teleported " + player.getName() + " to Location " + worldLocationId
+                        + ", mobSlot " + mobSlotId + "."));
     }
 
     private void configurePoint(ICommandSender sender, String[] args) throws CommandException {
