@@ -1,6 +1,8 @@
 package com.example.revolution.persistence;
 
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.LocationKind;
+import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.MovementMode;
 import com.example.revolution.location.definition.SpawnMode;
 import com.example.revolution.location.definition.SpawnRealmScope;
@@ -53,7 +55,8 @@ public final class MongoLocationRepository implements LocationRepository {
                 .append("name", location.getName())
                 .append("centerX", location.getCenterX())
                 .append("centerZ", location.getCenterZ())
-                .append("radius", location.getRadius());
+                .append("radius", location.getRadius())
+                .append("kind", location.getKind().name());
         if (location.hasTransitionPoint()) {
             values.append("transitionX", location.getTransitionX())
                     .append("transitionY", location.getTransitionY())
@@ -133,6 +136,8 @@ public final class MongoLocationRepository implements LocationRepository {
             double centerX = number(doc, "centerX", 0.0D);
             double centerZ = number(doc, "centerZ", 0.0D);
             double radius = number(doc, "radius", 5.0D);
+            LocationKind fallback = MobZoneIds.isMobZoneId(locationId) ? LocationKind.MOB_ZONE : LocationKind.WORLD;
+            LocationKind kind = enumValue(LocationKind.class, doc.getString("kind"), fallback);
             if (hasNumber(doc, "transitionX") && hasNumber(doc, "transitionY") && hasNumber(doc, "transitionZ")) {
                 return new LocationDefinition(
                         locationId,
@@ -140,13 +145,14 @@ public final class MongoLocationRepository implements LocationRepository {
                         centerX,
                         centerZ,
                         radius,
+                        kind,
                         number(doc, "transitionX", 0.0D),
                         number(doc, "transitionY", 64.0D),
                         number(doc, "transitionZ", 0.0D),
                         (float) number(doc, "transitionYaw", 0.0D),
                         (float) number(doc, "transitionPitch", 0.0D));
             }
-            return new LocationDefinition(locationId, name, centerX, centerZ, radius);
+            return new LocationDefinition(locationId, name, centerX, centerZ, radius, kind);
         } catch (RuntimeException ignored) {
             // Invalid persisted entries are ignored; runtime validation reports missing references later.
             return null;

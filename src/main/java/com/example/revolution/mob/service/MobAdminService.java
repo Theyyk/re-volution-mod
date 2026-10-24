@@ -1,6 +1,7 @@
 package com.example.revolution.mob.service;
 
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.LocationKind;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.MovementMode;
 import com.example.revolution.location.definition.SpawnMode;
@@ -103,6 +104,14 @@ public final class MobAdminService {
             setMobZone(player, args);
             return;
         }
+        if (args.length == 4 && args[1].equalsIgnoreCase("setboss")) {
+            setBossZone(player, args);
+            return;
+        }
+        if (args.length == 4 && args[1].equalsIgnoreCase("clearboss")) {
+            clearBossZone(player, args);
+            return;
+        }
         if (args.length == 6 && args[1].equalsIgnoreCase("populate")) {
             populateMobZone(player, args);
             return;
@@ -116,6 +125,8 @@ public final class MobAdminService {
             return;
         }
         player.sendMessage(new TextComponentString("§c/custommob location set <locationId> <mobSlotId> <radius>"));
+        player.sendMessage(new TextComponentString("§c/custommob location setboss <locationId> <mobSlotId>"));
+        player.sendMessage(new TextComponentString("§c/custommob location clearboss <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§c/custommob location populate <locationId> <mobSlotId> <mobName> <count>"));
         player.sendMessage(new TextComponentString("§c/custommob location clear <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§c/custommob location remove <locationId> <mobSlotId>"));
@@ -128,12 +139,16 @@ public final class MobAdminService {
             int mobSlotId = Integer.parseInt(args[3]);
             double radius = Double.parseDouble(args[4]);
             int internalId = MobZoneIds.encode(worldLocationId, mobSlotId);
-            LocationDefinition zone = new LocationDefinition(internalId, "MobZone " + worldLocationId + ":" + mobSlotId,
-                    player.posX, player.posZ, radius);
+            ensureNoStageAfterBoss(worldLocationId, mobSlotId);
+            LocationDefinition existing = locations.getLocation(internalId);
+            LocationKind kind = existing != null && existing.isBossZone() ? LocationKind.BOSS_ZONE : LocationKind.MOB_ZONE;
+            LocationDefinition zone = new LocationDefinition(internalId,
+                    (kind == LocationKind.BOSS_ZONE ? "BossZone " : "MobZone ") + worldLocationId + ":" + mobSlotId,
+                    player.posX, player.posZ, radius, kind);
 
             int cleared = clearZonePopulation(internalId);
             locations.upsertLocation(zone);
-            player.sendMessage(new TextComponentString("§aMob zone сохранена: location=" + worldLocationId
+            player.sendMessage(new TextComponentString("§a" + (zone.isBossZone() ? "Boss" : "Mob") + " zone сохранена: location=" + worldLocationId
                     + " slot=" + mobSlotId + " center=" + format(player.posX) + "," + format(player.posZ)
                     + " radius=" + format(radius)));
             if (cleared > 0) {
@@ -144,6 +159,81 @@ public final class MobAdminService {
         } catch (RuntimeException e) {
             player.sendMessage(new TextComponentString("§cНекорректные параметры mob zone: " + e.getMessage()));
         }
+    }
+
+    private void setBossZone(EntityPlayerMP player, String[] args) {
+        try {
+            int worldLocationId = Integer.parseInt(args[2]);
+            int mobSlotId = Integer.parseInt(args[3]);
+            int internalId = MobZoneIds.encode(worldLocationId, mobSlotId);
+            LocationDefinition target = locations.getLocation(internalId);
+            if (target == null) throw new IllegalArgumentException("Mob zone не найдена");
+            if (!isFinalConfiguredZone(worldLocationId, mobSlotId)) {
+                throw new IllegalArgumentException("Boss Zone должна быть последним configured mobSlot Location");
+            }
+            for (LocationDefinition zone : zonesForWorldLocation(worldLocationId)) {
+                if (zone.isBossZone() && zone.getLocationId() != internalId) {
+                    throw new IllegalArgumentException("В Location уже настроена другая Boss Zone: slot="
+                            + MobZoneIds.mobSlotId(zone.getLocationId()));
+                }
+            }
+            if (!target.isBossZone()) locations.upsertLocation(withKind(target, LocationKind.BOSS_ZONE));
+            player.sendMessage(new TextComponentString("§aBoss Zone назначена: location=" + worldLocationId + " slot=" + mobSlotId));
+            mobs.respawnAll();
+        } catch (RuntimeException e) {
+            player.sendMessage(new TextComponentString("§cНе удалось назначить Boss Zone: " + e.getMessage()));
+        }
+    }
+
+    private void clearBossZone(EntityPlayerMP player, String[] args) {
+        try {
+            int worldLocationId = Integer.parseInt(args[2]);
+            int mobSlotId = Integer.parseInt(args[3]);
+            int internalId = MobZoneIds.encode(worldLocationId, mobSlotId);
+            LocationDefinition target = locations.getLocation(internalId);
+            if (target == null) throw new IllegalArgumentException("Mob zone не найдена");
+            if (!target.isBossZone()) throw new IllegalArgumentException("Указанная зона не является Boss Zone");
+            locations.upsertLocation(withKind(target, LocationKind.MOB_ZONE));
+            player.sendMessage(new TextComponentString("§aBoss Zone снята: location=" + worldLocationId + " slot=" + mobSlotId));
+            mobs.respawnAll();
+        } catch (RuntimeException e) {
+            player.sendMessage(new TextComponentString("§cНе удалось снять Boss Zone: " + e.getMessage()));
+        }
+    }
+
+    private LocationDefinition withKind(LocationDefinition source, LocationKind kind) {
+        String name = (kind == LocationKind.BOSS_ZONE ? "BossZone " : "MobZone ")
+                + MobZoneIds.worldLocationId(source.getLocationId()) + ":" + MobZoneIds.mobSlotId(source.getLocationId());
+        if (source.hasTransitionPoint()) {
+            return new LocationDefinition(source.getLocationId(), name, source.getCenterX(), source.getCenterZ(), source.getRadius(), kind,
+                    source.getTransitionX(), source.getTransitionY(), source.getTransitionZ(), source.getTransitionYaw(), source.getTransitionPitch());
+        }
+        return new LocationDefinition(source.getLocationId(), name, source.getCenterX(), source.getCenterZ(), source.getRadius(), kind);
+    }
+
+    private void ensureNoStageAfterBoss(int worldLocationId, int proposedSlot) {
+        for (LocationDefinition zone : zonesForWorldLocation(worldLocationId)) {
+            if (!zone.isBossZone()) continue;
+            int bossSlot = MobZoneIds.mobSlotId(zone.getLocationId());
+            if (proposedSlot > bossSlot) throw new IllegalArgumentException("Нельзя создать stage после Boss Zone slot=" + bossSlot);
+        }
+    }
+
+    private boolean isFinalConfiguredZone(int worldLocationId, int mobSlotId) {
+        int maxSlot = -1;
+        for (LocationDefinition zone : zonesForWorldLocation(worldLocationId)) {
+            maxSlot = Math.max(maxSlot, MobZoneIds.mobSlotId(zone.getLocationId()));
+        }
+        return maxSlot == mobSlotId;
+    }
+
+    private List<LocationDefinition> zonesForWorldLocation(int worldLocationId) {
+        List<LocationDefinition> result = new ArrayList<>();
+        for (LocationDefinition zone : locations.getLocations()) {
+            if (!MobZoneIds.isMobZoneId(zone.getLocationId())) continue;
+            if (MobZoneIds.worldLocationId(zone.getLocationId()) == worldLocationId) result.add(zone);
+        }
+        return result;
     }
 
     private void populateMobZone(EntityPlayerMP player, String[] args) {
@@ -208,9 +298,9 @@ public final class MobAdminService {
             clearZonePopulation(internalId);
             for (StoredMobSpawn spawn : generated) locations.upsertMobSpawn(spawn);
 
-            player.sendMessage(new TextComponentString("§aMob zone заполнена: location=" + worldLocationId + " slot=" + mobSlotId
+            player.sendMessage(new TextComponentString("§a" + (zone.isBossZone() ? "Boss" : "Mob") + " zone заполнена: location=" + worldLocationId + " slot=" + mobSlotId
                     + " mob=" + mobName + " count=" + count + " fixed=" + fixedCount + " random=" + randomCount));
-            player.sendMessage(new TextComponentString("§7Все обычные мобы: ROAMING. Для нечётного count лишний моб относится к FIXED_POINT."));
+            player.sendMessage(new TextComponentString("§7Все мобы: ROAMING. Для нечётного count лишний моб относится к FIXED_POINT."));
             player.sendMessage(new TextComponentString("§7Spawn surface: не выше baseY + " + MAX_SPAWN_RISE + ", листья и брёвна исключены."));
             mobs.respawnAll();
         } catch (RuntimeException e) {
@@ -229,8 +319,8 @@ public final class MobAdminService {
                 return;
             }
             int removedSpawns = clearZonePopulation(internalId);
-            player.sendMessage(new TextComponentString("§aMob zone очищена: location=" + worldLocationId + " slot=" + mobSlotId
-                    + " removedSpawns=" + removedSpawns + ". Геометрия зоны сохранена."));
+            player.sendMessage(new TextComponentString("§a" + (zone.isBossZone() ? "Boss" : "Mob") + " zone очищена: location=" + worldLocationId + " slot=" + mobSlotId
+                    + " removedSpawns=" + removedSpawns + ". Геометрия и тип зоны сохранены."));
             mobs.respawnAll();
         } catch (RuntimeException e) {
             player.sendMessage(new TextComponentString("§cНе удалось очистить mob zone: " + e.getMessage()));
@@ -307,6 +397,7 @@ public final class MobAdminService {
             else if (spawn.getSpawnMode() == SpawnMode.RANDOM_AREA) random++;
         }
         player.sendMessage(new TextComponentString("§7Location " + worldLocationId + " / Mob Slot " + mobSlotId
+                + " type=" + (zone.isBossZone() ? "BOSS" : "NORMAL")
                 + " radius=" + format(zone.getRadius()) + " center=" + format(zone.getCenterX()) + "," + format(zone.getCenterZ())
                 + " mob=" + mobName + " count=" + spawns.size() + " fixed=" + fixed + " random=" + random));
     }
@@ -425,6 +516,7 @@ public final class MobAdminService {
     private void showUsage(EntityPlayerMP player) {
         player.sendMessage(new TextComponentString("§e/custommob create <name> <resource> <amount> <hp> <type>"));
         player.sendMessage(new TextComponentString("§e/custommob location set <locationId> <mobSlotId> <radius>"));
+        player.sendMessage(new TextComponentString("§e/custommob location setboss <locationId> <mobSlotId> | clearboss <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§e/custommob location populate <locationId> <mobSlotId> <mobName> <count>"));
         player.sendMessage(new TextComponentString("§e/custommob location clear <locationId> <mobSlotId>"));
         player.sendMessage(new TextComponentString("§e/custommob location remove <locationId> <mobSlotId>"));

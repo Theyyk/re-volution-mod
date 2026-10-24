@@ -1,5 +1,6 @@
 package com.example.revolution.client;
 
+import com.example.revolution.network.FastAutoTogglePacket;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.StageTravelMenuPacket;
 import com.example.revolution.network.StageTravelTeleportRequestPacket;
@@ -20,6 +21,7 @@ public final class StageTravelGuiScreen extends GuiScreen {
     private static final int PREVIOUS_PAGE = 2;
     private static final int NEXT_PAGE = 3;
     private static final int CLOSE = 4;
+    private static final int FAST_AUTO = 5;
     private static final int ITEMS_PER_PAGE = 6;
 
     private final List<StageTravelMenuPacket.Entry> entries = new ArrayList<>();
@@ -27,9 +29,11 @@ public final class StageTravelGuiScreen extends GuiScreen {
     private final List<Integer> visibleLocations = new ArrayList<>();
     private int selectedLocation = -1;
     private int page = 0;
+    private boolean fastAutoEnabled;
 
-    public StageTravelGuiScreen(List<StageTravelMenuPacket.Entry> entries) {
+    public StageTravelGuiScreen(List<StageTravelMenuPacket.Entry> entries, boolean fastAutoEnabled) {
         if (entries != null) this.entries.addAll(entries);
+        this.fastAutoEnabled = fastAutoEnabled;
         Collections.sort(this.entries, Comparator
                 .comparingInt(StageTravelMenuPacket.Entry::getWorldLocationId)
                 .thenComparingInt(StageTravelMenuPacket.Entry::getMobSlotId));
@@ -48,6 +52,9 @@ public final class StageTravelGuiScreen extends GuiScreen {
         buttonList.add(new GuiButton(CLOSE, width / 2 + 65, bottom, 90, 20, "Закрыть"));
         if (selectedLocation >= 0) {
             buttonList.add(new GuiButton(BACK, width / 2 - 155, bottom, 90, 20, "Назад"));
+        } else {
+            buttonList.add(new GuiButton(FAST_AUTO, width / 2 - 155, bottom, 130, 20,
+                    "Fast-auto: " + (fastAutoEnabled ? "ON" : "OFF")));
         }
     }
 
@@ -81,12 +88,9 @@ public final class StageTravelGuiScreen extends GuiScreen {
         for (int i = from; i < to; i++) {
             StageTravelMenuPacket.Entry entry = stages.get(i);
             visibleStageEntries.add(entry);
-            String label = "Моб " + entry.getMobSlotId();
-            if (!entry.isUnlocked()) label += " - закрыт";
-            else if (!entry.hasTransitionPoint()) label += " - нет точки";
             GuiButton button = new GuiButton(ITEM_BASE + visibleStageEntries.size() - 1,
                     width / 2 - 110, 48 + (visibleStageEntries.size() - 1) * 24,
-                    220, 20, label);
+                    220, 20, StageTravelLabels.stageLabel(entry));
             button.enabled = entry.isUnlocked() && entry.hasTransitionPoint();
             buttonList.add(button);
         }
@@ -112,6 +116,12 @@ public final class StageTravelGuiScreen extends GuiScreen {
         if (!button.enabled) return;
         if (button.id == CLOSE) {
             mc.displayGuiScreen(null);
+            return;
+        }
+        if (button.id == FAST_AUTO) {
+            fastAutoEnabled = !fastAutoEnabled;
+            NetworkHandler.INSTANCE.sendToServer(new FastAutoTogglePacket(fastAutoEnabled));
+            initGui();
             return;
         }
         if (button.id == BACK) {

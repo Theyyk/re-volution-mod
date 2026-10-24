@@ -12,7 +12,8 @@ public final class StageTravelMenuPacketClientHandler implements IMessageHandler
     @Override
     public IMessage onMessage(StageTravelMenuPacket message, MessageContext ctx) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        minecraft.addScheduledTask(() -> minecraft.displayGuiScreen(new StageTravelGuiScreen(message.getEntries())));
+        minecraft.addScheduledTask(() -> minecraft.displayGuiScreen(
+                new StageTravelGuiScreen(message.getEntries(), message.isFastAutoEnabled())));
         return null;
     }
 }

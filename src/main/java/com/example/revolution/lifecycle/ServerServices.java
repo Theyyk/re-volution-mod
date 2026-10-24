@@ -4,9 +4,11 @@ import com.example.revolution.admin.api.AdminApiServer;
 import com.example.revolution.admin.service.AdminAccessService;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
+import com.example.revolution.location.repository.FastAutoPreferenceRepository;
 import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.location.repository.StageTransitionPreferenceRepository;
 import com.example.revolution.location.repository.StageTransitionTriggerRepository;
+import com.example.revolution.location.service.FastAutoService;
 import com.example.revolution.location.service.MobZoneOverlayService;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionTriggerService;
@@ -18,6 +20,7 @@ import com.example.revolution.mob.service.MobProgressionService;
 import com.example.revolution.mob.service.MobRewardService;
 import com.example.revolution.persistence.FileAdminWhitelistRepository;
 import com.example.revolution.persistence.MongoConnection;
+import com.example.revolution.persistence.MongoFastAutoPreferenceRepository;
 import com.example.revolution.persistence.MongoLocationRepository;
 import com.example.revolution.persistence.MongoMobProgressionRepository;
 import com.example.revolution.persistence.MongoMobRepository;
@@ -66,6 +69,7 @@ public final class ServerServices implements AutoCloseable {
     public final MobZoneOverlayService mobZoneOverlay;
     public final StageTransitionService stageTransitions;
     public final StageTransitionTriggerService stageTransitionTriggers;
+    public final FastAutoService fastAuto;
     public final PlayerSessionService sessions;
     public final PlayerStatsService playerStats;
     public final RuneCombatService combat;
@@ -82,6 +86,7 @@ public final class ServerServices implements AutoCloseable {
         MobProgressionRepository progressionRepository = new MongoMobProgressionRepository(connection, persistentGameplay);
         StageTransitionTriggerRepository triggerRepository = new MongoStageTransitionTriggerRepository(connection, persistentGameplay);
         StageTransitionPreferenceRepository transitionPreferences = new MongoStageTransitionPreferenceRepository(connection, persistentGameplay);
+        FastAutoPreferenceRepository fastAutoPreferences = new MongoFastAutoPreferenceRepository(connection, persistentGameplay);
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
         resources = new ResourceService(new MongoResourceRepository(connection));
         combat = new RuneCombatService(players, enhancements, combatState);
@@ -98,6 +103,8 @@ public final class ServerServices implements AutoCloseable {
         stageTransitions = new StageTransitionService(locationRepository, mobProgression);
         stageTransitionTriggers = new StageTransitionTriggerService(
                 triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
+        fastAuto = new FastAutoService(fastAutoPreferences, mobProgression);
+        mobProgression.setUnlockListener(fastAuto);
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
@@ -121,6 +128,7 @@ public final class ServerServices implements AutoCloseable {
     @Override public void close() {
         adminApi.close();
         mobs.clear();
+        fastAuto.clear();
         mobProgression.clear();
         combatState.clear();
         connection.close();
