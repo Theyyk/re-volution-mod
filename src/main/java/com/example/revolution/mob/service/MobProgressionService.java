@@ -16,37 +16,26 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Per-player progression across configured mob-zone slots and world Locations.
- * Only the first configured stage of the first configured Location is open by default.
- * Every later stage, including the first stage of later Locations, must be explicitly unlocked.
- */
+/** Per-player progression across configured mob stages and world Locations. */
 public final class MobProgressionService {
-    public interface UnlockListener {
-        void onUnlocked(UUID playerUuid, UnlockResult result);
-    }
+    public interface UnlockListener { void onUnlocked(UUID playerUuid, UnlockResult result); }
 
     public static final class UnlockResult {
         public final int worldLocationId;
         public final int mobSlotId;
         public final String mobName;
-
         UnlockResult(int worldLocationId, int mobSlotId, String mobName) {
             this.worldLocationId = worldLocationId;
             this.mobSlotId = mobSlotId;
             this.mobName = mobName;
         }
-
-        public int internalLocationId() {
-            return MobZoneIds.encode(worldLocationId, mobSlotId);
-        }
+        public int internalLocationId() { return MobZoneIds.encode(worldLocationId, mobSlotId); }
     }
 
     private static final class Stage {
         final int internalLocationId;
         final int mobSlotId;
         final String mobName;
-
         Stage(int internalLocationId, int mobSlotId, String mobName) {
             this.internalLocationId = internalLocationId;
             this.mobSlotId = mobSlotId;
@@ -64,23 +53,16 @@ public final class MobProgressionService {
         this.repository = repository;
     }
 
-    public void setUnlockListener(UnlockListener unlockListener) {
-        this.unlockListener = unlockListener;
-    }
+    public void setUnlockListener(UnlockListener unlockListener) { this.unlockListener = unlockListener; }
 
-    /** Rebuilds the stage chain from the same Location/Mob Spawn snapshot used by managed runtime. */
     public void reloadConfiguration(List<LocationDefinition> locations, List<StoredMobSpawn> storedSpawns) {
         chains.clear();
         unlockCache.clear();
         if (locations == null || storedSpawns == null) return;
-
         Set<Integer> existingZoneIds = new HashSet<>();
         for (LocationDefinition location : locations) {
-            if (location != null && MobZoneIds.isMobZoneId(location.getLocationId())) {
-                existingZoneIds.add(location.getLocationId());
-            }
+            if (location != null && MobZoneIds.isMobZoneId(location.getLocationId())) existingZoneIds.add(location.getLocationId());
         }
-
         Map<Integer, String> populatedZones = new LinkedHashMap<>();
         for (StoredMobSpawn spawn : storedSpawns) {
             if (spawn == null || !spawn.isEnabled()) continue;
@@ -88,7 +70,6 @@ public final class MobProgressionService {
             if (!existingZoneIds.contains(internalLocationId) || !MobZoneIds.isMobZoneId(internalLocationId)) continue;
             populatedZones.putIfAbsent(internalLocationId, spawn.getMobName());
         }
-
         Map<Integer, Map<Integer, Stage>> staged = new LinkedHashMap<>();
         for (Map.Entry<Integer, String> item : populatedZones.entrySet()) {
             int internalLocationId = item.getKey();
@@ -97,7 +78,6 @@ public final class MobProgressionService {
             staged.computeIfAbsent(worldLocationId, ignored -> new LinkedHashMap<>())
                     .put(mobSlotId, new Stage(internalLocationId, mobSlotId, item.getValue()));
         }
-
         List<Integer> worldLocations = new ArrayList<>(staged.keySet());
         Collections.sort(worldLocations);
         for (Integer worldLocationId : worldLocations) {
@@ -115,28 +95,25 @@ public final class MobProgressionService {
         int mobSlotId = MobZoneIds.mobSlotId(internalLocationId);
         List<Integer> configured = configuredSlots(worldLocationId);
         if (configured.isEmpty() || !configured.contains(mobSlotId)) return true;
-
         Set<Integer> explicit = unlockedSlots(playerUuid, worldLocationId);
-        if (mobSlotId == configured.get(0)) {
-            Integer firstLocation = firstConfiguredWorldLocationId();
-            return (firstLocation != null && firstLocation == worldLocationId) || explicit.contains(mobSlotId);
-        }
+        Integer firstLocation = firstConfiguredWorldLocationId();
+        int firstSlot = configured.get(0);
+        boolean firstLocationDefault = firstLocation != null && firstLocation == worldLocationId;
+        if (!firstLocationDefault && !explicit.contains(firstSlot)) return false;
+        if (mobSlotId == firstSlot) return firstLocationDefault || explicit.contains(firstSlot);
         return explicit.contains(mobSlotId);
     }
 
     public Integer previousRequiredSlot(int internalLocationId) {
         if (!MobZoneIds.isMobZoneId(internalLocationId)) return null;
-        int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
-        return MobProgressionRules.previousConfiguredSlot(
-                MobZoneIds.mobSlotId(internalLocationId), configuredSlots(worldLocationId));
+        return MobProgressionRules.previousConfiguredSlot(MobZoneIds.mobSlotId(internalLocationId),
+                configuredSlots(MobZoneIds.worldLocationId(internalLocationId)));
     }
 
-    /** Resolves the next configured stage across Location boundaries, without checking player access. */
     public Integer nextConfiguredInternalLocationId(int internalLocationId) {
         return adjacentConfiguredInternalLocationId(internalLocationId, true);
     }
 
-    /** Resolves the previous configured stage across Location boundaries, without checking player access. */
     public Integer previousConfiguredInternalLocationId(int internalLocationId) {
         return adjacentConfiguredInternalLocationId(internalLocationId, false);
     }
@@ -156,14 +133,8 @@ public final class MobProgressionService {
         List<Integer> configured = configuredSlots(worldLocationId);
         int index = configured.indexOf(currentSlot);
         if (index < 0) return null;
-
-        if (forward && index + 1 < configured.size()) {
-            return MobZoneIds.encode(worldLocationId, configured.get(index + 1));
-        }
-        if (!forward && index > 0) {
-            return MobZoneIds.encode(worldLocationId, configured.get(index - 1));
-        }
-
+        if (forward && index + 1 < configured.size()) return MobZoneIds.encode(worldLocationId, configured.get(index + 1));
+        if (!forward && index > 0) return MobZoneIds.encode(worldLocationId, configured.get(index - 1));
         List<Integer> locations = configuredWorldLocations();
         int locationIndex = locations.indexOf(worldLocationId);
         if (locationIndex < 0) return null;
@@ -179,32 +150,21 @@ public final class MobProgressionService {
     private Integer adjacentUnlockedInternalLocationId(UUID playerUuid, int internalLocationId, boolean forward) {
         if (playerUuid == null) return null;
         Integer adjacentId = adjacentConfiguredInternalLocationId(internalLocationId, forward);
-        if (adjacentId == null || !isUnlocked(playerUuid, adjacentId)) return null;
-        return adjacentId;
+        return adjacentId != null && isUnlocked(playerUuid, adjacentId) ? adjacentId : null;
     }
 
-    /**
-     * Unlocks the next configured stage. When the current stage is the final stage (boss) of one
-     * Location, the first configured stage of the next Location is unlocked. If no next Location is
-     * configured yet, progression safely stops at the current available content.
-     */
     public UnlockResult unlockNext(UUID playerUuid, int internalLocationId) {
-        if (playerUuid == null || !MobZoneIds.isMobZoneId(internalLocationId)) return null;
-        if (!isUnlocked(playerUuid, internalLocationId)) return null;
-
+        if (playerUuid == null || !MobZoneIds.isMobZoneId(internalLocationId) || !isUnlocked(playerUuid, internalLocationId)) return null;
         Integer nextInternalId = nextConfiguredInternalLocationId(internalLocationId);
         if (nextInternalId == null) return null;
         int nextWorldLocationId = MobZoneIds.worldLocationId(nextInternalId);
         int nextSlot = MobZoneIds.mobSlotId(nextInternalId);
-
         Set<Integer> unlocked = unlockedSlots(playerUuid, nextWorldLocationId);
         if (unlocked.contains(nextSlot)) return null;
         if (!repository.unlockSlot(playerUuid, nextWorldLocationId, nextSlot)) return null;
         unlocked.add(nextSlot);
-
         Stage next = stage(nextWorldLocationId, nextSlot);
-        UnlockResult result = new UnlockResult(
-                nextWorldLocationId, nextSlot, next == null ? "" : next.mobName);
+        UnlockResult result = new UnlockResult(nextWorldLocationId, nextSlot, next == null ? "" : next.mobName);
         UnlockListener listener = unlockListener;
         if (listener != null) listener.onUnlocked(playerUuid, result);
         return result;
@@ -228,27 +188,18 @@ public final class MobProgressionService {
         return locations.isEmpty() ? null : locations.get(0);
     }
 
-    /**
-     * Revokes access from one stage forward. The requested stage and all later slots in the same
-     * world Location are closed, then every later world Location progression record is cleared.
-     */
     public boolean revokeFrom(UUID playerUuid, int worldLocationId, int mobSlotId) {
         if (playerUuid == null || worldLocationId < 0) return false;
         List<Integer> configured = configuredSlots(worldLocationId);
         if (configured.isEmpty() || !configured.contains(mobSlotId)) return false;
-
         Set<Integer> retained = new LinkedHashSet<>();
-        for (Integer slot : unlockedSlots(playerUuid, worldLocationId)) {
-            if (slot != null && slot < mobSlotId) retained.add(slot);
-        }
+        for (Integer slot : unlockedSlots(playerUuid, worldLocationId)) if (slot != null && slot < mobSlotId) retained.add(slot);
         if (!repository.replaceUnlockedSlots(playerUuid, worldLocationId, retained)) return false;
-        if (worldLocationId < Integer.MAX_VALUE
-                && !repository.clearFromLocation(playerUuid, worldLocationId + 1)) return false;
+        if (worldLocationId < Integer.MAX_VALUE && !repository.clearFromLocation(playerUuid, worldLocationId + 1)) return false;
         invalidateFromLocation(playerUuid, worldLocationId);
         return true;
     }
 
-    /** Clears this world Location and every later world Location back to default progression. */
     public boolean resetFromLocation(UUID playerUuid, int worldLocationId) {
         if (playerUuid == null || worldLocationId < 0) return false;
         if (!repository.clearFromLocation(playerUuid, worldLocationId)) return false;
@@ -288,9 +239,7 @@ public final class MobProgressionService {
             try {
                 int cachedLocationId = Integer.parseInt(key.substring(prefix.length()));
                 if (cachedLocationId >= worldLocationId) remove.add(key);
-            } catch (NumberFormatException ignored) {
-                remove.add(key);
-            }
+            } catch (NumberFormatException ignored) { remove.add(key); }
         }
         for (String key : remove) unlockCache.remove(key);
     }
