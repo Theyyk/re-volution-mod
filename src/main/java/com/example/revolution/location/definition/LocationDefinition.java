@@ -1,12 +1,13 @@
 package com.example.revolution.location.definition;
 
-/** Circular gameplay Location shared by Realm geometry. */
+/** Circular gameplay Location or stage-zone geometry shared by Realm geometry. */
 public final class LocationDefinition {
     private final int locationId;
     private final String name;
     private final double centerX;
     private final double centerZ;
     private final double radius;
+    private final LocationKind kind;
     private final boolean transitionPointConfigured;
     private final double transitionX;
     private final double transitionY;
@@ -15,7 +16,13 @@ public final class LocationDefinition {
     private final float transitionPitch;
 
     public LocationDefinition(int locationId, String name, double centerX, double centerZ, double radius) {
-        this(locationId, name, centerX, centerZ, radius, false, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F);
+        this(locationId, name, centerX, centerZ, radius, inferredKind(locationId), false,
+                0.0D, 0.0D, 0.0D, 0.0F, 0.0F);
+    }
+
+    public LocationDefinition(int locationId, String name, double centerX, double centerZ, double radius, LocationKind kind) {
+        this(locationId, name, centerX, centerZ, radius, kind, false,
+                0.0D, 0.0D, 0.0D, 0.0F, 0.0F);
     }
 
     public LocationDefinition(
@@ -29,7 +36,23 @@ public final class LocationDefinition {
             double transitionZ,
             float transitionYaw,
             float transitionPitch) {
-        this(locationId, name, centerX, centerZ, radius, true,
+        this(locationId, name, centerX, centerZ, radius, inferredKind(locationId), true,
+                transitionX, transitionY, transitionZ, transitionYaw, transitionPitch);
+    }
+
+    public LocationDefinition(
+            int locationId,
+            String name,
+            double centerX,
+            double centerZ,
+            double radius,
+            LocationKind kind,
+            double transitionX,
+            double transitionY,
+            double transitionZ,
+            float transitionYaw,
+            float transitionPitch) {
+        this(locationId, name, centerX, centerZ, radius, kind, true,
                 transitionX, transitionY, transitionZ, transitionYaw, transitionPitch);
     }
 
@@ -39,6 +62,7 @@ public final class LocationDefinition {
             double centerX,
             double centerZ,
             double radius,
+            LocationKind kind,
             boolean transitionPointConfigured,
             double transitionX,
             double transitionY,
@@ -49,6 +73,11 @@ public final class LocationDefinition {
         if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("name is required");
         if (!Double.isFinite(centerX) || !Double.isFinite(centerZ)) throw new IllegalArgumentException("center coordinates must be finite");
         if (!Double.isFinite(radius) || radius <= 0.0D) throw new IllegalArgumentException("radius must be positive and finite");
+        if (kind == null) throw new IllegalArgumentException("kind is required");
+        boolean encodedMobZone = MobZoneIds.isMobZoneId(locationId);
+        if (kind.isMobStageZone() != encodedMobZone) {
+            throw new IllegalArgumentException("Location kind does not match location ID namespace");
+        }
         if (transitionPointConfigured) {
             if (!Double.isFinite(transitionX) || !Double.isFinite(transitionY) || !Double.isFinite(transitionZ)) {
                 throw new IllegalArgumentException("transition coordinates must be finite");
@@ -62,6 +91,7 @@ public final class LocationDefinition {
         this.centerX = centerX;
         this.centerZ = centerZ;
         this.radius = radius;
+        this.kind = kind;
         this.transitionPointConfigured = transitionPointConfigured;
         this.transitionX = transitionX;
         this.transitionY = transitionY;
@@ -70,11 +100,18 @@ public final class LocationDefinition {
         this.transitionPitch = transitionPitch;
     }
 
+    private static LocationKind inferredKind(int locationId) {
+        return MobZoneIds.isMobZoneId(locationId) ? LocationKind.MOB_ZONE : LocationKind.WORLD;
+    }
+
     public int getLocationId() { return locationId; }
     public String getName() { return name; }
     public double getCenterX() { return centerX; }
     public double getCenterZ() { return centerZ; }
     public double getRadius() { return radius; }
+    public LocationKind getKind() { return kind; }
+    public boolean isMobStageZone() { return kind.isMobStageZone(); }
+    public boolean isBossZone() { return kind == LocationKind.BOSS_ZONE; }
     public boolean hasTransitionPoint() { return transitionPointConfigured; }
     public double getTransitionX() { return transitionX; }
     public double getTransitionY() { return transitionY; }
