@@ -2,6 +2,9 @@ package com.example.revolution.client.input;
 
 import com.example.revolution.RevolutionMod;
 import com.example.revolution.client.ClientUiBridge;
+import com.example.revolution.network.NetworkHandler;
+import com.example.revolution.network.StageTravelMenuRequestPacket;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -14,12 +17,16 @@ import org.lwjgl.input.Keyboard;
 public class KeyInputHandler {
 
     public static KeyBinding keyOpenRunes;
+    public static KeyBinding keyOpenStageTravel;
 
     private boolean runesWasPressed = false;
+    private boolean stageTravelWasPressed = false;
 
     public static void register() {
         keyOpenRunes = new KeyBinding("key.revolution.cards", Keyboard.KEY_C, "key.categories.revolution");
+        keyOpenStageTravel = new KeyBinding("key.revolution.stage_travel", Keyboard.KEY_L, "key.categories.revolution");
         ClientRegistry.registerKeyBinding(keyOpenRunes);
+        ClientRegistry.registerKeyBinding(keyOpenStageTravel);
     }
 
     @SubscribeEvent
@@ -34,5 +41,14 @@ public class KeyInputHandler {
             RevolutionMod.logger.debug("Предзагружаю интерфейс рун");
         }
         runesWasPressed = runesPressed;
+
+        boolean stageTravelPressed = keyOpenStageTravel.isPressed();
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (stageTravelPressed && !stageTravelWasPressed
+                && minecraft.player != null && minecraft.getConnection() != null
+                && minecraft.currentScreen == null) {
+            NetworkHandler.INSTANCE.sendToServer(new StageTravelMenuRequestPacket());
+        }
+        stageTravelWasPressed = stageTravelPressed;
     }
 }
