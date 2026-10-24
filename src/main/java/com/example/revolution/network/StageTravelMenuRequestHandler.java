@@ -29,7 +29,8 @@ public final class StageTravelMenuRequestHandler implements IMessageHandler<Stag
                         worldLocationId,
                         mobSlotId,
                         services.mobProgression.isUnlocked(player.getUniqueID(), internalId),
-                        zone.hasTransitionPoint()));
+                        zone.hasTransitionPoint(),
+                        zone.isBossZone()));
             }
             NetworkHandler.sendToClient(new StageTravelMenuPacket(
                     entries, services.fastAuto.isEnabled(player.getUniqueID())), player);

@@ -34,11 +34,11 @@ public final class NetworkWireContractTest {
             verify(new StageTravelMenuRequestPacket(), new StageTravelMenuRequestPacket(), expected);
 
             expected.writeBoolean(true).writeInt(2);
-            expected.writeInt(1).writeInt(1).writeBoolean(true).writeBoolean(true);
-            expected.writeInt(1).writeInt(2).writeBoolean(false).writeBoolean(true);
+            expected.writeInt(1).writeInt(1).writeBoolean(true).writeBoolean(true).writeBoolean(false);
+            expected.writeInt(1).writeInt(2).writeBoolean(false).writeBoolean(true).writeBoolean(true);
             verify(new StageTravelMenuPacket(Arrays.asList(
-                    new StageTravelMenuPacket.Entry(1, 1, true, true),
-                    new StageTravelMenuPacket.Entry(1, 2, false, true)), true), new StageTravelMenuPacket(), expected);
+                    new StageTravelMenuPacket.Entry(1, 1, true, true, false),
+                    new StageTravelMenuPacket.Entry(1, 2, false, true, true)), true), new StageTravelMenuPacket(), expected);
 
             expected.writeInt(2).writeInt(3);
             verify(new StageTravelTeleportRequestPacket(2, 3), new StageTravelTeleportRequestPacket(), expected);
