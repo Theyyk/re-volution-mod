@@ -8,6 +8,7 @@ import com.example.revolution.commands.CustomRunesCommand;
 import com.example.revolution.commands.CustomStatusCommand;
 import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.commands.StageCommand;
+import com.example.revolution.location.event.FastAutoHandler;
 import com.example.revolution.location.event.StageTransitionTriggerHandler;
 import com.example.revolution.mob.event.ManagedMobEvents;
 import com.example.revolution.network.NetworkHandler;
@@ -56,8 +57,6 @@ public final class ServerLifecycle {
     private static void initialize() {
         if (current != null) return;
         current = new ServerServices(logger, dedicatedServer);
-        // Preserve the old integrated-server boundary: commands/resources exist, but the
-        // core player/mob repository and dedicated gameplay listeners are not activated.
         if (!dedicatedServer) return;
         current.connect();
         current.adminAccess.init(configDirectory);
@@ -67,6 +66,7 @@ public final class ServerLifecycle {
         listeners.add(new ManagedMobEvents(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
+        listeners.add(new FastAutoHandler(current.fastAuto, current.stageTransitions));
         for (Object listener : listeners) MinecraftForge.EVENT_BUS.register(listener);
     }
 
@@ -81,7 +81,6 @@ public final class ServerLifecycle {
             throw new IllegalStateException("Realm startup sync requires all Forge worlds to be unloaded");
         }
         MinecraftServer server = event.getServer();
-        // getFile resolves --world/--universe without creating a SaveHandler/session.lock.
         File world = server.getActiveAnvilConverter().getFile(server.getFolderName(), "");
         try {
             realmSave = RealmStartupSync.prepare(world.toPath());
@@ -92,7 +91,6 @@ public final class ServerLifecycle {
     }
 
     public static void starting(FMLServerStartingEvent event) {
-        // Physical-client context is supplied by ClientLifecycle; command availability is preserved.
         if (logger == null) return;
         initialize();
         event.registerServerCommand(new CustomMobCommand(current.mobAdmin));
