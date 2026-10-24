@@ -21,7 +21,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
 
-/** Admin-only DEV/manual acceptance command for v1.3.9 stage transport. */
+/** Admin-only DEV/manual acceptance command for v1.3.9 stage and Location administration. */
 public final class StageCommand extends AdminOnlyCommand {
     private final StageTransitionService transitions;
     private final StageTransitionTriggerService triggers;
