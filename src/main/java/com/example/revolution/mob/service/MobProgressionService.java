@@ -36,10 +36,12 @@ public final class MobProgressionService {
         final int internalLocationId;
         final int mobSlotId;
         final String mobName;
-        Stage(int internalLocationId, int mobSlotId, String mobName) {
+        final boolean boss;
+        Stage(int internalLocationId, int mobSlotId, String mobName, boolean boss) {
             this.internalLocationId = internalLocationId;
             this.mobSlotId = mobSlotId;
             this.mobName = mobName;
+            this.boss = boss;
         }
     }
 
@@ -59,15 +61,15 @@ public final class MobProgressionService {
         chains.clear();
         unlockCache.clear();
         if (locations == null || storedSpawns == null) return;
-        Set<Integer> existingZoneIds = new HashSet<>();
+        Map<Integer, LocationDefinition> zones = new HashMap<>();
         for (LocationDefinition location : locations) {
-            if (location != null && MobZoneIds.isMobZoneId(location.getLocationId())) existingZoneIds.add(location.getLocationId());
+            if (location != null && MobZoneIds.isMobZoneId(location.getLocationId())) zones.put(location.getLocationId(), location);
         }
         Map<Integer, String> populatedZones = new LinkedHashMap<>();
         for (StoredMobSpawn spawn : storedSpawns) {
             if (spawn == null || !spawn.isEnabled()) continue;
             int internalLocationId = spawn.getLocationId();
-            if (!existingZoneIds.contains(internalLocationId) || !MobZoneIds.isMobZoneId(internalLocationId)) continue;
+            if (!zones.containsKey(internalLocationId) || !MobZoneIds.isMobZoneId(internalLocationId)) continue;
             populatedZones.putIfAbsent(internalLocationId, spawn.getMobName());
         }
         Map<Integer, Map<Integer, Stage>> staged = new LinkedHashMap<>();
@@ -75,8 +77,9 @@ public final class MobProgressionService {
             int internalLocationId = item.getKey();
             int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
             int mobSlotId = MobZoneIds.mobSlotId(internalLocationId);
+            LocationDefinition zone = zones.get(internalLocationId);
             staged.computeIfAbsent(worldLocationId, ignored -> new LinkedHashMap<>())
-                    .put(mobSlotId, new Stage(internalLocationId, mobSlotId, item.getValue()));
+                    .put(mobSlotId, new Stage(internalLocationId, mobSlotId, item.getValue(), zone != null && zone.isBossZone()));
         }
         List<Integer> worldLocations = new ArrayList<>(staged.keySet());
         Collections.sort(worldLocations);
@@ -130,21 +133,35 @@ public final class MobProgressionService {
         if (!MobZoneIds.isMobZoneId(internalLocationId)) return null;
         int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
         int currentSlot = MobZoneIds.mobSlotId(internalLocationId);
-        List<Integer> configured = configuredSlots(worldLocationId);
-        int index = configured.indexOf(currentSlot);
+        List<Stage> chain = chains.get(worldLocationId);
+        if (chain == null || chain.isEmpty()) return null;
+        int index = stageIndex(chain, currentSlot);
         if (index < 0) return null;
-        if (forward && index + 1 < configured.size()) return MobZoneIds.encode(worldLocationId, configured.get(index + 1));
-        if (!forward && index > 0) return MobZoneIds.encode(worldLocationId, configured.get(index - 1));
+        if (forward && index + 1 < chain.size()) return chain.get(index + 1).internalLocationId;
+        if (!forward && index > 0) return chain.get(index - 1).internalLocationId;
+
         List<Integer> locations = configuredWorldLocations();
         int locationIndex = locations.indexOf(worldLocationId);
         if (locationIndex < 0) return null;
         int adjacentLocationIndex = forward ? locationIndex + 1 : locationIndex - 1;
         if (adjacentLocationIndex < 0 || adjacentLocationIndex >= locations.size()) return null;
-        int adjacentLocationId = locations.get(adjacentLocationIndex);
-        List<Integer> adjacentSlots = configuredSlots(adjacentLocationId);
-        if (adjacentSlots.isEmpty()) return null;
-        int slot = forward ? adjacentSlots.get(0) : adjacentSlots.get(adjacentSlots.size() - 1);
-        return MobZoneIds.encode(adjacentLocationId, slot);
+
+        if (forward) {
+            Stage current = chain.get(index);
+            if (!current.boss || index != chain.size() - 1) return null;
+            List<Stage> nextChain = chains.get(locations.get(adjacentLocationIndex));
+            return nextChain == null || nextChain.isEmpty() ? null : nextChain.get(0).internalLocationId;
+        }
+
+        List<Stage> previousChain = chains.get(locations.get(adjacentLocationIndex));
+        if (previousChain == null || previousChain.isEmpty()) return null;
+        Stage previousBoss = previousChain.get(previousChain.size() - 1);
+        return previousBoss.boss ? previousBoss.internalLocationId : null;
+    }
+
+    private int stageIndex(List<Stage> chain, int slot) {
+        for (int i = 0; i < chain.size(); i++) if (chain.get(i).mobSlotId == slot) return i;
+        return -1;
     }
 
     private Integer adjacentUnlockedInternalLocationId(UUID playerUuid, int internalLocationId, boolean forward) {
@@ -170,11 +187,20 @@ public final class MobProgressionService {
         return result;
     }
 
+    /** True only for the explicitly configured final Boss Zone of a Location. */
     public boolean isFinalStage(int internalLocationId) {
         if (!MobZoneIds.isMobZoneId(internalLocationId)) return false;
         int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
-        List<Integer> slots = configuredSlots(worldLocationId);
-        return !slots.isEmpty() && slots.get(slots.size() - 1) == MobZoneIds.mobSlotId(internalLocationId);
+        List<Stage> chain = chains.get(worldLocationId);
+        if (chain == null || chain.isEmpty()) return false;
+        Stage finalStage = chain.get(chain.size() - 1);
+        return finalStage.internalLocationId == internalLocationId && finalStage.boss;
+    }
+
+    public boolean isBossStage(int internalLocationId) {
+        if (!MobZoneIds.isMobZoneId(internalLocationId)) return false;
+        Stage stage = stage(MobZoneIds.worldLocationId(internalLocationId), MobZoneIds.mobSlotId(internalLocationId));
+        return stage != null && stage.boss;
     }
 
     public List<Integer> configuredWorldLocations() {
