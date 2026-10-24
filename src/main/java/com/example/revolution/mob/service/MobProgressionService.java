@@ -156,6 +156,34 @@ public final class MobProgressionService {
         return new UnlockResult(worldLocationId, nextSlot, next == null ? "" : next.mobName);
     }
 
+    /**
+     * Revokes access from one stage forward. The requested stage and all later slots in the same
+     * world Location are closed, then every later world Location progression record is cleared.
+     */
+    public boolean revokeFrom(UUID playerUuid, int worldLocationId, int mobSlotId) {
+        if (playerUuid == null || worldLocationId < 0) return false;
+        List<Integer> configured = configuredSlots(worldLocationId);
+        if (configured.isEmpty() || !configured.contains(mobSlotId)) return false;
+
+        Set<Integer> retained = new LinkedHashSet<>();
+        for (Integer slot : unlockedSlots(playerUuid, worldLocationId)) {
+            if (slot != null && slot < mobSlotId) retained.add(slot);
+        }
+        if (!repository.replaceUnlockedSlots(playerUuid, worldLocationId, retained)) return false;
+        if (worldLocationId < Integer.MAX_VALUE
+                && !repository.clearFromLocation(playerUuid, worldLocationId + 1)) return false;
+        invalidateFromLocation(playerUuid, worldLocationId);
+        return true;
+    }
+
+    /** Clears this world Location and every later world Location back to default progression. */
+    public boolean resetFromLocation(UUID playerUuid, int worldLocationId) {
+        if (playerUuid == null || worldLocationId < 0) return false;
+        if (!repository.clearFromLocation(playerUuid, worldLocationId)) return false;
+        invalidateFromLocation(playerUuid, worldLocationId);
+        return true;
+    }
+
     public List<Integer> configuredSlots(int worldLocationId) {
         List<Stage> chain = chains.get(worldLocationId);
         if (chain == null || chain.isEmpty()) return Collections.emptyList();
@@ -178,6 +206,21 @@ public final class MobProgressionService {
         Set<Integer> loaded = new LinkedHashSet<>(repository.getUnlockedSlots(playerUuid, worldLocationId));
         unlockCache.put(key, loaded);
         return loaded;
+    }
+
+    private void invalidateFromLocation(UUID playerUuid, int worldLocationId) {
+        String prefix = playerUuid.toString() + ":";
+        List<String> remove = new ArrayList<>();
+        for (String key : unlockCache.keySet()) {
+            if (!key.startsWith(prefix)) continue;
+            try {
+                int cachedLocationId = Integer.parseInt(key.substring(prefix.length()));
+                if (cachedLocationId >= worldLocationId) remove.add(key);
+            } catch (NumberFormatException ignored) {
+                remove.add(key);
+            }
+        }
+        for (String key : remove) unlockCache.remove(key);
     }
 
     public void clear() {
