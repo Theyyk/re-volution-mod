@@ -22,7 +22,8 @@ public final class MobProgressionTest {
     public static void main(String[] args) {
         pureOrderingAndGatingRules();
         adjacentStageNavigationRequiresUnlockAndStaysInWorldLocation();
-        System.out.println("v1.3.9 mob progression ordering/gating/navigation regression checks passed");
+        revokeAndResetCascadeAcrossLaterLocations();
+        System.out.println("v1.3.9 mob progression ordering/gating/navigation/reset regression checks passed");
     }
 
     private static void pureOrderingAndGatingRules() {
@@ -93,6 +94,45 @@ public final class MobProgressionTest {
                 "Transition navigation requires a player identity");
     }
 
+    private static void revokeAndResetCascadeAcrossLaterLocations() {
+        int loc1slot1 = MobZoneIds.encode(1, 1);
+        int loc1slot2 = MobZoneIds.encode(1, 2);
+        int loc1slot3 = MobZoneIds.encode(1, 3);
+        int loc2slot1 = MobZoneIds.encode(2, 1);
+        int loc2slot2 = MobZoneIds.encode(2, 2);
+        int loc3slot1 = MobZoneIds.encode(3, 1);
+        int loc3slot2 = MobZoneIds.encode(3, 2);
+
+        FakeProgressionRepository repository = new FakeProgressionRepository();
+        MobProgressionService service = new MobProgressionService(repository);
+        service.reloadConfiguration(
+                Arrays.asList(location(loc1slot1), location(loc1slot2), location(loc1slot3),
+                        location(loc2slot1), location(loc2slot2), location(loc3slot1), location(loc3slot2)),
+                Arrays.asList(spawn(loc1slot1, 1, "1-1"), spawn(loc1slot2, 2, "1-2"), spawn(loc1slot3, 3, "1-3"),
+                        spawn(loc2slot1, 4, "2-1"), spawn(loc2slot2, 5, "2-2"),
+                        spawn(loc3slot1, 6, "3-1"), spawn(loc3slot2, 7, "3-2")));
+
+        UUID player = UUID.fromString("00000000-0000-0000-0000-000000000140");
+        repository.seed(player, 1, 2, 3);
+        repository.seed(player, 2, 2);
+        repository.seed(player, 3, 2);
+
+        check(service.revokeFrom(player, 1, 2), "Revoke from Location 1 mobSlot 2 must succeed");
+        check(service.isUnlocked(player, loc1slot1), "Location 1 first stage remains implicitly open");
+        check(!service.isUnlocked(player, loc1slot2), "Revoke must close the requested stage");
+        check(!service.isUnlocked(player, loc1slot3), "Revoke must close all later stages in the same Location");
+        check(repository.getUnlockedSlots(player, 2).isEmpty(), "Revoke must clear later Location 2 progression");
+        check(repository.getUnlockedSlots(player, 3).isEmpty(), "Revoke must clear later Location 3 progression");
+
+        repository.seed(player, 1, 2, 3);
+        repository.seed(player, 2, 2);
+        repository.seed(player, 3, 2);
+        check(service.resetFromLocation(player, 1), "Reset from Location 1 must succeed");
+        check(repository.getUnlockedSlots(player, 1).isEmpty(), "Reset must clear Location 1 progression");
+        check(repository.getUnlockedSlots(player, 2).isEmpty(), "Reset must cascade into Location 2");
+        check(repository.getUnlockedSlots(player, 3).isEmpty(), "Reset must cascade into Location 3");
+    }
+
     private static LocationDefinition location(int internalLocationId) {
         return new LocationDefinition(internalLocationId, "Zone " + internalLocationId, 0.0D, 0.0D, 10.0D);
     }
@@ -118,6 +158,31 @@ public final class MobProgressionTest {
             String key = key(playerUuid, worldLocationId);
             Set<Integer> values = unlocked.computeIfAbsent(key, ignored -> new HashSet<Integer>());
             return values.add(mobSlotId);
+        }
+
+        @Override
+        public boolean replaceUnlockedSlots(UUID playerUuid, int worldLocationId, Set<Integer> unlockedSlots) {
+            if (unlockedSlots == null) return false;
+            if (unlockedSlots.isEmpty()) unlocked.remove(key(playerUuid, worldLocationId));
+            else unlocked.put(key(playerUuid, worldLocationId), new HashSet<>(unlockedSlots));
+            return true;
+        }
+
+        @Override
+        public boolean clearFromLocation(UUID playerUuid, int worldLocationId) {
+            String prefix = playerUuid.toString() + ":";
+            List<String> remove = new ArrayList<>();
+            for (String value : unlocked.keySet()) {
+                if (!value.startsWith(prefix)) continue;
+                int locationId = Integer.parseInt(value.substring(prefix.length()));
+                if (locationId >= worldLocationId) remove.add(value);
+            }
+            for (String value : remove) unlocked.remove(value);
+            return true;
+        }
+
+        void seed(UUID playerUuid, int worldLocationId, Integer... slots) {
+            unlocked.put(key(playerUuid, worldLocationId), new HashSet<>(Arrays.asList(slots)));
         }
 
         private static String key(UUID playerUuid, int worldLocationId) {
