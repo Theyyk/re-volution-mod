@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.bson.Document;
 
-/** Mongo adapter for configurable stage transition trigger zones and notification text. */
+/** Mongo adapter for configurable stage boundary rings and notification text. */
 public final class MongoStageTransitionTriggerRepository implements StageTransitionTriggerRepository {
     private static final String COLLECTION = "stage_transition_triggers";
     private final MongoConnection connection;
@@ -34,42 +34,45 @@ public final class MongoStageTransitionTriggerRepository implements StageTransit
     }
 
     @Override
-    public StageTransitionTriggerDefinition get(int worldLocationId, int mobSlotId) {
+    public StageTransitionTriggerDefinition get(int worldLocationId, int sourceMobSlotId) {
         if (!enabled || !connection.isConnected()) return null;
-        return fromDocument(collection().find(filter(worldLocationId, mobSlotId)).first());
+        return fromDocument(collection().find(filter(worldLocationId, sourceMobSlotId)).first());
     }
 
     @Override
     public void upsert(StageTransitionTriggerDefinition trigger) {
         if (!enabled || !connection.isConnected() || trigger == null) return;
         Document values = new Document("worldLocationId", trigger.getWorldLocationId())
-                .append("mobSlotId", trigger.getMobSlotId())
-                .append("centerX", trigger.getCenterX())
-                .append("centerY", trigger.getCenterY())
-                .append("centerZ", trigger.getCenterZ())
-                .append("radius", trigger.getRadius())
-                .append("halfHeight", trigger.getHalfHeight())
+                .append("mobSlotId", trigger.getSourceMobSlotId())
+                .append("width", trigger.getWidth())
                 .append("displayMode", trigger.getDisplayMode().name());
         if (trigger.getLockedMessage() != null) values.append("lockedMessage", trigger.getLockedMessage());
-        if (trigger.getEnteringMessage() != null) values.append("enteringMessage", trigger.getEnteringMessage());
+        if (trigger.getForwardMessage() != null) values.append("forwardMessage", trigger.getForwardMessage());
+        if (trigger.getBackwardMessage() != null) values.append("backwardMessage", trigger.getBackwardMessage());
 
-        Document unset = new Document();
+        Document unset = new Document("centerX", "")
+                .append("centerY", "")
+                .append("centerZ", "")
+                .append("radius", "")
+                .append("halfHeight", "")
+                .append("enteringMessage", "");
         if (trigger.getLockedMessage() == null) unset.append("lockedMessage", "");
-        if (trigger.getEnteringMessage() == null) unset.append("enteringMessage", "");
-        Document update = new Document("$set", values);
-        if (!unset.isEmpty()) update.append("$unset", unset);
-        collection().updateOne(filter(trigger.getWorldLocationId(), trigger.getMobSlotId()), update,
+        if (trigger.getForwardMessage() == null) unset.append("forwardMessage", "");
+        if (trigger.getBackwardMessage() == null) unset.append("backwardMessage", "");
+        collection().updateOne(
+                filter(trigger.getWorldLocationId(), trigger.getSourceMobSlotId()),
+                new Document("$set", values).append("$unset", unset),
                 new UpdateOptions().upsert(true));
     }
 
     @Override
-    public void delete(int worldLocationId, int mobSlotId) {
+    public void delete(int worldLocationId, int sourceMobSlotId) {
         if (!enabled || !connection.isConnected()) return;
-        collection().deleteOne(filter(worldLocationId, mobSlotId));
+        collection().deleteOne(filter(worldLocationId, sourceMobSlotId));
     }
 
-    private Document filter(int worldLocationId, int mobSlotId) {
-        return new Document("worldLocationId", worldLocationId).append("mobSlotId", mobSlotId);
+    private Document filter(int worldLocationId, int sourceMobSlotId) {
+        return new Document("worldLocationId", worldLocationId).append("mobSlotId", sourceMobSlotId);
     }
 
     private StageTransitionTriggerDefinition fromDocument(Document doc) {
@@ -77,26 +80,19 @@ public final class MongoStageTransitionTriggerRepository implements StageTransit
         try {
             Integer worldLocationId = doc.getInteger("worldLocationId");
             Integer mobSlotId = doc.getInteger("mobSlotId");
-            if (worldLocationId == null || mobSlotId == null) return null;
+            Object width = doc.get("width");
+            if (worldLocationId == null || mobSlotId == null || !(width instanceof Number)) return null;
             return new StageTransitionTriggerDefinition(
                     worldLocationId,
                     mobSlotId,
-                    number(doc, "centerX", 0.0D),
-                    number(doc, "centerY", 64.0D),
-                    number(doc, "centerZ", 0.0D),
-                    number(doc, "radius", 2.0D),
-                    number(doc, "halfHeight", 2.0D),
+                    ((Number) width).doubleValue(),
                     displayMode(doc.getString("displayMode")),
                     doc.getString("lockedMessage"),
-                    doc.getString("enteringMessage"));
+                    doc.getString("forwardMessage"),
+                    doc.getString("backwardMessage"));
         } catch (RuntimeException ignored) {
             return null;
         }
-    }
-
-    private double number(Document doc, String key, double fallback) {
-        Object value = doc.get(key);
-        return value instanceof Number ? ((Number) value).doubleValue() : fallback;
     }
 
     private DisplayMode displayMode(String value) {
