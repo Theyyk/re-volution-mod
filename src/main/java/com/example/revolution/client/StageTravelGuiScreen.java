@@ -88,12 +88,9 @@ public final class StageTravelGuiScreen extends GuiScreen {
         for (int i = from; i < to; i++) {
             StageTravelMenuPacket.Entry entry = stages.get(i);
             visibleStageEntries.add(entry);
-            String label = "Моб " + entry.getMobSlotId();
-            if (!entry.isUnlocked()) label += " - закрыт";
-            else if (!entry.hasTransitionPoint()) label += " - нет точки";
             GuiButton button = new GuiButton(ITEM_BASE + visibleStageEntries.size() - 1,
                     width / 2 - 110, 48 + (visibleStageEntries.size() - 1) * 24,
-                    220, 20, label);
+                    220, 20, StageTravelLabels.stageLabel(entry));
             button.enabled = entry.isUnlocked() && entry.hasTransitionPoint();
             buttonList.add(button);
         }
