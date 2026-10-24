@@ -84,6 +84,9 @@ def validate():
         'client/network/RuneCollectionsPacketHandler.java',
         'client/network/PlayerStatsPacketHandler.java',
         'client/network/RuneEnhancementPacketHandler.java',
+        'client/network/StageTravelMenuRequestClientHandler.java',
+        'client/network/StageTravelMenuPacketClientHandler.java',
+        'client/network/StageTravelTeleportRequestClientHandler.java',
         'client/input/KeyInputHandler.java',
         'client/input/EnhancementClickGuard.java',
         'mob/event/ManagedMobEvents.java',
@@ -146,6 +149,9 @@ def validate():
             ('RuneEnhancementPacket', 7, 'CLIENT'),
             ('MobZoneOverlayRequestPacket', 8, 'SERVER'),
             ('MobZoneOverlayPacket', 9, 'CLIENT'),
+            ('StageTravelMenuRequestPacket', 10, 'SERVER'),
+            ('StageTravelMenuPacket', 11, 'CLIENT'),
+            ('StageTravelTeleportRequestPacket', 12, 'SERVER'),
         ],
         'client/network/ClientNetworkRegistration.java': [
             ('PingPacket', 0, 'CLIENT'),
@@ -156,6 +162,9 @@ def validate():
             ('RuneEnhancementPacket', 7, 'CLIENT'),
             ('MobZoneOverlayRequestPacket', 8, 'CLIENT'),
             ('MobZoneOverlayPacket', 9, 'CLIENT'),
+            ('StageTravelMenuRequestPacket', 10, 'CLIENT'),
+            ('StageTravelMenuPacket', 11, 'CLIENT'),
+            ('StageTravelTeleportRequestPacket', 12, 'CLIENT'),
         ],
     }
     for path, expected in expected_registrations.items():
@@ -184,7 +193,7 @@ def validate():
                      for path in (ROOT / 'src/main/resources').rglob('*') if path.is_file() and path.name != 'mcmod.info'}
     assert actual_assets == assets, 'Resource assets changed; review the resource contract explicitly'
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminator 7, optional client and resource assets passed.')
+    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':

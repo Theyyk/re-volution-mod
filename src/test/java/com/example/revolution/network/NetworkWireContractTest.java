@@ -4,10 +4,11 @@ import com.example.revolution.rune.service.RunePacketFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.math.BigDecimal;
+import java.util.Arrays;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-/** Independent expected byte streams for registered payload IDs 0, 1, 4 and 7. IDs 2/3 have existing goldens. */
+/** Independent expected byte streams for stable registered payloads; IDs 5/6 remain reserved. */
 public final class NetworkWireContractTest {
     public static void main(String[] args) {
         ByteBuf expected = Unpooled.buffer();
@@ -31,8 +32,20 @@ public final class NetworkWireContractTest {
                 expected.writeInt(0).writeInt(10).writeInt(50).writeInt(100).writeInt(1000);
             }
             verify(RunePacketFactory.enhancements(new int[26]), new RuneEnhancementPacket(), expected);
+
+            verify(new StageTravelMenuRequestPacket(), new StageTravelMenuRequestPacket(), expected);
+
+            expected.writeInt(2);
+            expected.writeInt(1).writeInt(1).writeBoolean(true).writeBoolean(true);
+            expected.writeInt(1).writeInt(2).writeBoolean(false).writeBoolean(true);
+            verify(new StageTravelMenuPacket(Arrays.asList(
+                    new StageTravelMenuPacket.Entry(1, 1, true, true),
+                    new StageTravelMenuPacket.Entry(1, 2, false, true))), new StageTravelMenuPacket(), expected);
+
+            expected.writeInt(2).writeInt(3);
+            verify(new StageTravelTeleportRequestPacket(2, 3), new StageTravelTeleportRequestPacket(), expected);
         } finally { expected.release(); }
-        System.out.println("Network IDs 0/1/4/7 byte goldens and decoder round trips passed; IDs 5/6 are reserved by architecture guard");
+        System.out.println("Network byte goldens and decoder round trips passed for IDs 0/1/4/7/10/11/12; IDs 5/6 remain reserved");
     }
 
     private static void verify(IMessage message, IMessage decoded, ByteBuf expected) {
