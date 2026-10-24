@@ -8,7 +8,6 @@ import com.example.revolution.mob.rules.MobProgressionRules;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -47,6 +46,7 @@ public final class MobProgressionService {
 
     private final MobProgressionRepository repository;
     private final Map<Integer, List<Stage>> chains = new LinkedHashMap<>();
+    private final Set<Integer> validBossLayouts = new LinkedHashSet<>();
     private final Map<String, Set<Integer>> unlockCache = new HashMap<>();
     private UnlockListener unlockListener;
 
@@ -59,6 +59,7 @@ public final class MobProgressionService {
 
     public void reloadConfiguration(List<LocationDefinition> locations, List<StoredMobSpawn> storedSpawns) {
         chains.clear();
+        validBossLayouts.clear();
         unlockCache.clear();
         if (locations == null || storedSpawns == null) return;
         Map<Integer, LocationDefinition> zones = new HashMap<>();
@@ -87,8 +88,15 @@ public final class MobProgressionService {
             Map<Integer, Stage> bySlot = staged.get(worldLocationId);
             List<Integer> sortedSlots = MobProgressionRules.normalizeConfiguredSlots(bySlot.keySet());
             List<Stage> chain = new ArrayList<>();
-            for (Integer slot : sortedSlots) chain.add(bySlot.get(slot));
-            chains.put(worldLocationId, Collections.unmodifiableList(chain));
+            int bossCount = 0;
+            for (Integer slot : sortedSlots) {
+                Stage stage = bySlot.get(slot);
+                chain.add(stage);
+                if (stage.boss) bossCount++;
+            }
+            List<Stage> immutable = Collections.unmodifiableList(chain);
+            chains.put(worldLocationId, immutable);
+            if (bossCount == 1 && !chain.isEmpty() && chain.get(chain.size() - 1).boss) validBossLayouts.add(worldLocationId);
         }
     }
 
@@ -147,16 +155,18 @@ public final class MobProgressionService {
         if (adjacentLocationIndex < 0 || adjacentLocationIndex >= locations.size()) return null;
 
         if (forward) {
+            if (!validBossLayouts.contains(worldLocationId)) return null;
             Stage current = chain.get(index);
             if (!current.boss || index != chain.size() - 1) return null;
             List<Stage> nextChain = chains.get(locations.get(adjacentLocationIndex));
             return nextChain == null || nextChain.isEmpty() ? null : nextChain.get(0).internalLocationId;
         }
 
-        List<Stage> previousChain = chains.get(locations.get(adjacentLocationIndex));
+        int previousWorldLocationId = locations.get(adjacentLocationIndex);
+        if (!validBossLayouts.contains(previousWorldLocationId)) return null;
+        List<Stage> previousChain = chains.get(previousWorldLocationId);
         if (previousChain == null || previousChain.isEmpty()) return null;
-        Stage previousBoss = previousChain.get(previousChain.size() - 1);
-        return previousBoss.boss ? previousBoss.internalLocationId : null;
+        return previousChain.get(previousChain.size() - 1).internalLocationId;
     }
 
     private int stageIndex(List<Stage> chain, int slot) {
@@ -187,14 +197,18 @@ public final class MobProgressionService {
         return result;
     }
 
-    /** True only for the explicitly configured final Boss Zone of a Location. */
+    /** True only for a Location with exactly one Boss Zone and that Boss Zone as its final configured stage. */
     public boolean isFinalStage(int internalLocationId) {
         if (!MobZoneIds.isMobZoneId(internalLocationId)) return false;
         int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
+        if (!validBossLayouts.contains(worldLocationId)) return false;
         List<Stage> chain = chains.get(worldLocationId);
         if (chain == null || chain.isEmpty()) return false;
-        Stage finalStage = chain.get(chain.size() - 1);
-        return finalStage.internalLocationId == internalLocationId && finalStage.boss;
+        return chain.get(chain.size() - 1).internalLocationId == internalLocationId;
+    }
+
+    public boolean hasValidBossLayout(int worldLocationId) {
+        return validBossLayouts.contains(worldLocationId);
     }
 
     public boolean isBossStage(int internalLocationId) {
@@ -272,6 +286,7 @@ public final class MobProgressionService {
 
     public void clear() {
         chains.clear();
+        validBossLayouts.clear();
         unlockCache.clear();
         unlockListener = null;
     }
