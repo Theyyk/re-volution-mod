@@ -7,4 +7,6 @@ import java.util.UUID;
 public interface MobProgressionRepository {
     Set<Integer> getUnlockedSlots(UUID playerUuid, int worldLocationId);
     boolean unlockSlot(UUID playerUuid, int worldLocationId, int mobSlotId);
+    boolean replaceUnlockedSlots(UUID playerUuid, int worldLocationId, Set<Integer> unlockedSlots);
+    boolean clearFromLocation(UUID playerUuid, int worldLocationId);
 }

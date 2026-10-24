@@ -13,7 +13,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.3.8'
+version = '1.3.9'
 group = 'com.example.revolution'
 archivesBaseName = 'RE-volution'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
@@ -113,6 +113,8 @@ def regressionTests = [
     resourceActionFoundationRegression: 'com.example.revolution.resource.service.ResourceActionFoundationTest',
     realmFoundationRegression: 'com.example.revolution.realm.definition.RealmCatalogTest',
     locationFoundationRegression: 'com.example.revolution.location.LocationFoundationTest',
+    stageTransitionRegression: 'com.example.revolution.location.service.StageTransitionServiceTest',
+    stageTransitionTriggerDefinitionRegression: 'com.example.revolution.location.service.StageTransitionTriggerDefinitionTest',
     largeNumberFormatterRegression: 'com.example.revolution.number.LargeNumberFormatterTest',
     mobVirtualHealthRegression: 'com.example.revolution.mob.rules.MobVirtualHealthTest',
     mobContributionRegression: 'com.example.revolution.mob.rules.MobContributionTest',

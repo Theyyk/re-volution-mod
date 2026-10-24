@@ -5,7 +5,11 @@ import com.example.revolution.admin.service.AdminAccessService;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.location.repository.LocationRepository;
+import com.example.revolution.location.repository.StageTransitionPreferenceRepository;
+import com.example.revolution.location.repository.StageTransitionTriggerRepository;
 import com.example.revolution.location.service.MobZoneOverlayService;
+import com.example.revolution.location.service.StageTransitionService;
+import com.example.revolution.location.service.StageTransitionTriggerService;
 import com.example.revolution.mob.repository.MobProgressionRepository;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.ManagedMobService;
@@ -20,6 +24,8 @@ import com.example.revolution.persistence.MongoMobRepository;
 import com.example.revolution.persistence.MongoPlayerRepository;
 import com.example.revolution.persistence.MongoResourceRepository;
 import com.example.revolution.persistence.MongoRuneEnhancementRepository;
+import com.example.revolution.persistence.MongoStageTransitionPreferenceRepository;
+import com.example.revolution.persistence.MongoStageTransitionTriggerRepository;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerCollectionService;
 import com.example.revolution.player.service.PlayerSessionService;
@@ -58,6 +64,8 @@ public final class ServerServices implements AutoCloseable {
     public final MobRewardService mobRewards;
     public final MobProgressionService mobProgression;
     public final MobZoneOverlayService mobZoneOverlay;
+    public final StageTransitionService stageTransitions;
+    public final StageTransitionTriggerService stageTransitionTriggers;
     public final PlayerSessionService sessions;
     public final PlayerStatsService playerStats;
     public final RuneCombatService combat;
@@ -72,6 +80,8 @@ public final class ServerServices implements AutoCloseable {
         MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
         LocationRepository locationRepository = new MongoLocationRepository(connection, persistentGameplay);
         MobProgressionRepository progressionRepository = new MongoMobProgressionRepository(connection, persistentGameplay);
+        StageTransitionTriggerRepository triggerRepository = new MongoStageTransitionTriggerRepository(connection, persistentGameplay);
+        StageTransitionPreferenceRepository transitionPreferences = new MongoStageTransitionPreferenceRepository(connection, persistentGameplay);
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
         resources = new ResourceService(new MongoResourceRepository(connection));
         combat = new RuneCombatService(players, enhancements, combatState);
@@ -85,6 +95,9 @@ public final class ServerServices implements AutoCloseable {
                 new RuneEnhancementService(players, resources, stats, enhancements, sync),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
+        stageTransitions = new StageTransitionService(locationRepository, mobProgression);
+        stageTransitionTriggers = new StageTransitionTriggerService(
+                triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
@@ -96,7 +109,10 @@ public final class ServerServices implements AutoCloseable {
         collections = new PlayerCollectionService(players, resources, stats);
     }
 
-    public void connect() { connection.connect(); }
+    public void connect() {
+        connection.connect();
+        stageTransitionTriggers.reload();
+    }
 
     public void startAdminApi(MinecraftServer server, File configDirectory) throws IOException {
         adminApi.start(server, configDirectory);

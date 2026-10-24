@@ -24,6 +24,9 @@ public class NetworkHandler {
         INSTANCE.registerMessage(RuneEnhancementPacketServerHandler.class, RuneEnhancementPacket.class, 7, Side.CLIENT);
         INSTANCE.registerMessage(MobZoneOverlayRequestHandler.class, MobZoneOverlayRequestPacket.class, 8, Side.SERVER);
         INSTANCE.registerMessage(MobZoneOverlayPacketServerHandler.class, MobZoneOverlayPacket.class, 9, Side.CLIENT);
+        INSTANCE.registerMessage(StageTravelMenuRequestHandler.class, StageTravelMenuRequestPacket.class, 10, Side.SERVER);
+        INSTANCE.registerMessage(StageTravelMenuPacketServerHandler.class, StageTravelMenuPacket.class, 11, Side.CLIENT);
+        INSTANCE.registerMessage(StageTravelTeleportRequestHandler.class, StageTravelTeleportRequestPacket.class, 12, Side.SERVER);
     }
 
     /**

@@ -107,6 +107,38 @@ public final class MobProgressionService {
                 MobZoneIds.mobSlotId(internalLocationId), configuredSlots(worldLocationId));
     }
 
+    /**
+     * Resolves the next configured stage in the same world Location only when that stage is already
+     * unlocked for the player. This is navigation data only; player movement belongs to Location runtime.
+     */
+    public Integer nextUnlockedInternalLocationId(UUID playerUuid, int internalLocationId) {
+        return adjacentUnlockedInternalLocationId(playerUuid, internalLocationId, true);
+    }
+
+    /**
+     * Resolves the previous configured stage in the same world Location only when it is accessible
+     * to the player. This does not execute or schedule a transition.
+     */
+    public Integer previousUnlockedInternalLocationId(UUID playerUuid, int internalLocationId) {
+        return adjacentUnlockedInternalLocationId(playerUuid, internalLocationId, false);
+    }
+
+    private Integer adjacentUnlockedInternalLocationId(UUID playerUuid, int internalLocationId, boolean forward) {
+        if (playerUuid == null || !MobZoneIds.isMobZoneId(internalLocationId)) return null;
+        int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
+        int currentSlot = MobZoneIds.mobSlotId(internalLocationId);
+        List<Integer> configured = configuredSlots(worldLocationId);
+        if (configured.isEmpty() || !configured.contains(currentSlot)) return null;
+
+        Integer adjacentSlot = forward
+                ? MobProgressionRules.nextConfiguredSlot(currentSlot, configured)
+                : MobProgressionRules.previousConfiguredSlot(currentSlot, configured);
+        if (adjacentSlot == null) return null;
+        Stage adjacent = stage(worldLocationId, adjacentSlot);
+        if (adjacent == null || !isUnlocked(playerUuid, adjacent.internalLocationId)) return null;
+        return adjacent.internalLocationId;
+    }
+
     public UnlockResult unlockNext(UUID playerUuid, int internalLocationId) {
         if (playerUuid == null || !MobZoneIds.isMobZoneId(internalLocationId)) return null;
         int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
@@ -122,6 +154,34 @@ public final class MobProgressionService {
         unlocked.add(nextSlot);
         Stage next = stage(worldLocationId, nextSlot);
         return new UnlockResult(worldLocationId, nextSlot, next == null ? "" : next.mobName);
+    }
+
+    /**
+     * Revokes access from one stage forward. The requested stage and all later slots in the same
+     * world Location are closed, then every later world Location progression record is cleared.
+     */
+    public boolean revokeFrom(UUID playerUuid, int worldLocationId, int mobSlotId) {
+        if (playerUuid == null || worldLocationId < 0) return false;
+        List<Integer> configured = configuredSlots(worldLocationId);
+        if (configured.isEmpty() || !configured.contains(mobSlotId)) return false;
+
+        Set<Integer> retained = new LinkedHashSet<>();
+        for (Integer slot : unlockedSlots(playerUuid, worldLocationId)) {
+            if (slot != null && slot < mobSlotId) retained.add(slot);
+        }
+        if (!repository.replaceUnlockedSlots(playerUuid, worldLocationId, retained)) return false;
+        if (worldLocationId < Integer.MAX_VALUE
+                && !repository.clearFromLocation(playerUuid, worldLocationId + 1)) return false;
+        invalidateFromLocation(playerUuid, worldLocationId);
+        return true;
+    }
+
+    /** Clears this world Location and every later world Location back to default progression. */
+    public boolean resetFromLocation(UUID playerUuid, int worldLocationId) {
+        if (playerUuid == null || worldLocationId < 0) return false;
+        if (!repository.clearFromLocation(playerUuid, worldLocationId)) return false;
+        invalidateFromLocation(playerUuid, worldLocationId);
+        return true;
     }
 
     public List<Integer> configuredSlots(int worldLocationId) {
@@ -146,6 +206,21 @@ public final class MobProgressionService {
         Set<Integer> loaded = new LinkedHashSet<>(repository.getUnlockedSlots(playerUuid, worldLocationId));
         unlockCache.put(key, loaded);
         return loaded;
+    }
+
+    private void invalidateFromLocation(UUID playerUuid, int worldLocationId) {
+        String prefix = playerUuid.toString() + ":";
+        List<String> remove = new ArrayList<>();
+        for (String key : unlockCache.keySet()) {
+            if (!key.startsWith(prefix)) continue;
+            try {
+                int cachedLocationId = Integer.parseInt(key.substring(prefix.length()));
+                if (cachedLocationId >= worldLocationId) remove.add(key);
+            } catch (NumberFormatException ignored) {
+                remove.add(key);
+            }
+        }
+        for (String key : remove) unlockCache.remove(key);
     }
 
     public void clear() {

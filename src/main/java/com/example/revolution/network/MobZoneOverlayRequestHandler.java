@@ -2,6 +2,8 @@ package com.example.revolution.network;
 
 import com.example.revolution.lifecycle.ServerLifecycle;
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.MobZoneIds;
+import com.example.revolution.location.service.StageTransitionTriggerService.OverlayGeometry;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -16,7 +18,20 @@ public final class MobZoneOverlayRequestHandler implements IMessageHandler<MobZo
         player.getServer().addScheduledTask(() -> {
             List<MobZoneOverlayPacket.Zone> zones = new ArrayList<>();
             for (LocationDefinition zone : ServerLifecycle.services().mobZoneOverlay.snapshot()) {
-                zones.add(new MobZoneOverlayPacket.Zone(zone.getLocationId(), zone.getCenterX(), zone.getCenterZ(), zone.getRadius()));
+                OverlayGeometry trigger = null;
+                if (MobZoneIds.isMobZoneId(zone.getLocationId())) {
+                    trigger = ServerLifecycle.services().stageTransitionTriggers.overlayGeometry(
+                            MobZoneIds.worldLocationId(zone.getLocationId()),
+                            MobZoneIds.mobSlotId(zone.getLocationId()));
+                }
+                zones.add(trigger == null
+                        ? new MobZoneOverlayPacket.Zone(
+                                zone.getLocationId(), zone.getCenterX(), zone.getCenterZ(), zone.getRadius())
+                        : new MobZoneOverlayPacket.Zone(
+                                zone.getLocationId(), zone.getCenterX(), zone.getCenterZ(), zone.getRadius(),
+                                true,
+                                trigger.getInnerRadius(), trigger.getOuterRadius(),
+                                trigger.getForwardX(), trigger.getForwardZ()));
             }
             NetworkHandler.sendToClient(new MobZoneOverlayPacket(zones), player);
         });

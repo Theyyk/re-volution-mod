@@ -1,20 +1,20 @@
-# RE:volution Mod — Forge 1.12.2
+# RE:volution Mod - Forge 1.12.2
 
-Серверно-авторитетный игровой мод для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику RE:volution: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm foundation/runtime, mob-zone progression и хранение данных игроков в MongoDB.
+Серверно-авторитетный игровой мод для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику RE:volution: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm foundation/runtime, mob-zone progression, переходы между стадиями и хранение данных игроков в MongoDB.
 
-**Стабильная release-версия: `v1.3.8`.**
+**Стабильная release-версия: `v1.3.9`.**
 
-**Следующий этап разработки: `v1.3.9` - переходы между mob stages внутри одной Location. Разработка `v1.3.9` ещё не является release candidate.**
+**Следующий технический этап: `v1.3.10 Test Foundation` - JUnit и фундамент автоматических regression tests поверх стабильной v1.3.9.**
 
-[Скачать актуальный стабильный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.3.8](docs/releases/v1.3.8.md)
+[Скачать актуальный стабильный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.3.9](docs/releases/v1.3.9.md)
 
 ## Границы проекта
 
 Этот репозиторий отвечает за gameplay-мод, который работает на dedicated-сервере и, при полном клиентском режиме, на клиенте Minecraft. Отдельные части экосистемы находятся в других репозиториях:
 
-- **RE:volution Client** — launcher/updater, Auth API, client-only Forge mod и production manifest;
-- **RE:volution Resource Pack** — визуальные ассеты рун и связанные distribution-файлы;
-- **RE:volution Admin** — закрытый локальный Windows-инструмент администрирования.
+- **RE:volution Client** - launcher/updater, Auth API, client-only Forge mod и production manifest;
+- **RE:volution Resource Pack** - визуальные ассеты рун и связанные distribution-файлы;
+- **RE:volution Admin** - закрытый локальный Windows-инструмент администрирования.
 
 Gameplay-мод не должен содержать приватные launcher-signing keys, секреты Admin API или клиентскую логику обновления.
 
@@ -22,10 +22,10 @@ Gameplay-мод не должен содержать приватные launcher
 
 ### Realm foundation/runtime
 
-- **Realm 0** — административный overworld / dimension `0`.
-- **Realm 1** — dimension `201`, основной player Realm и эталон мира для стартовой синхронизации.
-- **Realm 2** — dimension `202`.
-- **Realm 3** — dimension `203`.
+- **Realm 0** - административный overworld / dimension `0`.
+- **Realm 1** - dimension `201`, основной player Realm и эталон мира для стартовой синхронизации.
+- **Realm 2** - dimension `202`.
+- **Realm 3** - dimension `203`.
 - При обычном входе игрок назначается в наименее населённый Realm из `1..3`; Realm 0 в автоматическом распределении не участвует.
 - При равной минимальной нагрузке выбор выполняется случайно среди Realm с одинаковым минимумом.
 - `/realm join <realmId> [player]` остаётся административной командой и поддерживает Realm 0.
@@ -51,20 +51,20 @@ Runtime managed-мобов использует Location/Mob Spawn модель 
 - Generated/random spawn surface не принимает листву/брёвна и не поднимается более чем на 3 блока выше базового Y зоны.
 - `ROAMING` удерживает мобов в своей зоне, раздвигает слишком плотные группы и делает паузу примерно 1 секунду после прямого удара игрока; повторный удар перезапускает паузу.
 
-Основные команды mob-zone:
+Канонические команды mob-zone:
 
 ```text
-/custommob location set <locationId> <mobSlotId> <radius>
-/custommob location populate <locationId> <mobSlotId> <mobName> <count>
-/custommob location here
-/custommob location list <locationId>
-/custommob location clear <locationId> <mobSlotId>
-/custommob location remove <locationId> <mobSlotId>
+/stage location set <locationId> <mobSlotId> <radius>
+/stage location populate <locationId> <mobSlotId> <mobName> <count>
+/stage location here
+/stage location list [locationId]
+/stage location clear <locationId> <mobSlotId>
+/stage location remove <locationId> <mobSlotId>
 ```
 
-`location clear` удаляет population/spawn slots, но сохраняет геометрию зоны. `location remove` удаляет и population, и геометрию зоны.
+`location clear` удаляет population/spawn slots, но сохраняет геометрию зоны. `location remove` удаляет и population, и геометрию зоны. Старый `/custommob location ...` сохранён как legacy alias для обратной совместимости.
 
-Клиент RE:volution визуализирует границу настроенных mob-зон тонким полупрозрачным зелёным кольцом. Кольцо следует по поверхности земли, игнорирует листву и брёвна, не изменяет блоки и отображается всем игрокам с установленным модом в пределах рабочей дистанции визуализации.
+Клиент RE:volution визуализирует границу настроенных mob-зон тонким полупрозрачным зелёным кольцом. Кольцо следует по поверхности земли, игнорирует листву и брёвна, не изменяет блоки и отображается игрокам с установленным модом в пределах рабочей дистанции визуализации.
 
 ### Contribution, rewards и HP rollback (`v1.3.7`)
 
@@ -79,8 +79,6 @@ Runtime managed-мобов использует Location/Mob Spawn модель 
 - Определяется max contributor для progression-логики; при точной ничьей выигрывает игрок, который раньше достиг итогового равного значения contribution.
 - Respawn и unload/load физического mob-slot очищают contribution state и восстанавливают полный HP.
 - Legacy Realm 0 managed-мобы без Location/Mob Spawn сохраняют прежнюю last-hit reward семантику.
-
-Runtime-приёмка contribution/reward foundation, включая multiplayer/max-contributor regression, подтверждена в ходе подготовки `v1.3.8`.
 
 Полный контракт: [docs/releases/v1.3.7.md](docs/releases/v1.3.7.md).
 
@@ -98,18 +96,35 @@ Progression строится отдельно для каждого world Locati
 - Если stage закрыт для игрока, урон подавляется, contribution и combat pause не создаются.
 - Открытые стадии сохраняются в MongoDB в коллекции `mob_progression` по `playerUuid + locationId` и не привязаны к конкретному Realm 1/2/3.
 - Progression сохраняется после relog, restart сервера и смены Realm.
-- Legacy Realm 0 и конфигурации вне обычной mob-zone progression сохраняют совместимое поведение.
-
-Runtime-приёмка `v1.3.8` завершена: проверены последовательный unlock, locked damage gate, отсутствие перескока стадий, persistence после выхода/restart, сохранение между Realm, разные progression state игроков и max-contributor flow.
 
 Полный контракт и checklist: [docs/releases/v1.3.8.md](docs/releases/v1.3.8.md).
+
+### Переходы между mob stages (`v1.3.9`)
+
+`v1.3.9` добавляет navigation/transition слой поверх progression, не смешивая transport с unlock-логикой.
+
+- Для каждого stage можно задать explicit transition point через `/stage setpoint`.
+- Сервер проверяет bounding box и опору destination перед телепортом.
+- `/stage next` и `/stage previous` переходят только между уже открытыми соседними stage.
+- `/stage teleport <locationId> <mobSlotId> [player]` использует point выбранного stage и не открывает progression.
+- `/stage auto <on|off> [player]` управляет единым per-player auto-transition flag.
+- Trigger-кольцо задаётся сразу для всей Location через `/stage settrigger <locationId> <offset> <radius>`; размеры одинаковы для stage внутри одной Location, но могут отличаться между Location.
+- Trigger делится на forward/backward половины по 180° на основании геометрии соседних stage.
+- `locked`, `forward`, `backward` сообщения задаются сразу для всей Location через `/stage setmessage` и поддерживают Tab completion.
+- Доступный автоматический переход выполняется после 20 ticks и отменяется, если игрок покидает trigger или контекст становится невалидным.
+- `/stage revoke` и `/stage reset` поддерживают каскадный сброс progression.
+- Существующий mob-zone overlay отображает trigger geometry по той же серверной геометрии, которая используется runtime-переходами.
+- Клавиша `L` открывает меню Location -> mob/stage для быстрого перехода к уже открытому stage с настроенной transition point.
+- Все player teleport requests повторно валидируются сервером, поэтому клиентское меню не может обойти progression или destination safety.
+
+Полный контракт и runtime acceptance: [docs/releases/v1.3.9.md](docs/releases/v1.3.9.md).
 
 ## Игровые системы
 
 - Адаптивный GUI со статистикой, ресурсами, персонажем, рунами и навигацией.
 - Multi-status foundation для рун.
 - Первый встроенный статус **Яд**: 26 фиксированных позиций и 11 уникальных rune-иконок.
-- Ранги рун: **Обычная → Улучшенная → Продвинутая**.
+- Ранги рун: **Обычная -> Улучшенная -> Продвинутая**.
 - Покупка рун `x1`, `x5`, `x10`, `x100` с серверной проверкой экономики.
 - Дубликаты, Пыль рун, платное пробуждение и постоянные уровни усиления `+N` обрабатываются сервером.
 - Усиление и ранг являются независимыми множителями; базовая формула усиления: `finalPower = basePower × (1 + enhancementLevel × enhancementStep)`.
@@ -119,7 +134,7 @@ Runtime-приёмка `v1.3.8` завершена: проверены посл�
 - Каркас 16 слотов снаряжения и пяти сборок существует, полноценные механики экипировки пока не завершены.
 - Данные игроков и progression сохраняются в MongoDB; URI и имя базы задаются серверной конфигурацией.
 
-Интерфейс gameplay-мода открывается клавишей `C`. Подробнее: [игровые системы](docs/gameplay.md) · [команды](docs/commands.md).
+Основной gameplay GUI открывается клавишей `C`, меню быстрого перехода - клавишей `L`. Подробнее: [игровые системы](docs/gameplay.md) · [команды](docs/commands.md).
 
 ## DEV / PROD и runtime
 
@@ -132,7 +147,7 @@ Runtime-приёмка `v1.3.8` завершена: проверены посл�
 - При контролируемой PROD synchronization world и Mongo заменяются DEV snapshot только после backup; это не merge данных.
 - Runtime rollback опирается на сохранённые snapshots, а не на Git.
 
-Основной пользовательский интерфейс инфраструктуры — `REvolutionControl.exe`, GUI-оболочка над orchestration backend. Обычный gameplay flow: обновить DEV, выполнить Smoke Check, запустить DEV client и проверить механику. PowerShell остаётся backend/debug fallback.
+Основной пользовательский интерфейс инфраструктуры - `REvolutionControl.exe`, GUI-оболочка над orchestration backend. Обычный gameplay flow: обновить DEV, выполнить Smoke Check, запустить DEV client и проверить механику. PowerShell остаётся backend/debug fallback.
 
 Внутри dedicated Forge сохраняется Realm startup contract: до загрузки миров `DIM202` и `DIM203` подготавливаются из сохранённого `DIM201`; во время runtime Realm независимы.
 
@@ -156,7 +171,7 @@ Runtime-приёмка `v1.3.8` завершена: проверены посл�
 
 ## Разработка и проверки
 
-Основная ветка разработки — `develop`, стабильная ветка — `main`. Изменения gameplay обычно проходят через feature-ветку и PR в `develop`, затем release/promotion в `main`.
+Основная ветка разработки - `develop`, стабильная ветка - `main`. Изменения gameplay обычно проходят через feature-ветку и PR в `develop`, затем release/promotion в `main`.
 
 CI использует component change detection, dependency/build caches, concurrency, path filtering и exact artifact handoff, чтобы не запускать тяжёлые jobs без необходимости и не публиковать устаревший DEV candidate поверх более нового.
 
@@ -186,20 +201,21 @@ CI не заменяет runtime-приёмку там, где изменени�
 
 Promotion `develop -> main` не считается полностью подготовленным к релизу, если README описывает старую модель или уже изменившееся поведение.
 
-## Roadmap после v1.3.8
+## Roadmap после v1.3.9
 
-1. `v1.3.9` — mob-stage transition foundation внутри одной Location: progression остаётся привязана к `mobSlot`, а переход использует состояние progression для выбора следующей доступной стадии;
-2. основной режим v1.3.9 — ручной переход через transition zone у края/в чаще Location с плавным переносом к следующей стадии;
-3. заложить переключаемый `autoTransitionEnabled` как функцию перехода игрока, без отдельного transition-флага на каждом `mobSlot`; автоматический переход включать отдельным последующим этапом;
-4. scaling и дальнейшая оптимизация под большую нагрузку выполняются отдельным этапом после transition foundation и не считаются уже подтверждённой вместимостью.
+1. От стабильной `v1.3.9` создать отдельную ветку для технической итерации `v1.3.10 Test Foundation`.
+2. Подключить JUnit к Gradle и структуру `src/test/java`.
+3. При необходимости выделить критичную бизнес-логику из Forge/Minecraft API, чтобы unit/regression tests не требовали полноценного клиента или dedicated-сервера.
+4. Сохранить v1.3.9 как контрольную точку с известным runtime-поведением и строить новые regression tests относительно неё.
+5. Scaling и дальнейшая нагрузочная оптимизация остаются отдельным будущим этапом и не считаются подтверждённой вместимостью текущего runtime.
 
 ## Скриншоты
 
-Скриншоты предыдущего GUI baseline сохранены в [docs/screenshots/v1.2.12](docs/screenshots/v1.2.12/README.md), исторические изображения — в [docs/archive/screenshots](docs/archive/screenshots/README.md). Они являются снимками соответствующих версий.
+Скриншоты предыдущего GUI baseline сохранены в [docs/screenshots/v1.2.12](docs/screenshots/v1.2.12/README.md), исторические изображения - в [docs/archive/screenshots](docs/archive/screenshots/README.md). Они являются снимками соответствующих версий.
 
 ## Документация
 
-[docs/README.md](docs/README.md) является оглавлением технической документации. Версионные заметки хранятся в `docs/releases/`, а опубликованные артефакты и пользовательские release notes — в [GitHub Releases](https://github.com/Theyyk/re-volution-mod/releases).
+[docs/README.md](docs/README.md) является оглавлением технической документации. Версионные заметки хранятся в `docs/releases/`, а опубликованные артефакты и пользовательские release notes - в [GitHub Releases](https://github.com/Theyyk/re-volution-mod/releases).
 
 README описывает текущее состояние проекта. Версионные документы фиксируют состояние конкретного релиза и не переписываются под будущие функции.
 

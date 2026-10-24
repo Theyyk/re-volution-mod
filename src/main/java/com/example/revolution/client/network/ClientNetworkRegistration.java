@@ -9,6 +9,9 @@ import com.example.revolution.network.PongPacket;
 import com.example.revolution.network.RuneCollectionsPacket;
 import com.example.revolution.network.RuneEnhancementPacket;
 import com.example.revolution.network.RuneSlotPacket;
+import com.example.revolution.network.StageTravelMenuPacket;
+import com.example.revolution.network.StageTravelMenuRequestPacket;
+import com.example.revolution.network.StageTravelTeleportRequestPacket;
 import net.minecraftforge.fml.relauncher.Side;
 
 public final class ClientNetworkRegistration {
@@ -23,5 +26,8 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(RuneEnhancementPacketHandler.class, RuneEnhancementPacket.class, 7, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(MobZoneOverlayRequestClientHandler.class, MobZoneOverlayRequestPacket.class, 8, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(MobZoneOverlayPacketClientHandler.class, MobZoneOverlayPacket.class, 9, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(StageTravelMenuRequestClientHandler.class, StageTravelMenuRequestPacket.class, 10, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(StageTravelMenuPacketClientHandler.class, StageTravelMenuPacket.class, 11, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(StageTravelTeleportRequestClientHandler.class, StageTravelTeleportRequestPacket.class, 12, Side.CLIENT);
     }
 }
