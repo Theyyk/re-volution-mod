@@ -25,6 +25,25 @@ public final class StageTransitionTriggerService {
     private static final long TRANSITION_DELAY_TICKS = 20L;
     private static final long TELEPORT_COOLDOWN_TICKS = 10L;
 
+    public static final class OverlayGeometry {
+        private final double innerRadius;
+        private final double outerRadius;
+        private final double forwardX;
+        private final double forwardZ;
+
+        OverlayGeometry(double innerRadius, double outerRadius, double forwardX, double forwardZ) {
+            this.innerRadius = innerRadius;
+            this.outerRadius = outerRadius;
+            this.forwardX = forwardX;
+            this.forwardZ = forwardZ;
+        }
+
+        public double getInnerRadius() { return innerRadius; }
+        public double getOuterRadius() { return outerRadius; }
+        public double getForwardX() { return forwardX; }
+        public double getForwardZ() { return forwardZ; }
+    }
+
     private final StageTransitionTriggerRepository repository;
     private final StageTransitionPreferenceRepository preferences;
     private final LocationRepository locations;
@@ -121,6 +140,21 @@ public final class StageTransitionTriggerService {
         repository.upsert(updated);
         triggers.put(updated.key(), updated);
         return updated;
+    }
+
+    /** Read-only geometry used by the existing admin mob-zone overlay. */
+    public OverlayGeometry overlayGeometry(int worldLocationId, int sourceMobSlotId) {
+        StageTransitionTriggerDefinition trigger = triggers.get(key(worldLocationId, sourceMobSlotId));
+        if (trigger == null) return null;
+        LocationDefinition source = sourceStage(trigger);
+        if (source == null) return null;
+        double inner = source.getRadius() + trigger.getOffset();
+        double outer = inner + trigger.getRadius();
+        AdjacentStages adjacent = adjacentStages(worldLocationId, sourceMobSlotId);
+        double[] axis = forwardAxis(source, adjacent);
+        return axis == null
+                ? new OverlayGeometry(inner, outer, 0.0D, 0.0D)
+                : new OverlayGeometry(inner, outer, axis[0], axis[1]);
     }
 
     public boolean isAutoTransitionEnabled(UUID playerUuid) {
