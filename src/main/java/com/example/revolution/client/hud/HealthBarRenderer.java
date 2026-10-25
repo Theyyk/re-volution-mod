@@ -5,10 +5,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.EntitySkeleton;
@@ -27,12 +24,16 @@ public class HealthBarRenderer {
         EntityLivingBase entity = event.getEntity();
         if (!(entity instanceof EntityLiving)) return;
         if (entity == Minecraft.getMinecraft().player) return;
-        if (!entity.hasCustomName()) return;
         if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) return;
+        renderManagedBar(entity, event.getX(), event.getY(), event.getZ());
+    }
 
+    /** Shared entry point used by the custom managed-mob renderer because canceling vanilla rendering suppresses Post. */
+    public static void renderManagedBar(EntityLivingBase entity, double x, double y, double z) {
+        if (entity == null || !entity.hasCustomName()) return;
         String rawName = entity.getCustomNameTag();
         if (!rawName.startsWith("§c") || !rawName.contains("|")) return;
-        String[] parts = rawName.substring(2).split("\\|");
+        String[] parts = rawName.substring(2).split("\\|", -1);
         if (parts.length < 5) return;
 
         String mobName = parts[0];
@@ -40,21 +41,18 @@ public class HealthBarRenderer {
         String resourceAmount = parts[4];
         BigDecimal currentHp = parseHealth(parts[1], BigDecimal.valueOf(entity.getHealth()));
         BigDecimal maxHp = parseHealth(parts[2], BigDecimal.valueOf(entity.getMaxHealth()));
-
         if (maxHp.signum() <= 0 || currentHp.signum() <= 0) return;
-        if (entity.getDistance(Minecraft.getMinecraft().player) > 32.0F) return;
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.player == null || entity.getDistance(minecraft.player) > 32.0F) return;
 
         double ratio = currentHp.divide(maxHp, 6, RoundingMode.HALF_UP).doubleValue();
         ratio = Math.max(0.0D, Math.min(1.0D, ratio));
-
-        double x = event.getX();
-        double y = event.getY() + entity.height + 0.5;
-        double z = event.getZ();
+        y += entity.height + 0.5;
 
         GlStateManager.pushMatrix();
         GlStateManager.pushAttrib();
         GlStateManager.translate(x, y, z);
-        GlStateManager.rotate(-Minecraft.getMinecraft().getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
+        GlStateManager.rotate(-minecraft.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
         GlStateManager.scale(-0.025F, -0.025F, 0.025F);
         GlStateManager.disableTexture2D();
         GlStateManager.disableDepth();
@@ -74,11 +72,11 @@ public class HealthBarRenderer {
         GlStateManager.enableDepth();
         GlStateManager.enableTexture2D();
 
-        FontRenderer font = Minecraft.getMinecraft().fontRenderer;
+        FontRenderer font = minecraft.fontRenderer;
         String hpText = LargeNumbers.format(currentHp) + " / " + LargeNumbers.format(maxHp);
         int hpWidth = font.getStringWidth(hpText);
         GlStateManager.pushMatrix();
-        GlStateManager.scale(0.5f, 0.5f, 0.5f);
+        GlStateManager.scale(0.5F, 0.5F, 0.5F);
         font.drawString(hpText, -(hpWidth / 2), 3, 0xFFFFFF);
         GlStateManager.popMatrix();
 
@@ -92,31 +90,25 @@ public class HealthBarRenderer {
         GlStateManager.popMatrix();
     }
 
-    private BigDecimal parseHealth(String rawValue, BigDecimal fallback) {
-        try {
-            return LargeNumbers.parseExact(rawValue);
-        } catch (RuntimeException ignored) {
-            return fallback;
-        }
+    private static BigDecimal parseHealth(String rawValue, BigDecimal fallback) {
+        try { return LargeNumbers.parseExact(rawValue); }
+        catch (RuntimeException ignored) { return fallback; }
     }
 
-    private String compactResourceAmount(String rawAmount) {
+    private static String compactResourceAmount(String rawAmount) {
         if (rawAmount == null || rawAmount.trim().isEmpty()) return "0";
-        try {
-            return LargeNumbers.format(new BigDecimal(rawAmount.trim()));
-        } catch (NumberFormatException ignored) {
-            return rawAmount;
-        }
+        try { return LargeNumbers.format(new BigDecimal(rawAmount.trim())); }
+        catch (NumberFormatException ignored) { return rawAmount; }
     }
 
-    private String getDisplayResource(String resource) {
+    private static String getDisplayResource(String resource) {
         if (resource.equalsIgnoreCase("coins")) return "Монеты";
         if (resource.equalsIgnoreCase("crystals")) return "Кристаллы";
         if (resource.equalsIgnoreCase("lightnings")) return "Молнии";
         return resource;
     }
 
-    private void drawRect(int left, int top, int right, int bottom, int color) {
+    private static void drawRect(int left, int top, int right, int bottom, int color) {
         if (left < right) { int i = left; left = right; right = i; }
         if (top < bottom) { int j = top; top = bottom; bottom = j; }
         float a = (float)(color >> 24 & 255) / 255.0F;
