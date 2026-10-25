@@ -1,6 +1,7 @@
 package com.example.revolution.mob.appearance;
 
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.util.math.AxisAlignedBB;
 
 /** Keeps the physical managed-mob bounds aligned with the custom visual family and scale. */
 public final class MobAppearanceSizing {
@@ -42,6 +43,14 @@ public final class MobAppearanceSizing {
         Dimensions dimensions = dimensions(appearance);
         if (Math.abs(entity.width - dimensions.width) < 0.001F
                 && Math.abs(entity.height - dimensions.height) < 0.001F) return;
-        entity.setSize(dimensions.width, dimensions.height);
+
+        // Entity#setSize is protected in 1.12.2. Managed mobs deliberately keep the vanilla entity
+        // implementation, so update the public dimensions and physical AABB directly around posX/posY/posZ.
+        entity.width = dimensions.width;
+        entity.height = dimensions.height;
+        double halfWidth = dimensions.width * 0.5D;
+        entity.setEntityBoundingBox(new AxisAlignedBB(
+                entity.posX - halfWidth, entity.posY, entity.posZ - halfWidth,
+                entity.posX + halfWidth, entity.posY + dimensions.height, entity.posZ + halfWidth));
     }
 }
