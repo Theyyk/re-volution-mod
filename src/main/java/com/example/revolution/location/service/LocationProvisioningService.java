@@ -1,7 +1,6 @@
 package com.example.revolution.location.service;
 
 import com.example.revolution.location.definition.LocationDefinition;
-import com.example.revolution.location.definition.LocationKind;
 import com.example.revolution.location.definition.LocationStageTemplate;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.StageTransitionTriggerDefinition;
@@ -93,13 +92,12 @@ public final class LocationProvisioningService {
                         floorBlock(anchorX), floorBlock(anchorY), floorBlock(anchorZ));
         LocationGenerationPlan plan = planner.plan(
                 generationTemplate, worldLocationId, mobSlotId, anchorX, anchorY, anchorZ, seed);
-        LocationDefinition zone = new LocationDefinition(
-                internalId,
-                "MobZone " + worldLocationId + ":" + mobSlotId,
+        LocationDefinition zone = MobZoneGeometry.normal(
+                worldLocationId,
+                mobSlotId,
                 plan.getCenterX(),
                 plan.getCenterZ(),
-                plan.getRadius(),
-                LocationKind.MOB_ZONE);
+                plan.getRadius());
         locations.upsertLocation(zone);
 
         if (triggers != null) {
