@@ -9,6 +9,7 @@ import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.location.repository.StageTransitionPreferenceRepository;
 import com.example.revolution.location.repository.StageTransitionTriggerRepository;
 import com.example.revolution.location.service.FastAutoService;
+import com.example.revolution.location.service.LocationProvisioningService;
 import com.example.revolution.location.service.MobZoneOverlayService;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionTriggerService;
@@ -67,6 +68,7 @@ public final class ServerServices implements AutoCloseable {
     public final MobRewardService mobRewards;
     public final MobProgressionService mobProgression;
     public final MobZoneOverlayService mobZoneOverlay;
+    public final LocationProvisioningService locationProvisioning;
     public final StageTransitionService stageTransitions;
     public final StageTransitionTriggerService stageTransitionTriggers;
     public final FastAutoService fastAuto;
@@ -100,6 +102,7 @@ public final class ServerServices implements AutoCloseable {
                 new RuneEnhancementService(players, resources, stats, enhancements, sync),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
+        locationProvisioning = new LocationProvisioningService(locationRepository);
         stageTransitions = new StageTransitionService(locationRepository, mobProgression);
         stageTransitionTriggers = new StageTransitionTriggerService(
                 triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
