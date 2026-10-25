@@ -46,6 +46,22 @@ final class MobAppearanceCatalogTest {
     }
 
     @Test
+    void physicalBoundsFollowVisualFamilyInsteadOfVanillaHumanoidBounds() {
+        MobAppearanceSizing.Dimensions turtle = MobAppearanceSizing.dimensions(MobAppearanceCatalog.bySlot(1, 1));
+        assertEquals(0.72F, turtle.getWidth(), 0.001F);
+        assertEquals(0.48F, turtle.getHeight(), 0.001F);
+        assertTrue(turtle.getHeight() < 1.0F, "small turtle must not retain zombie/skeleton height");
+
+        MobAppearanceSizing.Dimensions ancientTurtle = MobAppearanceSizing.dimensions(MobAppearanceCatalog.bySlot(1, 33));
+        assertTrue(ancientTurtle.getWidth() > turtle.getWidth());
+        assertTrue(ancientTurtle.getHeight() > turtle.getHeight());
+
+        MobAppearanceSizing.Dimensions boss = MobAppearanceSizing.dimensions(MobAppearanceCatalog.bySlot(1, 41));
+        assertTrue(boss.getWidth() > 1.0F);
+        assertTrue(boss.getHeight() > 2.0F);
+    }
+
+    @Test
     void animationContractContainsOnlyAgreedVisualStates() {
         MobAnimationState[] states = MobAnimationState.values();
         assertEquals(5, states.length);

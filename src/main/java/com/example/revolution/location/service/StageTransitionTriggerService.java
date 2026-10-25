@@ -83,6 +83,9 @@ public final class StageTransitionTriggerService {
 
     public void reload() {
         triggers.clear();
+        insideByPlayer.clear();
+        pendingByPlayer.clear();
+        cooldownUntilTick.clear();
         List<StageTransitionTriggerDefinition> stored = repository.getAll();
         if (stored == null) return;
         for (StageTransitionTriggerDefinition trigger : stored) {
@@ -162,6 +165,8 @@ public final class StageTransitionTriggerService {
     public void setAutoTransitionEnabled(UUID playerUuid, boolean enabled) {
         preferences.setAutoTransitionEnabled(playerUuid, enabled);
         if (!enabled) pendingByPlayer.remove(playerUuid);
+        insideByPlayer.remove(playerUuid);
+        cooldownUntilTick.remove(playerUuid);
     }
 
     public void handlePlayerTick(EntityPlayerMP player) {
@@ -178,12 +183,25 @@ public final class StageTransitionTriggerService {
             nowInside.add(trigger.key());
             if (!previousInside.contains(trigger.key())) entered.add(trigger);
         }
-        insideByPlayer.put(playerId, nowInside);
         long now = player.world.getTotalWorldTime();
-        if (processPending(player, playerId, now, nowInside)) return;
-        if (entered.isEmpty() || pendingByPlayer.containsKey(playerId)) return;
+
+        if (processPending(player, playerId, now, nowInside)) {
+            if (pendingByPlayer.containsKey(playerId)) insideByPlayer.put(playerId, nowInside);
+            else insideByPlayer.remove(playerId);
+            return;
+        }
+
         Long cooldown = cooldownUntilTick.get(playerId);
-        if (cooldown != null && now < cooldown) return;
+        if (cooldown != null && now < cooldown) {
+            // Do not consume a target-ring entry during teleport cooldown. After cooldown expires the
+            // ring must still be considered newly entered so backward/forward travel can fire normally.
+            insideByPlayer.remove(playerId);
+            return;
+        }
+        if (cooldown != null) cooldownUntilTick.remove(playerId);
+
+        insideByPlayer.put(playerId, nowInside);
+        if (entered.isEmpty() || pendingByPlayer.containsKey(playerId)) return;
 
         for (StageTransitionTriggerDefinition trigger : entered) {
             LocationDefinition source = sourceStage(trigger);

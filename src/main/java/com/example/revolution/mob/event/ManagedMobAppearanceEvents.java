@@ -3,6 +3,7 @@ package com.example.revolution.mob.event;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.mob.appearance.MobAppearanceCatalog;
 import com.example.revolution.mob.appearance.MobAppearanceDefinition;
+import com.example.revolution.mob.appearance.MobAppearanceSizing;
 import com.example.revolution.mob.appearance.MobVisualWire;
 import java.util.ArrayList;
 import net.minecraft.entity.Entity;
@@ -16,7 +17,7 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-/** Keeps the stable visual slot marker and player-facing Russian name on managed Location 1 entities. */
+/** Keeps the stable visual slot marker, physical bounds and player-facing Russian name on managed Location 1 entities. */
 public final class ManagedMobAppearanceEvents {
     private static final String INTERNAL_LOCATION_ID_TAG = "revolutionLocationId";
 
@@ -51,6 +52,8 @@ public final class ManagedMobAppearanceEvents {
         int mobSlotId = MobZoneIds.mobSlotId(internalLocationId);
         MobAppearanceDefinition appearance = MobAppearanceCatalog.bySlot(locationId, mobSlotId);
         if (appearance == null) return;
+
+        MobAppearanceSizing.apply((net.minecraft.entity.EntityLivingBase) entity, appearance);
 
         String raw = entity.getCustomNameTag();
         if (raw == null || !raw.startsWith("§c") || !raw.contains("|")) return;

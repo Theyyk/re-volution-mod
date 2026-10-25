@@ -24,28 +24,24 @@ public final class ForestMobTextureLibrary {
         int[] pixels = texture.getTextureData();
         int seed = appearance.getAppearanceId().hashCode();
 
+        /*
+         * ForestMobModel deliberately reuses simple box UVs. Keep the complete atlas coherent so any
+         * cuboid can sample any region without picking up an unrelated eye/island patch. Variation is
+         * low-frequency and palette-safe; silhouette details carry most of the per-appearance identity.
+         */
         for (int y = 0; y < SIZE; y++) {
             for (int x = 0; x < SIZE; x++) {
-                int hash = mix(seed, x, y);
-                int band = ((x / 8) + (y / 8)) & 3;
-                int color;
-                if (band == 0) color = palette.base;
-                else if (band == 1) color = palette.shadow;
-                else if (band == 2) color = palette.base;
-                else color = palette.detail;
-
-                if ((hash & 31) == 0 || ((x + y + seed) & 31) == 0) color = palette.accent;
-                else if ((hash & 7) == 0) color = blend(color, palette.shadow, 0.35F);
-                else if ((hash & 15) == 1) color = blend(color, palette.detail, 0.25F);
+                int hash = mix(seed, x >> 1, y >> 1);
+                int color = palette.base;
+                int value = hash & 63;
+                if (value < 10) color = blend(palette.base, palette.shadow, 0.28F);
+                else if (value > 55) color = blend(palette.base, palette.detail, 0.24F);
+                if (((x + seed) & 15) == 0 && ((y + (seed >>> 4)) & 15) < 3) {
+                    color = blend(color, palette.accent, 0.18F);
+                }
                 pixels[y * SIZE + x] = color;
             }
         }
-
-        // Distinct high-contrast eye/accent islands used by most family UV layouts.
-        fill(pixels, 4, 4, 8, 8, palette.accent);
-        fill(pixels, 18, 4, 22, 8, palette.accent);
-        fill(pixels, 34, 4, 46, 10, palette.detail);
-        fill(pixels, 50, 4, 60, 10, palette.shadow);
         texture.updateDynamicTexture();
 
         ResourceLocation location = Minecraft.getMinecraft().getTextureManager()
@@ -70,11 +66,5 @@ public final class ForestMobTextureLibrary {
         int g = (int) (ag + (bg - ag) * amount);
         int blue = (int) (ab + (bb - ab) * amount);
         return 0xFF000000 | (r << 16) | (g << 8) | blue;
-    }
-
-    private static void fill(int[] pixels, int left, int top, int right, int bottom, int color) {
-        for (int y = top; y < bottom; y++) {
-            for (int x = left; x < right; x++) pixels[y * SIZE + x] = color;
-        }
     }
 }

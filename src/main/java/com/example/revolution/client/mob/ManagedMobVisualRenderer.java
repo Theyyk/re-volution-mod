@@ -3,6 +3,7 @@ package com.example.revolution.client.mob;
 import com.example.revolution.client.hud.HealthBarRenderer;
 import com.example.revolution.mob.appearance.MobAnimationState;
 import com.example.revolution.mob.appearance.MobAppearanceDefinition;
+import com.example.revolution.mob.appearance.MobAppearanceSizing;
 import com.example.revolution.mob.appearance.MobVisualWire;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -41,6 +42,7 @@ public final class ManagedMobVisualRenderer {
         MobAppearanceDefinition appearance = appearance(entity);
         if (appearance == null) return;
 
+        MobAppearanceSizing.apply(entity, appearance);
         event.setCanceled(true);
         float partial = event.getPartialRenderTick();
         MobAnimationState state = animationState(entity);
