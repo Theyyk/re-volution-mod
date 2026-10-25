@@ -57,7 +57,7 @@ public final class ServerLifecycle {
 
     private static void initialize() {
         if (current != null) return;
-        current = new ServerServices(logger, dedicatedServer);
+        current = new ServerServices(logger, dedicatedServer, configDirectory);
         if (!dedicatedServer) return;
         current.connect();
         current.adminAccess.init(configDirectory);
@@ -100,7 +100,7 @@ public final class ServerLifecycle {
         event.registerServerCommand(new CustomResourceCommand(current.resources));
         event.registerServerCommand(new AdminPanelCommand(current.adminAccess));
         event.registerServerCommand(new RealmCommand(current.realms));
-        event.registerServerCommand(new LocationCommand(current.locationProvisioning, current.mobs));
+        event.registerServerCommand(new LocationCommand(current.locationProvisioning, current.stageTransitionTriggers, current.physicalBuilds));
         event.registerServerCommand(new StageCommand(
                 current.stageTransitions, current.stageTransitionTriggers, current.mobProgression, current.mobAdmin));
         current.resources.purgeDeprecatedLightnings();

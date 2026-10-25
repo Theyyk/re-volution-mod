@@ -5,6 +5,9 @@ import com.example.revolution.admin.service.AdminAccessService;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
+import com.example.revolution.location.world.REBuilderAdapter;
+import com.example.revolution.persistence.MongoLocationBuildTemplateRepository;
+import com.example.revolution.persistence.MongoLocationGenerationRepository;
 import com.example.revolution.location.generation.LocationTemplate;
 import com.example.revolution.location.repository.FastAutoPreferenceRepository;
 import com.example.revolution.location.repository.LocationRepository;
@@ -73,6 +76,7 @@ public final class ServerServices implements AutoCloseable {
     public final MobProgressionService mobProgression;
     public final MobZoneOverlayService mobZoneOverlay;
     public final LocationProvisioningService locationProvisioning;
+    public final REBuilderAdapter physicalBuilds;
     public final StageTransitionService stageTransitions;
     public final StageTransitionTriggerService stageTransitionTriggers;
     public final FastAutoService fastAuto;
@@ -84,7 +88,7 @@ public final class ServerServices implements AutoCloseable {
     public final PlayerCollectionService collections;
     public final RealmService realms = new RealmService();
 
-    public ServerServices(Logger logger, boolean persistentGameplay) {
+    public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         connection = new MongoConnection(logger);
         PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
         MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
@@ -107,12 +111,16 @@ public final class ServerServices implements AutoCloseable {
                 new RuneEnhancementService(players, resources, stats, enhancements, sync),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
+        physicalBuilds = new REBuilderAdapter(configDirectory.toPath());
         locationProvisioning = new LocationProvisioningService(
                 locationRepository,
                 new LocationGenerationPlanner(),
                 LocationTemplate.defaultStage(),
                 stageTemplateRepository,
-                triggerRepository);
+                triggerRepository,
+                new MongoLocationBuildTemplateRepository(connection, persistentGameplay),
+                physicalBuilds,
+                new MongoLocationGenerationRepository(connection, persistentGameplay));
         stageTransitions = new StageTransitionService(locationRepository, mobProgression);
         stageTransitionTriggers = new StageTransitionTriggerService(
                 triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);

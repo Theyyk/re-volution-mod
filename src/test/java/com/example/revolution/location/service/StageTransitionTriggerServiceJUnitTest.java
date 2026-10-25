@@ -29,6 +29,15 @@ class StageTransitionTriggerServiceJUnitTest {
     private MobProgressionService progression;
     private StageTransitionTriggerService service;
 
+    @Test void newlyCommittedTriggerIsCachedWithoutRepositoryOrProgressionWrites() {
+        int writes = repository.writes;
+        service.rememberCreatedTrigger(1, 2,
+                new com.example.revolution.location.definition.LocationStageTemplate(1, 5, 4, 6));
+        assertEquals(writes, repository.writes);
+        assertEquals(9D, service.overlayGeometry(1, 2).getInnerRadius());
+        assertEquals(15D, service.overlayGeometry(1, 2).getOuterRadius());
+    }
+
     @BeforeEach void setUp() {
         locations = new InMemoryLocationRepository();
         locations.seed(zone(2, 0.0D), zone(5, 20.0D), zone(9, 50.0D));

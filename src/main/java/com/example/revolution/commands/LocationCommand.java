@@ -3,7 +3,8 @@ package com.example.revolution.commands;
 import com.example.revolution.location.definition.LocationStageTemplate;
 import com.example.revolution.location.generation.LocationGenerationPlan;
 import com.example.revolution.location.service.LocationProvisioningService;
-import com.example.revolution.mob.service.ManagedMobService;
+import com.example.revolution.location.world.REBuilderAdapter;
+import com.example.revolution.location.service.StageTransitionTriggerService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -14,32 +15,42 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
+import org.apache.logging.log4j.LogManager;
 
 /** Admin command for deterministic v1.3.12 Location provisioning. */
 public final class LocationCommand extends AdminOnlyCommand {
     private final LocationProvisioningService provisioning;
-    private final ManagedMobService mobs;
+    private final StageTransitionTriggerService triggers;
+    private final REBuilderAdapter builds;
 
-    public LocationCommand(LocationProvisioningService provisioning, ManagedMobService mobs) {
+    public LocationCommand(LocationProvisioningService provisioning, StageTransitionTriggerService triggers, REBuilderAdapter builds) {
         if (provisioning == null) throw new IllegalArgumentException("provisioning is required");
-        if (mobs == null) throw new IllegalArgumentException("mobs is required");
+        if (triggers == null) throw new IllegalArgumentException("triggers is required");
+        if (builds == null) throw new IllegalArgumentException("builds is required");
         this.provisioning = provisioning;
-        this.mobs = mobs;
+        this.triggers = triggers;
+        this.builds = builds;
     }
 
     @Override public String getName() { return "location"; }
 
     @Override public String getUsage(ICommandSender sender) {
         return "/location create <locationId> <mobSlotId> [seed] | "
-                + "/location stagetemplate <locationId> <mobRadius> <triggerOffset> <triggerRadius>";
+                + "/location stagetemplate <locationId> <mobRadius> <triggerOffset> <triggerRadius> | "
+                + "/location buildtemplate <locationId> <templateName>";
     }
 
     @Override
     public List<String> getTabCompletions(
             MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
-        if (args.length == 1) return getListOfStringsMatchingLastWord(args, "create", "stagetemplate");
-        if (args.length == 2 && ("create".equalsIgnoreCase(args[0]) || "stagetemplate".equalsIgnoreCase(args[0]))) {
+        if (args.length == 1) return getListOfStringsMatchingLastWord(args, "create", "stagetemplate", "buildtemplate");
+        if (args.length == 2 && ("create".equalsIgnoreCase(args[0]) || "stagetemplate".equalsIgnoreCase(args[0])
+                || "buildtemplate".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(args, "<locationId>");
+        }
+        if (args.length == 0) return new ArrayList<>();
+        if (args.length == 3 && "buildtemplate".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(args, "<templateName>");
         }
         if ("stagetemplate".equalsIgnoreCase(args[0])) {
             String hint = stageTemplateArgumentHint(args.length);
@@ -65,6 +76,17 @@ public final class LocationCommand extends AdminOnlyCommand {
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
         if (args.length < 1) throw new CommandException(getUsage(sender));
         String action = args[0].toLowerCase(Locale.ROOT);
+        if ("buildtemplate".equals(action)) {
+            if (args.length != 3) throw new CommandException(getUsage(sender));
+            int worldLocationId = parseInt(args[1], 0, 10_000_000);
+            try {
+                provisioning.setBuildTemplate(worldLocationId, args[2]);
+                sender.sendMessage(new TextComponentString("Build template Location " + worldLocationId + ": " + args[2]));
+            } catch (IllegalArgumentException | IllegalStateException e) {
+                throw new CommandException(e.getMessage());
+            }
+            return;
+        }
         if ("stagetemplate".equals(action)) {
             setStageTemplate(sender, args);
             return;
@@ -102,17 +124,19 @@ public final class LocationCommand extends AdminOnlyCommand {
 
         LocationGenerationPlan plan;
         try {
+            BlockPos anchor = player.getPosition();
             plan = provisioning.createStage(
                     worldLocationId,
                     mobSlotId,
-                    player.posX,
-                    player.posY,
-                    player.posZ,
+                    anchor.getX(),
+                    anchor.getY(),
+                    anchor.getZ(),
                     player.world.getSeed(),
-                    explicitSeed);
-            // Reload managed stage topology immediately so the new empty stage is visible without a restart.
-            mobs.respawnAll();
+                    explicitSeed,
+                    builds.forPlayer(player));
+            triggers.rememberCreatedTrigger(worldLocationId, mobSlotId, stageTemplate);
         } catch (IllegalArgumentException | IllegalStateException e) {
+            if (e.getCause() != null) LogManager.getLogger(LocationCommand.class).error("Physical Location creation failed", e);
             throw new CommandException(e.getMessage());
         }
 
@@ -123,7 +147,6 @@ public final class LocationCommand extends AdminOnlyCommand {
                         + " center=" + format(plan.getCenterX()) + "," + format(plan.getCenterZ())
                         + " radius=" + plan.getRadius()
                         + " rotation=" + plan.getRotationDegrees()
-                        + " decorations=" + plan.getDecorations().size()
                         + " triggerOffset=" + stageTemplate.getTriggerOffset()
                         + " triggerRadius=" + stageTemplate.getTriggerRadius()
                         + ". Stage is empty; use populate separately."));

@@ -11,6 +11,27 @@ public final class LocationGenerationPlannerJUnitTest {
     private final LocationTemplate template = LocationTemplate.defaultStage();
 
     @Test
+    void physicalRotationIsSeedOnlyAndAlwaysOneOfFourQuarterTurns() {
+        java.util.Set<Integer> rotations = new java.util.HashSet<>();
+        long[] extremes = {Long.MIN_VALUE, Long.MAX_VALUE, -1L, 0L, 1L};
+        for (long seed : extremes) assertQuarterTurn(seed, rotations);
+        for (long seed = -2048; seed <= 2048; seed++) assertQuarterTurn(seed, rotations);
+        assertEquals(new java.util.HashSet<>(java.util.Arrays.asList(0, 90, 180, 270)), rotations);
+    }
+
+    private void assertQuarterTurn(long seed, java.util.Set<Integer> rotations) {
+        int expected = planner.rotationForSeed(seed);
+        assertTrue(expected == 0 || expected == 90 || expected == 180 || expected == 270);
+        rotations.add(expected);
+        LocationGenerationPlan first = planner.plan(template, 1, 1, 10, 64, -10, seed);
+        LocationGenerationPlan other = planner.plan(new LocationTemplate("other", 15, java.util.Collections.emptyList()),
+                7, 99, -20, 70, 100, seed);
+        assertEquals(expected, first.getRotationDegrees());
+        assertEquals(expected, other.getRotationDegrees());
+        assertEquals(expected, planner.rotationForSeed(seed));
+    }
+
+    @Test
     void sameSeedAndAnchorProduceIdenticalPlan() {
         LocationGenerationPlan first = planner.plan(template, 1, 4, 100.5D, 70.0D, -20.5D, 123456789L);
         LocationGenerationPlan second = planner.plan(template, 1, 4, 100.5D, 70.0D, -20.5D, 123456789L);

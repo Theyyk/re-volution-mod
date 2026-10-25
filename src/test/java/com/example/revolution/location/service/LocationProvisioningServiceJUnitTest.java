@@ -25,7 +25,7 @@ public final class LocationProvisioningServiceJUnitTest {
         LocationProvisioningService service = service(repository);
         service.setStageTemplate(1, 30.0D, 5.0D, 5.0D);
 
-        LocationGenerationPlan plan = service.createStage(1, 4, 12.5D, 70.0D, -8.5D, 99L, 123L);
+        LocationGenerationPlan plan = service.createStage(1, 4, 12.5D, 70.0D, -8.5D, 99L, 123L, PhysicalBuildTestSupport.configured());
         LocationDefinition saved = repository.getLocation(MobZoneIds.encode(1, 4));
 
         assertNotNull(saved);
@@ -43,10 +43,10 @@ public final class LocationProvisioningServiceJUnitTest {
         InMemoryLocationRepository repository = new InMemoryLocationRepository();
         LocationProvisioningService service = service(repository);
         service.setStageTemplate(2, 30.0D, 5.0D, 5.0D);
-        service.createStage(2, 1, 0.0D, 64.0D, 0.0D, 1L, 10L);
+        service.createStage(2, 1, 0.0D, 64.0D, 0.0D, 1L, 10L, PhysicalBuildTestSupport.configured());
 
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> service.createStage(2, 1, 5.0D, 64.0D, 5.0D, 1L, 20L));
+                () -> service.createStage(2, 1, 5.0D, 64.0D, 5.0D, 1L, 20L, PhysicalBuildTestSupport.configured()));
         assertTrue(error.getMessage().contains("Stage уже существует"));
         assertEquals(1, repository.locationWrites);
     }
@@ -59,7 +59,7 @@ public final class LocationProvisioningServiceJUnitTest {
         LocationProvisioningService service = service(repository);
 
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> service.createStage(3, 4, 0.0D, 64.0D, 0.0D, 1L, null));
+                () -> service.createStage(3, 4, 0.0D, 64.0D, 0.0D, 1L, null, PhysicalBuildTestSupport.configured()));
         assertTrue(error.getMessage().contains("после Boss Zone"));
         assertEquals(0, repository.locationWrites);
     }
@@ -72,7 +72,7 @@ public final class LocationProvisioningServiceJUnitTest {
         LocationProvisioningService service = service(repository);
         service.setStageTemplate(4, 30.0D, 5.0D, 5.0D);
 
-        service.createStage(4, 4, 25.0D, 64.0D, 25.0D, 1L, 77L);
+        service.createStage(4, 4, 25.0D, 64.0D, 25.0D, 1L, 77L, PhysicalBuildTestSupport.configured());
         assertNotNull(repository.getLocation(MobZoneIds.encode(4, 4)));
         assertEquals(1, repository.locationWrites);
     }
@@ -83,7 +83,7 @@ public final class LocationProvisioningServiceJUnitTest {
                 new LocationGenerationPlanner(),
                 LocationTemplate.defaultStage(),
                 new MemoryTemplates(),
-                null);
+                null, PhysicalBuildTestSupport.configured(), PhysicalBuildTestSupport.configured(), PhysicalBuildTestSupport.configured());
     }
 
     private static final class MemoryTemplates implements LocationStageTemplateRepository {
