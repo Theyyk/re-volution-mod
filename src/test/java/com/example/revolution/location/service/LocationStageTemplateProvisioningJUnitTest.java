@@ -3,6 +3,7 @@ package com.example.revolution.location.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.revolution.location.definition.LocationDefinition;
@@ -64,16 +65,20 @@ public final class LocationStageTemplateProvisioningJUnitTest {
     }
 
     @Test
-    void missingTemplatePreservesLegacyCreateBehavior() {
+    void missingTemplateRejectsCreateWithoutMutatingRepositories() {
         InMemoryLocationRepository locations = new InMemoryLocationRepository();
         MemoryTriggers triggers = new MemoryTriggers();
         LocationProvisioningService service = new LocationProvisioningService(
                 locations, new LocationGenerationPlanner(), LocationTemplate.defaultStage(), new MemoryTemplates(), triggers);
 
-        service.createStage(9, 1, 0.0D, 64.0D, 0.0D, 1L, 55L);
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.createStage(9, 1, 0.0D, 64.0D, 0.0D, 1L, 55L));
 
-        assertEquals(30.0D, locations.getLocation(MobZoneIds.encode(9, 1)).getRadius(), 0.0D);
+        assertTrue(error.getMessage().contains("Stage template is not configured for Location 9"));
+        assertNull(locations.getLocation(MobZoneIds.encode(9, 1)));
         assertNull(triggers.get(9, 1));
+        assertEquals(0, locations.locationWrites);
+        assertEquals(0, triggers.writes);
     }
 
     private static final class MemoryTemplates implements LocationStageTemplateRepository {
@@ -85,11 +90,15 @@ public final class LocationStageTemplateProvisioningJUnitTest {
 
     private static final class MemoryTriggers implements StageTransitionTriggerRepository {
         private final Map<String, StageTransitionTriggerDefinition> values = new HashMap<>();
+        private int writes;
         @Override public List<StageTransitionTriggerDefinition> getAll() { return new ArrayList<>(values.values()); }
         @Override public StageTransitionTriggerDefinition get(int worldLocationId, int sourceMobSlotId) {
             return values.get(worldLocationId + ":" + sourceMobSlotId);
         }
-        @Override public void upsert(StageTransitionTriggerDefinition trigger) { values.put(trigger.key(), trigger); }
+        @Override public void upsert(StageTransitionTriggerDefinition trigger) {
+            values.put(trigger.key(), trigger);
+            writes++;
+        }
         @Override public void delete(int worldLocationId, int sourceMobSlotId) { values.remove(worldLocationId + ":" + sourceMobSlotId); }
     }
 }
