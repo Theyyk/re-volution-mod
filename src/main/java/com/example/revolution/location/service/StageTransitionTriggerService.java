@@ -185,7 +185,7 @@ public final class StageTransitionTriggerService {
         }
         long now = player.world.getTotalWorldTime();
 
-        if (processPending(player, playerId, now, nowInside)) {
+        if (processPending(player, playerId, now)) {
             if (pendingByPlayer.containsKey(playerId)) insideByPlayer.put(playerId, nowInside);
             else insideByPlayer.remove(playerId);
             return;
@@ -224,10 +224,15 @@ public final class StageTransitionTriggerService {
         }
     }
 
-    private boolean processPending(EntityPlayerMP player, UUID playerId, long now, Set<String> nowInside) {
+    /**
+     * Once the player has entered a valid boundary ring, keep that transition armed for the configured delay.
+     * Requiring the player to remain inside the annulus for the whole second made normal walking/sprinting
+     * cross narrow trigger rings before the delay expired, so the pending transition was silently cancelled.
+     */
+    private boolean processPending(EntityPlayerMP player, UUID playerId, long now) {
         PendingTransition pending = pendingByPlayer.get(playerId);
         if (pending == null) return false;
-        if (!nowInside.contains(pending.triggerKey) || !preferences.isAutoTransitionEnabled(playerId)) {
+        if (!preferences.isAutoTransitionEnabled(playerId) || !triggers.containsKey(pending.triggerKey)) {
             pendingByPlayer.remove(playerId);
             return false;
         }
@@ -238,8 +243,11 @@ public final class StageTransitionTriggerService {
         }
         try {
             transitions.moveToStage(player, pending.targetInternalLocationId);
-        } catch (IllegalArgumentException | IllegalStateException ignored) {
+        } catch (IllegalArgumentException | IllegalStateException failure) {
             pendingByPlayer.remove(playerId);
+            // Transition failures used to be swallowed, which made a missing/obstructed destination look
+            // exactly like a dead trigger. Surface the concrete cause to the player instead.
+            player.sendStatusMessage(new TextComponentString("Переход не выполнен: " + failure.getMessage()), true);
             return false;
         }
         pendingByPlayer.remove(playerId);
