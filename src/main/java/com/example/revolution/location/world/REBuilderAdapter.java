@@ -64,6 +64,8 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
             double originalZ = player.posZ;
             List<?> targets;
             try {
+                // Remote /location create must not depend on an administrator preloading the destination.
+                loadChunk(player, new BlockPos(plan.getCenterX(), plan.getCenterY(), plan.getCenterZ()));
                 player.setPosition(plan.getCenterX(), plan.getCenterY(), plan.getCenterZ());
                 BlockPos resolvedAnchor = player.getPosition();
                 if (resolvedAnchor.getX() != plan.getCenterX()
@@ -82,6 +84,8 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
             Map<BlockPos, IBlockState> original = new LinkedHashMap<>();
             for (Object target : targets) {
                 BlockPos position = (BlockPos) target.getClass().getField("position").get(target);
+                // Templates may cross chunk boundaries, so preload every touched target chunk before snapshot/build.
+                loadChunk(player, position);
                 original.put(position, player.world.getBlockState(position));
             }
             return new PhysicalStageBuilder.PreparedBuild() {
@@ -91,6 +95,7 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
                     IllegalStateException failure = null;
                     for (Map.Entry<BlockPos, IBlockState> entry : original.entrySet()) {
                         try {
+                            loadChunk(player, entry.getKey());
                             if (player.world.getBlockState(entry.getKey()).equals(entry.getValue())) continue;
                             if (!player.world.setBlockState(entry.getKey(), entry.getValue(), 2)) {
                                 throw new IllegalStateException("Could not restore block " + entry.getKey());
@@ -106,6 +111,10 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
         } catch (ReflectiveOperationException | LinkageError e) {
             throw unavailable(e);
         }
+    }
+
+    private static void loadChunk(EntityPlayerMP player, BlockPos position) {
+        player.world.getChunkFromChunkCoords(position.getX() >> 4, position.getZ() >> 4);
     }
 
     private static Object invoke(Method method, Object target, Object... args) {
