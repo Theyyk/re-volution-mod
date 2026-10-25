@@ -1,13 +1,16 @@
 package com.example.revolution.mob.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.LocationKind;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-public class MobZoneSurfaceSearchJUnitTest {
+public final class MobZoneSurfaceSearchJUnitTest {
     @Test
-    public void findsOneBlockWideValidStripThatSparseRadialSamplesCanMiss() {
+    void findsOneBlockWideValidStripThatSparseRadialSamplesCanMiss() {
         LocationDefinition zone = new LocationDefinition(1001, "MobZone test", 0.0D, 0.0D, 8.0D, LocationKind.MOB_ZONE);
 
         double[] result = MobZoneSurfaceSearch.findNearestBlockCenter(zone, 3.2D, 3.2D,
@@ -19,14 +22,14 @@ public class MobZoneSurfaceSearchJUnitTest {
                     }
                 });
 
-        Assert.assertNotNull(result);
-        Assert.assertEquals(3.5D, result[0], 0.0001D);
-        Assert.assertEquals(64.0D, result[1], 0.0001D);
-        Assert.assertEquals(0.5D, result[2], 0.0001D);
+        assertNotNull(result);
+        assertEquals(3.5D, result[0], 0.0001D);
+        assertEquals(64.0D, result[1], 0.0001D);
+        assertEquals(0.5D, result[2], 0.0001D);
     }
 
     @Test
-    public void doesNotInventSurfaceWhenSafetyProbeRejectsEveryBlock() {
+    void doesNotInventSurfaceWhenSafetyProbeRejectsEveryBlock() {
         LocationDefinition zone = new LocationDefinition(1001, "MobZone test", 0.0D, 0.0D, 5.0D, LocationKind.MOB_ZONE);
 
         double[] result = MobZoneSurfaceSearch.findNearestBlockCenter(zone, 0.0D, 0.0D,
@@ -37,6 +40,6 @@ public class MobZoneSurfaceSearchJUnitTest {
                     }
                 });
 
-        Assert.assertNull(result);
+        assertNull(result);
     }
 }
