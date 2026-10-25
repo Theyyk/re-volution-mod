@@ -74,6 +74,57 @@ final class AutoTransitionPointProvisioningJUnitTest {
         assertFalse(locations.getLocation(MobZoneIds.encode(1, 1)).hasTransitionPoint());
     }
 
+    @Test void creatingSecondStageBackfillsGeneratedFirstStageUsingItsOwnAnchorHeight() {
+        configure(1);
+        service.createStage(1, 1, 0.0D, 64.0D, 0.0D, 999L, 111L, builds);
+        assertFalse(locations.getLocation(MobZoneIds.encode(1, 1)).hasTransitionPoint());
+
+        service.createStage(1, 2, 40.0D, 80.0D, 0.0D, 999L, 222L, builds);
+
+        LocationDefinition first = locations.getLocation(MobZoneIds.encode(1, 1));
+        LocationDefinition second = locations.getLocation(MobZoneIds.encode(1, 2));
+        assertTrue(first.hasTransitionPoint());
+        assertEquals(-17.5D, first.getTransitionX(), 1.0E-9D);
+        assertEquals(64.0D, first.getTransitionY(), 1.0E-9D);
+        assertEquals(0.0D, first.getTransitionZ(), 1.0E-9D);
+        assertTrue(second.hasTransitionPoint());
+        assertEquals(22.5D, second.getTransitionX(), 1.0E-9D);
+        assertEquals(80.0D, second.getTransitionY(), 1.0E-9D);
+    }
+
+    @Test void sequentialBackfillNeverOverwritesExistingManualPoint() {
+        configure(1);
+        service.createStage(1, 1, 0.0D, 64.0D, 0.0D, 999L, 111L, builds);
+        LocationDefinition original = locations.getLocation(MobZoneIds.encode(1, 1));
+        locations.upsertLocation(new LocationDefinition(
+                original.getLocationId(), original.getName(), original.getCenterX(), original.getCenterZ(), original.getRadius(),
+                original.getKind(), 3.0D, 70.0D, 4.0D, 25.0F, 5.0F));
+
+        service.createStage(1, 2, 40.0D, 80.0D, 0.0D, 999L, 222L, builds);
+
+        LocationDefinition first = locations.getLocation(MobZoneIds.encode(1, 1));
+        assertEquals(3.0D, first.getTransitionX(), 0.0D);
+        assertEquals(70.0D, first.getTransitionY(), 0.0D);
+        assertEquals(4.0D, first.getTransitionZ(), 0.0D);
+        assertEquals(25.0F, first.getTransitionYaw(), 0.0F);
+        assertEquals(5.0F, first.getTransitionPitch(), 0.0F);
+    }
+
+    @Test void failedSecondCreateRestoresPreviousStageWithoutBackfilledPoint() {
+        configure(1);
+        service.createStage(1, 1, 0.0D, 64.0D, 0.0D, 999L, 111L, builds);
+        assertFalse(locations.getLocation(MobZoneIds.encode(1, 1)).hasTransitionPoint());
+        builds.failSave = true;
+
+        assertThrows(IllegalStateException.class,
+                () -> service.createStage(1, 2, 40.0D, 80.0D, 0.0D, 999L, 222L, builds));
+
+        LocationDefinition first = locations.getLocation(MobZoneIds.encode(1, 1));
+        assertNotNull(first);
+        assertFalse(first.hasTransitionPoint());
+        assertNull(locations.getLocation(MobZoneIds.encode(1, 2)));
+    }
+
     @Test void firstStageOfNextLocationUsesFinalBossAsBackwardNeighbor() {
         configure(2);
         int bossId = MobZoneIds.encode(1, 3);

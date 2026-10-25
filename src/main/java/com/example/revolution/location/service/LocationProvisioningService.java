@@ -144,30 +144,55 @@ public final class LocationProvisioningService {
                 plan.getCenterX(),
                 plan.getCenterZ(),
                 plan.getRadius());
+
+        LocationDefinition previousStage = previousConfiguredStage(worldLocationId, mobSlotId);
+        LocationDefinition nextStage = nextConfiguredStage(worldLocationId, mobSlotId);
         AutoTransitionPointPlanner.Point point = transitionPoints.plan(
-                zone,
-                previousConfiguredStage(worldLocationId, mobSlotId),
-                nextConfiguredStage(worldLocationId, mobSlotId),
-                saved.getTriggerOffset(),
-                plan.getCenterY());
-        if (point != null) {
-            zone = new LocationDefinition(
-                    zone.getLocationId(), zone.getName(), zone.getCenterX(), zone.getCenterZ(), zone.getRadius(), zone.getKind(),
-                    point.getX(), point.getY(), point.getZ(), point.getYaw(), point.getPitch());
-        }
+                zone, previousStage, nextStage, saved.getTriggerOffset(), plan.getCenterY());
+        if (point != null) zone = withTransitionPoint(zone, point);
         final LocationDefinition committedZone = zone;
+
         StageTransitionTriggerDefinition previousTrigger = triggers == null ? null : triggers.get(worldLocationId, mobSlotId);
         if (generations == null) throw new IllegalStateException("Generation storage is unavailable");
         generations.requireAvailable();
+
+        LocationDefinition backfillOriginal = null;
+        LocationDefinition backfillUpdated = null;
+        if (previousStage != null && !previousStage.hasTransitionPoint() && triggers != null) {
+            int previousWorldLocationId = MobZoneIds.worldLocationId(previousStage.getLocationId());
+            int previousMobSlotId = MobZoneIds.mobSlotId(previousStage.getLocationId());
+            StageTransitionTriggerDefinition sourceTrigger = triggers.get(previousWorldLocationId, previousMobSlotId);
+            Double previousAnchorY = generations.getAnchorY(previousStage.getLocationId());
+            if (sourceTrigger != null && previousAnchorY != null && Double.isFinite(previousAnchorY)) {
+                AutoTransitionPointPlanner.Point previousPoint = transitionPoints.plan(
+                        previousStage,
+                        previousConfiguredStage(previousWorldLocationId, previousMobSlotId),
+                        committedZone,
+                        sourceTrigger.getOffset(),
+                        previousAnchorY);
+                if (previousPoint != null) {
+                    backfillOriginal = previousStage;
+                    backfillUpdated = withTransitionPoint(previousStage, previousPoint);
+                }
+            }
+        }
+        final LocationDefinition backfillBeforeCommit = backfillOriginal;
+        final LocationDefinition backfillForCommit = backfillUpdated;
+
         if (builder == null) throw new IllegalArgumentException("Physical builder is required");
         PhysicalStageBuilder.PreparedBuild prepared = builder.prepare(plan);
         boolean zoneAttempted = false;
+        boolean backfillAttempted = false;
         boolean triggerAttempted = false;
         boolean generationAttempted = false;
         try {
             prepared.apply();
             zoneAttempted = true;
             locations.upsertLocation(committedZone);
+            if (backfillForCommit != null) {
+                backfillAttempted = true;
+                locations.upsertLocation(backfillForCommit);
+            }
             if (triggers != null) {
                 triggerAttempted = true;
                 triggers.upsert(new StageTransitionTriggerDefinition(
@@ -189,6 +214,7 @@ public final class LocationProvisioningService {
                 if (previousTrigger == null) triggers.delete(worldLocationId, mobSlotId);
                 else triggers.upsert(previousTrigger);
             });
+            if (backfillAttempted) compensate(failure, () -> locations.upsertLocation(backfillBeforeCommit));
             if (zoneAttempted) compensate(failure, () -> locations.deleteLocation(internalId));
             compensate(failure, prepared::rollback);
             if (failure.getSuppressed().length > 0) {
@@ -197,6 +223,13 @@ public final class LocationProvisioningService {
             throw new IllegalStateException("Location creation failed: " + failure.getMessage(), failure);
         }
         return plan;
+    }
+
+    private static LocationDefinition withTransitionPoint(
+            LocationDefinition zone, AutoTransitionPointPlanner.Point point) {
+        return new LocationDefinition(
+                zone.getLocationId(), zone.getName(), zone.getCenterX(), zone.getCenterZ(), zone.getRadius(), zone.getKind(),
+                point.getX(), point.getY(), point.getZ(), point.getYaw(), point.getPitch());
     }
 
     private LocationDefinition previousConfiguredStage(int worldLocationId, int mobSlotId) {

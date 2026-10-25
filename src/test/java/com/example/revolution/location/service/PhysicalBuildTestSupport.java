@@ -46,6 +46,10 @@ final class PhysicalBuildTestSupport implements LocationBuildTemplateRepository,
         if (failDelete) throw new IllegalStateException("metadata compensation failed");
         saved.remove(id);
     }
+    @Override public Double getAnchorY(int internalLocationId) {
+        LocationGenerationPlan plan = saved.get(internalLocationId);
+        return plan == null ? null : plan.getCenterY();
+    }
     @Override public PreparedBuild prepare(LocationGenerationPlan plan) {
         prepares++;
         prepared = plan;
