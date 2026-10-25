@@ -29,10 +29,10 @@ public final class LocationStageTemplateProvisioningJUnitTest {
         MemoryTemplates templates = new MemoryTemplates();
         MemoryTriggers triggers = new MemoryTriggers();
         LocationProvisioningService service = new LocationProvisioningService(
-                locations, new LocationGenerationPlanner(), LocationTemplate.defaultStage(), templates, triggers);
+                locations, new LocationGenerationPlanner(), LocationTemplate.defaultStage(), templates, triggers, PhysicalBuildTestSupport.configured(), PhysicalBuildTestSupport.configured(), PhysicalBuildTestSupport.configured());
 
         service.setStageTemplate(1, 15.0D, 5.0D, 5.0D);
-        LocationGenerationPlan plan = service.createStage(1, 2, 10.0D, 64.0D, 20.0D, 999L, 123L);
+        LocationGenerationPlan plan = service.createStage(1, 2, 10.0D, 64.0D, 20.0D, 999L, 123L, PhysicalBuildTestSupport.configured());
 
         LocationDefinition zone = locations.getLocation(MobZoneIds.encode(1, 2));
         assertNotNull(zone);
@@ -52,7 +52,7 @@ public final class LocationStageTemplateProvisioningJUnitTest {
         InMemoryLocationRepository locations = new InMemoryLocationRepository();
         MemoryTemplates templates = new MemoryTemplates();
         LocationProvisioningService service = new LocationProvisioningService(
-                locations, new LocationGenerationPlanner(), LocationTemplate.defaultStage(), templates, new MemoryTriggers());
+                locations, new LocationGenerationPlanner(), LocationTemplate.defaultStage(), templates, new MemoryTriggers(), PhysicalBuildTestSupport.configured(), PhysicalBuildTestSupport.configured(), PhysicalBuildTestSupport.configured());
 
         service.setStageTemplate(7, 18.0D, 3.0D, 4.0D);
         LocationStageTemplate saved = service.getStageTemplate(7);
@@ -69,10 +69,10 @@ public final class LocationStageTemplateProvisioningJUnitTest {
         InMemoryLocationRepository locations = new InMemoryLocationRepository();
         MemoryTriggers triggers = new MemoryTriggers();
         LocationProvisioningService service = new LocationProvisioningService(
-                locations, new LocationGenerationPlanner(), LocationTemplate.defaultStage(), new MemoryTemplates(), triggers);
+                locations, new LocationGenerationPlanner(), LocationTemplate.defaultStage(), new MemoryTemplates(), triggers, PhysicalBuildTestSupport.configured(), PhysicalBuildTestSupport.configured(), PhysicalBuildTestSupport.configured());
 
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> service.createStage(9, 1, 0.0D, 64.0D, 0.0D, 1L, 55L));
+                () -> service.createStage(9, 1, 0.0D, 64.0D, 0.0D, 1L, 55L, PhysicalBuildTestSupport.configured()));
 
         assertTrue(error.getMessage().contains("Stage template is not configured for Location 9"));
         assertNull(locations.getLocation(MobZoneIds.encode(9, 1)));

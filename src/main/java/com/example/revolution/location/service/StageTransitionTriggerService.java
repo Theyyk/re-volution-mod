@@ -1,6 +1,7 @@
 package com.example.revolution.location.service;
 
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.LocationStageTemplate;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.StageTransitionTriggerDefinition;
 import com.example.revolution.location.definition.StageTransitionTriggerDefinition.DisplayMode;
@@ -70,6 +71,14 @@ public final class StageTransitionTriggerService {
         this.locations = locations;
         this.progression = progression;
         this.transitions = transitions;
+    }
+
+    /** Cache an already committed new stage without reloading mobs or progression configuration. */
+    public void rememberCreatedTrigger(int worldLocationId, int mobSlotId, LocationStageTemplate template) {
+        StageTransitionTriggerDefinition trigger = new StageTransitionTriggerDefinition(
+                worldLocationId, mobSlotId, template.getTriggerOffset(), template.getTriggerRadius(),
+                DisplayMode.ACTION_BAR, null, null, null);
+        triggers.put(trigger.key(), trigger);
     }
 
     public void reload() {

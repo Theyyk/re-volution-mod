@@ -21,7 +21,7 @@ public final class LocationGenerationPlanner {
         }
         int internalId = MobZoneIds.encode(worldLocationId, mobSlotId);
         Random random = new Random(mix(seed, worldLocationId, mobSlotId, template.getTemplateId().hashCode()));
-        int rotation = random.nextInt(4) * 90;
+        int rotation = rotationForSeed(seed);
         List<LocationGenerationPlan.DecorationPlacement> decorations = new ArrayList<>();
         for (LocationDecorationKind kind : template.getDecorationKinds()) {
             double angle = random.nextDouble() * Math.PI * 2.0D;
@@ -35,6 +35,11 @@ public final class LocationGenerationPlanner {
         return new LocationGenerationPlan(
                 worldLocationId, mobSlotId, internalId, template.getTemplateId(), seed,
                 anchorX, anchorY, anchorZ, template.getRadius(), rotation, decorations);
+    }
+
+    /** The explicit seed selects the same physical rotation across slots, templates and anchors. */
+    public int rotationForSeed(long seed) {
+        return new Random(avalanche(seed)).nextInt(4) * 90;
     }
 
     /** Stable default seed so `/stage location create L S` is reproducible at the same anchor/world. */

@@ -7,17 +7,23 @@ import com.example.revolution.location.definition.StageTransitionTriggerDefiniti
 import com.example.revolution.location.generation.LocationGenerationPlan;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
 import com.example.revolution.location.generation.LocationTemplate;
+import com.example.revolution.location.generation.BuildTemplateCatalog;
+import com.example.revolution.location.generation.PhysicalStageBuilder;
+import com.example.revolution.location.repository.LocationBuildTemplateRepository;
+import com.example.revolution.location.repository.LocationGenerationRepository;
 import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.location.repository.LocationStageTemplateRepository;
 import com.example.revolution.location.repository.StageTransitionTriggerRepository;
 
-/** Application service that persists planned stage geometry. It intentionally does not mutate Minecraft blocks. */
+/** Validates and plans first, then coordinates a physical build and compensated stage writes. */
 public final class LocationProvisioningService {
     private final LocationRepository locations;
     private final LocationGenerationPlanner planner;
-    private final LocationTemplate defaultTemplate;
     private final LocationStageTemplateRepository stageTemplates;
     private final StageTransitionTriggerRepository triggers;
+    private final LocationBuildTemplateRepository buildTemplates;
+    private final BuildTemplateCatalog catalog;
+    private final LocationGenerationRepository generations;
 
     /** Compatibility constructor. Stage creation still requires a configured stage template. */
     public LocationProvisioningService(LocationRepository locations) {
@@ -38,16 +44,44 @@ public final class LocationProvisioningService {
             LocationTemplate defaultTemplate,
             LocationStageTemplateRepository stageTemplates,
             StageTransitionTriggerRepository triggers) {
+        this(locations, planner, defaultTemplate, stageTemplates, triggers,
+                new LocationBuildTemplateRepository() {
+                    @Override public String get(int id) { return null; }
+                    @Override public void upsert(int id, String name) {
+                        throw new IllegalStateException("Build template storage is unavailable");
+                    }
+                }, name -> { throw new IllegalStateException("REBuilder is unavailable"); }, null);
+    }
+
+    public LocationProvisioningService(
+            LocationRepository locations, LocationGenerationPlanner planner, LocationTemplate defaultTemplate,
+            LocationStageTemplateRepository stageTemplates, StageTransitionTriggerRepository triggers,
+            LocationBuildTemplateRepository buildTemplates, BuildTemplateCatalog catalog,
+            LocationGenerationRepository generations) {
         if (locations == null) throw new IllegalArgumentException("locations is required");
         if (planner == null) throw new IllegalArgumentException("planner is required");
         if (defaultTemplate == null) throw new IllegalArgumentException("defaultTemplate is required");
         if (stageTemplates == null) throw new IllegalArgumentException("stageTemplates is required");
+        if (buildTemplates == null || catalog == null) throw new IllegalArgumentException("build templates and catalog are required");
         this.locations = locations;
         this.planner = planner;
-        this.defaultTemplate = defaultTemplate;
         this.stageTemplates = stageTemplates;
         this.triggers = triggers;
+        this.buildTemplates = buildTemplates;
+        this.catalog = catalog;
+        this.generations = generations;
     }
+
+    public void setBuildTemplate(int worldLocationId, String templateName) {
+        MobZoneIds.encode(worldLocationId, 1);
+        if (templateName == null || !templateName.matches("[a-z0-9_-]{1,64}")) {
+            throw new IllegalArgumentException("Invalid REBuilder template name; use the name from /rebuilder list without .rebuild");
+        }
+        catalog.validate(templateName);
+        buildTemplates.upsert(worldLocationId, templateName);
+    }
+
+    public String getBuildTemplate(int worldLocationId) { return buildTemplates.get(worldLocationId); }
 
     public LocationStageTemplate setStageTemplate(
             int worldLocationId, double mobRadius, double triggerOffset, double triggerRadius) {
@@ -69,6 +103,13 @@ public final class LocationProvisioningService {
             double anchorZ,
             long worldSeed,
             Long explicitSeed) {
+        return createStage(worldLocationId, mobSlotId, anchorX, anchorY, anchorZ, worldSeed, explicitSeed,
+                plan -> { throw new IllegalStateException("Physical build requires a player/world adapter"); });
+    }
+
+    public LocationGenerationPlan createStage(
+            int worldLocationId, int mobSlotId, double anchorX, double anchorY, double anchorZ,
+            long worldSeed, Long explicitSeed, PhysicalStageBuilder builder) {
         int internalId = MobZoneIds.encode(worldLocationId, mobSlotId);
         if (locations.getLocation(internalId) != null) {
             throw new IllegalArgumentException("Stage уже существует: location=" + worldLocationId + " slot=" + mobSlotId);
@@ -81,10 +122,14 @@ public final class LocationProvisioningService {
                     "Stage template is not configured for Location " + worldLocationId
                             + ". Use /location stagetemplate <locationId> <mobRadius> <triggerOffset> <triggerRadius> first.");
         }
+        String buildTemplate = buildTemplates.get(worldLocationId);
+        if (buildTemplate == null) {
+            throw new IllegalArgumentException("Build template is not configured for Location " + worldLocationId
+                    + ". Use /location buildtemplate <locationId> <templateName> first.");
+        }
+        catalog.validate(buildTemplate);
         LocationTemplate generationTemplate = new LocationTemplate(
-                "stage-template-" + worldLocationId,
-                saved.getMobRadius(),
-                defaultTemplate.getDecorationKinds());
+                buildTemplate, saved.getMobRadius(), java.util.Collections.emptyList());
 
         long seed = explicitSeed != null
                 ? explicitSeed
@@ -98,10 +143,20 @@ public final class LocationProvisioningService {
                 plan.getCenterX(),
                 plan.getCenterZ(),
                 plan.getRadius());
-        locations.upsertLocation(zone);
-
-        if (triggers != null) {
-            try {
+        StageTransitionTriggerDefinition previousTrigger = triggers == null ? null : triggers.get(worldLocationId, mobSlotId);
+        if (generations == null) throw new IllegalStateException("Generation storage is unavailable");
+        generations.requireAvailable();
+        if (builder == null) throw new IllegalArgumentException("Physical builder is required");
+        PhysicalStageBuilder.PreparedBuild prepared = builder.prepare(plan);
+        boolean zoneAttempted = false;
+        boolean triggerAttempted = false;
+        boolean generationAttempted = false;
+        try {
+            prepared.apply();
+            zoneAttempted = true;
+            locations.upsertLocation(zone);
+            if (triggers != null) {
+                triggerAttempted = true;
                 triggers.upsert(new StageTransitionTriggerDefinition(
                         worldLocationId,
                         mobSlotId,
@@ -111,12 +166,28 @@ public final class LocationProvisioningService {
                         null,
                         null,
                         null));
-            } catch (RuntimeException e) {
-                locations.deleteLocation(internalId);
-                throw e;
             }
+            generationAttempted = true;
+            generations.save(plan);
+        } catch (RuntimeException failure) {
+            // Each cleanup is independent: a failed database compensation must not skip world restoration.
+            if (generationAttempted) compensate(failure, () -> generations.delete(internalId));
+            if (triggerAttempted) compensate(failure, () -> {
+                if (previousTrigger == null) triggers.delete(worldLocationId, mobSlotId);
+                else triggers.upsert(previousTrigger);
+            });
+            if (zoneAttempted) compensate(failure, () -> locations.deleteLocation(internalId));
+            compensate(failure, prepared::rollback);
+            if (failure.getSuppressed().length > 0) {
+                throw new IllegalStateException("Location creation failed; rollback was incomplete. Check server log before retrying.", failure);
+            }
+            throw new IllegalStateException("Location creation failed: " + failure.getMessage(), failure);
         }
         return plan;
+    }
+
+    private static void compensate(RuntimeException failure, Runnable action) {
+        try { action.run(); } catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
     }
 
     private void ensureNoStageAfterBoss(int worldLocationId, int proposedSlot) {
