@@ -120,12 +120,17 @@ public final class LocationCommand extends AdminOnlyCommand {
                 "Created Location " + worldLocationId + "-" + mobSlotId
                         + " from template=" + plan.getTemplateId()
                         + " seed=" + plan.getSeed()
+                        + " center=" + format(plan.getCenterX()) + "," + format(plan.getCenterZ())
                         + " radius=" + plan.getRadius()
                         + " rotation=" + plan.getRotationDegrees()
                         + " decorations=" + plan.getDecorations().size()
                         + " triggerOffset=" + stageTemplate.getTriggerOffset()
                         + " triggerRadius=" + stageTemplate.getTriggerRadius()
                         + ". Stage is empty; use populate separately."));
+    }
+
+    private static String format(double value) {
+        return String.format(Locale.ROOT, "%.2f", value);
     }
 
     private static Long parseSeed(String raw) throws CommandException {
