@@ -1,17 +1,17 @@
 package com.example.revolution.location.generation;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public final class LocationGenerationPlannerJUnitTest {
     private final LocationGenerationPlanner planner = new LocationGenerationPlanner();
     private final LocationTemplate template = LocationTemplate.defaultStage();
 
     @Test
-    public void sameSeedAndAnchorProduceIdenticalPlan() {
+    void sameSeedAndAnchorProduceIdenticalPlan() {
         LocationGenerationPlan first = planner.plan(template, 1, 4, 100.5D, 70.0D, -20.5D, 123456789L);
         LocationGenerationPlan second = planner.plan(template, 1, 4, 100.5D, 70.0D, -20.5D, 123456789L);
 
@@ -29,17 +29,14 @@ public final class LocationGenerationPlannerJUnitTest {
     }
 
     @Test
-    public void differentSeedsProduceDifferentVariation() {
+    void differentSeedsProduceDifferentVariation() {
         LocationGenerationPlan first = planner.plan(template, 1, 4, 0.0D, 64.0D, 0.0D, 100L);
         LocationGenerationPlan second = planner.plan(template, 1, 4, 0.0D, 64.0D, 0.0D, 101L);
-
-        String firstSignature = signature(first);
-        String secondSignature = signature(second);
-        assertNotEquals(firstSignature, secondSignature);
+        assertNotEquals(signature(first), signature(second));
     }
 
     @Test
-    public void plannedDecorationsStayInsideTemplateRadius() {
+    void plannedDecorationsStayInsideTemplateRadius() {
         LocationGenerationPlan plan = planner.plan(template, 7, 2, 20.0D, 80.0D, 30.0D, -5L);
         assertEquals(template.getDecorationKinds().size(), plan.getDecorations().size());
         for (LocationGenerationPlan.DecorationPlacement placement : plan.getDecorations()) {
@@ -52,7 +49,7 @@ public final class LocationGenerationPlannerJUnitTest {
     }
 
     @Test
-    public void defaultSeedIsStableForSameWorldAndAnchor() {
+    void defaultSeedIsStableForSameWorldAndAnchor() {
         long first = planner.defaultSeed(987654321L, 3, 5, 100, 64, -200);
         long second = planner.defaultSeed(987654321L, 3, 5, 100, 64, -200);
         long moved = planner.defaultSeed(987654321L, 3, 5, 101, 64, -200);
