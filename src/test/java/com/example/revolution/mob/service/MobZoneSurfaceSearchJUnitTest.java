@@ -6,12 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.LocationKind;
+import com.example.revolution.location.definition.MobZoneIds;
 import org.junit.jupiter.api.Test;
 
 public final class MobZoneSurfaceSearchJUnitTest {
     @Test
     void findsOneBlockWideValidStripThatSparseRadialSamplesCanMiss() {
-        LocationDefinition zone = new LocationDefinition(1001, "MobZone test", 0.0D, 0.0D, 8.0D, LocationKind.MOB_ZONE);
+        LocationDefinition zone = new LocationDefinition(MobZoneIds.encode(1, 1), "MobZone test", 0.0D, 0.0D, 8.0D, LocationKind.MOB_ZONE);
 
         double[] result = MobZoneSurfaceSearch.findNearestBlockCenter(zone, 3.2D, 3.2D,
                 new MobZoneSurfaceSearch.SurfaceProbe() {
@@ -30,7 +31,7 @@ public final class MobZoneSurfaceSearchJUnitTest {
 
     @Test
     void doesNotInventSurfaceWhenSafetyProbeRejectsEveryBlock() {
-        LocationDefinition zone = new LocationDefinition(1001, "MobZone test", 0.0D, 0.0D, 5.0D, LocationKind.MOB_ZONE);
+        LocationDefinition zone = new LocationDefinition(MobZoneIds.encode(1, 1), "MobZone test", 0.0D, 0.0D, 5.0D, LocationKind.MOB_ZONE);
 
         double[] result = MobZoneSurfaceSearch.findNearestBlockCenter(zone, 0.0D, 0.0D,
                 new MobZoneSurfaceSearch.SurfaceProbe() {
