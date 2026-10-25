@@ -20,7 +20,7 @@ public final class LocationProvisioningService {
     private final LocationStageTemplateRepository stageTemplates;
     private final StageTransitionTriggerRepository triggers;
 
-    /** Backward-compatible constructor used by tests/legacy wiring: default radius 30, no automatic trigger. */
+    /** Compatibility constructor. Stage creation still requires a configured stage template. */
     public LocationProvisioningService(LocationRepository locations) {
         this(locations, new LocationGenerationPlanner(), LocationTemplate.defaultStage(),
                 new NoopStageTemplateRepository(), null);
@@ -77,12 +77,15 @@ public final class LocationProvisioningService {
         ensureNoStageAfterBoss(worldLocationId, mobSlotId);
 
         LocationStageTemplate saved = stageTemplates.get(worldLocationId);
-        LocationTemplate generationTemplate = saved == null
-                ? defaultTemplate
-                : new LocationTemplate(
-                        "stage-template-" + worldLocationId,
-                        saved.getMobRadius(),
-                        defaultTemplate.getDecorationKinds());
+        if (saved == null) {
+            throw new IllegalArgumentException(
+                    "Stage template is not configured for Location " + worldLocationId
+                            + ". Use /location stagetemplate <locationId> <mobRadius> <triggerOffset> <triggerRadius> first.");
+        }
+        LocationTemplate generationTemplate = new LocationTemplate(
+                "stage-template-" + worldLocationId,
+                saved.getMobRadius(),
+                defaultTemplate.getDecorationKinds());
 
         long seed = explicitSeed != null
                 ? explicitSeed
@@ -99,7 +102,7 @@ public final class LocationProvisioningService {
                 LocationKind.MOB_ZONE);
         locations.upsertLocation(zone);
 
-        if (saved != null && triggers != null) {
+        if (triggers != null) {
             try {
                 triggers.upsert(new StageTransitionTriggerDefinition(
                         worldLocationId,
