@@ -41,6 +41,10 @@ public final class LocationCommand extends AdminOnlyCommand {
         if (args.length == 2 && ("create".equalsIgnoreCase(args[0]) || "stagetemplate".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(args, "<locationId>");
         }
+        if ("stagetemplate".equalsIgnoreCase(args[0])) {
+            String hint = stageTemplateArgumentHint(args.length);
+            if (hint != null) return getListOfStringsMatchingLastWord(args, hint);
+        }
         if (args.length == 3 && "create".equalsIgnoreCase(args[0])) {
             return getListOfStringsMatchingLastWord(args, "<mobSlotId>");
         }
@@ -48,6 +52,13 @@ public final class LocationCommand extends AdminOnlyCommand {
             return getListOfStringsMatchingLastWord(args, "<seed>");
         }
         return new ArrayList<>();
+    }
+
+    static String stageTemplateArgumentHint(int argsLength) {
+        if (argsLength == 3) return "<mobRadius>";
+        if (argsLength == 4) return "<triggerOffset>";
+        if (argsLength == 5) return "<triggerRadius>";
+        return null;
     }
 
     @Override
@@ -105,10 +116,6 @@ public final class LocationCommand extends AdminOnlyCommand {
             throw new CommandException(e.getMessage());
         }
 
-        String triggerText = stageTemplate == null
-                ? " trigger=none(backward-compatible fallback)"
-                : " triggerOffset=" + stageTemplate.getTriggerOffset()
-                        + " triggerRadius=" + stageTemplate.getTriggerRadius();
         sender.sendMessage(new TextComponentString(
                 "Created Location " + worldLocationId + "-" + mobSlotId
                         + " from template=" + plan.getTemplateId()
@@ -116,7 +123,8 @@ public final class LocationCommand extends AdminOnlyCommand {
                         + " radius=" + plan.getRadius()
                         + " rotation=" + plan.getRotationDegrees()
                         + " decorations=" + plan.getDecorations().size()
-                        + triggerText
+                        + " triggerOffset=" + stageTemplate.getTriggerOffset()
+                        + " triggerRadius=" + stageTemplate.getTriggerRadius()
                         + ". Stage is empty; use populate separately."));
     }
 
