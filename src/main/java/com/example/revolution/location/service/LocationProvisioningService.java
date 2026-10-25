@@ -24,6 +24,7 @@ public final class LocationProvisioningService {
     private final LocationBuildTemplateRepository buildTemplates;
     private final BuildTemplateCatalog catalog;
     private final LocationGenerationRepository generations;
+    private final AutoTransitionPointPlanner transitionPoints = new AutoTransitionPointPlanner();
 
     /** Compatibility constructor. Stage creation still requires a configured stage template. */
     public LocationProvisioningService(LocationRepository locations) {
@@ -143,6 +144,18 @@ public final class LocationProvisioningService {
                 plan.getCenterX(),
                 plan.getCenterZ(),
                 plan.getRadius());
+        AutoTransitionPointPlanner.Point point = transitionPoints.plan(
+                zone,
+                previousConfiguredStage(worldLocationId, mobSlotId),
+                nextConfiguredStage(worldLocationId, mobSlotId),
+                saved.getTriggerOffset(),
+                plan.getCenterY());
+        if (point != null) {
+            zone = new LocationDefinition(
+                    zone.getLocationId(), zone.getName(), zone.getCenterX(), zone.getCenterZ(), zone.getRadius(), zone.getKind(),
+                    point.getX(), point.getY(), point.getZ(), point.getYaw(), point.getPitch());
+        }
+        final LocationDefinition committedZone = zone;
         StageTransitionTriggerDefinition previousTrigger = triggers == null ? null : triggers.get(worldLocationId, mobSlotId);
         if (generations == null) throw new IllegalStateException("Generation storage is unavailable");
         generations.requireAvailable();
@@ -154,7 +167,7 @@ public final class LocationProvisioningService {
         try {
             prepared.apply();
             zoneAttempted = true;
-            locations.upsertLocation(zone);
+            locations.upsertLocation(committedZone);
             if (triggers != null) {
                 triggerAttempted = true;
                 triggers.upsert(new StageTransitionTriggerDefinition(
@@ -184,6 +197,59 @@ public final class LocationProvisioningService {
             throw new IllegalStateException("Location creation failed: " + failure.getMessage(), failure);
         }
         return plan;
+    }
+
+    private LocationDefinition previousConfiguredStage(int worldLocationId, int mobSlotId) {
+        LocationDefinition sameLocation = null;
+        int bestSlot = Integer.MIN_VALUE;
+        for (LocationDefinition candidate : locations.getLocations()) {
+            if (candidate == null || !MobZoneIds.isMobZoneId(candidate.getLocationId())) continue;
+            if (MobZoneIds.worldLocationId(candidate.getLocationId()) != worldLocationId) continue;
+            int slot = MobZoneIds.mobSlotId(candidate.getLocationId());
+            if (slot < mobSlotId && slot > bestSlot) {
+                sameLocation = candidate;
+                bestSlot = slot;
+            }
+        }
+        if (sameLocation != null) return sameLocation;
+
+        int previousWorldLocationId = Integer.MIN_VALUE;
+        for (LocationDefinition candidate : locations.getLocations()) {
+            if (candidate == null || !MobZoneIds.isMobZoneId(candidate.getLocationId())) continue;
+            int locationId = MobZoneIds.worldLocationId(candidate.getLocationId());
+            if (locationId < worldLocationId && locationId > previousWorldLocationId) previousWorldLocationId = locationId;
+        }
+        if (previousWorldLocationId == Integer.MIN_VALUE) return null;
+
+        LocationDefinition finalStage = null;
+        int finalSlot = Integer.MIN_VALUE;
+        int bossCount = 0;
+        for (LocationDefinition candidate : locations.getLocations()) {
+            if (candidate == null || !MobZoneIds.isMobZoneId(candidate.getLocationId())) continue;
+            if (MobZoneIds.worldLocationId(candidate.getLocationId()) != previousWorldLocationId) continue;
+            int slot = MobZoneIds.mobSlotId(candidate.getLocationId());
+            if (candidate.isBossZone()) bossCount++;
+            if (slot > finalSlot) {
+                finalSlot = slot;
+                finalStage = candidate;
+            }
+        }
+        return bossCount == 1 && finalStage != null && finalStage.isBossZone() ? finalStage : null;
+    }
+
+    private LocationDefinition nextConfiguredStage(int worldLocationId, int mobSlotId) {
+        LocationDefinition best = null;
+        int bestSlot = Integer.MAX_VALUE;
+        for (LocationDefinition candidate : locations.getLocations()) {
+            if (candidate == null || !MobZoneIds.isMobZoneId(candidate.getLocationId())) continue;
+            if (MobZoneIds.worldLocationId(candidate.getLocationId()) != worldLocationId) continue;
+            int slot = MobZoneIds.mobSlotId(candidate.getLocationId());
+            if (slot > mobSlotId && slot < bestSlot) {
+                best = candidate;
+                bestSlot = slot;
+            }
+        }
+        return best;
     }
 
     private static void compensate(RuntimeException failure, Runnable action) {
