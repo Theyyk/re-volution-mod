@@ -1,20 +1,20 @@
 package com.example.revolution.location.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.LocationKind;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.generation.LocationGenerationPlan;
 import com.example.revolution.location.repository.InMemoryLocationRepository;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public final class LocationProvisioningServiceJUnitTest {
     @Test
-    public void createStagePersistsEmptyMobZoneGeometry() {
+    void createStagePersistsEmptyMobZoneGeometry() {
         InMemoryLocationRepository repository = new InMemoryLocationRepository();
         LocationProvisioningService service = new LocationProvisioningService(repository);
 
@@ -32,38 +32,32 @@ public final class LocationProvisioningServiceJUnitTest {
     }
 
     @Test
-    public void duplicateStageIsRejectedWithoutSecondWrite() {
+    void duplicateStageIsRejectedWithoutSecondWrite() {
         InMemoryLocationRepository repository = new InMemoryLocationRepository();
         LocationProvisioningService service = new LocationProvisioningService(repository);
         service.createStage(2, 1, 0.0D, 64.0D, 0.0D, 1L, 10L);
 
-        try {
-            service.createStage(2, 1, 5.0D, 64.0D, 5.0D, 1L, 20L);
-            fail("duplicate stage must be rejected");
-        } catch (IllegalArgumentException expected) {
-            assertTrue(expected.getMessage().contains("Stage уже существует"));
-        }
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.createStage(2, 1, 5.0D, 64.0D, 5.0D, 1L, 20L));
+        assertTrue(error.getMessage().contains("Stage уже существует"));
         assertEquals(1, repository.locationWrites);
     }
 
     @Test
-    public void stageAfterBossIsRejected() {
+    void stageAfterBossIsRejected() {
         InMemoryLocationRepository repository = new InMemoryLocationRepository();
         repository.seed(new LocationDefinition(
                 MobZoneIds.encode(3, 3), "Boss", 0.0D, 0.0D, 30.0D, LocationKind.BOSS_ZONE));
         LocationProvisioningService service = new LocationProvisioningService(repository);
 
-        try {
-            service.createStage(3, 4, 0.0D, 64.0D, 0.0D, 1L, null);
-            fail("stage after boss must be rejected");
-        } catch (IllegalArgumentException expected) {
-            assertTrue(expected.getMessage().contains("после Boss Zone"));
-        }
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.createStage(3, 4, 0.0D, 64.0D, 0.0D, 1L, null));
+        assertTrue(error.getMessage().contains("после Boss Zone"));
         assertEquals(0, repository.locationWrites);
     }
 
     @Test
-    public void stageBeforeExistingBossRemainsAllowed() {
+    void stageBeforeExistingBossRemainsAllowed() {
         InMemoryLocationRepository repository = new InMemoryLocationRepository();
         repository.seed(new LocationDefinition(
                 MobZoneIds.encode(4, 5), "Boss", 0.0D, 0.0D, 30.0D, LocationKind.BOSS_ZONE));
