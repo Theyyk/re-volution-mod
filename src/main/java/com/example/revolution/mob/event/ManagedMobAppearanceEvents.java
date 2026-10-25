@@ -4,22 +4,42 @@ import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.mob.appearance.MobAppearanceCatalog;
 import com.example.revolution.mob.appearance.MobAppearanceDefinition;
 import com.example.revolution.mob.appearance.MobVisualWire;
+import java.util.ArrayList;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.monster.EntitySkeleton;
 import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
+import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-/** Adds the stable visual slot marker and player-facing Russian name before managed entities are tracked to clients. */
+/** Keeps the stable visual slot marker and player-facing Russian name on managed Location 1 entities. */
 public final class ManagedMobAppearanceEvents {
     private static final String INTERNAL_LOCATION_ID_TAG = "revolutionLocationId";
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onEntityJoinWorld(EntityJoinWorldEvent event) {
-        if (event.getWorld().isRemote) return;
-        Entity entity = event.getEntity();
+        if (!event.getWorld().isRemote) refresh(event.getEntity());
+    }
+
+    /**
+     * ManagedMobService rewrites its health payload after hits and chunk recovery. Re-apply the visual/name
+     * fields after the service tick so appearance identity survives every metadata refresh without changing
+     * the gameplay wire fields or persistence schema.
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        for (World world : DimensionManager.getWorlds()) {
+            if (world == null || world.isRemote) continue;
+            for (Entity entity : new ArrayList<>(world.loadedEntityList)) refresh(entity);
+        }
+    }
+
+    private void refresh(Entity entity) {
         if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) return;
         if (!entity.hasCustomName()) return;
 
@@ -36,11 +56,12 @@ public final class ManagedMobAppearanceEvents {
         if (raw == null || !raw.startsWith("§c") || !raw.contains("|")) return;
         String[] parts = raw.substring(2).split("\\|", -1);
         if (parts.length < 5) return;
-        entity.setCustomNameTag("§c" + appearance.getDisplayName()
+        String expected = "§c" + appearance.getDisplayName()
                 + "|" + parts[1]
                 + "|" + parts[2]
                 + "|" + parts[3]
                 + "|" + parts[4]
-                + "|" + MobVisualWire.encode(locationId, mobSlotId));
+                + "|" + MobVisualWire.encode(locationId, mobSlotId);
+        if (!expected.equals(raw)) entity.setCustomNameTag(expected);
     }
 }
