@@ -414,11 +414,11 @@ public final class MobAdminService {
     }
 
     private double[] findGeneratedSafePoint(
-            EntityPlayerMP player,
+            final EntityPlayerMP player,
             LocationDefinition zone,
             double preferredX,
             double preferredZ,
-            double baseY) {
+            final double baseY) {
         Double y = surfaceY(player, preferredX, preferredZ, baseY);
         if (y != null) return new double[] {preferredX, y, preferredZ};
         for (int ring = 1; ring <= SAFE_POINT_RING_COUNT; ring++) {
@@ -432,7 +432,13 @@ public final class MobAdminService {
                 if (y != null) return new double[] {x, y, z};
             }
         }
-        return null;
+        return MobZoneSurfaceSearch.findNearestBlockCenter(zone, preferredX, preferredZ,
+                new MobZoneSurfaceSearch.SurfaceProbe() {
+                    @Override
+                    public Double surfaceY(double x, double z) {
+                        return MobAdminService.this.surfaceY(player, x, z, baseY);
+                    }
+                });
     }
 
     private Double surfaceY(EntityPlayerMP player, double x, double z, double baseY) {
