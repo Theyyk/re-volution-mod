@@ -4,8 +4,11 @@ import com.example.revolution.admin.api.AdminApiServer;
 import com.example.revolution.admin.service.AdminAccessService;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
+import com.example.revolution.location.generation.LocationGenerationPlanner;
+import com.example.revolution.location.generation.LocationTemplate;
 import com.example.revolution.location.repository.FastAutoPreferenceRepository;
 import com.example.revolution.location.repository.LocationRepository;
+import com.example.revolution.location.repository.LocationStageTemplateRepository;
 import com.example.revolution.location.repository.StageTransitionPreferenceRepository;
 import com.example.revolution.location.repository.StageTransitionTriggerRepository;
 import com.example.revolution.location.service.FastAutoService;
@@ -23,6 +26,7 @@ import com.example.revolution.persistence.FileAdminWhitelistRepository;
 import com.example.revolution.persistence.MongoConnection;
 import com.example.revolution.persistence.MongoFastAutoPreferenceRepository;
 import com.example.revolution.persistence.MongoLocationRepository;
+import com.example.revolution.persistence.MongoLocationStageTemplateRepository;
 import com.example.revolution.persistence.MongoMobProgressionRepository;
 import com.example.revolution.persistence.MongoMobRepository;
 import com.example.revolution.persistence.MongoPlayerRepository;
@@ -85,6 +89,7 @@ public final class ServerServices implements AutoCloseable {
         PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
         MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
         LocationRepository locationRepository = new MongoLocationRepository(connection, persistentGameplay);
+        LocationStageTemplateRepository stageTemplateRepository = new MongoLocationStageTemplateRepository(connection, persistentGameplay);
         MobProgressionRepository progressionRepository = new MongoMobProgressionRepository(connection, persistentGameplay);
         StageTransitionTriggerRepository triggerRepository = new MongoStageTransitionTriggerRepository(connection, persistentGameplay);
         StageTransitionPreferenceRepository transitionPreferences = new MongoStageTransitionPreferenceRepository(connection, persistentGameplay);
@@ -102,7 +107,12 @@ public final class ServerServices implements AutoCloseable {
                 new RuneEnhancementService(players, resources, stats, enhancements, sync),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
-        locationProvisioning = new LocationProvisioningService(locationRepository);
+        locationProvisioning = new LocationProvisioningService(
+                locationRepository,
+                new LocationGenerationPlanner(),
+                LocationTemplate.defaultStage(),
+                stageTemplateRepository,
+                triggerRepository);
         stageTransitions = new StageTransitionService(locationRepository, mobProgression);
         stageTransitionTriggers = new StageTransitionTriggerService(
                 triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
