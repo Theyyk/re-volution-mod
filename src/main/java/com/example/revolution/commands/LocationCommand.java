@@ -35,7 +35,7 @@ public final class LocationCommand extends AdminOnlyCommand {
     @Override public String getName() { return "location"; }
 
     @Override public String getUsage(ICommandSender sender) {
-        return "/location create <locationId> <mobSlotId> [seed] | "
+        return "/location create <locationId> <mobSlotId> [x y z] | "
                 + "/location stagetemplate <locationId> <mobRadius> <triggerOffset> <triggerRadius> | "
                 + "/location buildtemplate <locationId> <templateName>";
     }
@@ -59,8 +59,9 @@ public final class LocationCommand extends AdminOnlyCommand {
         if (args.length == 3 && "create".equalsIgnoreCase(args[0])) {
             return getListOfStringsMatchingLastWord(args, "<mobSlotId>");
         }
-        if (args.length == 4 && "create".equalsIgnoreCase(args[0])) {
-            return getListOfStringsMatchingLastWord(args, "<seed>");
+        if ("create".equalsIgnoreCase(args[0])) {
+            String hint = createCoordinateArgumentHint(args.length);
+            if (hint != null) return getListOfStringsMatchingLastWord(args, hint);
         }
         return new ArrayList<>();
     }
@@ -69,6 +70,13 @@ public final class LocationCommand extends AdminOnlyCommand {
         if (argsLength == 3) return "<mobRadius>";
         if (argsLength == 4) return "<triggerOffset>";
         if (argsLength == 5) return "<triggerRadius>";
+        return null;
+    }
+
+    static String createCoordinateArgumentHint(int argsLength) {
+        if (argsLength == 4) return "<x>";
+        if (argsLength == 5) return "<y>";
+        if (argsLength == 6) return "<z>";
         return null;
     }
 
@@ -115,24 +123,36 @@ public final class LocationCommand extends AdminOnlyCommand {
     }
 
     private void createStage(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 3 && args.length != 4) throw new CommandException(getUsage(sender));
+        if (args.length != 3 && args.length != 6) throw new CommandException(getUsage(sender));
         EntityPlayerMP player = getCommandSenderAsPlayer(sender);
         int worldLocationId = parseInt(args[1], 0, 10_000_000);
         int mobSlotId = parseInt(args[2], 1, 99);
-        Long explicitSeed = args.length == 4 ? parseSeed(args[3]) : null;
         LocationStageTemplate stageTemplate = provisioning.getStageTemplate(worldLocationId);
+
+        double anchorX;
+        double anchorY;
+        double anchorZ;
+        if (args.length == 6) {
+            anchorX = parseDouble(args[3]);
+            anchorY = parseDouble(args[4]);
+            anchorZ = parseDouble(args[5]);
+        } else {
+            BlockPos anchor = player.getPosition();
+            anchorX = anchor.getX();
+            anchorY = anchor.getY();
+            anchorZ = anchor.getZ();
+        }
 
         LocationGenerationPlan plan;
         try {
-            BlockPos anchor = player.getPosition();
             plan = provisioning.createStage(
                     worldLocationId,
                     mobSlotId,
-                    anchor.getX(),
-                    anchor.getY(),
-                    anchor.getZ(),
+                    anchorX,
+                    anchorY,
+                    anchorZ,
                     player.world.getSeed(),
-                    explicitSeed,
+                    null,
                     builds.forPlayer(player));
             triggers.rememberCreatedTrigger(worldLocationId, mobSlotId, stageTemplate);
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -144,6 +164,7 @@ public final class LocationCommand extends AdminOnlyCommand {
                 "Created Location " + worldLocationId + "-" + mobSlotId
                         + " from template=" + plan.getTemplateId()
                         + " seed=" + plan.getSeed()
+                        + " anchor=" + format(anchorX) + "," + format(anchorY) + "," + format(anchorZ)
                         + " center=" + format(plan.getCenterX()) + "," + format(plan.getCenterZ())
                         + " radius=" + plan.getRadius()
                         + " rotation=" + plan.getRotationDegrees()
@@ -154,13 +175,5 @@ public final class LocationCommand extends AdminOnlyCommand {
 
     private static String format(double value) {
         return String.format(Locale.ROOT, "%.2f", value);
-    }
-
-    private static Long parseSeed(String raw) throws CommandException {
-        try {
-            return Long.valueOf(raw);
-        } catch (NumberFormatException e) {
-            throw new CommandException("seed must be a signed 64-bit integer");
-        }
     }
 }
