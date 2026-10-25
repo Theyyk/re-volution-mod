@@ -54,17 +54,30 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
     }
 
     private PhysicalStageBuilder.PreparedBuild prepare(EntityPlayerMP player, LocationGenerationPlan plan) {
-        BlockPos anchor = player.getPosition();
-        if (plan.getCenterX() != anchor.getX() || plan.getCenterY() != anchor.getY() || plan.getCenterZ() != anchor.getZ()) {
-            throw new IllegalArgumentException("Stage center must equal the REBuilder player block anchor");
-        }
         try {
             Object template = loadTemplate(plan.getTemplateId());
             Class<?> serviceType = Class.forName("ru.rebuilder.world.BuildService");
             Object service = serviceType.getConstructor().newInstance();
-            List<?> targets = (List<?>) invoke(serviceType.getMethod("prepare", EntityPlayerMP.class,
-                    Class.forName("ru.rebuilder.template.Template"), int.class),
-                    service, player, template, plan.getRotationDegrees());
+
+            double originalX = player.posX;
+            double originalY = player.posY;
+            double originalZ = player.posZ;
+            List<?> targets;
+            try {
+                player.setPosition(plan.getCenterX(), plan.getCenterY(), plan.getCenterZ());
+                BlockPos resolvedAnchor = player.getPosition();
+                if (resolvedAnchor.getX() != plan.getCenterX()
+                        || resolvedAnchor.getY() != plan.getCenterY()
+                        || resolvedAnchor.getZ() != plan.getCenterZ()) {
+                    throw new IllegalStateException("Could not resolve REBuilder anchor at stage center");
+                }
+                targets = (List<?>) invoke(serviceType.getMethod("prepare", EntityPlayerMP.class,
+                        Class.forName("ru.rebuilder.template.Template"), int.class),
+                        service, player, template, plan.getRotationDegrees());
+            } finally {
+                player.setPosition(originalX, originalY, originalZ);
+            }
+
             Method build = serviceType.getMethod("build", EntityPlayerMP.class, List.class);
             Map<BlockPos, IBlockState> original = new LinkedHashMap<>();
             for (Object target : targets) {
