@@ -6,6 +6,7 @@ import com.example.revolution.commands.CustomMobCommand;
 import com.example.revolution.commands.CustomResourceCommand;
 import com.example.revolution.commands.CustomRunesCommand;
 import com.example.revolution.commands.CustomStatusCommand;
+import com.example.revolution.commands.LocationCommand;
 import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.commands.StageCommand;
 import com.example.revolution.location.event.FastAutoHandler;
@@ -99,6 +100,7 @@ public final class ServerLifecycle {
         event.registerServerCommand(new CustomResourceCommand(current.resources));
         event.registerServerCommand(new AdminPanelCommand(current.adminAccess));
         event.registerServerCommand(new RealmCommand(current.realms));
+        event.registerServerCommand(new LocationCommand(current.locationProvisioning, current.mobs));
         event.registerServerCommand(new StageCommand(
                 current.stageTransitions, current.stageTransitionTriggers, current.mobProgression, current.mobAdmin));
         current.resources.purgeDeprecatedLightnings();
