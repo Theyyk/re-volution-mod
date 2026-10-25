@@ -32,6 +32,15 @@ public final class MongoLocationGenerationRepository implements LocationGenerati
         connection.collection("location_generations").deleteOne(new Document("locationId", internalLocationId));
     }
 
+    @Override public Double getAnchorY(int internalLocationId) {
+        requireAvailable();
+        Document stored = connection.collection("location_generations")
+                .find(new Document("locationId", internalLocationId)).first();
+        if (stored == null) return null;
+        Object value = stored.get("anchorY");
+        return value instanceof Number ? ((Number) value).doubleValue() : null;
+    }
+
     static Document toDocument(LocationGenerationPlan plan) {
         return new Document("locationId", plan.getInternalLocationId())
                 .append("worldLocationId", plan.getWorldLocationId()).append("mobSlotId", plan.getMobSlotId())
