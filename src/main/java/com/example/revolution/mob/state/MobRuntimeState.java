@@ -20,6 +20,7 @@ public final class MobRuntimeState {
     public int roamCooldown;
     public int separationCooldown;
     public int combatPauseTicks;
+    public int deathVisualTicks;
     public boolean spawnFailureLogged, chunkWasUnloaded, hasSpawnedOnce, initialResolved;
     public double initialX, initialY, initialZ;
 
