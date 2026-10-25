@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
 
-/** Runtime for 180/180 stage boundary rings, delayed transitions, and data-driven messages. */
+/** Runtime for manual 180/180 stage boundary fallback rings, delayed transitions, and data-driven messages. */
 public final class StageTransitionTriggerService {
     private static final long TRANSITION_DELAY_TICKS = 20L;
     private static final long TELEPORT_COOLDOWN_TICKS = 10L;
@@ -160,13 +160,11 @@ public final class StageTransitionTriggerService {
                 : new OverlayGeometry(inner, outer, axis[0], axis[1]);
     }
 
+    /** This preference controls fast-auto; boundary fallback rings remain available regardless of it. */
     public boolean isAutoTransitionEnabled(UUID playerUuid) { return preferences.isAutoTransitionEnabled(playerUuid); }
 
     public void setAutoTransitionEnabled(UUID playerUuid, boolean enabled) {
         preferences.setAutoTransitionEnabled(playerUuid, enabled);
-        if (!enabled) pendingByPlayer.remove(playerUuid);
-        insideByPlayer.remove(playerUuid);
-        cooldownUntilTick.remove(playerUuid);
     }
 
     public void handlePlayerTick(EntityPlayerMP player) {
@@ -216,7 +214,6 @@ public final class StageTransitionTriggerService {
                 if (forwardHalf) sendConfiguredMessage(player, trigger.getLockedMessage(), trigger.getDisplayMode());
                 continue;
             }
-            if (!preferences.isAutoTransitionEnabled(playerId)) continue;
             sendConfiguredMessage(player,
                     forwardHalf ? trigger.getForwardMessage() : trigger.getBackwardMessage(), trigger.getDisplayMode());
             pendingByPlayer.put(playerId, new PendingTransition(trigger.key(), targetId, now + TRANSITION_DELAY_TICKS));
@@ -232,7 +229,7 @@ public final class StageTransitionTriggerService {
     private boolean processPending(EntityPlayerMP player, UUID playerId, long now) {
         PendingTransition pending = pendingByPlayer.get(playerId);
         if (pending == null) return false;
-        if (!preferences.isAutoTransitionEnabled(playerId) || !triggers.containsKey(pending.triggerKey)) {
+        if (!triggers.containsKey(pending.triggerKey)) {
             pendingByPlayer.remove(playerId);
             return false;
         }
@@ -245,8 +242,6 @@ public final class StageTransitionTriggerService {
             transitions.moveToStage(player, pending.targetInternalLocationId);
         } catch (IllegalArgumentException | IllegalStateException failure) {
             pendingByPlayer.remove(playerId);
-            // Transition failures used to be swallowed, which made a missing/obstructed destination look
-            // exactly like a dead trigger. Surface the concrete cause to the player instead.
             player.sendStatusMessage(new TextComponentString("Переход не выполнен: " + failure.getMessage()), true);
             return false;
         }
