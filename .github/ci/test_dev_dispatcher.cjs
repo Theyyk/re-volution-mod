@@ -29,6 +29,7 @@ for (const event of ['pull_request', 'workflow_dispatch', 'release']) {
 }
 assert.equal(accepts({head_repository: {full_name: 'fork/re-volution-mod'}}), false);
 assert.match(workflow, /workflow_run:\s*\n\s+workflows: \['Build and Release'\]\s*\n\s+branches: \[develop\]/);
-assert.match(workflow, /event_type=mod-dev-build/);
-console.log('DEV dispatcher: routing cases passed, including real v1.3.9 tag regression');
-
+assert.match(workflow, /ghcr\\\.io\/theyyk\/re-volution-gameplay-dev@sha256/);
+assert.match(workflow, /event_type:\"mod-dev-build\"/);
+assert.match(workflow, /client_payload:\{gameplay_image:\$gameplay_image\}/);
+console.log('DEV dispatcher: routing and exact-digest payload cases passed');
