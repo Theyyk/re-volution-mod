@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   actions: read
+  packages: read
 
 jobs:
   dispatch:
@@ -19,19 +20,35 @@ jobs:
       github.event.workflow_run.head_branch == 'develop'
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch successful source run (never execute branch code here)
+      - name: Log in to GHCR for exact gameplay digest resolution
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable gameplay digest and dispatch trusted Docker build
         env:
           GH_TOKEN: ${{ secrets.RE_VOLUTION_DOCKER }}
           SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           test -n "$GH_TOKEN"
-          # A successful documentation-only run has no gameplay artifact.
-          count=$(GH_TOKEN="${{ github.token }}" gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts?per_page=100" --jq '[.artifacts[] | select((.name | startswith("RE-volution-")) and .expired == false)] | length')
-          if [ "$count" = 0 ]; then
-            echo "No gameplay artifact; no downstream Docker/client chain."
-            exit 0
-          fi
-          test "$count" = 1
-          gh api --method POST /repos/Theyyk/re-volution-docker/dispatches \
-            -f event_type=mod-dev-build -f "client_payload[run_id]=$SOURCE_RUN_ID"
+          IMAGE="ghcr.io/theyyk/re-volution-gameplay-dev:sha-$SOURCE_SHA"
+          docker pull "$IMAGE"
+          DIGEST_REF=$(docker image inspect "$IMAGE" --format '{{index .RepoDigests 0}}')
+          [[ "$DIGEST_REF" =~ ^ghcr\.io/theyyk/re-volution-gameplay-dev@sha256:[a-f0-9]{64}$ ]]
+
+          IMAGE_SHA=$(docker image inspect "$IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
+          IMAGE_RUN_ID=$(docker image inspect "$IMAGE" --format '{{index .Config.Labels "re.vol.mod.source.run-id"}}')
+          IMAGE_RUN_ATTEMPT=$(docker image inspect "$IMAGE" --format '{{index .Config.Labels "re.vol.mod.source.run-attempt"}}')
+          test "$IMAGE_SHA" = "$SOURCE_SHA"
+          test "$IMAGE_RUN_ID" = "$SOURCE_RUN_ID"
+          test "$IMAGE_RUN_ATTEMPT" = "$SOURCE_RUN_ATTEMPT"
+
+          jq -n \
+            --arg gameplay_image "$DIGEST_REF" \
+            '{event_type:"mod-dev-build",client_payload:{gameplay_image:$gameplay_image}}' \
+            | gh api --method POST repos/Theyyk/re-volution-docker/dispatches --input -
