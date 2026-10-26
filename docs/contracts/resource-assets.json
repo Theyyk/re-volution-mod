@@ -4,5 +4,10 @@
   "src/main/resources/assets/revolution/fonts/minecraft_seven.otf": "3ac46d75d4fe3aae7412d18e09047b70073a8e779488f72560c09f8c474fecc6",
   "src/main/resources/assets/revolution/fonts/README.md": "9349c5452b2b628a10e80b274118d1bbd331502e5275277a048bb367b5d123db",
   "src/main/resources/assets/revolution/shaders/post/gui_blur.json": "6226167c597200ecf0b05a2be72a7983ad5f9b1177af0eeed17cca2677692e92",
-  "src/main/resources/assets/revolution/textures/gui/runes/README.md": "ded957eca8f1981aed7bf82c9c42845fa09d74f7904585605f0ded4c0e878dbe"
+  "src/main/resources/assets/revolution/textures/gui/runes/README.md": "ded957eca8f1981aed7bf82c9c42845fa09d74f7904585605f0ded4c0e878dbe",
+  "src/main/resources/assets/revolution/textures/entity/location1/README.md": "f7255b4bffb1a15e39cc3385d3bd028f80c8974da05f41c5a7ab5e6a9017911c",
+  "src/main/resources/assets/revolution/textures/entity/location1/moss_turtle.design.md": "56dd655e0f90c4aebd03352f77f7de610cee26f631e77653cd65a185432a5646",
+  "src/main/resources/assets/revolution/textures/entity/location1/moss_turtle.palette.txt": "be8a9c73c53b765a09dca05c6fb8a6013f74de7ae63eadf1a89926d9c96e918c",
+  "src/main/resources/assets/revolution/textures/entity/location1/moss_turtle.png": "667b051f08563fc9c504e6519fd32c1f89154608c7105ed5882f94a4a659bdcd",
+  "src/main/resources/assets/revolution/textures/entity/location1/moss_turtle.uv.txt": "3c32b5b9ff67553ecaf14ef3403642e71239403e4dff9033ab237beff18adf2e"
 }
