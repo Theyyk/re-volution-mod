@@ -86,7 +86,12 @@ public final class ForestMobModel extends ModelBase {
     }
 
     private ModelRenderer box(float px, float py, float pz, int x, int y, int z, int w, int h, int d) {
-        ModelRenderer part = new ModelRenderer(this, 0, 0);
+        return box(px, py, pz, x, y, z, w, h, d, 0, 0);
+    }
+
+    private ModelRenderer box(float px, float py, float pz, int x, int y, int z,
+                              int w, int h, int d, int textureU, int textureV) {
+        ModelRenderer part = new ModelRenderer(this, textureU, textureV);
         part.setRotationPoint(px, py, pz);
         part.addBox(x, y, z, w, h, d);
         parts.add(part);
@@ -94,14 +99,16 @@ public final class ForestMobModel extends ModelBase {
     }
 
     private void buildTurtle(String id) {
-        box(0, 19, 0, -6, -4, -7, 12, 5, 14); // shell
-        box(0, 20, 0, -5, -2, -6, 10, 4, 12); // body
-        head = box(0, 20, -7, -3, -2, -4, 6, 4, 5);
-        legs.add(box(-5, 22, -4, -2, -1, -2, 4, 3, 5));
-        legs.add(box(5, 22, -4, -2, -1, -2, 4, 3, 5));
-        legs.add(box(-5, 22, 4, -2, -1, -2, 4, 3, 5));
-        legs.add(box(5, 22, 4, -2, -1, -2, 4, 3, 5));
-        tail = box(0, 21, 7, -1, -1, 0, 2, 2, 4);
+        // Dedicated 64x64 UV layout for the common turtle geometry.
+        // shell 0,0 | body 0,20 | legs 0,38 | tail 20,38 | head 42,37
+        box(0, 19, 0, -6, -4, -7, 12, 5, 14, 0, 0); // shell
+        box(0, 20, 0, -5, -2, -6, 10, 4, 12, 0, 20); // body
+        head = box(0, 20, -7, -3, -2, -4, 6, 4, 5, 42, 37);
+        legs.add(box(-5, 22, -4, -2, -1, -2, 4, 3, 5, 0, 38));
+        legs.add(box(5, 22, -4, -2, -1, -2, 4, 3, 5, 0, 38));
+        legs.add(box(-5, 22, 4, -2, -1, -2, 4, 3, 5, 0, 38));
+        legs.add(box(5, 22, 4, -2, -1, -2, 4, 3, 5, 0, 38));
+        tail = box(0, 21, 7, -1, -1, 0, 2, 2, 4, 20, 38);
         if (id.contains("thorn") || id.contains("ancient")) {
             box(-4, 15, -2, -1, -4, -1, 2, 4, 2); box(4, 15, 2, -1, -4, -1, 2, 4, 2);
         }
