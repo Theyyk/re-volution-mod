@@ -1,5 +1,6 @@
 package com.example.revolution.location.world;
 
+import com.example.revolution.RevolutionMod;
 import com.example.revolution.location.generation.BuildTemplateCatalog;
 import com.example.revolution.location.generation.LocationGenerationPlan;
 import com.example.revolution.location.generation.PhysicalStageBuilder;
@@ -8,11 +9,15 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraftforge.common.ForgeChunkManager;
 
 /** Optional REBuilder 1.1.2 bridge. No copied parser, placement, block rotation or build loop.
  * Reflection keeps REBuilder/WorldEdit server-only and out of the gameplay JAR/client dependency graph.
@@ -54,6 +59,7 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
     }
 
     private PhysicalStageBuilder.PreparedBuild prepare(EntityPlayerMP player, LocationGenerationPlan plan) {
+        ChunkLease lease = ChunkLease.open(player);
         try {
             Object template = loadTemplate(plan.getTemplateId());
             Class<?> serviceType = Class.forName("ru.rebuilder.world.BuildService");
@@ -64,8 +70,8 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
             double originalZ = player.posZ;
             List<?> targets;
             try {
-                // Remote /location create must not depend on an administrator preloading the destination.
-                loadChunk(player, new BlockPos(plan.getCenterX(), plan.getCenterY(), plan.getCenterZ()));
+                // Remote /location create must work even when the administrator has never visited the destination.
+                lease.force(new BlockPos(plan.getCenterX(), plan.getCenterY(), plan.getCenterZ()));
                 player.setPosition(plan.getCenterX(), plan.getCenterY(), plan.getCenterZ());
                 BlockPos resolvedAnchor = player.getPosition();
                 if (resolvedAnchor.getX() != plan.getCenterX()
@@ -84,37 +90,101 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
             Map<BlockPos, IBlockState> original = new LinkedHashMap<>();
             for (Object target : targets) {
                 BlockPos position = (BlockPos) target.getClass().getField("position").get(target);
-                // Templates may cross chunk boundaries, so preload every touched target chunk before snapshot/build.
-                loadChunk(player, position);
+                // Keep every touched chunk force-loaded for the entire prepared-build lifetime. Merely calling
+                // getChunkFromChunkCoords() is insufficient because REBuilder validates loaded chunks again later.
+                lease.force(position);
                 original.put(position, player.world.getBlockState(position));
             }
             return new PhysicalStageBuilder.PreparedBuild() {
-                @Override public void apply() { invoke(build, service, player, targets); }
-                @Override public void rollback() {
-                    // Never call shared //undo: a no-op/failed build could undo an unrelated older edit.
-                    IllegalStateException failure = null;
-                    for (Map.Entry<BlockPos, IBlockState> entry : original.entrySet()) {
-                        try {
-                            loadChunk(player, entry.getKey());
-                            if (player.world.getBlockState(entry.getKey()).equals(entry.getValue())) continue;
-                            if (!player.world.setBlockState(entry.getKey(), entry.getValue(), 2)) {
-                                throw new IllegalStateException("Could not restore block " + entry.getKey());
-                            }
-                        } catch (RuntimeException e) {
-                            if (failure == null) failure = new IllegalStateException("Physical build rollback failed");
-                            failure.addSuppressed(e);
-                        }
+                private boolean leaseReleased;
+
+                private void releasePreparedLease() {
+                    if (leaseReleased) return;
+                    leaseReleased = true;
+                    lease.close();
+                }
+
+                @Override public void apply() {
+                    try {
+                        invoke(build, service, player, targets);
+                    } finally {
+                        releasePreparedLease();
                     }
-                    if (failure != null) throw failure;
+                }
+
+                @Override public void rollback() {
+                    releasePreparedLease();
+                    // A rollback can occur after apply() released the build ticket, so take a fresh temporary lease.
+                    try (ChunkLease rollbackLease = ChunkLease.open(player)) {
+                        IllegalStateException failure = null;
+                        for (Map.Entry<BlockPos, IBlockState> entry : original.entrySet()) {
+                            try {
+                                rollbackLease.force(entry.getKey());
+                                if (player.world.getBlockState(entry.getKey()).equals(entry.getValue())) continue;
+                                if (!player.world.setBlockState(entry.getKey(), entry.getValue(), 2)) {
+                                    throw new IllegalStateException("Could not restore block " + entry.getKey());
+                                }
+                            } catch (RuntimeException e) {
+                                if (failure == null) failure = new IllegalStateException("Physical build rollback failed");
+                                failure.addSuppressed(e);
+                            }
+                        }
+                        if (failure != null) throw failure;
+                    }
                 }
             };
         } catch (ReflectiveOperationException | LinkageError e) {
+            lease.close();
             throw unavailable(e);
+        } catch (RuntimeException e) {
+            lease.close();
+            throw e;
         }
     }
 
-    private static void loadChunk(EntityPlayerMP player, BlockPos position) {
-        player.world.getChunkFromChunkCoords(position.getX() >> 4, position.getZ() >> 4);
+    /** Keeps all chunks used by one REBuilder transaction loaded until apply/rollback is finished. */
+    private static final class ChunkLease implements AutoCloseable {
+        private final EntityPlayerMP player;
+        private final ForgeChunkManager.Ticket ticket;
+        private final Set<ChunkPos> forced = new LinkedHashSet<>();
+        private boolean closed;
+
+        private ChunkLease(EntityPlayerMP player, ForgeChunkManager.Ticket ticket) {
+            this.player = player;
+            this.ticket = ticket;
+        }
+
+        static ChunkLease open(EntityPlayerMP player) {
+            if (RevolutionMod.instance == null) {
+                throw new IllegalStateException("RE:volution Forge mod instance is unavailable for chunk loading");
+            }
+            ForgeChunkManager.Ticket ticket = ForgeChunkManager.requestTicket(
+                    RevolutionMod.instance, player.world, ForgeChunkManager.Type.NORMAL);
+            if (ticket == null) {
+                throw new IllegalStateException("Could not obtain Forge chunk-loading ticket for REBuilder");
+            }
+            return new ChunkLease(player, ticket);
+        }
+
+        void force(BlockPos position) {
+            if (closed) throw new IllegalStateException("REBuilder chunk lease is already closed");
+            ChunkPos chunk = new ChunkPos(position.getX() >> 4, position.getZ() >> 4);
+            if (forced.add(chunk)) {
+                ForgeChunkManager.forceChunk(ticket, chunk);
+            }
+            // ForceChunk provides persistence; this call makes the chunk synchronously available for the current build.
+            player.world.getChunkFromChunkCoords(chunk.x, chunk.z);
+            if (!player.world.isBlockLoaded(position)) {
+                throw new IllegalStateException("Could not force-load REBuilder chunk " + chunk.x + "," + chunk.z);
+            }
+        }
+
+        @Override public void close() {
+            if (closed) return;
+            closed = true;
+            ForgeChunkManager.releaseTicket(ticket);
+            forced.clear();
+        }
     }
 
     private static Object invoke(Method method, Object target, Object... args) {
