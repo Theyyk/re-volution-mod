@@ -1,33 +1,59 @@
 package com.example.revolution.client.mob;
 
 import com.example.revolution.mob.appearance.MobAppearanceDefinition;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.resources.IResource;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-/** Deterministic generated 64x64 textures for the complete first-location roster. */
+/** Static Location 1 mob textures with the legacy deterministic generator kept as a fallback. */
 @SideOnly(Side.CLIENT)
 public final class ForestMobTextureLibrary {
     private static final int SIZE = 64;
+    private static final String STATIC_TEXTURE_ROOT = "textures/entity/location1/";
     private final Map<String, ResourceLocation> cache = new HashMap<>();
 
     public ResourceLocation textureFor(MobAppearanceDefinition appearance) {
-        ResourceLocation cached = cache.get(appearance.getAppearanceId());
+        String appearanceId = appearance.getAppearanceId();
+        ResourceLocation cached = cache.get(appearanceId);
         if (cached != null) return cached;
 
+        ResourceLocation staticTexture = new ResourceLocation(
+                "revolution",
+                STATIC_TEXTURE_ROOT + appearanceId + ".png");
+        if (resourceExists(staticTexture)) {
+            cache.put(appearanceId, staticTexture);
+            return staticTexture;
+        }
+
+        ResourceLocation generated = generatedTexture(appearance);
+        cache.put(appearanceId, generated);
+        return generated;
+    }
+
+    private boolean resourceExists(ResourceLocation location) {
+        try (IResource ignored = Minecraft.getMinecraft().getResourceManager().getResource(location)) {
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    private ResourceLocation generatedTexture(MobAppearanceDefinition appearance) {
         ForestMobPaletteCatalog.Palette palette = ForestMobPaletteCatalog.get(appearance.getAppearanceId());
         DynamicTexture texture = new DynamicTexture(SIZE, SIZE);
         int[] pixels = texture.getTextureData();
         int seed = appearance.getAppearanceId().hashCode();
 
         /*
-         * ForestMobModel deliberately reuses simple box UVs. Keep the complete atlas coherent so any
-         * cuboid can sample any region without picking up an unrelated eye/island patch. Variation is
-         * low-frequency and palette-safe; silhouette details carry most of the per-appearance identity.
+         * Legacy fallback for appearances that do not have a static PNG yet. ForestMobModel currently
+         * reuses simple box UVs outside the hand-authored families, so keep this atlas coherent and
+         * palette-safe until those appearances are migrated as well.
          */
         for (int y = 0; y < SIZE; y++) {
             for (int x = 0; x < SIZE; x++) {
@@ -44,10 +70,8 @@ public final class ForestMobTextureLibrary {
         }
         texture.updateDynamicTexture();
 
-        ResourceLocation location = Minecraft.getMinecraft().getTextureManager()
+        return Minecraft.getMinecraft().getTextureManager()
                 .getDynamicTextureLocation("revolution_mob_" + appearance.getAppearanceId(), texture);
-        cache.put(appearance.getAppearanceId(), location);
-        return location;
     }
 
     private static int mix(int seed, int x, int y) {

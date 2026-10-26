@@ -1,0 +1,9 @@
+Palette notes for moss_turtle.png
+- shell base: #4B6330
+- shell shadow: #304122
+- shell highlight: #667E3F
+- skin base: #8E8456
+- skin shadow: #68603F
+- skin highlight: #A69A65
+- underside: #605439
+- eyes: #181B14
