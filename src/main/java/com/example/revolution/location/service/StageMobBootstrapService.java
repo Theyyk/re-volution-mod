@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Owns the stable Location/stage -> MobL_N identity and its initial population contract. */
+/** Owns the stable Location/stage -> MobL_N identity, initial population and final-stage BossZone contract. */
 public final class StageMobBootstrapService {
     static final String DEFAULT_TYPE = "zombie";
     static final String DEFAULT_RESOURCE = "coins";
@@ -23,6 +23,7 @@ public final class StageMobBootstrapService {
     private final MobRepository mobs;
     private final LocationRepository locations;
     private final LocationGenerationRepository generations;
+    private final StageBossLayoutService bossLayout;
 
     public StageMobBootstrapService(
             MobRepository mobs,
@@ -34,6 +35,7 @@ public final class StageMobBootstrapService {
         this.mobs = mobs;
         this.locations = locations;
         this.generations = generations;
+        this.bossLayout = new StageBossLayoutService(locations);
     }
 
     public static String canonicalMobName(int worldLocationId, int mobSlotId) {
@@ -65,6 +67,11 @@ public final class StageMobBootstrapService {
         }
     }
 
+    /** Ensures that the final configured slot is persisted as the only Boss Zone for this Location. */
+    public int reconcileBossLayout(int worldLocationId) {
+        return bossLayout.reconcileLocation(worldLocationId);
+    }
+
     /**
      * Reconciles already-created stages. Canonical population is the migration marker: once every spawn slot uses
      * MobL_N, later count edits are preserved and restarts become a no-op for that stage.
@@ -88,6 +95,7 @@ public final class StageMobBootstrapService {
                 changed++;
             }
         }
+        changed += reconcileBossLayout(worldLocationId);
         return changed;
     }
 
