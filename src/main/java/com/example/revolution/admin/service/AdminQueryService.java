@@ -18,6 +18,8 @@ import net.minecraft.entity.player.EntityPlayerMP;
 
 /** Read-only administrative projections; transport formatting stays in adapters. */
 public final class AdminQueryService {
+    private Runnable configurationGuard = () -> { };
+    public void setConfigurationGuard(Runnable guard) { configurationGuard = guard; }
     private final PlayerRepository players;
     private final ResourceService resources;
     private final MobRepository mobs;
@@ -58,6 +60,7 @@ public final class AdminQueryService {
     }
 
     public List<AdminMobSnapshot> mobs() {
+        configurationGuard.run();
         List<AdminMobSnapshot> snapshots = new ArrayList<>();
         for (MobDefinition mob : mobs.getAllMobs()) {
             snapshots.add(new AdminMobSnapshot(

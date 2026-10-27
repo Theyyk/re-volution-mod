@@ -41,6 +41,10 @@ final class AdminApiHttp {
     }
 
     static String readFormBody(HttpExchange exchange) throws IOException {
+        return readFormBody(exchange, MAX_FORM_BODY_BYTES);
+    }
+
+    static String readFormBody(HttpExchange exchange, int maximumBytes) throws IOException {
         Headers headers = exchange.getRequestHeaders();
         if (headers.getFirst("Transfer-Encoding") != null || headers.getFirst("Content-Encoding") != null) return null;
         String contentType = headers.getFirst("Content-Type");
@@ -50,7 +54,7 @@ final class AdminApiHttp {
         int length;
         try {
             long parsed = Long.parseLong(rawLength);
-            if (parsed < 0 || parsed > MAX_FORM_BODY_BYTES) return null;
+            if (parsed < 0 || parsed > maximumBytes) return null;
             length = (int) parsed;
         } catch (NumberFormatException e) {
             return null;
@@ -63,7 +67,7 @@ final class AdminApiHttp {
             int read = in.read(buffer, 0, Math.min(buffer.length, length - total));
             if (read < 0) break;
             total += read;
-            if (total > MAX_FORM_BODY_BYTES) return null;
+            if (total > maximumBytes) return null;
             out.write(buffer, 0, read);
         }
         if (total != length || in.read() != -1) return null;
