@@ -10,8 +10,12 @@ import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.math.BlockPos;
@@ -22,6 +26,10 @@ import net.minecraftforge.common.ForgeChunkManager;
  * Reflection keeps REBuilder/WorldEdit server-only and out of the gameplay JAR/client dependency graph.
  */
 public final class REBuilderAdapter implements BuildTemplateCatalog {
+    private static final Pattern UNLOADED_CHUNK_POSITION = Pattern.compile(
+            "(?:REBuilder:\\s*)?Чанк не загружен:\\s*(-?\\d+)\\s+(-?\\d+)\\s+(-?\\d+)\\s*$");
+    private static final int MAX_PREPARE_CHUNK_DISCOVERY = 512;
+
     private final Path directory;
 
     public REBuilderAdapter(Path configDirectory) {
@@ -63,6 +71,8 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
             Object template = loadTemplate(plan.getTemplateId());
             Class<?> serviceType = Class.forName("ru.rebuilder.world.BuildService");
             Object service = serviceType.getConstructor().newInstance();
+            Method prepare = serviceType.getMethod("prepare", EntityPlayerMP.class,
+                    Class.forName("ru.rebuilder.template.Template"), int.class);
 
             double originalX = player.posX;
             double originalY = player.posY;
@@ -78,9 +88,8 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
                         || resolvedAnchor.getZ() != plan.getCenterZ()) {
                     throw new IllegalStateException("Could not resolve REBuilder anchor at stage center");
                 }
-                targets = (List<?>) invoke(serviceType.getMethod("prepare", EntityPlayerMP.class,
-                        Class.forName("ru.rebuilder.template.Template"), int.class),
-                        service, player, template, plan.getRotationDegrees());
+                targets = prepareWithChunkDiscovery(
+                        prepare, service, player, template, plan.getRotationDegrees(), lease);
             } finally {
                 player.setPosition(originalX, originalY, originalZ);
             }
@@ -139,6 +148,59 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
             lease.close();
             throw e;
         }
+    }
+
+    private static List<?> prepareWithChunkDiscovery(
+            Method prepare,
+            Object service,
+            EntityPlayerMP player,
+            Object template,
+            int rotationDegrees,
+            ChunkLease lease) {
+        Set<ChunkPos> discovered = new LinkedHashSet<>();
+        for (int attempt = 0; attempt <= MAX_PREPARE_CHUNK_DISCOVERY; attempt++) {
+            try {
+                return (List<?>) invoke(prepare, service, player, template, rotationDegrees);
+            } catch (IllegalStateException failure) {
+                BlockPos missing = unloadedChunkPosition(failure);
+                if (missing == null) throw failure;
+                ChunkPos chunk = new ChunkPos(missing.getX() >> 4, missing.getZ() >> 4);
+                if (!discovered.add(chunk)) {
+                    throw new IllegalStateException(
+                            "REBuilder still reports already forced chunk as unloaded: " + chunk.x + "," + chunk.z,
+                            failure);
+                }
+                if (discovered.size() > MAX_PREPARE_CHUNK_DISCOVERY) {
+                    throw new IllegalStateException(
+                            "REBuilder prepare requires more than " + MAX_PREPARE_CHUNK_DISCOVERY + " chunks",
+                            failure);
+                }
+                lease.force(missing);
+            }
+        }
+        throw new IllegalStateException("REBuilder prepare chunk discovery limit exceeded");
+    }
+
+    private static BlockPos unloadedChunkPosition(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                Matcher matcher = UNLOADED_CHUNK_POSITION.matcher(message.trim());
+                if (matcher.find()) {
+                    try {
+                        return new BlockPos(
+                                Integer.parseInt(matcher.group(1)),
+                                Integer.parseInt(matcher.group(2)),
+                                Integer.parseInt(matcher.group(3)));
+                    } catch (NumberFormatException ignored) {
+                        return null;
+                    }
+                }
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     /** Keeps all chunks used by one REBuilder transaction loaded until apply/rollback is finished. */
