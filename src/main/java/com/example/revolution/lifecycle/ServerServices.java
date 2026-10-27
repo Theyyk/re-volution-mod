@@ -10,13 +10,16 @@ import com.example.revolution.persistence.MongoLocationBuildTemplateRepository;
 import com.example.revolution.persistence.MongoLocationGenerationRepository;
 import com.example.revolution.location.generation.LocationTemplate;
 import com.example.revolution.location.repository.FastAutoPreferenceRepository;
+import com.example.revolution.location.repository.LocationGenerationRepository;
 import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.location.repository.LocationStageTemplateRepository;
 import com.example.revolution.location.repository.StageTransitionPreferenceRepository;
 import com.example.revolution.location.repository.StageTransitionTriggerRepository;
+import com.example.revolution.location.service.BootstrappingLocationGenerationRepository;
 import com.example.revolution.location.service.FastAutoService;
 import com.example.revolution.location.service.LocationProvisioningService;
 import com.example.revolution.location.service.MobZoneOverlayService;
+import com.example.revolution.location.service.StageMobBootstrapService;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionTriggerService;
 import com.example.revolution.mob.repository.MobProgressionRepository;
@@ -64,8 +67,10 @@ import org.apache.logging.log4j.Logger;
 /** One object graph per server lifetime. Only adapters may retrieve it from ServerLifecycle. */
 public final class ServerServices implements AutoCloseable {
     private final MongoConnection connection;
+    private final Logger logger;
     private final RuneCombatState combatState = new RuneCombatState();
     private final AdminApiServer adminApi;
+    private final StageMobBootstrapService stageMobs;
     public final AdminAccessService adminAccess = new AdminAccessService(new FileAdminWhitelistRepository());
     public final ResourceService resources;
     public final RuneActionService runeActions;
@@ -89,6 +94,7 @@ public final class ServerServices implements AutoCloseable {
     public final RealmService realms = new RealmService();
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
+        this.logger = logger;
         connection = new MongoConnection(logger);
         PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
         MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
@@ -112,6 +118,10 @@ public final class ServerServices implements AutoCloseable {
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
         physicalBuilds = new REBuilderAdapter(configDirectory.toPath());
+        LocationGenerationRepository storedGenerations = new MongoLocationGenerationRepository(connection, persistentGameplay);
+        stageMobs = new StageMobBootstrapService(mobRepository, locationRepository, storedGenerations);
+        LocationGenerationRepository bootstrappingGenerations =
+                new BootstrappingLocationGenerationRepository(storedGenerations, stageMobs);
         locationProvisioning = new LocationProvisioningService(
                 locationRepository,
                 new LocationGenerationPlanner(),
@@ -120,7 +130,7 @@ public final class ServerServices implements AutoCloseable {
                 triggerRepository,
                 new MongoLocationBuildTemplateRepository(connection, persistentGameplay),
                 physicalBuilds,
-                new MongoLocationGenerationRepository(connection, persistentGameplay));
+                bootstrappingGenerations);
         stageTransitions = new StageTransitionService(locationRepository, mobProgression);
         stageTransitionTriggers = new StageTransitionTriggerService(
                 triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
@@ -139,6 +149,8 @@ public final class ServerServices implements AutoCloseable {
 
     public void connect() {
         connection.connect();
+        int reconciled = stageMobs.reconcileConfiguredRange(1, 1, 41);
+        if (reconciled > 0) logger.info("Canonical Location 1 mob bootstrap reconciled {} stage(s)", reconciled);
         stageTransitionTriggers.reload();
     }
 
