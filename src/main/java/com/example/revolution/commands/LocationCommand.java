@@ -174,7 +174,7 @@ public final class LocationCommand extends AdminOnlyCommand {
                         + " rotation=" + plan.getRotationDegrees()
                         + " triggerOffset=" + stageTemplate.getTriggerOffset()
                         + " triggerRadius=" + stageTemplate.getTriggerRadius()
-                        + ". Stage is empty; use populate separately."));
+                        + ". Canonical mob=Mob" + worldLocationId + "_" + mobSlotId + " population=1."));
     }
 
     private static String format(double value) {
