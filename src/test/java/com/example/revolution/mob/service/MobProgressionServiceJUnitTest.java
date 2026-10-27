@@ -70,28 +70,31 @@ class MobProgressionServiceJUnitTest {
         assertTrue(service.isUnlocked(player, id(2, 1)));
     }
 
-    @Test void ordinaryLastNormalStageDoesNotCompleteLocation() {
+    @Test void ordinaryLastStageCompletesLocationAutomatically() {
         List<LocationDefinition> zones = Arrays.asList(zone(1, 2), zone(1, 5), zone(1, 9), zone(2, 2), bossZone(2, 9));
         List<StoredMobSpawn> spawns = Arrays.asList(spawn(1, 2, true), spawn(1, 5, true), spawn(1, 9, true), spawn(2, 2, true), spawn(2, 9, true));
         service.reloadConfiguration(zones, spawns);
         assertNotNull(service.unlockNext(player, id(1, 2)));
         assertNotNull(service.unlockNext(player, id(1, 5)));
-        assertFalse(service.isFinalStage(id(1, 9)));
-        assertNull(service.unlockNext(player, id(1, 9)));
-        assertFalse(service.isUnlocked(player, id(2, 2)));
-        assertNull(service.nextConfiguredInternalLocationId(id(1, 9)));
+        assertTrue(service.isBossStage(id(1, 9)));
+        assertTrue(service.isFinalStage(id(1, 9)));
+        assertNotNull(service.unlockNext(player, id(1, 9)));
+        assertTrue(service.isUnlocked(player, id(2, 2)));
+        assertEquals(Integer.valueOf(id(2, 2)), service.nextConfiguredInternalLocationId(id(1, 9)));
     }
 
-    @Test void bossMustBeFinalConfiguredStageToCompleteLocation() {
+    @Test void persistedEarlierBossDoesNotOverrideAutomaticFinalBoss() {
         List<LocationDefinition> zones = Arrays.asList(zone(1, 2), bossZone(1, 5), zone(1, 9), zone(2, 2));
         List<StoredMobSpawn> spawns = Arrays.asList(spawn(1, 2, true), spawn(1, 5, true), spawn(1, 9, true), spawn(2, 2, true));
         service.reloadConfiguration(zones, spawns);
         assertNotNull(service.unlockNext(player, id(1, 2)));
-        assertTrue(service.isBossStage(id(1, 5)));
+        assertFalse(service.isBossStage(id(1, 5)));
         assertFalse(service.isFinalStage(id(1, 5)));
-        assertNotNull(service.unlockNext(player, id(1, 5))); // ordinary in-location progression still reaches slot 9
-        assertNull(service.unlockNext(player, id(1, 9)));
-        assertFalse(service.isUnlocked(player, id(2, 2)));
+        assertNotNull(service.unlockNext(player, id(1, 5)));
+        assertTrue(service.isBossStage(id(1, 9)));
+        assertTrue(service.isFinalStage(id(1, 9)));
+        assertNotNull(service.unlockNext(player, id(1, 9)));
+        assertTrue(service.isUnlocked(player, id(2, 2)));
     }
 
     @Test void lastConfiguredBossStopsCleanlyWhenFutureLocationDoesNotExist() {
