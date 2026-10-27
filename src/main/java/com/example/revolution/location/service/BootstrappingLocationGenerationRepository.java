@@ -3,7 +3,7 @@ package com.example.revolution.location.service;
 import com.example.revolution.location.generation.LocationGenerationPlan;
 import com.example.revolution.location.repository.LocationGenerationRepository;
 
-/** Decorates generation persistence so a committed new stage immediately receives its canonical mob population. */
+/** Decorates generation persistence so a committed new stage immediately receives its canonical gameplay metadata. */
 public final class BootstrappingLocationGenerationRepository implements LocationGenerationRepository {
     private final LocationGenerationRepository delegate;
     private final StageMobBootstrapService stageMobs;
@@ -26,6 +26,7 @@ public final class BootstrappingLocationGenerationRepository implements Location
                 plan.getWorldLocationId(),
                 plan.getMobSlotId(),
                 plan.getCenterY());
+        stageMobs.reconcileBossLayout(plan.getWorldLocationId());
     }
 
     @Override public void delete(int internalLocationId) { delegate.delete(internalLocationId); }
