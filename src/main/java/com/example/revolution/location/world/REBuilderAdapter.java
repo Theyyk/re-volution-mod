@@ -113,9 +113,17 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
                 }
 
                 @Override public void apply() {
+                    double applyOriginalX = player.posX;
+                    double applyOriginalY = player.posY;
+                    double applyOriginalZ = player.posZ;
                     try {
+                        // REBuilder's build phase is player-contextual too. prepare() was anchored at the requested
+                        // stage center, so build() must run under the same player position instead of the admin's
+                        // restored remote position; otherwise REBuilder can complete without placing the arena.
+                        player.setPosition(plan.getCenterX(), plan.getCenterY(), plan.getCenterZ());
                         invoke(build, service, player, targets);
                     } finally {
+                        player.setPosition(applyOriginalX, applyOriginalY, applyOriginalZ);
                         releasePreparedLease();
                     }
                 }
