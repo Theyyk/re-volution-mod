@@ -54,8 +54,8 @@ public final class StageMobBootstrapService {
         try {
             if (mobs.getMob(mobName) == null) {
                 mobs.createMob(mobName, DEFAULT_TYPE, DEFAULT_HP, DEFAULT_REWARD.intValueExact());
-                mobs.setMobReward(mobName, DEFAULT_RESOURCE, DEFAULT_REWARD);
                 createdMob = true;
+                mobs.setMobReward(mobName, DEFAULT_RESOURCE, DEFAULT_REWARD);
             }
             replaceWithInitialPopulation(zone, mobName, spawnY, before);
         } catch (RuntimeException failure) {
@@ -66,8 +66,8 @@ public final class StageMobBootstrapService {
     }
 
     /**
-     * One-time-compatible reconciliation for already-created stages. A canonical population is the migration marker:
-     * once MobL_N is present in every spawn slot, later population edits are preserved and restarts become a no-op.
+     * Reconciles already-created stages. Canonical population is the migration marker: once every spawn slot uses
+     * MobL_N, later count edits are preserved and restarts become a no-op for that stage.
      */
     public int reconcileConfiguredRange(int worldLocationId, int firstMobSlotId, int lastMobSlotId) {
         if (firstMobSlotId < 1 || lastMobSlotId < firstMobSlotId) {
@@ -93,9 +93,16 @@ public final class StageMobBootstrapService {
 
     private boolean ensureDefinition(String mobName) {
         if (mobs.getMob(mobName) != null) return false;
-        mobs.createMob(mobName, DEFAULT_TYPE, DEFAULT_HP, DEFAULT_REWARD.intValueExact());
-        mobs.setMobReward(mobName, DEFAULT_RESOURCE, DEFAULT_REWARD);
-        return true;
+        boolean created = false;
+        try {
+            mobs.createMob(mobName, DEFAULT_TYPE, DEFAULT_HP, DEFAULT_REWARD.intValueExact());
+            created = true;
+            mobs.setMobReward(mobName, DEFAULT_RESOURCE, DEFAULT_REWARD);
+            return true;
+        } catch (RuntimeException failure) {
+            if (created) compensate(failure, () -> mobs.deleteMob(mobName));
+            throw failure;
+        }
     }
 
     private LocationDefinition requireZone(int internalId) {
