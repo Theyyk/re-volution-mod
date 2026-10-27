@@ -2,11 +2,11 @@
 
 Серверно-авторитетный игровой мод для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику RE:volution: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm foundation/runtime, mob-zone progression, переходы между стадиями и хранение данных игроков в MongoDB.
 
-**Стабильная release-версия: `v1.3.10`.**
+**Стабильная release-версия: `v1.3.12`.**
 
-**Текущий release candidate: `v1.3.11` - cross-Location progression, явная Boss Zone, Fast-auto и динамическое отображение босса в меню `L`.**
+**Текущий этап разработки: следующий feature cycle после `v1.3.12`; крупные новые изменения идут в `v1.3.13+`.**
 
-[Скачать актуальный стабильный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.3.11](docs/releases/v1.3.11.md)
+[Скачать актуальный стабильный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.3.12](docs/releases/v1.3.12.md)
 
 ## Границы проекта
 
@@ -48,6 +48,7 @@ Runtime managed-мобов использует Location/Mob Spawn модель 
 - Одна gameplay Location может содержать несколько независимых stage, адресуемых парой `locationId + mobSlotId`.
 - Существование progression stage определяется `LocationDefinition`; population отвечает за наполнение stage мобами.
 - Stage может быть `MOB_ZONE` или `BOSS_ZONE`.
+- Финальная configured stage каждой Location автоматически является runtime boss и сохраняется как единственная `BOSS_ZONE`; при добавлении новой последней stage boss-status переносится автоматически.
 - Конфигурация player Realm применяется к Realm 1/2/3, Realm 0 остаётся explicit-only.
 - `RANDOM_AREA` выбирает новую независимую позицию на каждую новую физическую жизнь моба.
 - Generated/random spawn surface не принимает листву/брёвна и не поднимается более чем на 3 блока выше базового Y зоны.
@@ -66,7 +67,7 @@ Runtime managed-мобов использует Location/Mob Spawn модель 
 /stage location remove <locationId> <mobSlotId>
 ```
 
-`location clear` удаляет population/spawn slots, но сохраняет геометрию зоны. `location remove` удаляет и population, и геометрию зоны. `setboss/clearboss` меняют доменный тип существующей stage без отдельной BossZone-сущности мира и без потери геометрии/transition point. Старый `/custommob location ...` сохранён как legacy alias для обратной совместимости.
+`location clear` удаляет population/spawn slots, но сохраняет геометрию зоны. `location remove` удаляет и population, и геометрию зоны. `setboss/clearboss` сохранены как legacy/admin-команды совместимости; обычный provisioning в `v1.3.12` поддерживает финальную Boss Zone автоматически. Старый `/custommob location ...` сохранён как legacy alias для обратной совместимости.
 
 Клиент RE:volution визуализирует границу настроенных mob-зон тонким полупрозрачным зелёным кольцом. Кольцо следует по поверхности земли, игнорирует листву и брёвна, не изменяет блоки и отображается игрокам с установленным модом в пределах рабочей дистанции визуализации.
 
@@ -131,12 +132,11 @@ Progression хранится отдельно для каждого игрока
 
 Подробности: [docs/releases/v1.3.10.md](docs/releases/v1.3.10.md) · [docs/test-foundation.md](docs/test-foundation.md).
 
-### Cross-Location progression и Boss Zone (`v1.3.11`)
+### Cross-Location progression и Boss Zone (`v1.3.11`, исторический контракт)
 
-`v1.3.11` расширяет progression на цепочку Location.
+`v1.3.11` расширил progression на цепочку Location. В этой версии Boss Zone назначалась явно; начиная с `v1.3.12` финальная configured stage определяется и сохраняется как Boss Zone автоматически.
 
-- Для завершения Location требуется явная единственная финальная `BOSS_ZONE`.
-- Последний обычный mobSlot сам по себе не завершает Location.
+- Для завершения Location в `v1.3.11` требовалась явная единственная финальная `BOSS_ZONE`.
 - Победа в Boss Zone открывает первый configured stage следующей Location.
 - Пустая, но созданная stage следующей Location может быть открыта до `populate`.
 - Если следующая Location отсутствует, progression корректно останавливается на текущем контенте без автогенерации.
@@ -144,10 +144,25 @@ Progression хранится отдельно для каждого игрока
 - Добавлен отдельный persistent `Fast-auto`, переключаемый в меню `L`; он независим от trigger-zone automation.
 - Fast-auto после обычной stage ведёт на следующую stage текущей Location, а после Boss Zone - в первую stage следующей Location.
 - Меню `L` получает boss-state из server snapshot: обычная stage отображается как `Моб N`, Boss Zone - как `Босс`.
-- После `clearboss` и повторного открытия меню подпись возвращается к `Моб N`.
 - Revoke/reset и GUI/network requests остаются server-authoritative и не могут обойти progression.
 
-Полный контракт и runtime acceptance: [docs/releases/v1.3.11.md](docs/releases/v1.3.11.md).
+Исторический контракт: [docs/releases/v1.3.11.md](docs/releases/v1.3.11.md).
+
+### Location 1 provisioning и canonical mobs (`v1.3.12`)
+
+`v1.3.12` закрывает большой цикл Location 1: детерминированное создание stage через REBuilder, canonical `MobL_N + population`, автоматический финальный Boss Zone и читаемый static appearance roster 1–41.
+
+- `/location create <locationId> <mobSlotId> [x y z]` использует детерминированный plan и REBuilder templates.
+- Remote provisioning поддерживает unloaded chunks, несколько Forge tickets, rollback и точный requested anchor.
+- Для каждой stage используется стабильное техническое имя `Mob<locationId>_<mobSlotId>`.
+- При отсутствии mob definition создаются defaults `HP=1`, reward `coins x1`; уже настроенный balance не перезаписывается.
+- Новая stage получает initial population `1`; существующие Location 1 stages 1–41 reconcile пустую/тестовую population к `Mob1_N` без сброса последующих canonical count edits.
+- Финальная configured stage автоматически является runtime boss и persisted `BOSS_ZONE`; предыдущие stages сохраняются как `MOB_ZONE`.
+- Existing Location 1 geometry, transition points, trigger topology и world builds при reconciliation не пересоздаются.
+- Appearance остаётся привязан к Location + mob slot catalog, а не к техническому имени `MobL_N`.
+- Все 41 runtime slot Location 1 имеют static appearance baseline и документированный six-face UV contract; дальнейший художественный polish вариантов отложен на будущую версию.
+
+Полный контракт: [docs/releases/v1.3.12.md](docs/releases/v1.3.12.md).
 
 ## Игровые системы
 
@@ -171,7 +186,7 @@ Progression хранится отдельно для каждого игрока
 Основная инфраструктурная модель проекта разделяет DEV и PROD.
 
 - **DEV** используется для development/gameplay acceptance и принимает только допустимый develop pipeline.
-- **PROD** используется только для stable gameplay из `main` с annotated release tag и проверенным server image.
+- **PROD** используется только для stable gameplay из `main` с release tag и проверенным server image.
 - DEV и PROD используют отдельные Minecraft runtime/world и отдельные Mongo namespace.
 - DEV build сам по себе не становится PROD.
 - При контролируемой PROD synchronization world и Mongo заменяются DEV snapshot только после backup; это не merge данных.
@@ -225,24 +240,25 @@ CI не заменяет runtime-приёмку только там, где из
 - актуализировать README и release docs;
 - синхронизировать `build.gradle`, `mcmod.info` и `RevolutionMod.VERSION`;
 - получить exact-main CI после promotion;
-- создать annotated release tag;
+- создать release tag;
 - проверить GitHub Release JAR hash/size;
 - получить stable Docker image и production signed manifest;
 - выполнить обязательный post-release branch audit/cleanup;
 - повторно проверить remote branches;
 - только после этого считать релиз `RELEASE COMPLETE`.
 
-## Roadmap после v1.3.11
+## Roadmap после v1.3.12
 
-Ближайшие gameplay-механики определяются отдельно перед реализацией. Отложены на более позднее будущее:
+Ближайшие gameplay-механики определяются отдельно перед реализацией. На следующие циклы оставлены, в частности:
 
-- автоматическое и процедурное создание новых Location по строительным шаблонам;
 - boss HP scaling от количества игроков в Boss Zone;
 - способность босса как награда;
 - индивидуальные ограничения на убийство босса;
-- boss-specific enter/leave hooks и отдельные respawn/reset policies.
+- boss-specific enter/leave hooks и отдельные respawn/reset policies;
+- дальнейший visual polish Location 1 и более сильная художественная дифференциация вариантов;
+- более широкий stage-centric Admin/balance tooling.
 
-Эти пункты не являются частью v1.3.11.
+Эти пункты не являются частью v1.3.12.
 
 ## Скриншоты
 
@@ -257,9 +273,3 @@ README описывает текущее состояние проекта. Ве
 ## Лицензия
 
 Исходный код репозитория распространяется по [MIT License](LICENSE). Сторонние материалы могут иметь отдельные условия, которые имеют приоритет для соответствующих файлов.
-
-### Шрифты Cristalix
-
-Шрифты получены из клиента Cristalix с сохранением исходных метаданных. Условия, ответ поддержки и область использования описаны в [docs/permissions/cristalix.md](docs/permissions/cristalix.md).
-
-CI scheduling, cache, concurrency and artifact policy: [README-CI.md](README-CI.md).
