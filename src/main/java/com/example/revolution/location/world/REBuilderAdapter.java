@@ -8,11 +8,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.math.BlockPos;
@@ -114,7 +113,7 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
 
                 @Override public void rollback() {
                     releasePreparedLease();
-                    // A rollback can occur after apply() released the build ticket, so take a fresh temporary lease.
+                    // A rollback can occur after apply() released the build tickets, so take a fresh temporary lease.
                     try (ChunkLease rollbackLease = ChunkLease.open(player)) {
                         IllegalStateException failure = null;
                         for (Map.Entry<BlockPos, IBlockState> entry : original.entrySet()) {
@@ -145,32 +144,51 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
     /** Keeps all chunks used by one REBuilder transaction loaded until apply/rollback is finished. */
     private static final class ChunkLease implements AutoCloseable {
         private final EntityPlayerMP player;
-        private final ForgeChunkManager.Ticket ticket;
-        private final Set<ChunkPos> forced = new LinkedHashSet<>();
+        private final List<TicketBucket> tickets = new ArrayList<>();
+        private final Map<ChunkPos, ForgeChunkManager.Ticket> forced = new LinkedHashMap<>();
         private boolean closed;
 
-        private ChunkLease(EntityPlayerMP player, ForgeChunkManager.Ticket ticket) {
+        private ChunkLease(EntityPlayerMP player) {
             this.player = player;
-            this.ticket = ticket;
         }
 
         static ChunkLease open(EntityPlayerMP player) {
             if (RevolutionMod.instance == null) {
                 throw new IllegalStateException("RE:volution Forge mod instance is unavailable for chunk loading");
             }
+            ChunkLease lease = new ChunkLease(player);
+            lease.addTicket();
+            return lease;
+        }
+
+        private TicketBucket addTicket() {
             ForgeChunkManager.Ticket ticket = ForgeChunkManager.requestTicket(
                     RevolutionMod.instance, player.world, ForgeChunkManager.Type.NORMAL);
             if (ticket == null) {
-                throw new IllegalStateException("Could not obtain Forge chunk-loading ticket for REBuilder");
+                throw new IllegalStateException(
+                        "Could not obtain enough Forge chunk-loading tickets for REBuilder; forced=" + forced.size()
+                                + " tickets=" + tickets.size());
             }
-            return new ChunkLease(player, ticket);
+            TicketBucket bucket = new TicketBucket(ticket);
+            tickets.add(bucket);
+            return bucket;
+        }
+
+        private TicketBucket ticketForNextChunk() {
+            TicketBucket bucket = tickets.get(tickets.size() - 1);
+            int depth = bucket.ticket.getChunkListDepth();
+            if (depth > 0 && bucket.chunkCount >= depth) bucket = addTicket();
+            return bucket;
         }
 
         void force(BlockPos position) {
             if (closed) throw new IllegalStateException("REBuilder chunk lease is already closed");
             ChunkPos chunk = new ChunkPos(position.getX() >> 4, position.getZ() >> 4);
-            if (forced.add(chunk)) {
-                ForgeChunkManager.forceChunk(ticket, chunk);
+            if (!forced.containsKey(chunk)) {
+                TicketBucket bucket = ticketForNextChunk();
+                ForgeChunkManager.forceChunk(bucket.ticket, chunk);
+                bucket.chunkCount++;
+                forced.put(chunk, bucket.ticket);
             }
             // ForceChunk provides persistence; this call makes the chunk synchronously available for the current build.
             player.world.getChunkFromChunkCoords(chunk.x, chunk.z);
@@ -182,8 +200,18 @@ public final class REBuilderAdapter implements BuildTemplateCatalog {
         @Override public void close() {
             if (closed) return;
             closed = true;
-            ForgeChunkManager.releaseTicket(ticket);
+            for (TicketBucket bucket : tickets) ForgeChunkManager.releaseTicket(bucket.ticket);
+            tickets.clear();
             forced.clear();
+        }
+
+        private static final class TicketBucket {
+            final ForgeChunkManager.Ticket ticket;
+            int chunkCount;
+
+            TicketBucket(ForgeChunkManager.Ticket ticket) {
+                this.ticket = ticket;
+            }
         }
     }
 
