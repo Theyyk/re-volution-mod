@@ -16,6 +16,10 @@ final class AdminFormData {
     }
 
     static AdminFormData parse(String encoded, Set<String> expectedKeys) {
+        return parse(encoded, expectedKeys, 256);
+    }
+
+    static AdminFormData parse(String encoded, Set<String> expectedKeys, int maximumValueLength) {
         if (encoded == null || expectedKeys == null) throw new IllegalArgumentException("invalid form");
         Map<String, String> values = new LinkedHashMap<>();
         if (!encoded.isEmpty()) {
@@ -28,7 +32,7 @@ final class AdminFormData {
                 String value = decode(part.substring(separator + 1));
                 if (!key.matches("[A-Za-z0-9_-]{1,32}")) throw new IllegalArgumentException("invalid form key");
                 if (!expectedKeys.contains(key)) throw new IllegalArgumentException("unexpected form key");
-                if (value.length() > 256) throw new IllegalArgumentException("form value too long");
+                if (value.length() > maximumValueLength) throw new IllegalArgumentException("form value too long");
                 if (values.put(key, value) != null) throw new IllegalArgumentException("duplicate form key");
             }
         }

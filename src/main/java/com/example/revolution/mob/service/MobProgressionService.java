@@ -243,6 +243,27 @@ public final class MobProgressionService {
         return locations.isEmpty() ? null : locations.get(0);
     }
 
+    /** Admin access grant does not trigger fast-auto travel or combat rewards. */
+    public boolean grantStage(UUID playerUuid, int worldLocationId, int mobSlotId) {
+        if (playerUuid == null) return false;
+        List<Integer> configured = configuredSlots(worldLocationId);
+        if (!configured.contains(mobSlotId)) return false;
+        Set<Integer> granted = new LinkedHashSet<>(unlockedSlots(playerUuid, worldLocationId));
+        granted.add(configured.get(0));
+        granted.add(mobSlotId);
+        if (!repository.replaceUnlockedSlots(playerUuid, worldLocationId, granted)) return false;
+        invalidateFromLocation(playerUuid, worldLocationId);
+        return true;
+    }
+
+    /** Clears exactly one Location; later Location records are intentionally retained. */
+    public boolean resetLocation(UUID playerUuid, int worldLocationId) {
+        if (playerUuid == null || configuredSlots(worldLocationId).isEmpty()) return false;
+        if (!repository.replaceUnlockedSlots(playerUuid, worldLocationId, Collections.emptySet())) return false;
+        invalidateFromLocation(playerUuid, worldLocationId);
+        return true;
+    }
+
     public boolean revokeFrom(UUID playerUuid, int worldLocationId, int mobSlotId) {
         if (playerUuid == null || worldLocationId < 0) return false;
         List<Integer> configured = configuredSlots(worldLocationId);

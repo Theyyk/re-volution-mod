@@ -8,5 +8,9 @@ public enum AdminApiCapability {
     RUNES_READ,
     RUNES_WRITE,
     MOBS_READ,
-    MOBS_WRITE
+    MOBS_WRITE,
+    STAGES_READ,
+    STAGES_WRITE,
+    PROGRESSION_READ,
+    PROGRESSION_WRITE
 }

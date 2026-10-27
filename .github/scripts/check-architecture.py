@@ -12,7 +12,7 @@ BASE = 'com.example.revolution.'
 
 def resource_digest(path, data):
     # Git checks text out with CRLF on Windows and LF on Linux. Binary assets stay exact.
-    if Path(path).suffix in {'.md', '.json', '.mcmeta'}:
+    if Path(path).suffix in {'.md', '.json', '.mcmeta', '.txt'}:
         data = data.replace(b'\r\n', b'\n')
     return hashlib.sha256(data).hexdigest()
 

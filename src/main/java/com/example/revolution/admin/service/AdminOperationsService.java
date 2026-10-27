@@ -121,6 +121,7 @@ public final class AdminOperationsService {
             double x,
             double y,
             double z) {
+        mobs.requireConfigurationReady();
         String normalizedName = name == null ? "" : name.trim();
         String normalizedType = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
         String canonicalResource = ResourceDefinitions.findCanonicalName(resource);
@@ -137,6 +138,7 @@ public final class AdminOperationsService {
     }
 
     public boolean deleteMob(String name) {
+        mobs.requireConfigurationReady();
         if (!validName(name) || mobRepository.getMob(name) == null) return false;
         mobRepository.deleteMob(name);
         mobs.respawnAll();
@@ -144,6 +146,7 @@ public final class AdminOperationsService {
     }
 
     public boolean setMobSpawn(String name, double x, double y, double z) {
+        mobs.requireConfigurationReady();
         if (!validName(name) || mobRepository.getMob(name) == null) return false;
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) return false;
         mobRepository.setMobSpawn(name, x, y, z);
