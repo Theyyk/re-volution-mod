@@ -88,8 +88,10 @@ public final class MobProgressionService {
             int mobSlotId = MobZoneIds.mobSlotId(internalLocationId);
             String mobName = populatedZones.get(internalLocationId);
             if (mobName == null) mobName = "";
+            // Boss identity is topology-derived below. Persisted BOSS_ZONE remains accepted as legacy metadata,
+            // but it cannot make a non-final stage the runtime boss.
             staged.computeIfAbsent(worldLocationId, ignored -> new LinkedHashMap<>())
-                    .put(mobSlotId, new Stage(internalLocationId, mobSlotId, mobName, zone.isBossZone()));
+                    .put(mobSlotId, new Stage(internalLocationId, mobSlotId, mobName, false));
         }
 
         List<Integer> worldLocations = new ArrayList<>(staged.keySet());
@@ -98,15 +100,18 @@ public final class MobProgressionService {
             Map<Integer, Stage> bySlot = staged.get(worldLocationId);
             List<Integer> sortedSlots = MobProgressionRules.normalizeConfiguredSlots(bySlot.keySet());
             List<Stage> chain = new ArrayList<>();
-            int bossCount = 0;
-            for (Integer slot : sortedSlots) {
-                Stage stage = bySlot.get(slot);
-                chain.add(stage);
-                if (stage.boss) bossCount++;
+            for (int i = 0; i < sortedSlots.size(); i++) {
+                Stage configured = bySlot.get(sortedSlots.get(i));
+                boolean boss = i == sortedSlots.size() - 1;
+                chain.add(new Stage(
+                        configured.internalLocationId,
+                        configured.mobSlotId,
+                        configured.mobName,
+                        boss));
             }
             List<Stage> immutable = Collections.unmodifiableList(chain);
             chains.put(worldLocationId, immutable);
-            if (bossCount == 1 && !chain.isEmpty() && chain.get(chain.size() - 1).boss) validBossLayouts.add(worldLocationId);
+            if (!chain.isEmpty()) validBossLayouts.add(worldLocationId);
         }
     }
 
@@ -207,7 +212,7 @@ public final class MobProgressionService {
         return result;
     }
 
-    /** True only for a Location with exactly one Boss Zone and that Boss Zone as its final configured stage. */
+    /** True for the final configured stage of a Location. */
     public boolean isFinalStage(int internalLocationId) {
         if (!MobZoneIds.isMobZoneId(internalLocationId)) return false;
         int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
