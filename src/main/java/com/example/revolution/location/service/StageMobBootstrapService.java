@@ -95,7 +95,7 @@ public final class StageMobBootstrapService {
                 changed++;
             }
         }
-        changed += reconcileBossLayout(worldLocationId);
+        reconcileBossLayout(worldLocationId);
         return changed;
     }
 
