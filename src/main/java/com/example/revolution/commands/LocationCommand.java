@@ -155,9 +155,13 @@ public final class LocationCommand extends AdminOnlyCommand {
                     null,
                     builds.forPlayer(player));
             triggers.rememberCreatedTrigger(worldLocationId, mobSlotId, stageTemplate);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            if (e.getCause() != null) LogManager.getLogger(LocationCommand.class).error("Physical Location creation failed", e);
-            throw new CommandException(e.getMessage());
+        } catch (RuntimeException e) {
+            LogManager.getLogger(LocationCommand.class).error(
+                    "Location create failed for location={} slot={} anchor={},{},{}",
+                    worldLocationId, mobSlotId, anchorX, anchorY, anchorZ, e);
+            String message = e.getMessage();
+            if (message == null || message.trim().isEmpty()) message = e.getClass().getSimpleName();
+            throw new CommandException("Location create failed: " + message);
         }
 
         sender.sendMessage(new TextComponentString(
