@@ -125,6 +125,7 @@ public final class StageTransitionService {
         if (!target.hasTransitionPoint()) {
             throw new IllegalStateException("Target mob stage has no transition point configured: " + target.getLocationId());
         }
+        loadDestinationChunks(player, target);
         ensureSafeDestination(player, target);
         player.connection.setPlayerLocation(target.getTransitionX(), target.getTransitionY(), target.getTransitionZ(),
                 target.getTransitionYaw(), target.getTransitionPitch());
@@ -193,6 +194,28 @@ public final class StageTransitionService {
             }
         }
         return best;
+    }
+
+    private void loadDestinationChunks(EntityPlayerMP player, LocationDefinition target) {
+        double dx = target.getTransitionX() - player.posX;
+        double dy = target.getTransitionY() - player.posY;
+        double dz = target.getTransitionZ() - player.posZ;
+        AxisAlignedBB destination = player.getEntityBoundingBox().offset(dx, dy, dz)
+                .expand(0.0D, SUPPORT_PROBE, 0.0D);
+        int minChunkX = floorToBlock(destination.minX) >> 4;
+        int maxChunkX = floorToBlock(destination.maxX) >> 4;
+        int minChunkZ = floorToBlock(destination.minZ) >> 4;
+        int maxChunkZ = floorToBlock(destination.maxZ) >> 4;
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                player.world.getChunkFromChunkCoords(chunkX, chunkZ);
+            }
+        }
+    }
+
+    private static int floorToBlock(double value) {
+        int integer = (int) value;
+        return value < integer ? integer - 1 : integer;
     }
 
     private void ensureSafeDestination(EntityPlayerMP player, LocationDefinition target) {

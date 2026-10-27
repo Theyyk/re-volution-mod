@@ -1,6 +1,7 @@
 package com.example.revolution.location.service;
 
 import com.example.revolution.location.definition.LocationDefinition;
+import com.example.revolution.location.definition.LocationStageTemplate;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.definition.StageTransitionTriggerDefinition;
 import com.example.revolution.location.definition.StageTransitionTriggerDefinition.DisplayMode;
@@ -20,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
 
-/** Runtime for 180/180 stage boundary rings, delayed transitions, and data-driven messages. */
+/** Runtime for manual 180/180 stage boundary fallback rings, delayed transitions, and data-driven messages. */
 public final class StageTransitionTriggerService {
     private static final long TRANSITION_DELAY_TICKS = 20L;
     private static final long TELEPORT_COOLDOWN_TICKS = 10L;
@@ -72,8 +73,19 @@ public final class StageTransitionTriggerService {
         this.transitions = transitions;
     }
 
+    /** Cache an already committed new stage without reloading mobs or progression configuration. */
+    public void rememberCreatedTrigger(int worldLocationId, int mobSlotId, LocationStageTemplate template) {
+        StageTransitionTriggerDefinition trigger = new StageTransitionTriggerDefinition(
+                worldLocationId, mobSlotId, template.getTriggerOffset(), template.getTriggerRadius(),
+                DisplayMode.ACTION_BAR, null, null, null);
+        triggers.put(trigger.key(), trigger);
+    }
+
     public void reload() {
         triggers.clear();
+        insideByPlayer.clear();
+        pendingByPlayer.clear();
+        cooldownUntilTick.clear();
         List<StageTransitionTriggerDefinition> stored = repository.getAll();
         if (stored == null) return;
         for (StageTransitionTriggerDefinition trigger : stored) {
@@ -148,11 +160,11 @@ public final class StageTransitionTriggerService {
                 : new OverlayGeometry(inner, outer, axis[0], axis[1]);
     }
 
+    /** This preference controls fast-auto; boundary fallback rings remain available regardless of it. */
     public boolean isAutoTransitionEnabled(UUID playerUuid) { return preferences.isAutoTransitionEnabled(playerUuid); }
 
     public void setAutoTransitionEnabled(UUID playerUuid, boolean enabled) {
         preferences.setAutoTransitionEnabled(playerUuid, enabled);
-        if (!enabled) pendingByPlayer.remove(playerUuid);
     }
 
     public void handlePlayerTick(EntityPlayerMP player) {
@@ -169,12 +181,25 @@ public final class StageTransitionTriggerService {
             nowInside.add(trigger.key());
             if (!previousInside.contains(trigger.key())) entered.add(trigger);
         }
-        insideByPlayer.put(playerId, nowInside);
         long now = player.world.getTotalWorldTime();
-        if (processPending(player, playerId, now, nowInside)) return;
-        if (entered.isEmpty() || pendingByPlayer.containsKey(playerId)) return;
+
+        if (processPending(player, playerId, now)) {
+            if (pendingByPlayer.containsKey(playerId)) insideByPlayer.put(playerId, nowInside);
+            else insideByPlayer.remove(playerId);
+            return;
+        }
+
         Long cooldown = cooldownUntilTick.get(playerId);
-        if (cooldown != null && now < cooldown) return;
+        if (cooldown != null && now < cooldown) {
+            // Do not consume a target-ring entry during teleport cooldown. After cooldown expires the
+            // ring must still be considered newly entered so backward/forward travel can fire normally.
+            insideByPlayer.remove(playerId);
+            return;
+        }
+        if (cooldown != null) cooldownUntilTick.remove(playerId);
+
+        insideByPlayer.put(playerId, nowInside);
+        if (entered.isEmpty() || pendingByPlayer.containsKey(playerId)) return;
 
         for (StageTransitionTriggerDefinition trigger : entered) {
             LocationDefinition source = sourceStage(trigger);
@@ -189,7 +214,6 @@ public final class StageTransitionTriggerService {
                 if (forwardHalf) sendConfiguredMessage(player, trigger.getLockedMessage(), trigger.getDisplayMode());
                 continue;
             }
-            if (!preferences.isAutoTransitionEnabled(playerId)) continue;
             sendConfiguredMessage(player,
                     forwardHalf ? trigger.getForwardMessage() : trigger.getBackwardMessage(), trigger.getDisplayMode());
             pendingByPlayer.put(playerId, new PendingTransition(trigger.key(), targetId, now + TRANSITION_DELAY_TICKS));
@@ -197,10 +221,15 @@ public final class StageTransitionTriggerService {
         }
     }
 
-    private boolean processPending(EntityPlayerMP player, UUID playerId, long now, Set<String> nowInside) {
+    /**
+     * Once the player has entered a valid boundary ring, keep that transition armed for the configured delay.
+     * Requiring the player to remain inside the annulus for the whole second made normal walking/sprinting
+     * cross narrow trigger rings before the delay expired, so the pending transition was silently cancelled.
+     */
+    private boolean processPending(EntityPlayerMP player, UUID playerId, long now) {
         PendingTransition pending = pendingByPlayer.get(playerId);
         if (pending == null) return false;
-        if (!nowInside.contains(pending.triggerKey) || !preferences.isAutoTransitionEnabled(playerId)) {
+        if (!triggers.containsKey(pending.triggerKey)) {
             pendingByPlayer.remove(playerId);
             return false;
         }
@@ -211,8 +240,9 @@ public final class StageTransitionTriggerService {
         }
         try {
             transitions.moveToStage(player, pending.targetInternalLocationId);
-        } catch (IllegalArgumentException | IllegalStateException ignored) {
+        } catch (IllegalArgumentException | IllegalStateException failure) {
             pendingByPlayer.remove(playerId);
+            player.sendStatusMessage(new TextComponentString("Переход не выполнен: " + failure.getMessage()), true);
             return false;
         }
         pendingByPlayer.remove(playerId);
