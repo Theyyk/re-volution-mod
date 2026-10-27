@@ -13,7 +13,6 @@ import com.example.revolution.location.definition.SpawnRealmScope;
 import com.example.revolution.location.definition.StoredMobSpawn;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
 import com.example.revolution.location.generation.LocationTemplate;
-import com.example.revolution.location.repository.BootstrappingLocationGenerationRepository;
 import com.example.revolution.location.repository.InMemoryLocationRepository;
 import com.example.revolution.location.repository.LocationStageTemplateRepository;
 import com.example.revolution.mob.definition.MobDefinition;
