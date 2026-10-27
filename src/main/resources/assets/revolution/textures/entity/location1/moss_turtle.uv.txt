@@ -1,0 +1,10 @@
+moss_turtle.png UV atlas, 64x64
+
+Common turtle layout:
+- shell: texture offset 0,0, box 12x5x14, atlas footprint 52x19
+- body: texture offset 0,20, box 10x4x12, atlas footprint 44x16
+- legs: shared texture offset 0,38, box 4x3x5, atlas footprint 18x8
+- tail: texture offset 20,38, box 2x2x4, atlas footprint 12x6
+- head: texture offset 42,37, box 6x4x5, atlas footprint 22x9
+
+The four legs intentionally share one UV island. Variant-only turtle geometry still uses the legacy generated-texture-compatible 0,0 mapping until those profiles are migrated to PNG.

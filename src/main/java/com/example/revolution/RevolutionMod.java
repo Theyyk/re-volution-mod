@@ -3,6 +3,9 @@ package com.example.revolution;
 import com.example.revolution.lifecycle.CommonProxy;
 import com.example.revolution.lifecycle.ServerLifecycle;
 import com.example.revolution.realm.world.RealmDimensions;
+import java.util.List;
+import net.minecraft.world.World;
+import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
@@ -18,14 +21,26 @@ import org.apache.logging.log4j.Logger;
 public final class RevolutionMod {
     public static final String MODID = "revolution";
     public static final String NAME = "RE:volution Mod";
-    public static final String VERSION = "1.3.11";
+    public static final String VERSION = "1.3.12";
     public static Logger logger;
+
+    @Mod.Instance(MODID)
+    public static RevolutionMod instance;
 
     @SidedProxy(clientSide = "com.example.revolution.client.ClientProxy", serverSide = "com.example.revolution.lifecycle.CommonProxy")
     public static CommonProxy proxy;
 
     @Mod.EventHandler public void preInit(FMLPreInitializationEvent event) {
         logger = event.getModLog();
+        ForgeChunkManager.setForcedChunkLoadingCallback(this, new ForgeChunkManager.LoadingCallback() {
+            @Override public void ticketsLoaded(List<ForgeChunkManager.Ticket> tickets, World world) {
+                if (tickets == null) return;
+                // Location build tickets are temporary leases only. Never restore stale leases after a restart.
+                for (ForgeChunkManager.Ticket ticket : tickets) {
+                    if (ticket != null) ForgeChunkManager.releaseTicket(ticket);
+                }
+            }
+        });
         RealmDimensions.register();
         proxy.preInit(event);
         logger.info("RE:volution Mod preInit done");

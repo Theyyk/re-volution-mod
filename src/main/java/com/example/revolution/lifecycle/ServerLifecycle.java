@@ -6,10 +6,12 @@ import com.example.revolution.commands.CustomMobCommand;
 import com.example.revolution.commands.CustomResourceCommand;
 import com.example.revolution.commands.CustomRunesCommand;
 import com.example.revolution.commands.CustomStatusCommand;
+import com.example.revolution.commands.LocationCommand;
 import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.commands.StageCommand;
 import com.example.revolution.location.event.FastAutoHandler;
 import com.example.revolution.location.event.StageTransitionTriggerHandler;
+import com.example.revolution.mob.event.ManagedMobAppearanceEvents;
 import com.example.revolution.mob.event.ManagedMobEvents;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
@@ -56,7 +58,7 @@ public final class ServerLifecycle {
 
     private static void initialize() {
         if (current != null) return;
-        current = new ServerServices(logger, dedicatedServer);
+        current = new ServerServices(logger, dedicatedServer, configDirectory);
         if (!dedicatedServer) return;
         current.connect();
         current.adminAccess.init(configDirectory);
@@ -64,6 +66,7 @@ public final class ServerLifecycle {
         listeners.add(new RealmLoginHandler(current.realms));
         listeners.add(new RealmEntityLoadHandler());
         listeners.add(new ManagedMobEvents(current.mobs));
+        listeners.add(new ManagedMobAppearanceEvents());
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
         listeners.add(new FastAutoHandler(current.fastAuto, current.stageTransitions));
@@ -99,6 +102,7 @@ public final class ServerLifecycle {
         event.registerServerCommand(new CustomResourceCommand(current.resources));
         event.registerServerCommand(new AdminPanelCommand(current.adminAccess));
         event.registerServerCommand(new RealmCommand(current.realms));
+        event.registerServerCommand(new LocationCommand(current.locationProvisioning, current.stageTransitionTriggers, current.physicalBuilds));
         event.registerServerCommand(new StageCommand(
                 current.stageTransitions, current.stageTransitionTriggers, current.mobProgression, current.mobAdmin));
         current.resources.purgeDeprecatedLightnings();

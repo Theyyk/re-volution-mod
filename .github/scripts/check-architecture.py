@@ -189,7 +189,18 @@ def validate():
     assets = json.loads((ROOT / 'docs/contracts/resource-assets.json').read_text(encoding='utf-8'))
     actual_assets = {path.relative_to(ROOT).as_posix(): resource_digest(path, path.read_bytes())
                      for path in (ROOT / 'src/main/resources').rglob('*') if path.is_file() and path.name != 'mcmod.info'}
-    assert actual_assets == assets, 'Resource assets changed; review the resource contract explicitly'
+    if actual_assets != assets:
+        expected_paths = set(assets)
+        actual_paths = set(actual_assets)
+        details = []
+        for path in sorted(expected_paths - actual_paths):
+            details.append('Missing resource: ' + path)
+        for path in sorted(actual_paths - expected_paths):
+            details.append('Unexpected resource: ' + path + ' actual=' + actual_assets[path])
+        for path in sorted(expected_paths & actual_paths):
+            if assets[path] != actual_assets[path]:
+                details.append('Digest mismatch: ' + path + ' expected=' + assets[path] + ' actual=' + actual_assets[path])
+        raise AssertionError('Resource assets changed; review the resource contract explicitly\n' + '\n'.join(details))
     assert not errors, '\n'.join(errors)
     print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13, optional client and resource assets passed.')
 
