@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.4.8`.**
+**Стабильная версия: `v1.4.9`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.8](docs/releases/v1.4.8.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.9](docs/releases/v1.4.9.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -63,7 +63,7 @@ Gameplay-мод не должен содержать приватные signing 
 
 Подробности текущего поведения: [docs/gameplay.md](docs/gameplay.md).
 
-### Balance Layer в v1.4.8
+### Balance Layer в v1.4.9
 
 - `Balance Core` хранит canonical balance snapshot, валидирует его целиком и публикует только после успешной подготовки.
 - Canonical config поддерживает числовые curves и string values, а revision/hash детерминирован и не зависит от форматирования JSON.
@@ -79,9 +79,11 @@ Gameplay-мод не должен содержать приватные signing 
 - Admin/Control может read-only экспортировать active Balance snapshot через `GET /api/v1/balance/export`: ответ содержит contract version, revision, schema version, authoritative canonical JSON и deterministic spreadsheet-friendly rows.
 - Export rows используют RFC 6901 JSON Pointer и явные типы значений; canonical config и revision остаются источником истины.
 - Gameplay-мод не подключается к Google API/OAuth и не хранит внешние integration credentials; Google Sheets остаётся задачей внешнего Control/инструмента.
-- Локальный откат одной руны не реализован в `v1.4.8`; он запланирован отдельной механикой `v1.4.9`.
+- Игрок может локально откатить одну выбранную руну начиная с ранга `Продвинутая` ровно на один ранг вниз. Откат `Улучшенная -> Обычная` запрещён.
+- Rank Revert не изменяет остальные руны, не сбрасывает усиление выбранной руны, бесплатен и не возвращает ресурсы.
+- После Rank Revert следующая цена покупки и progression немедленно выводятся из фактических рангов коллекции без persisted purchase index.
 
-Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.8.md](docs/releases/v1.4.8.md).
+Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.9.md](docs/releases/v1.4.9.md).
 
 ### Admin / Control APIs
 
@@ -106,6 +108,7 @@ Gameplay-мод не должен содержать приватные signing 
 - Ранги рун: **Обычная → Улучшенная → Продвинутая**.
 - Покупка рун `x1`, `x5`, `x10`, `x100` с серверной проверкой экономики.
 - Дубликаты, Пыль рун, пробуждение и постоянные уровни усиления `+N` обрабатываются сервером.
+- Для подходящей руны правый клик выполняет одноступенчатый Rank Revert; левый клик сохраняет существующее действие пробуждения.
 - Усиление и ранг - независимые множители; базовая формула: `finalPower = basePower × (1 + enhancementLevel × enhancementStep)`.
 - Поддерживаются упрощённый, полный и инженерный форматы больших чисел.
 - Основные ресурсы: `coins`, `crystals`, `rune_dust`, `rune_shards`, `rune_cores`.
