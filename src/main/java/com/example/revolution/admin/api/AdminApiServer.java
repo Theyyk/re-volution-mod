@@ -5,11 +5,13 @@ import com.example.revolution.admin.api.auth.AdminApiAuthService;
 import com.example.revolution.admin.api.auth.AdminApiCapability;
 import com.example.revolution.admin.api.auth.AdminChallengeService;
 import com.example.revolution.admin.api.auth.AdminInstallationSecretStore;
+import com.example.revolution.admin.service.AdminBalanceBatchService;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.admin.service.AdminToolsService;
 import com.example.revolution.admin.service.AdminStageBatchService;
 import com.example.revolution.admin.api.auth.AdminInstallationIdentity;
+import com.example.revolution.balance.service.BalanceService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -41,9 +43,12 @@ public final class AdminApiServer implements AutoCloseable {
     private AdminApiAuthService auth;
     private AdminToolsService tools;
     private AdminStageBatchService batch;
+    private BalanceService balance;
+    private AdminBalanceBatchService balanceBatch;
     private String installationId;
 
     public void setTools(AdminToolsService tools, AdminStageBatchService batch) { this.tools = tools; this.batch = batch; }
+    public void setBalance(BalanceService balance, AdminBalanceBatchService batch) { this.balance = balance; this.balanceBatch = batch; }
 
     public AdminApiServer(Logger logger, AdminOperationsService operations, AdminQueryService queries) {
         if (logger == null || operations == null || queries == null) throw new IllegalArgumentException("Admin API dependencies are required");
@@ -82,6 +87,9 @@ public final class AdminApiServer implements AutoCloseable {
             newServer.createContext(STATUS_PATH, exact(STATUS_PATH, this::handleStatus));
             new AdminApiRoutes(logger, newAuth, operations, queries, minecraftServer).register(newServer, this::exact);
             if (tools != null) new AdminToolsRoutes(tools, batch, newAuth, minecraftServer, logger, operations).register(newServer, this::exact);
+            if (balance != null && balanceBatch != null) {
+                new AdminBalanceRoutes(balance, balanceBatch, newAuth, minecraftServer, logger).register(newServer, this::exact);
+            }
             newServer.start();
             server = newServer;
             executor = newExecutor;
@@ -159,7 +167,8 @@ public final class AdminApiServer implements AutoCloseable {
         if (!"DEV".equals(environment) && !"PROD".equals(environment)) environment = "UNCONFIGURED";
         AdminApiHttp.respond(exchange, 200, "{\"apiVersion\":1,\"modVersion\":\"" + RevolutionMod.VERSION
                 + "\",\"remoteMode\":false,\"environment\":\"" + environment
-                + "\",\"installationId\":\"" + installationId + "\",\"capabilities\":" + (tools == null ? "[]" : "[\"stages.read\",\"stages.write\",\"progression.read\",\"progression.write\",\"enhancements.write\"]") + "}");
+                + "\",\"installationId\":\"" + installationId + "\",\"capabilities\":"
+                + (tools == null ? "[]" : "[\"stages.read\",\"stages.write\",\"progression.read\",\"progression.write\",\"enhancements.write\",\"balance.read\",\"balance.write\"]") + "}");
     }
 
     static int resolvePort() {

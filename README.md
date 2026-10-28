@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.4.6`.**
+**Стабильная версия: `v1.4.7`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.6](docs/releases/v1.4.6.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.7](docs/releases/v1.4.7.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -63,29 +63,23 @@ Gameplay-мод не должен содержать приватные signing 
 
 Подробности текущего поведения: [docs/gameplay.md](docs/gameplay.md).
 
-### Balance Layer в v1.4.6
+### Balance Layer в v1.4.7
 
 - `Balance Core` хранит canonical balance snapshot, валидирует его целиком и публикует только после успешной подготовки.
 - Canonical config поддерживает числовые curves и string values, а revision/hash детерминирован и не зависит от форматирования JSON.
-- Rune purchase для status-коллекций читает resource ids, стоимость и duplicate reward через Balance Layer.
-- Purchase progression выводится из фактических рангов рун коллекции: `Collection State → Progression Index → Purchase Curve → Next Purchase Cost`.
-- После пробуждения новые руны покупаются уже на фактическом активном ранге, а не всегда как `NORMAL`.
-- Дубликат оплачивается, но не увеличивает progression index.
-- Rune Enhancement работает через Balance Layer: resource, targeting и cost curve задаются canonical config.
-- Цена усиления индексируется глобальным `TotalEnhancementLevel = Σ slot.enhancementLevel`, а не уровнем случайно выбранного слота.
-- Rank-up работает через Balance Layer: target rank, required slots, resource, cost, clear mode и сохранение усилений задаются canonical config.
-- Обычный rank-up сохраняет enhancement levels и не хранит отдельный `currentCollectionRank` или `nextPurchaseCost` как источник истины.
-- Rune Effects для Poison читают параметры из активного Balance Core snapshot: groups/tags, effect type, target selector, rank-specific values, enhancement step, targeted power, proc/rage и reward bonus.
-- Существующий Poison gameplay baseline сохранён; перенос параметров меняет источник данных, а не механику.
-- Для Poison сохраняются placeholder-значения экономики: покупка `100 coins`, дубликат `1 rune_dust`, усиление `10 rune_dust`, rank-up `100 rune_dust`.
+- Rune purchase, duplicate rewards, enhancement, rank-up и Poison Rune Effects читают параметры из активного Balance Core snapshot.
+- Purchase progression выводится из фактических рангов рун коллекции; отдельные persisted `currentCollectionRank` и `nextPurchaseCost` не являются источником истины.
 - Канонические stage-мобы `Mob<locationId>_<mobSlotId>` могут получать из активного Balance Core необязательные overrides для `hp`, reward `resource` и reward `amount`.
-- Каждый mob balance field имеет независимый persistence fallback. Bundled `v1.4.6` не выдумывает и не заменяет текущие настроенные HP/награды, если соответствующий override явно не опубликован.
+- Каждый Mob Balance field имеет независимый persistence fallback; bundled config не выдумывает и не заменяет текущие настроенные HP/награды без явно опубликованного override.
 - Non-canonical/legacy mobs остаются persistence-driven.
 - Mob identity/type, модели, PNG, spawn coordinates, population, movement mode, зоны, stage geometry и world topology не входят в Mob Balance.
-- Новые balance-значения используются при следующем workflow, который перечитывает mob definition, например respawn/load; уже существующая физическая жизнь не переписывается в середине жизни.
-- Локальный откат одной руны не реализован в `v1.4.6`; он запланирован отдельной механикой `v1.4.9`, а текущая модель прогрессии уже не блокирует такой сценарий.
+- Admin/Control может получить текущий canonical snapshot и revision, выполнить полную валидацию candidate через Preview и атомарно применить именно подготовленный snapshot через Apply.
+- Balance Preview session-bound, revision-bound, одноразовый, имеет TTL 120 секунд и ограниченное in-memory pending state.
+- Apply использует atomic expected-revision compare-and-set; stale candidate не может перезаписать более новый active snapshot.
+- Локальный откат одной руны не реализован в `v1.4.7`; он запланирован отдельной механикой `v1.4.9`.
+- Следующий этап Balance Phase 2 - `v1.4.8 Export Contract / Google Sheets readiness`; прямой Google API вызов из gameplay-мода не планируется.
 
-Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.6.md](docs/releases/v1.4.6.md).
+Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.7.md](docs/releases/v1.4.7.md).
 
 ### Admin / Control APIs
 
@@ -94,7 +88,9 @@ Gameplay-мод не должен содержать приватные signing 
 - Live-only действия - руны, усиления и progression - недоступны офлайн до входа игрока.
 - `lastKnownName` сохраняет последнее известное имя профиля.
 - Stage editor поддерживает HP, population и reward resource/amount.
-- Batch workflow: `Validate → Preview → Apply` с session/revision guards и recovery journal.
+- Stage batch workflow: `Validate → Preview → Apply` с session/revision guards и recovery journal.
+- Balance workflow: `Read → Preview → Apply` с отдельными `balance.read` / `balance.write`, session/revision guards и атомарной активацией prepared snapshot.
+- Balance routes остаются внутри существующей loopback-only HMAC Admin API границы и выполняются через Minecraft server-thread bridge.
 - Последняя configured stage остаётся автоматическим boss; обычного ручного dropdown `BOSS_ZONE` нет.
 
 Полный первоначальный контракт Admin/Control этого цикла: [docs/releases/v1.4.0.md](docs/releases/v1.4.0.md).
