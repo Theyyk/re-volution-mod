@@ -4,10 +4,28 @@
     "runes.poison.purchase.resource": "coins",
     "runes.poison.duplicate.resource": "rune_dust",
     "runes.poison.enhancement.resource": "rune_dust",
-    "runes.poison.enhancement.targeting": "ALL_SLOTS"
+    "runes.poison.enhancement.targeting": "ALL_SLOTS",
+    "runes.poison.rankup.rank.1.target": "2",
+    "runes.poison.rankup.rank.1.required_slots": "26",
+    "runes.poison.rankup.rank.1.resource": "rune_dust",
+    "runes.poison.rankup.rank.1.clear_mode": "AT_OR_BELOW_SOURCE",
+    "runes.poison.rankup.rank.1.preserve_enhancements": "true",
+    "runes.poison.rankup.rank.2.target": "3",
+    "runes.poison.rankup.rank.2.required_slots": "26",
+    "runes.poison.rankup.rank.2.resource": "rune_dust",
+    "runes.poison.rankup.rank.2.clear_mode": "AT_OR_BELOW_SOURCE",
+    "runes.poison.rankup.rank.2.preserve_enhancements": "true"
   },
   "curves": {
     "runes.poison.purchase.rank.1": {
+      "mode": "FIXED",
+      "value": "100"
+    },
+    "runes.poison.purchase.rank.2": {
+      "mode": "FIXED",
+      "value": "100"
+    },
+    "runes.poison.purchase.rank.3": {
       "mode": "FIXED",
       "value": "100"
     },
@@ -15,9 +33,25 @@
       "mode": "FIXED",
       "value": "1"
     },
+    "runes.poison.duplicate.rank.2": {
+      "mode": "FIXED",
+      "value": "1"
+    },
+    "runes.poison.duplicate.rank.3": {
+      "mode": "FIXED",
+      "value": "1"
+    },
     "runes.poison.enhancement.cost": {
       "mode": "FIXED",
       "value": "10"
+    },
+    "runes.poison.rankup.rank.1.cost": {
+      "mode": "FIXED",
+      "value": "100"
+    },
+    "runes.poison.rankup.rank.2.cost": {
+      "mode": "FIXED",
+      "value": "100"
     }
   }
 }
