@@ -116,12 +116,16 @@ public final class MongoAdminStageStore implements AdminStageStore {
             if (spawn.getBoolean("enabled", false)) enabled.add(spawn); else result.add(copy(spawn));
         }
         if (enabled.isEmpty()) throw new IllegalArgumentException("An existing spawn fallback is required");
+
+        int fixedCount = count / 2;
         for (int i = 0; i < count; i++) {
             Document spawn = copy(enabled.get(Math.min(i, enabled.size() - 1)));
             if (i >= enabled.size()) {
                 if (maximumId == Integer.MAX_VALUE) throw new IllegalArgumentException("Spawn identity limit reached");
-                spawn.remove("_id"); spawn.put("spawnId", ++maximumId); spawn.put("spawnMode", "RANDOM_AREA");
+                spawn.remove("_id");
+                spawn.put("spawnId", ++maximumId);
             }
+            spawn.put("spawnMode", i < fixedCount ? "FIXED_POINT" : "RANDOM_AREA");
             result.add(spawn);
         }
         return result;
