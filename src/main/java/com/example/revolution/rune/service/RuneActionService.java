@@ -24,6 +24,17 @@ public final class RuneActionService {
             RunePurchaseService purchase,
             RuneEnhancementService enhancement,
             RuneAwakeningService awakening,
+            RuneSyncService sync) {
+        this(players, stats, purchase, enhancement, awakening,
+                new RuneRankRevertService(players, stats, sync), sync);
+    }
+
+    RuneActionService(
+            PlayerRepository players,
+            PlayerStatsSyncService stats,
+            RunePurchaseService purchase,
+            RuneEnhancementService enhancement,
+            RuneAwakeningService awakening,
             RuneRankRevertService revert,
             RuneSyncService sync) {
         this.players = players;
