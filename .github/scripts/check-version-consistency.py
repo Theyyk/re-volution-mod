@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 BUILD_GRADLE = ROOT / "build.gradle"
 MCMOD_INFO = ROOT / "src/main/resources/mcmod.info"
 MOD_CLASS = ROOT / "src/main/java/com/example/revolution/RevolutionMod.java"
+README = ROOT / "README.md"
 
 
 def read_build_version():
@@ -42,6 +43,25 @@ def read_source_version():
     return match.group(1)
 
 
+def read_readme_stable_version():
+    text = README.read_text(encoding="utf-8-sig")
+    match = re.search(r"\*\*Стабильная версия:\s*`v([0-9]+\.[0-9]+\.[0-9]+)`\.\*\*", text)
+    if not match:
+        raise ValueError("README.md: stable version marker was not found")
+    return match.group(1)
+
+
+def read_readme_contract_version():
+    text = README.read_text(encoding="utf-8-sig")
+    match = re.search(
+        r"\[Контракт v([0-9]+\.[0-9]+\.[0-9]+)\]\(docs/releases/v\1\.md\)",
+        text,
+    )
+    if not match:
+        raise ValueError("README.md: current release contract link was not found")
+    return match.group(1)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -55,6 +75,8 @@ def main():
             "build.gradle": read_build_version(),
             "src/main/resources/mcmod.info": read_mcmod_version(),
             "src/main/java/com/example/revolution/RevolutionMod.java": read_source_version(),
+            "README.md stable version": read_readme_stable_version(),
+            "README.md current release contract": read_readme_contract_version(),
         }
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"Version consistency check failed: {exc}")
@@ -85,9 +107,9 @@ def main():
         return 1
 
     if args.tag:
-        print(f"Version metadata and release tag are consistent: {args.tag}")
+        print(f"Version metadata, README and release tag are consistent: {args.tag}")
     else:
-        print(f"Version metadata is consistent: {expected}")
+        print(f"Version metadata and README are consistent: {expected}")
     return 0
 
 
