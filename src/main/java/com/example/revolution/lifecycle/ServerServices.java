@@ -6,6 +6,8 @@ import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.admin.service.AdminToolsService;
 import com.example.revolution.admin.service.AdminStageBatchService;
+import com.example.revolution.balance.service.BalanceBootstrap;
+import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
 import com.example.revolution.location.world.REBuilderAdapter;
@@ -58,6 +60,7 @@ import com.example.revolution.rune.service.RuneAwakeningService;
 import com.example.revolution.rune.service.RuneCombatService;
 import com.example.revolution.rune.service.RuneEnhancementService;
 import com.example.revolution.rune.service.RuneMobEffectService;
+import com.example.revolution.rune.service.RunePurchaseBalanceService;
 import com.example.revolution.rune.service.RunePurchaseService;
 import com.example.revolution.rune.service.RuneRewardBonusService;
 import com.example.revolution.rune.service.RuneSyncService;
@@ -77,6 +80,7 @@ public final class ServerServices implements AutoCloseable {
     private final MongoAdminStageStore adminStageStore;
     private final boolean persistentGameplay;
     public final AdminAccessService adminAccess = new AdminAccessService(new FileAdminWhitelistRepository());
+    public final BalanceService balance;
     public final ResourceService resources;
     public final RuneActionService runeActions;
     public final AdminOperationsService adminOperations;
@@ -113,6 +117,7 @@ public final class ServerServices implements AutoCloseable {
         FastAutoPreferenceRepository fastAutoPreferences = new MongoFastAutoPreferenceRepository(connection, persistentGameplay);
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
         resources = new ResourceService(new MongoResourceRepository(connection));
+        balance = BalanceBootstrap.activateBundledDefaults();
         combat = new RuneCombatService(players, enhancements, combatState);
         RuneMobEffectService runeEffects = new RuneMobEffectService(combat, new RuneRewardBonusService(players, enhancements));
         playerStats = new PlayerStatsService(players, enhancements);
@@ -120,7 +125,7 @@ public final class ServerServices implements AutoCloseable {
         sessions = new PlayerSessionService(players, resources, stats);
         RuneSyncService sync = new RuneSyncService(players, enhancements);
         runeActions = new RuneActionService(players, stats,
-                new RunePurchaseService(players, resources, stats),
+                new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance)),
                 new RuneEnhancementService(players, resources, stats, enhancements, sync),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
