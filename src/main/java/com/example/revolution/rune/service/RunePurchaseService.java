@@ -36,6 +36,7 @@ public final class RunePurchaseService {
         this.resources = resources;
         this.stats = stats;
         this.purchaseBalance = purchaseBalance;
+        this.stats.bindPurchaseBalance(purchaseBalance);
     }
 
     private static final int LEGACY_RUNE_COST = 100;

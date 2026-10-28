@@ -54,12 +54,25 @@ public class RunePurchaseUiHandler {
     }
 
     @SubscribeEvent public void onMouseInput(GuiScreenEvent.MouseInputEvent.Post event) {
-        if (!(event.getGui() instanceof RunesGuiScreen)) return;
-        if (!RuneAwakeningInput.isAwakeningButton(Mouse.getEventButton()) || !Mouse.getEventButtonState()) return;
+        if (!(event.getGui() instanceof RunesGuiScreen) || !Mouse.getEventButtonState()) return;
+        int button = Mouse.getEventButton();
+        if (!RuneAwakeningInput.isAwakeningButton(button) && !RuneRankRevertInput.isRevertButton(button)) return;
+
         RunesGuiScreen screen = (RunesGuiScreen) event.getGui(); Minecraft mc = Minecraft.getMinecraft();
         int mouseX = Mouse.getEventX() * screen.width / Math.max(1, mc.displayWidth);
         int mouseY = screen.height - Mouse.getEventY() * screen.height / Math.max(1, mc.displayHeight) - 1;
-        int rune = screen.awakeningRuneAt(mouseX, mouseY); if (rune >= 0) NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
+
+        if (RuneRankRevertInput.isRevertButton(button)) {
+            GuiLayout layout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
+            layout.update(screen.width, screen.height);
+            int rune = RuneRankRevertInput.runeAt(layout, mouseX, mouseY,
+                    screen::runeMatchesSearch, ClientRuneRanks::rankOf);
+            if (rune >= 0) NetworkHandler.INSTANCE.sendToServer(new PingPacket("revert_rune:" + rune));
+            return;
+        }
+
+        int rune = screen.awakeningRuneAt(mouseX, mouseY);
+        if (rune >= 0) NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
     }
 
     private void compactStatusButtons(GuiScreen gui, List<GuiButton> buttons) {

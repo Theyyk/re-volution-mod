@@ -7,8 +7,12 @@ import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.config.RuneEconomyConfig;
 import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.repository.RuneRecord;
+import com.example.revolution.rune.rules.RuneCollectionProgression;
 import com.example.revolution.rune.rules.RuneCombatMath;
+import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.service.RuneCombatService;
+import com.example.revolution.rune.service.RunePurchaseBalanceService;
 import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -20,6 +24,7 @@ public final class PlayerStatsSyncService {
     private final ResourceService resources;
     private final PlayerStatsService playerStats;
     private final RuneCombatService combat;
+    private RunePurchaseBalanceService purchaseBalance;
 
     public PlayerStatsSyncService(
             PlayerRepository players,
@@ -30,6 +35,15 @@ public final class PlayerStatsSyncService {
         this.resources = resources;
         this.playerStats = playerStats;
         this.combat = combat;
+    }
+
+    /** Binds the same active Balance Core adapter that RunePurchaseService uses for server purchases. */
+    public void bindPurchaseBalance(RunePurchaseBalanceService purchaseBalance) {
+        if (purchaseBalance == null) throw new IllegalArgumentException("purchase balance is required");
+        if (this.purchaseBalance != null && this.purchaseBalance != purchaseBalance) {
+            throw new IllegalStateException("purchase balance is already bound");
+        }
+        this.purchaseBalance = purchaseBalance;
     }
 
     public void sendTo(EntityPlayerMP player) {
@@ -53,6 +67,13 @@ public final class PlayerStatsSyncService {
         String canonicalPurchaseResource = ResourceDefinitions.findCanonicalName(purchaseResource);
         if (canonicalPurchaseResource == null) canonicalPurchaseResource = "coins";
         int purchaseUnitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
+        if (purchaseBalance != null && RuneStatusConfig.isRuneStatus(statusId)) {
+            RuneCollectionProgression progression = purchaseProgression(uuid, activeCollection);
+            canonicalPurchaseResource = purchaseBalance.purchaseResource(statusId);
+            purchaseUnitCost = purchaseBalance.purchaseCost(
+                    statusId, progression.stageRank(), progression.progressionIndex());
+        }
+
         String awakeningResource = RuneEconomyConfig.awakeningResourceForStatus(statusId);
         String canonicalAwakeningResource = ResourceDefinitions.findCanonicalName(awakeningResource);
         if (canonicalAwakeningResource == null) canonicalAwakeningResource = awakeningResource;
@@ -62,5 +83,15 @@ public final class PlayerStatsSyncService {
         NetworkHandler.sendToClient(new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage,
                 statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost,
                 awakeningImprovedCost, resolvedClickDamage, resolvedPoisonDamage), player);
+    }
+
+    private RuneCollectionProgression purchaseProgression(UUID uuid, int collectionIndex) {
+        int[] bestRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
+        for (RuneRecord rune : players.getRunesInCollection(uuid, collectionIndex)) {
+            if (rune.runeIndex < 0 || rune.runeIndex >= RuneInventory.BOOST_TYPE_COUNT) continue;
+            bestRanks[rune.runeIndex] = Math.max(
+                    bestRanks[rune.runeIndex], RuneProgression.clampRank(rune.layer));
+        }
+        return RuneCollectionProgression.fromBestRanks(bestRanks);
     }
 }
