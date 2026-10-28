@@ -1,12 +1,9 @@
 package com.example.revolution.rune.service;
 
+import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.rune.config.RuneStatusConfig;
-import com.example.revolution.rune.definition.PrimaryRuneCatalog;
-import com.example.revolution.rune.definition.RuneCompositeEffect;
-import com.example.revolution.rune.definition.RuneStat;
 import com.example.revolution.rune.definition.RuneStatType;
-import com.example.revolution.rune.definition.RuneTargetedPower;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneCombatMath;
@@ -23,11 +20,25 @@ public final class RuneCombatService {
     private final PlayerRepository players;
     private final RuneEnhancementRepository enhancements;
     private final RuneCombatState state;
+    private final RuneEffectBalanceService effectBalance;
 
     public RuneCombatService(PlayerRepository players, RuneEnhancementRepository enhancements, RuneCombatState state) {
+        this(players, enhancements, state,
+                new RuneEffectBalanceService(BalanceBootstrap.activateBundledDefaults()));
+    }
+
+    public RuneCombatService(
+            PlayerRepository players,
+            RuneEnhancementRepository enhancements,
+            RuneCombatState state,
+            RuneEffectBalanceService effectBalance) {
+        if (players == null || enhancements == null || state == null || effectBalance == null) {
+            throw new IllegalArgumentException("rune combat dependencies are required");
+        }
         this.players = players;
         this.enhancements = enhancements;
         this.state = state;
+        this.effectBalance = effectBalance;
     }
 
     public RuneCombatMath.Snapshot resolve(UUID uuid, long worldTick) {
@@ -70,15 +81,11 @@ public final class RuneCombatService {
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             RuneInventory.Entry owned = inventory.getBoost(rune);
             if (owned == null) continue;
-            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
-            if (definition == null) continue;
-
             int enhancementLevel = enhancementLevel(enhancementLevels, rune);
-            double enhancementMultiplier = 1.0D + enhancementLevel * 0.1D;
-            for (RuneTargetedPower power : definition.targetedPowers) {
-                if (power == null) continue;
-                double resolved = power.resolve(owned.layer, enhancementMultiplier);
-                targetedBasePower.merge(power.targetKey, Math.max(0.0D, resolved), Double::sum);
+            for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
+                    RuneStatusConfig.STATUS_POISON, rune, owned.layer, enhancementLevel)) {
+                if (effect.type != RuneEffectBalanceService.EffectType.TARGETED_POWER) continue;
+                targetedBasePower.merge(effect.targetSelector, Math.max(0.0D, effect.primaryValue), Double::sum);
             }
         }
 
@@ -86,41 +93,28 @@ public final class RuneCombatService {
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             RuneInventory.Entry owned = inventory.getBoost(rune);
             if (owned == null) continue;
-            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
-            if (definition == null) continue;
-
             int enhancementLevel = enhancementLevel(enhancementLevels, rune);
-            double enhancementMultiplier = 1.0D + enhancementLevel * 0.1D;
-            double basePowerBonus = targetedBasePower.getOrDefault(targetKeyForSlot(rune), 0.0D);
-
-            for (RuneStat stat : definition.stats) {
-                if (stat == null) continue;
-                boolean targetedFlat = stat.type == RuneStatType.CLICK_DAMAGE_FLAT
-                        || stat.type == RuneStatType.POISON_DAMAGE_FLAT;
-                double value = stat.resolve(
-                        owned.layer,
-                        enhancementMultiplier,
-                        targetedFlat ? basePowerBonus : 0.0D
-                ).finalValue;
-                accumulate(snapshot, stat.type, value);
-            }
-
-            for (RuneCompositeEffect effect : definition.compositeEffects) {
-                if (effect == null) continue;
-                switch (effect.kind) {
+            for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
+                    RuneStatusConfig.STATUS_POISON, rune, owned.layer, enhancementLevel)) {
+                switch (effect.type) {
+                    case STAT:
+                        if (effect.statType == null) {
+                            throw new IllegalStateException("STAT rune effect requires stat_type for " + effect.group);
+                        }
+                        double value = effect.primaryValue;
+                        if (effect.acceptsTargetedPower) {
+                            value += targetedBasePower.getOrDefault(effect.group, 0.0D) * effect.targetedPowerScale;
+                        }
+                        accumulate(snapshot, effect.statType, value);
+                        break;
                     case CLICK_DAMAGE_PROC:
                         snapshot.procChancePercent = Math.max(snapshot.procChancePercent, effect.primaryValue);
-                        snapshot.procDamageMultiplier = Math.max(
-                                snapshot.procDamageMultiplier,
-                                effect.resolvedProcDamageMultiplier(owned.layer, enhancementMultiplier)
-                        );
+                        snapshot.procDamageMultiplier = Math.max(snapshot.procDamageMultiplier, effect.secondaryValue);
                         break;
                     case TEMPORARY_ALL_DAMAGE_MULTIPLIER:
-                        snapshot.rageMultiplier = Math.max(
-                                snapshot.rageMultiplier,
-                                effect.resolvedTemporaryAllDamageMultiplier(owned.layer, enhancementMultiplier)
-                        );
+                        snapshot.rageMultiplier = Math.max(snapshot.rageMultiplier, effect.primaryValue);
                         break;
+                    case TARGETED_POWER:
                     default:
                         break;
                 }
@@ -160,15 +154,16 @@ public final class RuneCombatService {
                 if (rune == null) continue;
                 inventory.set(rune.slot, rune.runeIndex, rune.layer);
             }
+            int[] enhancementLevels = enhancements.getLevels(uuid, collectionIndex);
 
             for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-                if (inventory.getBoost(rune) == null) continue;
-                PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
-                if (definition == null) continue;
-                for (RuneCompositeEffect effect : definition.compositeEffects) {
-                    if (effect == null
-                            || effect.kind != RuneCompositeEffect.Kind.TEMPORARY_ALL_DAMAGE_MULTIPLIER
-                            || effect.activation != RuneCompositeEffect.Activation.CLICK_HIT_MOB
+                RuneInventory.Entry owned = inventory.getBoost(rune);
+                if (owned == null) continue;
+                int enhancementLevel = enhancementLevel(enhancementLevels, rune);
+                for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
+                        RuneStatusConfig.STATUS_POISON, rune, owned.layer, enhancementLevel)) {
+                    if (effect.type != RuneEffectBalanceService.EffectType.TEMPORARY_ALL_DAMAGE_MULTIPLIER
+                            || !"HIT_MOB".equalsIgnoreCase(effect.targetSelector)
                             || effect.maxStacks < 1) continue;
                     long durationTicks = Math.max(1L, Math.round(effect.durationSeconds * 20.0D));
                     state.activate(uuid, worldTick + durationTicks);
@@ -184,12 +179,6 @@ public final class RuneCombatService {
 
     private int enhancementLevel(int[] levels, int rune) {
         return levels != null && rune >= 0 && rune < levels.length ? Math.max(0, levels[rune]) : 0;
-    }
-
-    private String targetKeyForSlot(int slot) {
-        if (slot >= 0 && slot <= 3) return "killer_dagger";
-        if (slot >= 13 && slot <= 16) return "snake_fang";
-        return "";
     }
 
     private void accumulate(RuneCombatMath.Snapshot snapshot, RuneStatType type, double value) {
