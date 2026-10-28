@@ -1,14 +1,17 @@
 # Balance Core
 
-`v1.4.1` introduces the canonical balance foundation without switching existing gameplay consumers yet.
+`v1.4.1` introduced the canonical balance foundation. Starting with `v1.4.2`, gameplay domains migrate onto that foundation incrementally instead of keeping economy formulas inside Java services.
 
-The boundary is intentionally small: balance data is parsed into immutable definitions, validated as a complete snapshot, assigned a deterministic revision, and only then may become active. Existing rune and mob services continue using their current configuration until their dedicated migration releases.
+The boundary is intentionally small: balance data is parsed into immutable definitions, validated as a complete snapshot, assigned a deterministic revision, and only then may become active. Domain adapters translate generic balance ids into gameplay concepts; the core itself does not depend on rune, mob, stage, or Admin packages.
 
 ## Canonical JSON v1
 
 ```json
 {
   "balanceSchemaVersion": 1,
+  "values": {
+    "runes.poison.purchase.resource": "coins"
+  },
   "curves": {
     "example.fixed": {
       "mode": "FIXED",
@@ -48,6 +51,8 @@ The boundary is intentionally small: balance data is parsed into immutable defin
 }
 ```
 
+`values` contains canonical non-numeric settings such as resource ids. Value ids use the same lowercase dotted naming contract as curve ids and participate in the deterministic revision. Empty or blank values are rejected.
+
 Balance numeric values are represented as decimal JSON strings in canonical output and evaluated with `BigDecimal`. Input also accepts JSON numeric primitives. `NaN` and `Infinity` are not valid balance numbers.
 
 ## Curve semantics
@@ -64,9 +69,10 @@ These semantics are deliberately deterministic so a future Google Sheets exporte
 A snapshot is rejected before activation when, at minimum:
 
 - `balanceSchemaVersion` is unsupported;
+- a value or curve id is invalid;
+- a canonical string value is blank;
 - no curves exist;
-- a curve id is invalid;
-- a required value is absent or negative;
+- a required curve value is absent or negative;
 - a `TABLE` is empty or non-contiguous;
 - a `PIECEWISE` definition has gaps, overlaps, invalid bounds, a non-final unbounded segment, or excessive nesting.
 
@@ -74,10 +80,27 @@ Parsing errors and semantic validation errors are separate. Semantic validation 
 
 ## Revision and activation
 
-`BalanceConfigCodec` serializes the parsed semantic model into deterministic canonical JSON and calculates a lowercase SHA-256 revision. Property order and insignificant decimal formatting such as `100`, `100.0`, and `100.00` do not change the revision.
+`BalanceConfigCodec` serializes the parsed semantic model into deterministic canonical JSON and calculates a lowercase SHA-256 revision. Property order and insignificant decimal formatting such as `100`, `100.0`, and `100.00` do not change the revision. Canonical string values are sorted by id and are part of the same revision.
 
 `BalanceService.prepare()` parses and validates without changing runtime state. `activate()` publishes one complete immutable `BalanceSnapshot` only after preparation succeeds. A failed activation leaves the previous snapshot unchanged.
 
-## Scope of v1.4.1
+## Rune Purchase contract in v1.4.2
 
-This release creates the foundation only. It does not yet replace `RuneEconomyConfig`, change purchase/enhancement/rank behavior, migrate mob values, load a balance file during server bootstrap, or expose Admin Preview/Apply. Those consumers are migrated in later `1.4.x` releases after this contract is stable.
+Rune purchase is the first gameplay consumer migrated to Balance Core. `RunePurchaseBalanceService` is the rune-domain adapter; generic Balance Core packages remain unaware of statuses or rune ranks.
+
+The bundled baseline uses these ids:
+
+- `runes.<status>.purchase.resource`
+- `runes.<status>.duplicate.resource`
+- `runes.<status>.purchase.rank.<rank>`
+- `runes.<status>.duplicate.rank.<rank>`
+
+The curve index is the number of currently opened unique rune slots in the collection. A successful new rune increments that progression index. A duplicate is still paid for and grants its configured duplicate reward, but does not increment the progression index; therefore the next attempt remains on the same curve point.
+
+The current `ResourceService` stores integer amounts. The rune adapter therefore rejects fractional or out-of-range curve results instead of silently rounding them. Balance Core itself continues to retain `BigDecimal` precision.
+
+`src/main/resources/balance/default-balance.json` is the canonical bundled baseline activated during server composition. In `v1.4.2`, Poison purchase keeps the existing placeholder purchase price of `100` coins while duplicate compensation is `1` rune dust per duplicate. Later balance passes may change those numbers through canonical data without changing purchase logic.
+
+## Remaining migrations
+
+Enhancement, rank-up, rune effects, mob balance, Admin Preview/Apply and export tooling remain on their existing paths until their dedicated `1.4.x` migrations.

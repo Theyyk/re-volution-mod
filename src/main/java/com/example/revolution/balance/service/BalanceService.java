@@ -49,11 +49,23 @@ public final class BalanceService {
         return active.get();
     }
 
+    public String getActiveValue(String valueId) {
+        BalanceSnapshot snapshot = requireActiveSnapshot();
+        String value = snapshot.getConfig().getValue(valueId);
+        if (value == null) throw new IllegalArgumentException("unknown balance value '" + valueId + "'");
+        return value;
+    }
+
     public BigDecimal evaluateActiveCurve(String curveId, int index) {
-        BalanceSnapshot snapshot = active.get();
-        if (snapshot == null) throw new IllegalStateException("no active balance config");
+        BalanceSnapshot snapshot = requireActiveSnapshot();
         BalanceCurveDefinition curve = snapshot.getConfig().getCurve(curveId);
         if (curve == null) throw new IllegalArgumentException("unknown balance curve '" + curveId + "'");
         return curveEngine.evaluate(curve, index);
+    }
+
+    private BalanceSnapshot requireActiveSnapshot() {
+        BalanceSnapshot snapshot = active.get();
+        if (snapshot == null) throw new IllegalStateException("no active balance config");
+        return snapshot;
     }
 }

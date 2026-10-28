@@ -34,6 +34,7 @@ public final class BalanceConfigParser {
 
         JsonObject root = rootElement.getAsJsonObject();
         int schemaVersion = requiredInt(root, "balanceSchemaVersion", "root");
+        Map<String, String> values = parseValues(optionalObject(root, "values", "root"));
         JsonObject curvesObject = requiredObject(root, "curves", "root");
         Map<String, BalanceCurveDefinition> curves = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> entry : curvesObject.entrySet()) {
@@ -42,7 +43,20 @@ public final class BalanceConfigParser {
             }
             curves.put(entry.getKey(), parseCurve(entry.getValue().getAsJsonObject(), "curves." + entry.getKey(), 0));
         }
-        return new BalanceConfig(schemaVersion, curves);
+        return new BalanceConfig(schemaVersion, values, curves);
+    }
+
+    private Map<String, String> parseValues(JsonObject valuesObject) {
+        Map<String, String> values = new LinkedHashMap<>();
+        if (valuesObject == null) return values;
+        for (Map.Entry<String, JsonElement> entry : valuesObject.entrySet()) {
+            JsonElement element = entry.getValue();
+            if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
+                throw new IllegalArgumentException("values." + entry.getKey() + " must be a string");
+            }
+            values.put(entry.getKey(), element.getAsString());
+        }
+        return values;
     }
 
     private BalanceCurveDefinition parseCurve(JsonObject object, String path, int depth) {
@@ -99,6 +113,13 @@ public final class BalanceConfigParser {
             pieces.add(new BalanceCurveDefinition.Piece(from, to, parseCurve(nested, segmentPath + ".curve", depth)));
         }
         return pieces;
+    }
+
+    private JsonObject optionalObject(JsonObject object, String field, String path) {
+        if (!object.has(field) || object.get(field).isJsonNull()) return null;
+        JsonElement element = object.get(field);
+        if (!element.isJsonObject()) throw new IllegalArgumentException(path + "." + field + " must be an object");
+        return element.getAsJsonObject();
     }
 
     private JsonObject requiredObject(JsonObject object, String field, String path) {
