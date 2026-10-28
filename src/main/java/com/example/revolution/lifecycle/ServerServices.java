@@ -64,6 +64,7 @@ import com.example.revolution.rune.service.RuneEnhancementService;
 import com.example.revolution.rune.service.RuneMobEffectService;
 import com.example.revolution.rune.service.RunePurchaseBalanceService;
 import com.example.revolution.rune.service.RunePurchaseService;
+import com.example.revolution.rune.service.RuneRankUpBalanceService;
 import com.example.revolution.rune.service.RuneRewardBonusService;
 import com.example.revolution.rune.service.RuneSyncService;
 import com.example.revolution.rune.state.RuneCombatState;
@@ -127,11 +128,12 @@ public final class ServerServices implements AutoCloseable {
         sessions = new PlayerSessionService(players, resources, stats);
         RuneEnhancementBalanceService enhancementBalance = new RuneEnhancementBalanceService(balance);
         RuneEnhancementPlanningService enhancementPlanning = new RuneEnhancementPlanningService(enhancementBalance);
+        RuneRankUpBalanceService rankUpBalance = new RuneRankUpBalanceService(balance);
         RuneSyncService sync = new RuneSyncService(players, enhancements, enhancementBalance);
         runeActions = new RuneActionService(players, stats,
                 new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance)),
                 new RuneEnhancementService(players, resources, stats, enhancements, sync, enhancementPlanning),
-                new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
+                new RuneAwakeningService(players, stats, rankUpBalance, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
         physicalBuilds = new REBuilderAdapter(configDirectory.toPath());
         LocationGenerationRepository storedGenerations = new MongoLocationGenerationRepository(connection, persistentGameplay);

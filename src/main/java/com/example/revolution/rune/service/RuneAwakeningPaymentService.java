@@ -1,10 +1,10 @@
 package com.example.revolution.rune.service;
 
-import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
-import com.example.revolution.rune.config.RuneEconomyConfig;
+import com.example.revolution.rune.definition.RuneRankUpRule;
 import java.util.UUID;
 
+/** Performs only the atomic resource charge for an already-resolved rank-up rule. */
 public final class RuneAwakeningPaymentService {
     private final ResourceService resources;
 
@@ -12,31 +12,23 @@ public final class RuneAwakeningPaymentService {
         this.resources = resources;
     }
 
-    public Result charge(java.util.UUID player, int statusId, int currentRank) {
-        if (!RuneEconomyConfig.isAwakeningPaymentConfigured(statusId, currentRank)) {
-            return Result.free();
+    public Result charge(UUID player, RuneRankUpRule rule) {
+        if (rule == null || rule.resource == null || rule.resource.trim().isEmpty() || rule.cost <= 0) {
+            return Result.invalid(rule == null ? "" : rule.resource, rule == null ? 0 : rule.cost);
         }
 
-        String configuredResource = RuneEconomyConfig.awakeningResourceForStatus(statusId);
-        String canonicalResource = ResourceDefinitions.findCanonicalName(configuredResource);
-        int cost = RuneEconomyConfig.awakeningCost(statusId, currentRank);
-
-        if (canonicalResource == null || canonicalResource.trim().isEmpty() || cost <= 0) {
-            return Result.invalid(configuredResource, cost);
+        int balance = resources.getPlayerResource(player, rule.resource);
+        if (!resources.canAfford(player, rule.resource, rule.cost)) {
+            return Result.insufficient(rule.resource, rule.cost, balance);
         }
 
-        int balance = resources.getPlayerResource(player, canonicalResource);
-        if (!resources.canAfford(player, canonicalResource, cost)) {
-            return Result.insufficient(canonicalResource, cost, balance);
+        if (!resources.spendPlayerResource(player, rule.resource, rule.cost)) {
+            int currentBalance = resources.getPlayerResource(player, rule.resource);
+            return Result.insufficient(rule.resource, rule.cost, currentBalance);
         }
 
-        if (!resources.spendPlayerResource(player, canonicalResource, cost)) {
-            int currentBalance = resources.getPlayerResource(player, canonicalResource);
-            return Result.insufficient(canonicalResource, cost, currentBalance);
-        }
-
-        int newBalance = resources.getPlayerResource(player, canonicalResource);
-        return Result.paid(canonicalResource, cost, newBalance);
+        int newBalance = resources.getPlayerResource(player, rule.resource);
+        return Result.paid(rule.resource, rule.cost, newBalance);
     }
 
     public static final class Result {
@@ -55,10 +47,6 @@ public final class RuneAwakeningPaymentService {
             this.resource = resource == null ? "" : resource;
             this.cost = Math.max(0, cost);
             this.balance = balance;
-        }
-
-        static Result free() {
-            return new Result(true, false, false, "", 0, -1);
         }
 
         static Result paid(String resource, int cost, int balance) {

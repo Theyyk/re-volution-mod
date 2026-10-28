@@ -34,13 +34,15 @@ public final class RunePurchaseBalanceServiceTest {
     }
 
     @Test
-    void bundledDefaultsPreservePurchasePriceAndUseOneDustPerDuplicate() {
+    void bundledDefaultsCoverEveryCurrentlySupportedPurchaseRank() {
         RunePurchaseBalanceService service = new RunePurchaseBalanceService(BalanceBootstrap.activateBundledDefaults());
 
-        assertEquals(100, service.purchaseCost(RuneStatusConfig.STATUS_POISON, 1, 0));
-        assertEquals(100, service.purchaseCost(RuneStatusConfig.STATUS_POISON, 1, 25));
-        assertEquals(1, service.duplicateReward(RuneStatusConfig.STATUS_POISON, 1, 0));
-        assertEquals(1, service.duplicateReward(RuneStatusConfig.STATUS_POISON, 1, 25));
+        for (int rank = 1; rank <= 3; rank++) {
+            assertEquals(100, service.purchaseCost(RuneStatusConfig.STATUS_POISON, rank, 0));
+            assertEquals(100, service.purchaseCost(RuneStatusConfig.STATUS_POISON, rank, 25));
+            assertEquals(1, service.duplicateReward(RuneStatusConfig.STATUS_POISON, rank, 0));
+            assertEquals(1, service.duplicateReward(RuneStatusConfig.STATUS_POISON, rank, 25));
+        }
     }
 
     @Test
