@@ -2,7 +2,9 @@
   "balanceSchemaVersion": 1,
   "values": {
     "runes.poison.purchase.resource": "coins",
-    "runes.poison.duplicate.resource": "rune_dust"
+    "runes.poison.duplicate.resource": "rune_dust",
+    "runes.poison.enhancement.resource": "rune_dust",
+    "runes.poison.enhancement.targeting": "ALL_SLOTS"
   },
   "curves": {
     "runes.poison.purchase.rank.1": {
@@ -12,6 +14,10 @@
     "runes.poison.duplicate.rank.1": {
       "mode": "FIXED",
       "value": "1"
+    },
+    "runes.poison.enhancement.cost": {
+      "mode": "FIXED",
+      "value": "10"
     }
   }
 }
