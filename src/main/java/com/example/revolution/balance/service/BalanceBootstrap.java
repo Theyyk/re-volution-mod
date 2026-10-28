@@ -31,7 +31,7 @@ public final class BalanceBootstrap {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             byte[] buffer = new byte[4096];
             int read;
-            while ((read = input.read(buffer)) >= 0) output.write(buffer, 0, read);
+            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
             return new String(output.toByteArray(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new IllegalStateException("failed to read balance resource: " + path, e);
