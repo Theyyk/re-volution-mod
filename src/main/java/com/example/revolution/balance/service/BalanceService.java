@@ -45,6 +45,21 @@ public final class BalanceService {
         return prepared;
     }
 
+    /** Activate this exact prepared snapshot only if the active revision is still the expected base revision. */
+    public BalanceSnapshot activatePrepared(BalanceSnapshot prepared, String expectedActiveRevision) {
+        if (prepared == null) throw new IllegalArgumentException("prepared balance snapshot is required");
+        if (expectedActiveRevision == null || expectedActiveRevision.trim().isEmpty()) {
+            throw new IllegalArgumentException("expected active revision is required");
+        }
+        while (true) {
+            BalanceSnapshot current = active.get();
+            if (current == null || !expectedActiveRevision.equals(current.getRevision())) {
+                throw new IllegalArgumentException("active balance revision changed");
+            }
+            if (active.compareAndSet(current, prepared)) return prepared;
+        }
+    }
+
     public BalanceSnapshot getActiveSnapshot() {
         return active.get();
     }

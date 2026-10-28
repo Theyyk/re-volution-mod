@@ -2,6 +2,7 @@ package com.example.revolution.lifecycle;
 
 import com.example.revolution.admin.api.AdminApiServer;
 import com.example.revolution.admin.service.AdminAccessService;
+import com.example.revolution.admin.service.AdminBalanceBatchService;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.admin.service.AdminToolsService;
@@ -171,6 +172,7 @@ public final class ServerServices implements AutoCloseable {
         AdminToolsService adminTools = new AdminToolsService(locationRepository, mobRepository, mobProgression);
         if (persistentGameplay) adminTools.setConfigurationGuard(adminStageStore::recover);
         adminApi.setTools(adminTools, new AdminStageBatchService(adminStageStore, adminTools::stages, mobs::respawnAll));
+        adminApi.setBalance(balance, new AdminBalanceBatchService(balance));
         mobAdmin = new MobAdminService(mobRepository, locationRepository, mobs);
         runeAdmin = new RuneAdminService(players, resources, stats, enhancements, sync);
         collections = new PlayerCollectionService(players, resources, stats);
