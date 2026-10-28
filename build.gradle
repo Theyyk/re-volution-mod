@@ -13,7 +13,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.4.8'
+version = '1.4.9'
 group = 'com.example.revolution'
 archivesBaseName = 'RE-volution'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
@@ -127,6 +127,8 @@ def regressionTests = [
     runeStatContentRegression: 'com.example.revolution.rune.definition.RuneStatContentTest',
     runeCombatMathRegression: 'com.example.revolution.client.RuneCombatMathTest',
     mobRewardBonusRegression: 'com.example.revolution.rune.rules.MobRewardBonusTest',
+    runeRankRevertRegression: 'com.example.revolution.rune.rules.RuneRankRevertTest',
+    runeRankRevertInputRegression: 'com.example.revolution.client.RuneRankRevertInputTest',
     runeEnhancementPacketRegression: 'com.example.revolution.client.RuneEnhancementPacketTest',
     multiStatusRuneRegression: 'com.example.revolution.rune.config.RuneStatusConfigTest',
     multiStatusRuneEconomyRegression: 'com.example.revolution.rune.config.MultiStatusRuneEconomyTest',
