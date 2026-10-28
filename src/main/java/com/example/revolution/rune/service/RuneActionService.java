@@ -15,6 +15,7 @@ public final class RuneActionService {
     private final RunePurchaseService purchase;
     private final RuneEnhancementService enhancement;
     private final RuneAwakeningService awakening;
+    private final RuneRankRevertService revert;
     private final RuneSyncService sync;
 
     public RuneActionService(
@@ -23,12 +24,14 @@ public final class RuneActionService {
             RunePurchaseService purchase,
             RuneEnhancementService enhancement,
             RuneAwakeningService awakening,
+            RuneRankRevertService revert,
             RuneSyncService sync) {
         this.players = players;
         this.stats = stats;
         this.purchase = purchase;
         this.enhancement = enhancement;
         this.awakening = awakening;
+        this.revert = revert;
         this.sync = sync;
     }
 
@@ -94,6 +97,13 @@ public final class RuneActionService {
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНекорректная руна."));
             }
+        } else if (action.startsWith("revert_rune:")) {
+            String rawIndex = action.substring("revert_rune:".length());
+            try {
+                revert.revertRune(player, collectionIndex, Integer.parseInt(rawIndex));
+            } catch (NumberFormatException e) {
+                player.sendMessage(new TextComponentString("§cНекорректная руна."));
+            }
         } else if (action.equals("get_player_stats")) {
             stats.sendTo(player);
         } else if (action.equals("get_balance")) {
@@ -129,7 +139,8 @@ public final class RuneActionService {
         return action.equals("buy_card")
                 || action.startsWith("buy_cards:")
                 || action.startsWith("enhance_rune:")
-                || action.startsWith("upgrade_rune:");
+                || action.startsWith("upgrade_rune:")
+                || action.startsWith("revert_rune:");
     }
     private static String logActionName(String action) {
         if (action == null) return "null";
