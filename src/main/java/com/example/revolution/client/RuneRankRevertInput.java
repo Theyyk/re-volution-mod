@@ -5,7 +5,7 @@ import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
 import net.minecraft.client.gui.GuiScreen;
 
-/** Resolves the existing CTRL + right-click "weaken" gesture for one-step rune rank revert. */
+/** Resolves the existing CTRL + right-click "Ослабить" gesture for one-step rune rank revert. */
 final class RuneRankRevertInput {
     private RuneRankRevertInput() {}
 
