@@ -4,18 +4,19 @@ import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.state.RuneInventory;
 import org.junit.jupiter.api.Test;
 
-/** Exercises right-click selection, scaling and search guards for rank revert. */
+/** Exercises CTRL + right-click selection, scaling and search guards for rank revert. */
 public final class RuneRankRevertInputTest {
     public static void main(String[] args) {
         run();
     }
 
-    @Test void rightClickSelectionContract() { run(); }
+    @Test void ctrlRightClickSelectionContract() { run(); }
 
     public static void run() {
-        equal(RuneRankRevertInput.isRevertButton(1), true, "right click must revert");
-        equal(RuneRankRevertInput.isRevertButton(0), false, "left click must not revert");
-        equal(RuneRankRevertInput.isRevertButton(2), false, "middle click must not revert");
+        equal(RuneRankRevertInput.isRevertGesture(1, true), true, "CTRL + right click must revert");
+        equal(RuneRankRevertInput.isRevertGesture(1, false), false, "plain right click must not revert");
+        equal(RuneRankRevertInput.isRevertGesture(0, true), false, "CTRL + left click must not revert");
+        equal(RuneRankRevertInput.isRevertGesture(2, true), false, "CTRL + middle click must not revert");
 
         GuiLayout layout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT);
         int[][] viewports = {{1280, 669}, {1920, 1080}, {2560, 1369}, {640, 360}};
@@ -41,7 +42,7 @@ public final class RuneRankRevertInputTest {
         layout.update(1280, 669);
         equal(RuneRankRevertInput.runeAt(layout, 650, 338, slot -> true,
                 slot -> RuneProgression.ADVANCED_RANK), -1, "purchase area is not a rune target");
-        System.out.println("Rune rank revert right-click input, scaling and search guards passed");
+        System.out.println("Rune rank revert CTRL + right-click input, scaling and search guards passed");
     }
 
     private static int screenX(GuiLayout l, int x) { return Math.round(l.canvasX + x * l.canvasScale); }
