@@ -81,7 +81,7 @@ public final class AdminApiServer implements AutoCloseable {
             newServer.createContext(SESSION_PATH, exact(SESSION_PATH, this::handleSession));
             newServer.createContext(STATUS_PATH, exact(STATUS_PATH, this::handleStatus));
             new AdminApiRoutes(logger, newAuth, operations, queries, minecraftServer).register(newServer, this::exact);
-            if (tools != null) new AdminToolsRoutes(tools, batch, newAuth, minecraftServer, logger).register(newServer, this::exact);
+            if (tools != null) new AdminToolsRoutes(tools, batch, newAuth, minecraftServer, logger, operations).register(newServer, this::exact);
             newServer.start();
             server = newServer;
             executor = newExecutor;
@@ -159,7 +159,7 @@ public final class AdminApiServer implements AutoCloseable {
         if (!"DEV".equals(environment) && !"PROD".equals(environment)) environment = "UNCONFIGURED";
         AdminApiHttp.respond(exchange, 200, "{\"apiVersion\":1,\"modVersion\":\"" + RevolutionMod.VERSION
                 + "\",\"remoteMode\":false,\"environment\":\"" + environment
-                + "\",\"installationId\":\"" + installationId + "\",\"capabilities\":" + (tools == null ? "[]" : "[\"stages.read\",\"stages.write\",\"progression.read\",\"progression.write\"]") + "}");
+                + "\",\"installationId\":\"" + installationId + "\",\"capabilities\":" + (tools == null ? "[]" : "[\"stages.read\",\"stages.write\",\"progression.read\",\"progression.write\",\"enhancements.write\"]") + "}");
     }
 
     static int resolvePort() {

@@ -249,8 +249,7 @@ public final class MobProgressionService {
         List<Integer> configured = configuredSlots(worldLocationId);
         if (!configured.contains(mobSlotId)) return false;
         Set<Integer> granted = new LinkedHashSet<>(unlockedSlots(playerUuid, worldLocationId));
-        granted.add(configured.get(0));
-        granted.add(mobSlotId);
+        for (Integer slot : configured) if (slot <= mobSlotId) granted.add(slot);
         if (!repository.replaceUnlockedSlots(playerUuid, worldLocationId, granted)) return false;
         invalidateFromLocation(playerUuid, worldLocationId);
         return true;

@@ -23,15 +23,16 @@ import org.apache.logging.log4j.Logger;
 final class AdminToolsRoutes {
     private static final Gson JSON = new Gson();
     private final AdminToolsService tools;
+    private final com.example.revolution.admin.service.AdminOperationsService operations;
     private final AdminApiAuthService auth;
     private final AdminServerThreadExecutor thread;
     private final MinecraftServer server;
     private final Logger logger;
     private final AdminStageBatchService batch;
-    AdminToolsRoutes(AdminToolsService tools, AdminStageBatchService batch, AdminApiAuthService auth, MinecraftServer server, Logger logger) {
+    AdminToolsRoutes(AdminToolsService tools, AdminStageBatchService batch, AdminApiAuthService auth, MinecraftServer server, Logger logger, com.example.revolution.admin.service.AdminOperationsService operations) {
         this.tools = tools; this.auth = auth; this.server = server; this.logger = logger;
         this.thread = new AdminServerThreadExecutor(server);
-        this.batch = batch;
+        this.batch = batch; this.operations = operations;
     }
 
     void register(HttpServer http, AdminApiRoutes.RouteWrapper wrapper) {
@@ -41,6 +42,8 @@ final class AdminToolsRoutes {
             try { AdminApiHttp.respond(exchange, 200, JSON.toJson(thread.call(batch::list))); }
             catch (Exception e) { throw new IllegalStateException("Stage query failed", e); }
         }));
+        form(http, wrapper, "/api/v1/players/grant-enhancements", AdminApiCapability.RUNES_WRITE, keys("uuid", "count"), true,
+                form -> { operations.grantEnhancements(player(form.get("uuid")), integer(form.get("count"))); return ack(true); });
         batchForm(http, wrapper, "/api/v1/stages/preview", false);
         batchForm(http, wrapper, "/api/v1/stages/apply", true);
         form(http, wrapper, "/api/v1/players/progression", AdminApiCapability.PROGRESSION_READ, keys("uuid"), false,
