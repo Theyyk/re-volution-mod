@@ -16,16 +16,19 @@ public final class RuneAdminService {
     private final ResourceService resources;
     private final PlayerStatsSyncService stats;
     private final RuneEnhancementRepository enhancements;
+    private final RuneSyncService sync;
 
     public RuneAdminService(
             PlayerRepository players,
             ResourceService resources,
             PlayerStatsSyncService stats,
-            RuneEnhancementRepository enhancements) {
+            RuneEnhancementRepository enhancements,
+            RuneSyncService sync) {
         this.players = players;
         this.resources = resources;
         this.stats = stats;
         this.enhancements = enhancements;
+        this.sync = sync;
     }
 
     public void execute(ICommandSender sender, String[] args) {
@@ -60,16 +63,12 @@ public final class RuneAdminService {
 
         if (args[0].equalsIgnoreCase("resetenhancements")) {
             enhancements.resetCollection(player.getUniqueID(), statusIndex);
-            NetworkHandler.sendToClient(
-                    RunePacketFactory.enhancements(enhancements.getLevels(player.getUniqueID(), statusIndex)),
-                    player
-            );
+            sync.sendEnhancements(player, statusIndex);
             stats.sendTo(player);
             player.sendMessage(new TextComponentString("§aУсиления рун активного статуса сброшены до +0"));
             return;
         }
 
         player.sendMessage(new TextComponentString("§e/customrunes <clear|resetenhancements>"));
-        }
-
+    }
 }

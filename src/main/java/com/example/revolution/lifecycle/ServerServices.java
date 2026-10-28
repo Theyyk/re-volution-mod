@@ -58,6 +58,8 @@ import com.example.revolution.rune.service.RuneAdminService;
 import com.example.revolution.rune.service.RuneAwakeningPaymentService;
 import com.example.revolution.rune.service.RuneAwakeningService;
 import com.example.revolution.rune.service.RuneCombatService;
+import com.example.revolution.rune.service.RuneEnhancementBalanceService;
+import com.example.revolution.rune.service.RuneEnhancementPlanningService;
 import com.example.revolution.rune.service.RuneEnhancementService;
 import com.example.revolution.rune.service.RuneMobEffectService;
 import com.example.revolution.rune.service.RunePurchaseBalanceService;
@@ -123,10 +125,12 @@ public final class ServerServices implements AutoCloseable {
         playerStats = new PlayerStatsService(players, enhancements);
         PlayerStatsSyncService stats = new PlayerStatsSyncService(players, resources, playerStats, combat);
         sessions = new PlayerSessionService(players, resources, stats);
-        RuneSyncService sync = new RuneSyncService(players, enhancements);
+        RuneEnhancementBalanceService enhancementBalance = new RuneEnhancementBalanceService(balance);
+        RuneEnhancementPlanningService enhancementPlanning = new RuneEnhancementPlanningService(enhancementBalance);
+        RuneSyncService sync = new RuneSyncService(players, enhancements, enhancementBalance);
         runeActions = new RuneActionService(players, stats,
                 new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance)),
-                new RuneEnhancementService(players, resources, stats, enhancements, sync),
+                new RuneEnhancementService(players, resources, stats, enhancements, sync, enhancementPlanning),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
         physicalBuilds = new REBuilderAdapter(configDirectory.toPath());
@@ -152,7 +156,7 @@ public final class ServerServices implements AutoCloseable {
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         if (persistentGameplay) mobs.setConfigurationGuard(adminStageStore::recover);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
-        adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements);
+        adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements, sync);
         adminQueries = new AdminQueryService(players, resources, mobRepository);
         if (persistentGameplay) adminQueries.setConfigurationGuard(adminStageStore::recover);
         adminApi = new AdminApiServer(logger, adminOperations, adminQueries);
@@ -160,7 +164,7 @@ public final class ServerServices implements AutoCloseable {
         if (persistentGameplay) adminTools.setConfigurationGuard(adminStageStore::recover);
         adminApi.setTools(adminTools, new AdminStageBatchService(adminStageStore, adminTools::stages, mobs::respawnAll));
         mobAdmin = new MobAdminService(mobRepository, locationRepository, mobs);
-        runeAdmin = new RuneAdminService(players, resources, stats, enhancements);
+        runeAdmin = new RuneAdminService(players, resources, stats, enhancements, sync);
         collections = new PlayerCollectionService(players, resources, stats);
     }
 

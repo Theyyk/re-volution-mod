@@ -1,9 +1,11 @@
 package com.example.revolution.client;
 
+import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.network.RuneEnhancementPacket;
 import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.rune.config.RuneEconomyConfig;
 import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.service.RuneEnhancementBalanceService;
 import com.example.revolution.rune.service.RunePacketFactory;
 import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
@@ -13,26 +15,38 @@ public final class RuneEnhancementPacketTest {
         int[] levels = new int[RuneInventory.BOOST_TYPE_COUNT];
         levels[0] = 0;
         levels[1] = 10;
+        int statusId = RuneStatusConfig.STATUS_POISON;
+        RuneEnhancementBalanceService enhancementBalance =
+                new RuneEnhancementBalanceService(BalanceBootstrap.activateBundledDefaults());
+        int totalEnhancementLevel = enhancementBalance.totalEnhancementLevel(levels);
+        int[] bulkCosts = enhancementBalance.bulkCosts(
+                statusId,
+                totalEnhancementLevel,
+                RuneEnhancementPacket.BULK_AMOUNTS);
 
-        RuneEnhancementPacket packet = RunePacketFactory.enhancements(levels);
+        RuneEnhancementPacket packet = RunePacketFactory.enhancements(
+                statusId,
+                enhancementBalance.resource(statusId),
+                RuneEconomyConfig.enhancementPowerStep(statusId),
+                levels,
+                bulkCosts);
 
         check(packet.getStatusId() == RuneStatusConfig.STATUS_POISON,
-                "v1.2.9 compatibility payload must describe Poison");
+                "Enhancement payload must describe Poison");
         check(ResourceDefinitions.RUNE_DUST.equals(packet.getResource()),
-                "Poison enhancement GUI must receive rune dust from the server");
+                "Poison enhancement GUI must receive rune dust from Balance Core");
         check(Math.abs(packet.getPowerStep() - 0.1D) < 0.000001D,
-                "Poison enhancement GUI must receive the configured power step");
+                "Poison enhancement GUI must keep the configured power step");
 
         int[] receivedLevels = packet.getLevels();
         int[][] costs = packet.getCosts();
         check(receivedLevels[1] == 10, "Slot enhancement levels must survive packet construction");
-        check(costs[0][0] == 10, "x1 cost at level 0 must be 10 rune dust");
-        check(costs[0][1] == 50, "x5 cost must be the sequential five-level total");
-        check(costs[0][2] == 100, "x10 cost must be the sequential ten-level total");
-        check(costs[0][3] == 1000, "x100 cost must be the sequential hundred-level total");
-        check(costs[1][0] == RuneEconomyConfig.enhancementCost(
-                        RuneStatusConfig.STATUS_POISON, 10, 1),
-                "Each slot cost must be calculated from that slot's current level");
+        check(costs[0][0] == 10, "x1 global cost must be 10 rune dust with the bundled baseline");
+        check(costs[0][1] == 50, "x5 global cost must be the sequential five-step total");
+        check(costs[0][2] == 100, "x10 global cost must be the sequential ten-step total");
+        check(costs[0][3] == 1000, "x100 global cost must be the sequential hundred-step total");
+        check(costs[1][0] == costs[0][0],
+                "Every slot row must expose the same collection-global enhancement cost");
 
         receivedLevels[1] = 999;
         costs[0][0] = 999;
