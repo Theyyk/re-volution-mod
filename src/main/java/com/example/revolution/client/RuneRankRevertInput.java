@@ -3,13 +3,18 @@ package com.example.revolution.client;
 import com.example.revolution.rune.rules.RuneRankRevertDecision;
 import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
+import net.minecraft.client.gui.GuiScreen;
 
-/** Resolves right-click selection for one-step rune rank revert. */
+/** Resolves the existing CTRL + right-click "weaken" gesture for one-step rune rank revert. */
 final class RuneRankRevertInput {
     private RuneRankRevertInput() {}
 
     static boolean isRevertButton(int button) {
-        return button == 1;
+        return isRevertGesture(button, GuiScreen.isCtrlKeyDown());
+    }
+
+    static boolean isRevertGesture(int button, boolean controlDown) {
+        return button == 1 && controlDown;
     }
 
     static int runeAt(GuiLayout layout, int screenX, int screenY,
