@@ -20,6 +20,14 @@ public final class BalanceConfigCodec {
         JsonObject root = new JsonObject();
         root.addProperty("balanceSchemaVersion", config.getBalanceSchemaVersion());
 
+        if (!config.getValues().isEmpty()) {
+            JsonObject values = new JsonObject();
+            List<String> valueIds = new ArrayList<>(config.getValues().keySet());
+            Collections.sort(valueIds);
+            for (String id : valueIds) values.addProperty(id, config.getValues().get(id));
+            root.add("values", values);
+        }
+
         JsonObject curves = new JsonObject();
         List<String> ids = new ArrayList<>(config.getCurves().keySet());
         Collections.sort(ids);
