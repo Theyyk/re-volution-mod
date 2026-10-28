@@ -4,6 +4,7 @@ import com.example.revolution.admin.api.auth.AdminApiAuthService;
 import com.example.revolution.admin.api.auth.AdminApiCapability;
 import com.example.revolution.admin.service.AdminBalanceBatchService;
 import com.example.revolution.balance.config.BalanceConfigCodec;
+import com.example.revolution.balance.service.BalanceExportService;
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.balance.service.BalanceSnapshot;
 import com.google.gson.Gson;
@@ -29,6 +30,7 @@ final class AdminBalanceRoutes {
     private final AdminServerThreadExecutor thread;
     private final Logger logger;
     private final BalanceConfigCodec codec = new BalanceConfigCodec();
+    private final BalanceExportService export;
 
     AdminBalanceRoutes(BalanceService balance, AdminBalanceBatchService batch, AdminApiAuthService auth,
             MinecraftServer server, Logger logger) {
@@ -40,6 +42,7 @@ final class AdminBalanceRoutes {
         this.auth = auth;
         this.thread = new AdminServerThreadExecutor(server);
         this.logger = logger;
+        this.export = new BalanceExportService(balance, codec);
     }
 
     void register(HttpServer http, AdminApiRoutes.RouteWrapper wrapper) {
@@ -50,6 +53,15 @@ final class AdminBalanceRoutes {
                 AdminApiHttp.respond(exchange, 200, JSON.toJson(thread.call(this::current)));
             } catch (Exception e) {
                 throw new IllegalStateException("Balance query failed", e);
+            }
+        }));
+        http.createContext("/api/v1/balance/export", wrapper.wrap("/api/v1/balance/export", exchange -> {
+            if (!AdminApiHttp.requireMethod(exchange, "GET") || !AdminApiHttp.requireEmptyBody(exchange)) return;
+            if (!authorized(exchange, AdminApiCapability.BALANCE_READ)) return;
+            try {
+                AdminApiHttp.respond(exchange, 200, JSON.toJson(thread.call(export::exportActive)));
+            } catch (Exception e) {
+                throw new IllegalStateException("Balance export failed", e);
             }
         }));
         http.createContext("/api/v1/balance/preview", wrapper.wrap("/api/v1/balance/preview", exchange -> {
