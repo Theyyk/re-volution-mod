@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.4.3`.**
+**Стабильная версия: `v1.4.4`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.3](docs/releases/v1.4.3.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.4](docs/releases/v1.4.4.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -63,20 +63,23 @@ Gameplay-мод не должен содержать приватные signing 
 
 Подробности текущего поведения: [docs/gameplay.md](docs/gameplay.md).
 
-### Balance Layer и rune economy в v1.4.3
+### Balance Layer и rune economy в v1.4.4
 
 - `Balance Core` хранит canonical balance snapshot, валидирует его целиком и публикует только после успешной подготовки.
 - Canonical config поддерживает числовые curves и string values, а revision/hash детерминирован и не зависит от форматирования JSON.
 - Rune purchase для status-коллекций читает resource ids, стоимость и duplicate reward через Balance Layer.
-- Purchase progression индексируется количеством реально открытых уникальных slots; дубликат оплачивается, но progression не увеличивает.
-- Rune Enhancement также работает через Balance Layer: resource, targeting и cost curve задаются canonical config.
+- Purchase progression теперь выводится из фактических рангов рун коллекции: `Collection State → Progression Index → Purchase Curve → Next Purchase Cost`.
+- После пробуждения новые руны покупаются уже на фактическом активном ранге, а не всегда как `NORMAL`.
+- Дубликат оплачивается, но не увеличивает progression index.
+- Rune Enhancement работает через Balance Layer: resource, targeting и cost curve задаются canonical config.
 - Цена усиления индексируется глобальным `TotalEnhancementLevel = Σ slot.enhancementLevel`, а не уровнем случайно выбранного слота.
-- Bulk-усиления считаются последовательными глобальными шагами; RNG влияет только на распределение уже оплаченных усилений по допустимым slots.
-- Поддерживаются targeting-режимы `ALL_SLOTS` и `OWNED_ONLY`; текущий Poison baseline использует `ALL_SLOTS`.
-- Для Poison сохраняются текущие placeholder-значения: покупка `100 coins`, дубликат `1 rune_dust`, усиление `10 rune_dust` за глобальный шаг.
-- Rank-up, rune effects и mob balance переводятся на Balance Layer в следующих `1.4.x`.
+- Rank-up также работает через Balance Layer: target rank, required slots, resource, cost, clear mode и сохранение усилений задаются canonical config.
+- Обычный rank-up сохраняет enhancement levels и не хранит отдельный `currentCollectionRank` или `nextPurchaseCost` как источник истины.
+- Для Poison сохраняются placeholder-значения: покупка `100 coins`, дубликат `1 rune_dust`, усиление `10 rune_dust`, rank-up `100 rune_dust`.
+- Rune effects и mob balance переводятся на Balance Layer в следующих `1.4.x`.
+- Локальный откат одной руны не реализован в `v1.4.4`; он запланирован отдельной механикой `v1.4.9`, а текущая модель прогрессии уже не блокирует такой сценарий.
 
-Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.3.md](docs/releases/v1.4.3.md).
+Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.4.md](docs/releases/v1.4.4.md).
 
 ### Admin / Control APIs
 
