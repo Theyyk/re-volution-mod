@@ -24,26 +24,25 @@ public final class PlayerStatsSyncService {
     private final ResourceService resources;
     private final PlayerStatsService playerStats;
     private final RuneCombatService combat;
-    private final RunePurchaseBalanceService purchaseBalance;
+    private RunePurchaseBalanceService purchaseBalance;
 
     public PlayerStatsSyncService(
             PlayerRepository players,
             ResourceService resources,
             PlayerStatsService playerStats,
             RuneCombatService combat) {
-        this(players, resources, playerStats, combat, null);
-    }
-
-    public PlayerStatsSyncService(
-            PlayerRepository players,
-            ResourceService resources,
-            PlayerStatsService playerStats,
-            RuneCombatService combat,
-            RunePurchaseBalanceService purchaseBalance) {
         this.players = players;
         this.resources = resources;
         this.playerStats = playerStats;
         this.combat = combat;
+    }
+
+    /** Binds the same active Balance Core adapter that RunePurchaseService uses for server purchases. */
+    public void bindPurchaseBalance(RunePurchaseBalanceService purchaseBalance) {
+        if (purchaseBalance == null) throw new IllegalArgumentException("purchase balance is required");
+        if (this.purchaseBalance != null && this.purchaseBalance != purchaseBalance) {
+            throw new IllegalStateException("purchase balance is already bound");
+        }
         this.purchaseBalance = purchaseBalance;
     }
 
