@@ -146,6 +146,7 @@ def regressionTests = [
     mongoSchemaContractRegression: 'com.example.revolution.persistence.MongoSchemaContractTest',
     resourceServiceRegression: 'com.example.revolution.resource.service.ResourceServiceTest',
     runeCombatServiceRegression: 'com.example.revolution.rune.service.RuneCombatServiceTest',
+    runeEffectBalanceRegression: 'com.example.revolution.rune.service.RuneEffectBalanceServiceTest',
     adminApiSecurityRegression: 'com.example.revolution.admin.api.auth.AdminApiSecurityTest',
     adminApiInputValidationRegression: 'com.example.revolution.admin.api.AdminApiInputValidationTest'
 ]
