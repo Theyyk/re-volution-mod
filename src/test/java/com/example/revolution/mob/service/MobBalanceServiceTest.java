@@ -7,7 +7,6 @@ import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.balance.validation.BalanceConfigValidator;
 import com.example.revolution.mob.definition.MobDefinition;
-import com.example.revolution.mob.repository.BalanceAwareMobRepository;
 import com.example.revolution.mob.repository.MobRepository;
 import java.math.BigDecimal;
 import java.util.ArrayList;
