@@ -9,12 +9,18 @@ import com.example.revolution.balance.service.BalanceSnapshot;
 import com.example.revolution.balance.validation.BalanceConfigValidator;
 import com.example.revolution.balance.validation.BalanceValidationException;
 import java.math.BigDecimal;
+import org.junit.jupiter.api.Test;
 
 /** Pure Java regression coverage for the v1 balance core. */
 public final class BalanceCoreTest {
     public static void main(String[] args) {
         run();
         System.out.println("Balance core parser, validation, curves, revision and atomic activation checks passed");
+    }
+
+    @Test
+    void balanceCoreRegression() {
+        run();
     }
 
     public static void run() {
