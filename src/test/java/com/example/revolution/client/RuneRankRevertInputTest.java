@@ -2,12 +2,15 @@ package com.example.revolution.client;
 
 import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.state.RuneInventory;
+import org.junit.jupiter.api.Test;
 
 /** Exercises right-click selection, scaling and search guards for rank revert. */
 public final class RuneRankRevertInputTest {
     public static void main(String[] args) {
         run();
     }
+
+    @Test void rightClickSelectionContract() { run(); }
 
     public static void run() {
         equal(RuneRankRevertInput.isRevertButton(1), true, "right click must revert");
