@@ -43,6 +43,8 @@ class ArchitectureGuardTest(unittest.TestCase):
         self.assertFalse(architecture.violations('RevolutionMod.java', 'class RevolutionMod {}'))
 
     def test_resource_text_is_portable_and_binary_stays_exact(self):
+        self.assertEqual(architecture.resource_digest('moss_turtle.palette.txt', b'palette\r\n'),
+                         architecture.resource_digest('moss_turtle.palette.txt', b'palette\n'))
         self.assertEqual(architecture.resource_digest('pack.mcmeta', b'{}\r\n'),
                          architecture.resource_digest('pack.mcmeta', b'{}\n'))
         self.assertNotEqual(architecture.resource_digest('font.otf', b'font\r\n'),

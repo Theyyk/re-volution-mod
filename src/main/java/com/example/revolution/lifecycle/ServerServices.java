@@ -4,6 +4,9 @@ import com.example.revolution.admin.api.AdminApiServer;
 import com.example.revolution.admin.service.AdminAccessService;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
+import com.example.revolution.admin.service.AdminToolsService;
+import com.example.revolution.admin.service.AdminStageBatchService;
+import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
 import com.example.revolution.location.world.REBuilderAdapter;
 import com.example.revolution.persistence.MongoLocationBuildTemplateRepository;
@@ -71,6 +74,8 @@ public final class ServerServices implements AutoCloseable {
     private final RuneCombatState combatState = new RuneCombatState();
     private final AdminApiServer adminApi;
     private final StageMobBootstrapService stageMobs;
+    private final MongoAdminStageStore adminStageStore;
+    private final boolean persistentGameplay;
     public final AdminAccessService adminAccess = new AdminAccessService(new FileAdminWhitelistRepository());
     public final ResourceService resources;
     public final RuneActionService runeActions;
@@ -95,7 +100,9 @@ public final class ServerServices implements AutoCloseable {
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         this.logger = logger;
+        this.persistentGameplay = persistentGameplay;
         connection = new MongoConnection(logger);
+        adminStageStore = new MongoAdminStageStore(connection, persistentGameplay);
         PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
         MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
         LocationRepository locationRepository = new MongoLocationRepository(connection, persistentGameplay);
@@ -138,10 +145,15 @@ public final class ServerServices implements AutoCloseable {
         mobProgression.setUnlockListener(fastAuto);
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
+        if (persistentGameplay) mobs.setConfigurationGuard(adminStageStore::recover);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
         adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements);
         adminQueries = new AdminQueryService(players, resources, mobRepository);
+        if (persistentGameplay) adminQueries.setConfigurationGuard(adminStageStore::recover);
         adminApi = new AdminApiServer(logger, adminOperations, adminQueries);
+        AdminToolsService adminTools = new AdminToolsService(locationRepository, mobRepository, mobProgression);
+        if (persistentGameplay) adminTools.setConfigurationGuard(adminStageStore::recover);
+        adminApi.setTools(adminTools, new AdminStageBatchService(adminStageStore, adminTools::stages, mobs::respawnAll));
         mobAdmin = new MobAdminService(mobRepository, locationRepository, mobs);
         runeAdmin = new RuneAdminService(players, resources, stats, enhancements);
         collections = new PlayerCollectionService(players, resources, stats);
@@ -149,6 +161,7 @@ public final class ServerServices implements AutoCloseable {
 
     public void connect() {
         connection.connect();
+        if (persistentGameplay) adminStageStore.recover();
         int reconciled = stageMobs.reconcileConfiguredRange(1, 1, 41);
         if (reconciled > 0) logger.info("Canonical Location 1 mob bootstrap reconciled {} stage(s)", reconciled);
         stageTransitionTriggers.reload();

@@ -53,6 +53,7 @@ Forge-Server/
 
 # Runtime Admin API credentials
 **/revolution-admin.secret
+**/revolution-admin.installation-id
 *.secret
 
 CREDITS.txt

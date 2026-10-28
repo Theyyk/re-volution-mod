@@ -53,6 +53,9 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
 
 public final class ManagedMobService {
+    private Runnable configurationGuard = () -> { };
+    public void setConfigurationGuard(Runnable guard) { configurationGuard = guard; }
+    public void requireConfigurationReady() { configurationGuard.run(); }
     private static final int POISON_TICK_INTERVAL = 20;
     private static final int INITIAL_SPAWN_DELAY_TICKS = 20;
     private static final int LOST_ENTITY_RESPAWN_DELAY_TICKS = 1;
@@ -103,6 +106,7 @@ public final class ManagedMobService {
     }
 
     public void loadFromDatabase(MinecraftServer server) {
+        configurationGuard.run();
         this.server = server;
         poisonDamagePlayers.clear();
         progressionNoticeTicks.clear();
@@ -339,6 +343,7 @@ public final class ManagedMobService {
     }
 
     public void respawnAll() {
+        configurationGuard.run();
         for (MobRuntimeState spawn : spawns) if (spawn.entity != null && !spawn.entity.isDead) spawn.entity.setDead();
         spawns.clear();
         if (server != null) loadFromDatabase(server);

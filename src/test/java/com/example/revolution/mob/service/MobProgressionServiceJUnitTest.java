@@ -34,6 +34,47 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(3, 2)));
     }
 
+    @Test void adminGrantInvalidatesCacheWithoutAutomaticTravel() {
+        assertFalse(service.isUnlocked(player, id(2, 9)));
+        int[] events = {0}; service.setUnlockListener((uuid, result) -> events[0]++);
+        assertTrue(service.grantStage(player, 2, 9));
+        assertTrue(service.isUnlocked(player, id(2, 2)));
+        assertTrue(service.isUnlocked(player, id(2, 9)));
+        assertTrue(service.isUnlocked(player, id(2, 5)));
+        assertEquals(0, events[0]);
+        assertFalse(service.grantStage(player, 2, 99));
+    }
+
+    @Test void adminGrantStageFortyUnlocksEveryConfiguredStageThroughForty() {
+        List<LocationDefinition> zones = new ArrayList<>();
+        List<StoredMobSpawn> spawns = new ArrayList<>();
+        for (int slot = 1; slot <= 41; slot++) {
+            zones.add(slot == 41 ? bossZone(1, slot) : zone(1, slot));
+            spawns.add(spawn(1, slot, true));
+        }
+        service.reloadConfiguration(zones, spawns);
+        assertTrue(service.grantStage(player, 1, 40));
+        for (int slot = 1; slot <= 40; slot++) assertTrue(service.isUnlocked(player, id(1, slot)), "stage " + slot);
+        assertFalse(service.isUnlocked(player, id(1, 41)));
+    }
+
+    @Test void lowerAdminGrantDoesNotRemoveAlreadyUnlockedLaterStage() {
+        assertTrue(service.grantStage(player, 2, 9));
+        assertTrue(service.grantStage(player, 2, 5));
+        assertTrue(service.isUnlocked(player, id(2, 9)));
+    }
+
+    @Test void adminResetExactlyOneLocationRetainsOtherLocationRecords() {
+        assertTrue(service.grantStage(player, 2, 9));
+        assertTrue(service.grantStage(player, 3, 9));
+        assertTrue(service.resetLocation(player, 2));
+        assertFalse(service.isUnlocked(player, id(2, 9)));
+        assertTrue(service.isUnlocked(player, id(3, 9)));
+        assertTrue(service.resetFromLocation(player, 0));
+        assertFalse(service.isUnlocked(player, id(3, 9)));
+        assertTrue(service.isUnlocked(player, id(1, 2)));
+    }
+
     @Test void explicitBossUnlocksFirstStageOfNextLocation() {
         unlockLocationOneThroughBoss();
         assertTrue(service.isBossStage(id(1, 9)));
