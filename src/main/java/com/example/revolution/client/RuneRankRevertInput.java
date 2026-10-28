@@ -3,10 +3,15 @@ package com.example.revolution.client;
 import com.example.revolution.rune.rules.RuneRankRevertDecision;
 import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
+import net.minecraft.client.gui.GuiScreen;
 
 /** Resolves the existing CTRL + right-click "weaken" gesture for one-step rune rank revert. */
 final class RuneRankRevertInput {
     private RuneRankRevertInput() {}
+
+    static boolean isRevertButton(int button) {
+        return isRevertGesture(button, GuiScreen.isCtrlKeyDown());
+    }
 
     static boolean isRevertGesture(int button, boolean controlDown) {
         return button == 1 && controlDown;
