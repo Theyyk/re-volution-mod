@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.4.0`.**
+**Стабильная версия: `v1.4.2`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.0](docs/releases/v1.4.0.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.2](docs/releases/v1.4.2.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -63,7 +63,20 @@ Gameplay-мод не должен содержать приватные signing 
 
 Подробности текущего поведения: [docs/gameplay.md](docs/gameplay.md).
 
-### Admin / Control APIs в v1.4.0
+### Balance Layer и rune economy в v1.4.2
+
+- `Balance Core` хранит canonical balance snapshot, валидирует его целиком и публикует только после успешной подготовки.
+- Canonical config поддерживает числовые curves и string values, а revision/hash детерминирован и не зависит от форматирования JSON.
+- Rune purchase для status-коллекций читает resource ids, стоимость и duplicate reward через Balance Layer.
+- Purchase progression индексируется количеством реально открытых уникальных slots.
+- Новый уникальный слот двигает progression; дубликат оплачивается, но progression не увеличивает.
+- Duplicate reward также задаётся через canonical balance config.
+- Для текущего Poison baseline сохраняется стоимость `100 coins`, а стартовая компенсация за дубликат — `1 rune_dust`.
+- Enhancement, rank-up, rune effects и mob balance ещё переводятся на Balance Layer в следующих `1.4.x`.
+
+Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.2.md](docs/releases/v1.4.2.md).
+
+### Admin / Control APIs
 
 - Список игроков включает сохранённые offline-профили.
 - Offline-профилям можно устанавливать, добавлять и обнулять ресурсы напрямую по UUID через Mongo.
@@ -73,7 +86,7 @@ Gameplay-мод не должен содержать приватные signing 
 - Batch workflow: `Validate → Preview → Apply` с session/revision guards и recovery journal.
 - Последняя configured stage остаётся автоматическим boss; обычного ручного dropdown `BOSS_ZONE` нет.
 
-Полный контракт: [docs/releases/v1.4.0.md](docs/releases/v1.4.0.md).
+Полный первоначальный контракт Admin/Control этого цикла: [docs/releases/v1.4.0.md](docs/releases/v1.4.0.md).
 
 ## Игровые системы
 
