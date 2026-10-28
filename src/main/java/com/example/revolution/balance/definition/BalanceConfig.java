@@ -1,0 +1,32 @@
+package com.example.revolution.balance.definition;
+
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/** Immutable canonical balance snapshot before runtime activation. */
+public final class BalanceConfig {
+    public static final int SUPPORTED_SCHEMA_VERSION = 1;
+
+    private final int balanceSchemaVersion;
+    private final Map<String, BalanceCurveDefinition> curves;
+
+    public BalanceConfig(int balanceSchemaVersion, Map<String, BalanceCurveDefinition> curves) {
+        this.balanceSchemaVersion = balanceSchemaVersion;
+        this.curves = curves == null
+                ? Collections.emptyMap()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(curves));
+    }
+
+    public int getBalanceSchemaVersion() {
+        return balanceSchemaVersion;
+    }
+
+    public Map<String, BalanceCurveDefinition> getCurves() {
+        return curves;
+    }
+
+    public BalanceCurveDefinition getCurve(String id) {
+        return curves.get(id);
+    }
+}
