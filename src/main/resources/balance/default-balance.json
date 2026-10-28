@@ -1,0 +1,17 @@
+{
+  "balanceSchemaVersion": 1,
+  "values": {
+    "runes.poison.purchase.resource": "coins",
+    "runes.poison.duplicate.resource": "rune_dust"
+  },
+  "curves": {
+    "runes.poison.purchase.rank.1": {
+      "mode": "FIXED",
+      "value": "100"
+    },
+    "runes.poison.duplicate.rank.1": {
+      "mode": "FIXED",
+      "value": "1"
+    }
+  }
+}
