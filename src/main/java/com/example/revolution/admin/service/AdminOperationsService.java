@@ -3,15 +3,12 @@ package com.example.revolution.admin.service;
 import com.example.revolution.mob.definition.MobDefinition;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.ManagedMobService;
-import com.example.revolution.network.NetworkHandler;
-import com.example.revolution.network.RuneSlotPacket;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
-import com.example.revolution.rune.repository.RuneRecord;
-import com.example.revolution.rune.service.RunePacketFactory;
+import com.example.revolution.rune.service.RuneSyncService;
 import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,6 +29,7 @@ public final class AdminOperationsService {
     private final MobRepository mobRepository;
     private final ManagedMobService mobs;
     private final RuneEnhancementRepository enhancements;
+    private final RuneSyncService runeSync;
 
     public AdminOperationsService(
             PlayerRepository players,
@@ -39,13 +37,15 @@ public final class AdminOperationsService {
             PlayerStatsSyncService stats,
             MobRepository mobRepository,
             ManagedMobService mobs,
-            RuneEnhancementRepository enhancements) {
+            RuneEnhancementRepository enhancements,
+            RuneSyncService runeSync) {
         this.players = players;
         this.resources = resources;
         this.stats = stats;
         this.mobRepository = mobRepository;
         this.mobs = mobs;
         this.enhancements = enhancements;
+        this.runeSync = runeSync;
     }
 
     public void clearRunes(EntityPlayerMP target) {
@@ -199,17 +199,7 @@ public final class AdminOperationsService {
     }
 
     private void syncRunes(EntityPlayerMP target) {
-        NetworkHandler.sendToClient(new RuneSlotPacket(-1, 0, 0, false), target);
-        for (RuneRecord rune : players.getRunesInCollection(target.getUniqueID(), 0)) {
-            NetworkHandler.sendToClient(
-                    new RuneSlotPacket(rune.slot, rune.runeIndex, rune.layer, false),
-                    target);
-        }
-        if (players.getActiveCollection(target.getUniqueID()) == 0) {
-            NetworkHandler.sendToClient(
-                    RunePacketFactory.enhancements(enhancements.getLevels(target.getUniqueID(), 0)),
-                    target);
-        }
+        runeSync.sendRunes(target, 0);
         stats.sendTo(target);
     }
 
