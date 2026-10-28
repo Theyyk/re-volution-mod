@@ -101,6 +101,28 @@ The current `ResourceService` stores integer amounts. The rune adapter therefore
 
 `src/main/resources/balance/default-balance.json` is the canonical bundled baseline activated during server composition. In `v1.4.2`, Poison purchase keeps the existing placeholder purchase price of `100` coins while duplicate compensation is `1` rune dust per duplicate. Later balance passes may change those numbers through canonical data without changing purchase logic.
 
+## Rune Enhancement contract in v1.4.3
+
+Enhancement is the second rune economy path migrated to Balance Core. The generic core still has no rune knowledge: `RuneEnhancementBalanceService` translates canonical ids, while `RuneEnhancementPlanningService` owns the pure collection-level planning rule.
+
+The bundled baseline adds:
+
+- `runes.<status>.enhancement.resource`
+- `runes.<status>.enhancement.targeting`
+- `runes.<status>.enhancement.cost`
+
+`enhancement.targeting` accepts `ALL_SLOTS` or `OWNED_ONLY`. `ALL_SLOTS` preserves the historical Poison behavior in which an unopened fixed slot may receive persistent enhancement levels before its rune is obtained. `OWNED_ONLY` restricts random targeting to currently owned rune slots.
+
+Enhancement price no longer depends on whichever slot RNG selects. Before any random target is chosen, the server calculates:
+
+`TotalEnhancementLevel = Σ slot.enhancementLevel`
+
+Every requested bulk step is then priced sequentially at global indices `TotalEnhancementLevel`, `TotalEnhancementLevel + 1`, and so on. RNG only distributes those already-priced steps over eligible slots. The same global bulk price is copied into every row of the existing enhancement packet, preserving the wire contract while removing per-slot price semantics.
+
+The current integer `ResourceService` boundary remains explicit: fractional costs, costs above the integer range, and unsupported targeting values are rejected instead of rounded or guessed.
+
+The Poison baseline remains intentionally unchanged numerically in `v1.4.3`: enhancement uses `rune_dust`, targeting is `ALL_SLOTS`, and each global enhancement step costs `10`. Future balance passes may replace the fixed curve without changing gameplay code.
+
 ## Remaining migrations
 
-Enhancement, rank-up, rune effects, mob balance, Admin Preview/Apply and export tooling remain on their existing paths until their dedicated `1.4.x` migrations.
+Rank-up, rune effects, mob balance, Admin Preview/Apply and export tooling remain on their existing paths until their dedicated `1.4.x` migrations.
