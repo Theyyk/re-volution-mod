@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.4.7`.**
+**Стабильная версия: `v1.4.8`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.7](docs/releases/v1.4.7.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.8](docs/releases/v1.4.8.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -63,7 +63,7 @@ Gameplay-мод не должен содержать приватные signing 
 
 Подробности текущего поведения: [docs/gameplay.md](docs/gameplay.md).
 
-### Balance Layer в v1.4.7
+### Balance Layer в v1.4.8
 
 - `Balance Core` хранит canonical balance snapshot, валидирует его целиком и публикует только после успешной подготовки.
 - Canonical config поддерживает числовые curves и string values, а revision/hash детерминирован и не зависит от форматирования JSON.
@@ -76,10 +76,12 @@ Gameplay-мод не должен содержать приватные signing 
 - Admin/Control может получить текущий canonical snapshot и revision, выполнить полную валидацию candidate через Preview и атомарно применить именно подготовленный snapshot через Apply.
 - Balance Preview session-bound, revision-bound, одноразовый, имеет TTL 120 секунд и ограниченное in-memory pending state.
 - Apply использует atomic expected-revision compare-and-set; stale candidate не может перезаписать более новый active snapshot.
-- Локальный откат одной руны не реализован в `v1.4.7`; он запланирован отдельной механикой `v1.4.9`.
-- Следующий этап Balance Phase 2 - `v1.4.8 Export Contract / Google Sheets readiness`; прямой Google API вызов из gameplay-мода не планируется.
+- Admin/Control может read-only экспортировать active Balance snapshot через `GET /api/v1/balance/export`: ответ содержит contract version, revision, schema version, authoritative canonical JSON и deterministic spreadsheet-friendly rows.
+- Export rows используют RFC 6901 JSON Pointer и явные типы значений; canonical config и revision остаются источником истины.
+- Gameplay-мод не подключается к Google API/OAuth и не хранит внешние integration credentials; Google Sheets остаётся задачей внешнего Control/инструмента.
+- Локальный откат одной руны не реализован в `v1.4.8`; он запланирован отдельной механикой `v1.4.9`.
 
-Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.7.md](docs/releases/v1.4.7.md).
+Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.8.md](docs/releases/v1.4.8.md).
 
 ### Admin / Control APIs
 
@@ -90,6 +92,7 @@ Gameplay-мод не должен содержать приватные signing 
 - Stage editor поддерживает HP, population и reward resource/amount.
 - Stage batch workflow: `Validate → Preview → Apply` с session/revision guards и recovery journal.
 - Balance workflow: `Read → Preview → Apply` с отдельными `balance.read` / `balance.write`, session/revision guards и атомарной активацией prepared snapshot.
+- Balance export: `GET /api/v1/balance/export` под `balance.read`, только read-only active snapshot; write-path не расширяется.
 - Balance routes остаются внутри существующей loopback-only HMAC Admin API границы и выполняются через Minecraft server-thread bridge.
 - Последняя configured stage остаётся автоматическим boss; обычного ручного dropdown `BOSS_ZONE` нет.
 
