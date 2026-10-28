@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.4.2`.**
+**Стабильная версия: `v1.4.3`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.2](docs/releases/v1.4.2.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.3](docs/releases/v1.4.3.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -63,18 +63,20 @@ Gameplay-мод не должен содержать приватные signing 
 
 Подробности текущего поведения: [docs/gameplay.md](docs/gameplay.md).
 
-### Balance Layer и rune economy в v1.4.2
+### Balance Layer и rune economy в v1.4.3
 
 - `Balance Core` хранит canonical balance snapshot, валидирует его целиком и публикует только после успешной подготовки.
 - Canonical config поддерживает числовые curves и string values, а revision/hash детерминирован и не зависит от форматирования JSON.
 - Rune purchase для status-коллекций читает resource ids, стоимость и duplicate reward через Balance Layer.
-- Purchase progression индексируется количеством реально открытых уникальных slots.
-- Новый уникальный слот двигает progression; дубликат оплачивается, но progression не увеличивает.
-- Duplicate reward также задаётся через canonical balance config.
-- Для текущего Poison baseline сохраняется стоимость `100 coins`, а стартовая компенсация за дубликат — `1 rune_dust`.
-- Enhancement, rank-up, rune effects и mob balance ещё переводятся на Balance Layer в следующих `1.4.x`.
+- Purchase progression индексируется количеством реально открытых уникальных slots; дубликат оплачивается, но progression не увеличивает.
+- Rune Enhancement также работает через Balance Layer: resource, targeting и cost curve задаются canonical config.
+- Цена усиления индексируется глобальным `TotalEnhancementLevel = Σ slot.enhancementLevel`, а не уровнем случайно выбранного слота.
+- Bulk-усиления считаются последовательными глобальными шагами; RNG влияет только на распределение уже оплаченных усилений по допустимым slots.
+- Поддерживаются targeting-режимы `ALL_SLOTS` и `OWNED_ONLY`; текущий Poison baseline использует `ALL_SLOTS`.
+- Для Poison сохраняются текущие placeholder-значения: покупка `100 coins`, дубликат `1 rune_dust`, усиление `10 rune_dust` за глобальный шаг.
+- Rank-up, rune effects и mob balance переводятся на Balance Layer в следующих `1.4.x`.
 
-Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.2.md](docs/releases/v1.4.2.md).
+Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.3.md](docs/releases/v1.4.3.md).
 
 ### Admin / Control APIs
 
@@ -138,9 +140,11 @@ Namespace rune-ассетов: `customguimod`. При отсутствии ну�
 
 Gameplay-изменения проходят через feature/fix branch → PR в `develop` → exact-head CI → обычный merge → post-merge CI. Stable promotion в `main` выполняется отдельно; squash/rebase для release history не используются.
 
+Перед stable promotion CI дополнительно требует, чтобы version metadata, строка стабильной версии README и ссылка README на текущий release contract совпадали. Поэтому тег нельзя штатно выпустить с устаревшим README.
+
 CI проверяет:
 
-- согласованность версии и release descriptions;
+- согласованность версии, README и release descriptions;
 - JUnit и standalone regression tests;
 - architecture/security guards;
 - Forge build и содержимое итогового JAR;

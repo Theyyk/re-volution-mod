@@ -1,5 +1,7 @@
 package com.example.revolution.network;
 
+import com.example.revolution.resource.definition.ResourceDefinitions;
+import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.service.RunePacketFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -29,7 +31,12 @@ public final class NetworkWireContractTest {
 
             expected.writeInt(1); ByteBufUtils.writeUTF8String(expected, "rune_dust"); expected.writeDouble(0.1D).writeInt(26);
             for (int rune = 0; rune < 26; rune++) expected.writeInt(0).writeInt(10).writeInt(50).writeInt(100).writeInt(1000);
-            verify(RunePacketFactory.enhancements(new int[26]), new RuneEnhancementPacket(), expected);
+            verify(RunePacketFactory.enhancements(
+                    RuneStatusConfig.STATUS_POISON,
+                    ResourceDefinitions.RUNE_DUST,
+                    0.1D,
+                    new int[26],
+                    new int[] {10, 50, 100, 1000}), new RuneEnhancementPacket(), expected);
 
             verify(new StageTravelMenuRequestPacket(), new StageTravelMenuRequestPacket(), expected);
 
