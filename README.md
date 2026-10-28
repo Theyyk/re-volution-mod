@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.4.4`.**
+**Стабильная версия: `v1.4.5`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.4](docs/releases/v1.4.4.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.5](docs/releases/v1.4.5.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -14,9 +14,9 @@ README описывает только **актуальное состояние
 
 Связанные части экосистемы находятся отдельно:
 
-- **RE:volution Client** — launcher/updater, Auth API, client-only Forge mod и production manifest;
-- **RE:volution Resource Pack** — визуальные ассеты и distribution-файлы;
-- **RE:volution Control / Admin** — локальные инструменты управления DEV/PROD и игровыми данными.
+- **RE:volution Client** - launcher/updater, Auth API, client-only Forge mod и production manifest;
+- **RE:volution Resource Pack** - визуальные ассеты и distribution-файлы;
+- **RE:volution Control / Admin** - локальные инструменты управления DEV/PROD и игровыми данными.
 
 Gameplay-мод не должен содержать приватные signing keys, секреты Admin API или клиентскую логику обновления.
 
@@ -24,10 +24,10 @@ Gameplay-мод не должен содержать приватные signing 
 
 ### Realm runtime
 
-- Realm 0 — административный overworld / dimension `0`.
-- Realm 1 — dimension `201`, основной player Realm и эталон стартовой синхронизации.
-- Realm 2 — dimension `202`.
-- Realm 3 — dimension `203`.
+- Realm 0 - административный overworld / dimension `0`.
+- Realm 1 - dimension `201`, основной player Realm и эталон стартовой синхронизации.
+- Realm 2 - dimension `202`.
+- Realm 3 - dimension `203`.
 - При обычном входе игрок назначается в наименее населённый Realm из `1..3`; Realm 0 в автоматическом распределении не участвует.
 - При равной минимальной нагрузке выбор выполняется случайно среди Realm с одинаковым минимумом.
 - `/realm join <realmId> [player]` остаётся административной командой и поддерживает Realm 0.
@@ -63,29 +63,31 @@ Gameplay-мод не должен содержать приватные signing 
 
 Подробности текущего поведения: [docs/gameplay.md](docs/gameplay.md).
 
-### Balance Layer и rune economy в v1.4.4
+### Balance Layer и rune systems в v1.4.5
 
 - `Balance Core` хранит canonical balance snapshot, валидирует его целиком и публикует только после успешной подготовки.
 - Canonical config поддерживает числовые curves и string values, а revision/hash детерминирован и не зависит от форматирования JSON.
 - Rune purchase для status-коллекций читает resource ids, стоимость и duplicate reward через Balance Layer.
-- Purchase progression теперь выводится из фактических рангов рун коллекции: `Collection State → Progression Index → Purchase Curve → Next Purchase Cost`.
+- Purchase progression выводится из фактических рангов рун коллекции: `Collection State → Progression Index → Purchase Curve → Next Purchase Cost`.
 - После пробуждения новые руны покупаются уже на фактическом активном ранге, а не всегда как `NORMAL`.
 - Дубликат оплачивается, но не увеличивает progression index.
 - Rune Enhancement работает через Balance Layer: resource, targeting и cost curve задаются canonical config.
 - Цена усиления индексируется глобальным `TotalEnhancementLevel = Σ slot.enhancementLevel`, а не уровнем случайно выбранного слота.
-- Rank-up также работает через Balance Layer: target rank, required slots, resource, cost, clear mode и сохранение усилений задаются canonical config.
+- Rank-up работает через Balance Layer: target rank, required slots, resource, cost, clear mode и сохранение усилений задаются canonical config.
 - Обычный rank-up сохраняет enhancement levels и не хранит отдельный `currentCollectionRank` или `nextPurchaseCost` как источник истины.
-- Для Poison сохраняются placeholder-значения: покупка `100 coins`, дубликат `1 rune_dust`, усиление `10 rune_dust`, rank-up `100 rune_dust`.
-- Rune effects и mob balance переводятся на Balance Layer в следующих `1.4.x`.
-- Локальный откат одной руны не реализован в `v1.4.4`; он запланирован отдельной механикой `v1.4.9`, а текущая модель прогрессии уже не блокирует такой сценарий.
+- Rune Effects для Poison также читают параметры из активного Balance Core snapshot: groups/tags, effect type, target selector, rank-specific values, enhancement step, targeted power, proc/rage и reward bonus.
+- Существующий Poison gameplay baseline сохранён; перенос в `v1.4.5` меняет источник параметров, а не механику.
+- Для Poison сохраняются placeholder-значения экономики: покупка `100 coins`, дубликат `1 rune_dust`, усиление `10 rune_dust`, rank-up `100 rune_dust`.
+- Mob balance остаётся следующим этапом миграции Balance Layer в `v1.4.6`.
+- Локальный откат одной руны не реализован в `v1.4.5`; он запланирован отдельной механикой `v1.4.9`, а текущая модель прогрессии уже не блокирует такой сценарий.
 
-Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.4.md](docs/releases/v1.4.4.md).
+Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.5.md](docs/releases/v1.4.5.md).
 
 ### Admin / Control APIs
 
 - Список игроков включает сохранённые offline-профили.
 - Offline-профилям можно устанавливать, добавлять и обнулять ресурсы напрямую по UUID через Mongo.
-- Live-only действия — руны, усиления и progression — недоступны офлайн до входа игрока.
+- Live-only действия - руны, усиления и progression - недоступны офлайн до входа игрока.
 - `lastKnownName` сохраняет последнее известное имя профиля.
 - Stage editor поддерживает HP, population и reward resource/amount.
 - Batch workflow: `Validate → Preview → Apply` с session/revision guards и recovery journal.
@@ -101,29 +103,29 @@ Gameplay-мод не должен содержать приватные signing 
 - Ранги рун: **Обычная → Улучшенная → Продвинутая**.
 - Покупка рун `x1`, `x5`, `x10`, `x100` с серверной проверкой экономики.
 - Дубликаты, Пыль рун, пробуждение и постоянные уровни усиления `+N` обрабатываются сервером.
-- Усиление и ранг — независимые множители; базовая формула: `finalPower = basePower × (1 + enhancementLevel × enhancementStep)`.
+- Усиление и ранг - независимые множители; базовая формула: `finalPower = basePower × (1 + enhancementLevel × enhancementStep)`.
 - Поддерживаются упрощённый, полный и инженерный форматы больших чисел.
 - Основные ресурсы: `coins`, `crystals`, `rune_dust`, `rune_shards`, `rune_cores`.
 - Серверный контракт ресурсов не допускает отрицательных балансов.
 - Данные игроков и progression сохраняются в MongoDB.
 
-Основной gameplay GUI открывается клавишей `C`, меню быстрого перехода — клавишей `L`.
+Основной gameplay GUI открывается клавишей `C`, меню быстрого перехода - клавишей `L`.
 
 ## DEV / PROD
 
-- `develop` — основная ветка разработки и DEV acceptance.
-- `main` — стабильная ветка.
+- `develop` - основная ветка разработки и DEV acceptance.
+- `main` - стабильная ветка.
 - DEV и PROD используют отдельные Minecraft runtime/world и Mongo namespace.
 - DEV build сам по себе не становится PROD.
 - Stable promotion проходит отдельно через проверенное дерево, `main`, release tag и release workflow.
 - При контролируемой PROD synchronization world и Mongo заменяются DEV snapshot только после backup; это не merge данных.
 - Runtime rollback опирается на сохранённые snapshots, а не на Git.
 
-Основной интерфейс инфраструктуры — `REvolutionControl.exe`.
+Основной интерфейс инфраструктуры - `REvolutionControl.exe`.
 
 ## Установка вручную
 
-Ручная установка — fallback для разработки и диагностики. Для обычного игрока используется RE:volution Client.
+Ручная установка - fallback для разработки и диагностики. Для обычного игрока используется RE:volution Client.
 
 1. Установите Java 8 и Minecraft Forge **1.12.2 / 14.23.5.2859**.
 2. Скачайте `RE-volution-<version>.jar` из [актуального GitHub Release](https://github.com/Theyyk/re-volution-mod/releases/latest).
