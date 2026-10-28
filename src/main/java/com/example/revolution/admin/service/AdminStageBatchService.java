@@ -103,7 +103,7 @@ public final class AdminStageBatchService {
         public final String token, revision;
         public final long expiresAt;
         public final List<AdminStageSnapshot> before, after;
-        public final String populationNote = "Existing spawn points are retained; additional slots reuse an existing fallback point in RANDOM_AREA mode.";
+        public final String populationNote = "Population is rebalanced approximately 50/50: FIXED_POINT=floor(n/2), RANDOM_AREA=ceil(n/2); odd remainder goes to RANDOM_AREA.";
         Preview(String token, String revision, long expiresAt, List<AdminStageSnapshot> before, List<AdminStageSnapshot> after) {
             this.token = token; this.revision = revision; this.expiresAt = expiresAt; this.before = before; this.after = after;
         }
