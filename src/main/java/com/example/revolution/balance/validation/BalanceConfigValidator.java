@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 
 /** Semantic validation performed before a balance snapshot can become active. */
 public final class BalanceConfigValidator {
-    private static final Pattern CURVE_ID = Pattern.compile("[a-z0-9][a-z0-9._-]*");
+    private static final Pattern BALANCE_ID = Pattern.compile("[a-z0-9][a-z0-9._-]*");
     private static final int MAX_CURVE_DEPTH = 8;
 
     public void validate(BalanceConfig config) {
@@ -26,13 +26,23 @@ public final class BalanceConfigValidator {
                     + ", expected " + BalanceConfig.SUPPORTED_SCHEMA_VERSION);
         }
 
+        for (Map.Entry<String, String> entry : config.getValues().entrySet()) {
+            String id = entry.getKey();
+            if (id == null || !BALANCE_ID.matcher(id).matches()) {
+                errors.add("invalid value id '" + id + "'");
+            }
+            if (entry.getValue() == null || entry.getValue().trim().isEmpty()) {
+                errors.add("values." + id + " must not be blank");
+            }
+        }
+
         if (config.getCurves().isEmpty()) {
             errors.add("curves must contain at least one entry");
         }
 
         for (Map.Entry<String, BalanceCurveDefinition> entry : config.getCurves().entrySet()) {
             String id = entry.getKey();
-            if (id == null || !CURVE_ID.matcher(id).matches()) {
+            if (id == null || !BALANCE_ID.matcher(id).matches()) {
                 errors.add("invalid curve id '" + id + "'");
             }
             validateCurve(entry.getValue(), "curves." + id, 0, errors);
