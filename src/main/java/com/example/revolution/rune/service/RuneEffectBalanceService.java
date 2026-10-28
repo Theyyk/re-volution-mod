@@ -25,6 +25,7 @@ public final class RuneEffectBalanceService {
         public final String targetSelector;
         public final RuneStatType statType;
         public final boolean acceptsTargetedPower;
+        public final double targetedPowerScale;
         public final double primaryValue;
         public final double secondaryValue;
         public final double durationSeconds;
@@ -38,6 +39,7 @@ public final class RuneEffectBalanceService {
                 String targetSelector,
                 RuneStatType statType,
                 boolean acceptsTargetedPower,
+                double targetedPowerScale,
                 double primaryValue,
                 double secondaryValue,
                 double durationSeconds,
@@ -49,6 +51,7 @@ public final class RuneEffectBalanceService {
             this.targetSelector = targetSelector;
             this.statType = statType;
             this.acceptsTargetedPower = acceptsTargetedPower;
+            this.targetedPowerScale = targetedPowerScale;
             this.primaryValue = primaryValue;
             this.secondaryValue = secondaryValue;
             this.durationSeconds = durationSeconds;
@@ -86,18 +89,30 @@ public final class RuneEffectBalanceService {
             String enhancementField = optional(statusId, prefix + "enhancement_field");
             double enhancementMultiplier = 1.0D + Math.max(0, enhancementLevel) * enhancementStep;
 
-            double primary = rankDouble(statusId, prefix, rank, "primary", 0.0D);
-            double secondary = rankDouble(statusId, prefix, rank, "secondary", 0.0D);
+            double rawPrimary = rankDouble(statusId, prefix, rank, "primary", 0.0D);
+            double rawSecondary = rankDouble(statusId, prefix, rank, "secondary", 0.0D);
+            double primary = rawPrimary;
+            double secondary = rawSecondary;
             if ("PRIMARY".equalsIgnoreCase(enhancementField)) primary *= enhancementMultiplier;
             else if ("SECONDARY".equalsIgnoreCase(enhancementField)) secondary *= enhancementMultiplier;
             else if (enhancementField != null && !"NONE".equalsIgnoreCase(enhancementField)) {
                 throw new IllegalStateException("unsupported enhancement field: " + enhancementField);
             }
 
+            double targetedPowerScale = 1.0D;
+            if (acceptsTargetedPower) {
+                double normalPrimary = rankDouble(statusId, prefix, 1, "primary", 0.0D);
+                if (normalPrimary <= 0.0D) {
+                    throw new IllegalStateException("targeted-power effect requires positive rank.1.primary for " + group);
+                }
+                targetedPowerScale = rawPrimary / normalPrimary;
+                if ("PRIMARY".equalsIgnoreCase(enhancementField)) targetedPowerScale *= enhancementMultiplier;
+            }
+
             double duration = nonNegative(optionalDouble(statusId, prefix + "duration_seconds", 0.0D), "duration");
             int maxStacks = nonNegativeInt(optional(statusId, prefix + "max_stacks"), 0, "max stacks");
             result.add(new ResolvedEffect(group, index, type, tags, target, statType,
-                    acceptsTargetedPower, primary, secondary, duration, maxStacks));
+                    acceptsTargetedPower, targetedPowerScale, primary, secondary, duration, maxStacks));
         }
         return Collections.unmodifiableList(result);
     }
