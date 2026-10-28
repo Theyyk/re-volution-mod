@@ -16,6 +16,7 @@ import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 /**
@@ -92,10 +93,15 @@ public final class AdminOperationsService {
 
     public boolean setResource(EntityPlayerMP target, String resource, BigDecimal value) {
         requireTarget(target);
+        return setResource(target.getUniqueID(), target, resource, value);
+    }
+
+    public boolean setResource(UUID uuid, EntityPlayerMP onlineTarget, String resource, BigDecimal value) {
+        requireUuid(uuid);
         String canonical = ResourceDefinitions.findCanonicalName(resource);
         if (canonical == null || value == null || value.signum() < 0) return false;
-        if (!resources.setPlayerResourceValue(target.getUniqueID(), canonical, value)) return false;
-        stats.sendTo(target);
+        if (!resources.setPlayerResourceValue(uuid, canonical, value)) return false;
+        if (onlineTarget != null) stats.sendTo(onlineTarget);
         return true;
     }
 
@@ -105,10 +111,15 @@ public final class AdminOperationsService {
 
     public boolean addResource(EntityPlayerMP target, String resource, BigDecimal amount) {
         requireTarget(target);
+        return addResource(target.getUniqueID(), target, resource, amount);
+    }
+
+    public boolean addResource(UUID uuid, EntityPlayerMP onlineTarget, String resource, BigDecimal amount) {
+        requireUuid(uuid);
         String canonical = ResourceDefinitions.findCanonicalName(resource);
         if (canonical == null || amount == null) return false;
-        if (!resources.addPlayerResourceValue(target.getUniqueID(), canonical, amount)) return false;
-        stats.sendTo(target);
+        if (!resources.addPlayerResourceValue(uuid, canonical, amount)) return false;
+        if (onlineTarget != null) stats.sendTo(onlineTarget);
         return true;
     }
 
@@ -118,10 +129,15 @@ public final class AdminOperationsService {
 
     public void zeroAllResources(EntityPlayerMP target) {
         requireTarget(target);
+        zeroAllResources(target.getUniqueID(), target);
+    }
+
+    public void zeroAllResources(UUID uuid, EntityPlayerMP onlineTarget) {
+        requireUuid(uuid);
         for (String resource : ResourceDefinitions.getResourceNames()) {
-            resources.setPlayerResourceValue(target.getUniqueID(), resource, BigDecimal.ZERO);
+            resources.setPlayerResourceValue(uuid, resource, BigDecimal.ZERO);
         }
-        stats.sendTo(target);
+        if (onlineTarget != null) stats.sendTo(onlineTarget);
     }
 
     public boolean createMob(
@@ -208,5 +224,9 @@ public final class AdminOperationsService {
 
     private static void requireTarget(EntityPlayerMP target) {
         if (target == null) throw new IllegalArgumentException("target player is required");
+    }
+
+    private static void requireUuid(UUID uuid) {
+        if (uuid == null) throw new IllegalArgumentException("target uuid is required");
     }
 }

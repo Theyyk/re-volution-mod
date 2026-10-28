@@ -52,21 +52,25 @@ final class AdminApiRoutes {
                 () -> AdminApiJson.resources(serverThread.call(queries::resourceNames)),
                 AdminApiCapability.RESOURCES_READ);
         read(http, wrapper, "/api/v1/players",
-                () -> AdminApiJson.players(serverThread.call(() -> queries.onlinePlayers(server.getPlayerList().getPlayers()))),
+                () -> AdminApiJson.players(serverThread.call(() -> queries.allPlayers(
+                        server.getPlayerList().getPlayers(), uuid -> {
+                            com.mojang.authlib.GameProfile profile = server.getPlayerProfileCache().getProfileByUUID(uuid);
+                            return profile == null ? "" : profile.getName();
+                        }))),
                 AdminApiCapability.PLAYERS_READ, AdminApiCapability.RESOURCES_READ, AdminApiCapability.RUNES_READ);
         read(http, wrapper, "/api/v1/mobs",
                 () -> AdminApiJson.mobs(serverThread.call(queries::mobs)),
                 AdminApiCapability.MOBS_READ);
 
         form(http, wrapper, "/api/v1/resources/set", AdminApiCapability.RESOURCES_WRITE, RESOURCE_FIELDS,
-                form -> withOnlinePlayer(form.get("uuid"), player ->
-                        operations.setResource(player, form.get("resource"), exactNumber(form.get("value"), false))));
+                form -> withKnownPlayer(form.get("uuid"), (uuid, player) ->
+                        operations.setResource(uuid, player, form.get("resource"), exactNumber(form.get("value"), false))));
         form(http, wrapper, "/api/v1/resources/add", AdminApiCapability.RESOURCES_WRITE, RESOURCE_ADD_FIELDS,
-                form -> withOnlinePlayer(form.get("uuid"), player ->
-                        operations.addResource(player, form.get("resource"), exactNumber(form.get("amount"), true))));
+                form -> withKnownPlayer(form.get("uuid"), (uuid, player) ->
+                        operations.addResource(uuid, player, form.get("resource"), exactNumber(form.get("amount"), true))));
         form(http, wrapper, "/api/v1/resources/zero-all", AdminApiCapability.RESOURCES_WRITE, UUID_FIELDS,
-                form -> withOnlinePlayer(form.get("uuid"), player -> {
-                    operations.zeroAllResources(player);
+                form -> withKnownPlayer(form.get("uuid"), (uuid, player) -> {
+                    operations.zeroAllResources(uuid, player);
                     return true;
                 }));
 
@@ -175,6 +179,11 @@ final class AdminApiRoutes {
         return action.execute(player);
     }
 
+    private boolean withKnownPlayer(String rawUuid, KnownPlayerAction action) throws Exception {
+        UUID uuid = parseUuid(rawUuid);
+        return action.execute(uuid, server.getPlayerList().getPlayerByUUID(uuid));
+    }
+
     private void audit(String path, AdminFormData form, boolean success) {
         String target = form.get("uuid");
         if (target == null) target = sanitizeAudit(form.get("name"));
@@ -253,5 +262,6 @@ final class AdminApiRoutes {
     private interface ReadAction { String execute() throws Exception; }
     private interface FormAction { boolean execute(AdminFormData form) throws Exception; }
     private interface PlayerAction { boolean execute(EntityPlayerMP player) throws Exception; }
+    private interface KnownPlayerAction { boolean execute(UUID uuid, EntityPlayerMP player) throws Exception; }
     private static final class PlayerOfflineException extends Exception {}
 }

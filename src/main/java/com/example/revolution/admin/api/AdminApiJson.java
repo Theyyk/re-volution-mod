@@ -26,6 +26,7 @@ final class AdminApiJson {
             out.append('{');
             field(out, "uuid", player.uuid).append(',');
             field(out, "name", player.name).append(',');
+            out.append("\"online\":").append(player.online).append(',');
             out.append("\"dimension\":").append(player.dimension).append(',');
             out.append("\"x\":").append(Double.toString(player.x)).append(',');
             out.append("\"y\":").append(Double.toString(player.y)).append(',');

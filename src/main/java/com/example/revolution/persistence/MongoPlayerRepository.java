@@ -2,6 +2,7 @@ package com.example.revolution.persistence;
 
 import com.example.revolution.RevolutionMod;
 import com.example.revolution.player.repository.PlayerRepository;
+import com.example.revolution.player.repository.PlayerIdentity;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneStorageRules;
 import com.mongodb.client.model.UpdateOptions;
@@ -204,4 +205,29 @@ public final class MongoPlayerRepository implements PlayerRepository {
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
     }
+
+    @Override
+    public List<PlayerIdentity> listKnownPlayers() {
+        List<PlayerIdentity> result = new ArrayList<>();
+        if (!enabled || !connection.isConnected()) return result;
+        for (Document doc : connection.collection("players").find()) {
+            String rawUuid = doc.getString("_id");
+            if (rawUuid == null) continue;
+            try {
+                result.add(new PlayerIdentity(UUID.fromString(rawUuid), doc.getString("lastKnownName")));
+            } catch (IllegalArgumentException ignored) {
+                RevolutionMod.logger.warn("Ignoring players document with invalid UUID: " + rawUuid);
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public void rememberIdentity(UUID uuid, String lastKnownName) {
+        if (!enabled || !connection.isConnected() || uuid == null || lastKnownName == null || lastKnownName.trim().isEmpty()) return;
+        connection.collection("players").updateOne(new Document("_id", uuid.toString()),
+                new Document("$set", new Document("lastKnownName", lastKnownName.trim())), new UpdateOptions().upsert(true));
+    }
+
 }
+
