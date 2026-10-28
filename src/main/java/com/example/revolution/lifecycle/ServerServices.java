@@ -156,7 +156,7 @@ public final class ServerServices implements AutoCloseable {
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         if (persistentGameplay) mobs.setConfigurationGuard(adminStageStore::recover);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
-        adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements);
+        adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements, sync);
         adminQueries = new AdminQueryService(players, resources, mobRepository);
         if (persistentGameplay) adminQueries.setConfigurationGuard(adminStageStore::recover);
         adminApi = new AdminApiServer(logger, adminOperations, adminQueries);
@@ -164,7 +164,7 @@ public final class ServerServices implements AutoCloseable {
         if (persistentGameplay) adminTools.setConfigurationGuard(adminStageStore::recover);
         adminApi.setTools(adminTools, new AdminStageBatchService(adminStageStore, adminTools::stages, mobs::respawnAll));
         mobAdmin = new MobAdminService(mobRepository, locationRepository, mobs);
-        runeAdmin = new RuneAdminService(players, resources, stats, enhancements);
+        runeAdmin = new RuneAdminService(players, resources, stats, enhancements, sync);
         collections = new PlayerCollectionService(players, resources, stats);
     }
 
