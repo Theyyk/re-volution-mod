@@ -1,9 +1,8 @@
 package com.example.revolution.rune.service;
 
+import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.rune.config.RuneStatusConfig;
-import com.example.revolution.rune.definition.PrimaryRuneCatalog;
-import com.example.revolution.rune.definition.RuneStat;
 import com.example.revolution.rune.definition.RuneStatType;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
@@ -16,10 +15,22 @@ import java.util.UUID;
 public final class RuneRewardBonusService {
     private final PlayerRepository players;
     private final RuneEnhancementRepository enhancements;
+    private final RuneEffectBalanceService effectBalance;
 
     public RuneRewardBonusService(PlayerRepository players, RuneEnhancementRepository enhancements) {
+        this(players, enhancements, new RuneEffectBalanceService(BalanceBootstrap.activateBundledDefaults()));
+    }
+
+    public RuneRewardBonusService(
+            PlayerRepository players,
+            RuneEnhancementRepository enhancements,
+            RuneEffectBalanceService effectBalance) {
+        if (players == null || enhancements == null || effectBalance == null) {
+            throw new IllegalArgumentException("rune reward dependencies are required");
+        }
         this.players = players;
         this.enhancements = enhancements;
+        this.effectBalance = effectBalance;
     }
 
     public double percentFor(UUID uuid, String resource) {
@@ -41,15 +52,12 @@ public final class RuneRewardBonusService {
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             RuneInventory.Entry owned = inventory.getBoost(rune);
             if (owned == null) continue;
-
-            PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(rune);
-            if (definition == null || definition.stats == null) continue;
-
-            int enhancementLevel = rune < enhancementLevels.length ? Math.max(0, enhancementLevels[rune]) : 0;
-            double enhancementMultiplier = 1.0D + enhancementLevel * 0.1D;
-            for (RuneStat stat : definition.stats) {
-                if (stat == null || stat.type != targetType) continue;
-                total += stat.resolve(owned.layer, enhancementMultiplier).finalValue;
+            int enhancementLevel = enhancementLevels != null && rune < enhancementLevels.length
+                    ? Math.max(0, enhancementLevels[rune]) : 0;
+            for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
+                    RuneStatusConfig.STATUS_POISON, rune, owned.layer, enhancementLevel)) {
+                if (effect.type != RuneEffectBalanceService.EffectType.STAT || effect.statType != targetType) continue;
+                total += effect.primaryValue;
             }
         }
         return Double.isFinite(total) ? Math.max(0.0D, total) : 0.0D;
