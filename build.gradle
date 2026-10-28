@@ -128,6 +128,7 @@ def regressionTests = [
     runeCombatMathRegression: 'com.example.revolution.client.RuneCombatMathTest',
     mobRewardBonusRegression: 'com.example.revolution.rune.rules.MobRewardBonusTest',
     runeRankRevertRegression: 'com.example.revolution.rune.rules.RuneRankRevertTest',
+    runeRankRevertInputRegression: 'com.example.revolution.client.RuneRankRevertInputTest',
     runeEnhancementPacketRegression: 'com.example.revolution.client.RuneEnhancementPacketTest',
     multiStatusRuneRegression: 'com.example.revolution.rune.config.RuneStatusConfigTest',
     multiStatusRuneEconomyRegression: 'com.example.revolution.rune.config.MultiStatusRuneEconomyTest',
