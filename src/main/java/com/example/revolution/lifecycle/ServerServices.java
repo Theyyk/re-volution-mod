@@ -27,10 +27,12 @@ import com.example.revolution.location.service.MobZoneOverlayService;
 import com.example.revolution.location.service.StageMobBootstrapService;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionTriggerService;
+import com.example.revolution.mob.repository.BalanceAwareMobRepository;
 import com.example.revolution.mob.repository.MobProgressionRepository;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.ManagedMobService;
 import com.example.revolution.mob.service.MobAdminService;
+import com.example.revolution.mob.service.MobBalanceService;
 import com.example.revolution.mob.service.MobProgressionService;
 import com.example.revolution.mob.service.MobRewardService;
 import com.example.revolution.persistence.FileAdminWhitelistRepository;
@@ -112,7 +114,6 @@ public final class ServerServices implements AutoCloseable {
         connection = new MongoConnection(logger);
         adminStageStore = new MongoAdminStageStore(connection, persistentGameplay);
         PlayerRepository players = new MongoPlayerRepository(connection, persistentGameplay);
-        MobRepository mobRepository = new MongoMobRepository(connection, persistentGameplay);
         LocationRepository locationRepository = new MongoLocationRepository(connection, persistentGameplay);
         LocationStageTemplateRepository stageTemplateRepository = new MongoLocationStageTemplateRepository(connection, persistentGameplay);
         MobProgressionRepository progressionRepository = new MongoMobProgressionRepository(connection, persistentGameplay);
@@ -122,6 +123,8 @@ public final class ServerServices implements AutoCloseable {
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
         resources = new ResourceService(new MongoResourceRepository(connection));
         balance = BalanceBootstrap.activateBundledDefaults();
+        MobRepository storedMobRepository = new MongoMobRepository(connection, persistentGameplay);
+        MobRepository mobRepository = new BalanceAwareMobRepository(storedMobRepository, new MobBalanceService(balance));
         RuneEffectBalanceService effectBalance = new RuneEffectBalanceService(balance);
         combat = new RuneCombatService(players, enhancements, combatState, effectBalance);
         RuneMobEffectService runeEffects = new RuneMobEffectService(
