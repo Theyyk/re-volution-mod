@@ -67,6 +67,18 @@ public final class AdminOperationsService {
         syncRunes(target);
     }
 
+    public void grantEnhancements(EntityPlayerMP target, int count) {
+        requireTarget(target);
+        if (count < 1 || count > RandomEnhancementGrant.MAX_COUNT) throw new IllegalArgumentException("Invalid grant count");
+        int[] increments = RandomEnhancementGrant.plan(enhancements.getLevels(target.getUniqueID(), 0), count,
+                java.util.concurrent.ThreadLocalRandom.current()::nextInt);
+        ensureCollectionZero(target);
+        for (int slot = 0; slot < increments.length; slot++) {
+            if (increments[slot] > 0) enhancements.addLevels(target.getUniqueID(), 0, slot, increments[slot]);
+        }
+        syncRunes(target);
+    }
+
     public void resetEnhancements(EntityPlayerMP target) {
         requireTarget(target);
         ensureCollectionZero(target);
