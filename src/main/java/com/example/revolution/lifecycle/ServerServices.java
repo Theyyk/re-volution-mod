@@ -58,6 +58,8 @@ import com.example.revolution.rune.service.RuneAdminService;
 import com.example.revolution.rune.service.RuneAwakeningPaymentService;
 import com.example.revolution.rune.service.RuneAwakeningService;
 import com.example.revolution.rune.service.RuneCombatService;
+import com.example.revolution.rune.service.RuneEnhancementBalanceService;
+import com.example.revolution.rune.service.RuneEnhancementPlanningService;
 import com.example.revolution.rune.service.RuneEnhancementService;
 import com.example.revolution.rune.service.RuneMobEffectService;
 import com.example.revolution.rune.service.RunePurchaseBalanceService;
@@ -123,10 +125,12 @@ public final class ServerServices implements AutoCloseable {
         playerStats = new PlayerStatsService(players, enhancements);
         PlayerStatsSyncService stats = new PlayerStatsSyncService(players, resources, playerStats, combat);
         sessions = new PlayerSessionService(players, resources, stats);
-        RuneSyncService sync = new RuneSyncService(players, enhancements);
+        RuneEnhancementBalanceService enhancementBalance = new RuneEnhancementBalanceService(balance);
+        RuneEnhancementPlanningService enhancementPlanning = new RuneEnhancementPlanningService(enhancementBalance);
+        RuneSyncService sync = new RuneSyncService(players, enhancements, enhancementBalance);
         runeActions = new RuneActionService(players, stats,
                 new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance)),
-                new RuneEnhancementService(players, resources, stats, enhancements, sync),
+                new RuneEnhancementService(players, resources, stats, enhancements, sync, enhancementPlanning),
                 new RuneAwakeningService(players, resources, stats, new RuneAwakeningPaymentService(resources), sync), sync);
         mobProgression = new MobProgressionService(progressionRepository);
         physicalBuilds = new REBuilderAdapter(configDirectory.toPath());
