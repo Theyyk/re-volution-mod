@@ -19,6 +19,7 @@ public final class PlayerSessionService {
 
     public void joined(EntityPlayerMP player) {
         java.util.UUID uuid = player.getUniqueID();
+        players.rememberIdentity(uuid, player.getName());
 
         // Создаём основную коллекцию, если её нет
         if (players.getCollectionNames(uuid).isEmpty()) {

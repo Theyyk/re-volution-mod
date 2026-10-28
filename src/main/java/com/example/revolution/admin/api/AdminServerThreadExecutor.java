@@ -18,11 +18,16 @@ final class AdminServerThreadExecutor {
     }
 
     <T> T call(Callable<T> callable) throws Exception {
+        return call(callable, TIMEOUT_SECONDS);
+    }
+
+    <T> T call(Callable<T> callable, long timeoutSeconds) throws Exception {
+        if (timeoutSeconds < 1 || timeoutSeconds > 30) throw new IllegalArgumentException("Invalid server-thread timeout");
         if (server.isCallingFromMinecraftThread()) return callable.call();
         FutureTask<T> task = new FutureTask<>(callable);
         server.addScheduledTask(task);
         try {
-            return task.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            return task.get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             task.cancel(false);

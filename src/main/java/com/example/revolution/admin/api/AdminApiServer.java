@@ -7,6 +7,9 @@ import com.example.revolution.admin.api.auth.AdminChallengeService;
 import com.example.revolution.admin.api.auth.AdminInstallationSecretStore;
 import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
+import com.example.revolution.admin.service.AdminToolsService;
+import com.example.revolution.admin.service.AdminStageBatchService;
+import com.example.revolution.admin.api.auth.AdminInstallationIdentity;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -36,6 +39,11 @@ public final class AdminApiServer implements AutoCloseable {
     private HttpServer server;
     private ThreadPoolExecutor executor;
     private AdminApiAuthService auth;
+    private AdminToolsService tools;
+    private AdminStageBatchService batch;
+    private String installationId;
+
+    public void setTools(AdminToolsService tools, AdminStageBatchService batch) { this.tools = tools; this.batch = batch; }
 
     public AdminApiServer(Logger logger, AdminOperationsService operations, AdminQueryService queries) {
         if (logger == null || operations == null || queries == null) throw new IllegalArgumentException("Admin API dependencies are required");
@@ -50,6 +58,7 @@ public final class AdminApiServer implements AutoCloseable {
         InetAddress bindAddress = AdminApiBindPolicy.loopback();
         AdminApiBindPolicy.requireAllowed(bindAddress);
         int port = resolvePort();
+        installationId = AdminInstallationIdentity.initialize(configDirectory);
         byte[] installationSecret = secretStore.initialize(configDirectory);
         AdminApiAuthService newAuth = new AdminApiAuthService(installationSecret);
         java.util.Arrays.fill(installationSecret, (byte) 0);
@@ -72,6 +81,7 @@ public final class AdminApiServer implements AutoCloseable {
             newServer.createContext(SESSION_PATH, exact(SESSION_PATH, this::handleSession));
             newServer.createContext(STATUS_PATH, exact(STATUS_PATH, this::handleStatus));
             new AdminApiRoutes(logger, newAuth, operations, queries, minecraftServer).register(newServer, this::exact);
+            if (tools != null) new AdminToolsRoutes(tools, batch, newAuth, minecraftServer, logger, operations).register(newServer, this::exact);
             newServer.start();
             server = newServer;
             executor = newExecutor;
@@ -145,7 +155,11 @@ public final class AdminApiServer implements AutoCloseable {
             AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
             return;
         }
-        AdminApiHttp.respond(exchange, 200, "{\"apiVersion\":1,\"modVersion\":\"" + RevolutionMod.VERSION + "\",\"remoteMode\":false}");
+        String environment = System.getProperty("revolution.admin.environment", "UNCONFIGURED");
+        if (!"DEV".equals(environment) && !"PROD".equals(environment)) environment = "UNCONFIGURED";
+        AdminApiHttp.respond(exchange, 200, "{\"apiVersion\":1,\"modVersion\":\"" + RevolutionMod.VERSION
+                + "\",\"remoteMode\":false,\"environment\":\"" + environment
+                + "\",\"installationId\":\"" + installationId + "\",\"capabilities\":" + (tools == null ? "[]" : "[\"stages.read\",\"stages.write\",\"progression.read\",\"progression.write\",\"enhancements.write\"]") + "}");
     }
 
     static int resolvePort() {

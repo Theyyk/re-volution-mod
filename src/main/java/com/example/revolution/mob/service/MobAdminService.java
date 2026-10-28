@@ -43,6 +43,7 @@ public final class MobAdminService {
     }
 
     public void execute(ICommandSender sender, String[] args) {
+        mobs.requireConfigurationReady();
         if (!(sender instanceof EntityPlayerMP)) { sender.sendMessage(new TextComponentString("§cOnly for players")); return; }
         EntityPlayerMP player = (EntityPlayerMP) sender;
         if (args.length == 0) { showUsage(player); return; }

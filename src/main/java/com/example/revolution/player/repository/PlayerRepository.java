@@ -6,6 +6,8 @@ import java.util.UUID;
 
 /** Persistence port. Implementations preserve the existing document contract. */
 public interface PlayerRepository {
+    List<PlayerIdentity> listKnownPlayers();
+    void rememberIdentity(UUID uuid, String lastKnownName);
     int getBalance(UUID uuid);
     void setBalance(UUID uuid, int balance);
     int getCrystals(UUID uuid);
