@@ -47,6 +47,34 @@ class MongoAdminStageStoreTest {
         assertEquals("FIXED_POINT", active.getString("spawnMode")); // input is not mutated
     }
 
+    @Test void controlPopulationDistributesFixedPointsAcrossStageGeometry() {
+        Document active = spawn("original", 1, true, "FIXED_POINT")
+                .append("x", 100.0).append("y", 64.0).append("z", 200.0);
+        Document zone = new Document("centerX", 100.0).append("centerZ", 200.0).append("radius", 12.0);
+
+        List<Document> changed = MongoAdminStageStore.population(Arrays.asList(active), 6, zone);
+        assertSplit(changed, 3, 3);
+
+        List<Document> fixed = new ArrayList<>();
+        for (Document row : changed) {
+            if (row.getBoolean("enabled", false) && "FIXED_POINT".equals(row.getString("spawnMode"))) fixed.add(row);
+        }
+        assertEquals(3, fixed.size());
+        for (Document row : fixed) {
+            double dx = row.getDouble("x") - 100.0D;
+            double dz = row.getDouble("z") - 200.0D;
+            assertTrue(Math.sqrt(dx * dx + dz * dz) < 12.0D);
+        }
+        for (int i = 0; i < fixed.size(); i++) {
+            for (int j = 0; j < i; j++) {
+                double dx = fixed.get(i).getDouble("x") - fixed.get(j).getDouble("x");
+                double dz = fixed.get(i).getDouble("z") - fixed.get(j).getDouble("z");
+                assertTrue(Math.sqrt(dx * dx + dz * dz) >= 4.0D,
+                        "fixed population should not collapse into nearby points");
+            }
+        }
+    }
+
     private static Document spawn(String id, int spawnId, boolean enabled, String mode) {
         return new Document("_id", id).append("spawnId", spawnId).append("enabled", enabled).append("spawnMode", mode);
     }
