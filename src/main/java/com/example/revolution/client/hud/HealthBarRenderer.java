@@ -61,10 +61,10 @@ public class HealthBarRenderer {
         GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         int barWidth = 60, barHeight = 6, halfWidth = barWidth / 2;
-        drawRect(-halfWidth - 1, -1, halfWidth + 1, barHeight + 1, 0xFF000000);
-        drawRect(-halfWidth, 0, halfWidth, barHeight, 0xFF333333);
+        drawRect(-halfWidth - 1, -1, halfWidth + 1, barHeight + 1, 0xB8000000);
+        drawRect(-halfWidth, 0, halfWidth, barHeight, 0xB82A2D31);
         int fillWidth = (int) (barWidth * ratio);
-        int color = ratio > 0.6D ? 0xFF00FF00 : ratio > 0.3D ? 0xFFFFFF00 : 0xFFFF0000;
+        int color = ratio > 0.6D ? 0xCC5B9866 : ratio > 0.3D ? 0xCCB28D4B : 0xCCA85252;
         drawRect(-halfWidth, 0, -halfWidth + fillWidth, barHeight, color);
 
         GlStateManager.disableBlend();
@@ -77,14 +77,14 @@ public class HealthBarRenderer {
         int hpWidth = font.getStringWidth(hpText);
         GlStateManager.pushMatrix();
         GlStateManager.scale(0.5F, 0.5F, 0.5F);
-        font.drawString(hpText, -(hpWidth / 2), 3, 0xFFFFFF);
+        font.drawString(hpText, -(hpWidth / 2), 3, 0xD8D8D8);
         GlStateManager.popMatrix();
 
         int nameWidth = font.getStringWidth(mobName);
-        font.drawString("§c" + mobName, -nameWidth / 2, -10, 0xFFFFFF);
+        font.drawString("§c" + mobName, -nameWidth / 2, -10, 0xE2E2E2);
         String resourceText = getDisplayResource(resource) + " x" + compactResourceAmount(resourceAmount);
         int resWidth = font.getStringWidth(resourceText);
-        font.drawString("§e" + resourceText, -resWidth / 2, barHeight + 1, 0xFFFFFF);
+        font.drawString("§e" + resourceText, -resWidth / 2, barHeight + 1, 0xE2E2E2);
 
         GlStateManager.popAttrib();
         GlStateManager.popMatrix();
