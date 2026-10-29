@@ -52,7 +52,7 @@ public final class NotificationFeedRenderer {
         ScaledResolution resolution = event.getResolution();
 
         int x = 8;
-        int bottom = resolution.getScaledHeight() - 30;
+        int bottom = resolution.getScaledHeight() - RealmHudRenderer.reservedBottomPixels(font);
         List<Entry> visible = new ArrayList<>(entries);
         for (int i = visible.size() - 1; i >= 0; i--) {
             Entry entry = visible.get(i);
