@@ -72,9 +72,7 @@ public final class ManagedMobVisualRenderer {
                 snapshot.deathStartedTick = -1L;
                 continue;
             }
-            if (snapshot.deathStartedTick < 0L && now - snapshot.lastSeenTick <= 3L) {
-                snapshot.deathStartedTick = now;
-            }
+            if (snapshot.deathStartedTick < 0L && now - snapshot.lastSeenTick <= 3L) snapshot.deathStartedTick = now;
             if (snapshot.deathStartedTick >= 0L && now - snapshot.deathStartedTick > DEATH_VISUAL_TICKS) {
                 lastHp.remove(item.getKey());
                 hurtUntil.remove(item.getKey());
@@ -118,15 +116,8 @@ public final class ManagedMobVisualRenderer {
         snapshot.deathStartedTick = -1L;
     }
 
-    private void renderAppearance(
-            EntityLivingBase entity,
-            MobAppearanceDefinition appearance,
-            MobAnimationState state,
-            double x,
-            double y,
-            double z,
-            float partial,
-            long deathStartedTick) {
+    private void renderAppearance(EntityLivingBase entity, MobAppearanceDefinition appearance, MobAnimationState state,
+            double x, double y, double z, float partial, long deathStartedTick) {
         ForestMobModel model = models.get(appearance.getAppearanceId());
         if (model == null) {
             model = new ForestMobModel(appearance);
@@ -173,12 +164,21 @@ public final class ManagedMobVisualRenderer {
     }
 
     private MobAppearanceDefinition appearance(EntityLivingBase entity) {
-        if (!entity.hasCustomName()) return null;
-        String raw = entity.getCustomNameTag();
-        if (raw == null || !raw.startsWith("§c") || !raw.contains("|")) return null;
-        String[] parts = raw.substring(2).split("\\|", -1);
-        if (parts.length < 6) return null;
-        return MobVisualWire.resolve(parts[5]);
+        if (entity.hasCustomName()) {
+            String raw = entity.getCustomNameTag();
+            if (raw != null && raw.startsWith("§c") && raw.contains("|")) {
+                String[] parts = raw.substring(2).split("\\|", -1);
+                if (parts.length >= 6) {
+                    MobAppearanceDefinition resolved = MobVisualWire.resolve(parts[5]);
+                    if (resolved != null) return resolved;
+                }
+            }
+        }
+        // ManagedMobService updates HP metadata before ManagedMobAppearanceEvents restores rvvis.
+        // Keep the last verified appearance for the same live entity so that transient metadata packets
+        // can never expose the underlying vanilla zombie/skeleton renderer during a hit.
+        Snapshot snapshot = snapshots.get(entity.getEntityId());
+        return snapshot != null && snapshot.entity == entity ? snapshot.appearance : null;
     }
 
     private MobAnimationState animationState(EntityLivingBase entity) {
