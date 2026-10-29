@@ -1,6 +1,7 @@
 package com.example.revolution.client.hud;
 
 import com.example.revolution.number.LargeNumbers;
+import com.example.revolution.resource.definition.ResourceDefinitions;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import net.minecraft.client.Minecraft;
@@ -82,7 +83,7 @@ public class HealthBarRenderer {
 
         int nameWidth = font.getStringWidth(mobName);
         font.drawString("§c" + mobName, -nameWidth / 2, -10, 0xE2E2E2);
-        String resourceText = getDisplayResource(resource) + " x" + compactResourceAmount(resourceAmount);
+        String resourceText = ResourceDefinitions.getDisplayName(resource) + " x" + compactResourceAmount(resourceAmount);
         int resWidth = font.getStringWidth(resourceText);
         font.drawString("§e" + resourceText, -resWidth / 2, barHeight + 1, 0xE2E2E2);
 
@@ -99,13 +100,6 @@ public class HealthBarRenderer {
         if (rawAmount == null || rawAmount.trim().isEmpty()) return "0";
         try { return LargeNumbers.format(new BigDecimal(rawAmount.trim())); }
         catch (NumberFormatException ignored) { return rawAmount; }
-    }
-
-    private static String getDisplayResource(String resource) {
-        if (resource.equalsIgnoreCase("coins")) return "Монеты";
-        if (resource.equalsIgnoreCase("crystals")) return "Кристаллы";
-        if (resource.equalsIgnoreCase("lightnings")) return "Молнии";
-        return resource;
     }
 
     private static void drawRect(int left, int top, int right, int bottom, int color) {
