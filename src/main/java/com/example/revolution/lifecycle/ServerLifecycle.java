@@ -2,6 +2,7 @@ package com.example.revolution.lifecycle;
 
 import com.example.revolution.combat.DamageBonusHandler;
 import com.example.revolution.combat.LegacyAttackCooldownHandler;
+import com.example.revolution.combat.PoisonMobPauseHandler;
 import com.example.revolution.commands.AdminPanelCommand;
 import com.example.revolution.commands.CustomMobCommand;
 import com.example.revolution.commands.CustomResourceCommand;
@@ -72,6 +73,7 @@ public final class ServerLifecycle {
         listeners.add(new ManagedMobAppearanceEvents());
         listeners.add(new LegacyAttackCooldownHandler(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
+        listeners.add(new PoisonMobPauseHandler(current.mobs));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
         listeners.add(new FastAutoHandler(current.fastAuto, current.stageTransitions));
         for (Object listener : listeners) MinecraftForge.EVENT_BUS.register(listener);
