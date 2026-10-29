@@ -17,8 +17,15 @@ public final class RuneRankUpBalanceService {
         this.balance = balance;
     }
 
-    public RuneRankUpRule rule(int statusId, int sourceRank) {
+    /**
+     * Resolves the rank-up rule at the factual nested progression point.
+     * higherRuneCount is the number of slots already above sourceRank before this rank-up.
+     */
+    public RuneRankUpRule rule(int statusId, int sourceRank, int higherRuneCount) {
         if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
+        if (higherRuneCount < 0 || higherRuneCount >= RuneLayoutDefinition.BOOST_TYPE_COUNT) {
+            throw new IllegalArgumentException("higherRuneCount must be within 0..25");
+        }
         int normalizedSource = RuneProgression.clampRank(sourceRank);
         if (RuneProgression.isMaximumRank(normalizedSource)) {
             throw new IllegalArgumentException("maximum rank has no forward transition");
@@ -28,7 +35,7 @@ public final class RuneRankUpBalanceService {
         int targetRank = positiveIntValue(prefix + "target", "target rank");
         int requiredSlots = positiveIntValue(prefix + "required_slots", "required slots");
         String resource = canonicalResource(balance.getActiveValue(prefix + "resource"));
-        int cost = positiveInt(balance.evaluateActiveCurve(prefix + "cost", 0), "rank-up cost");
+        int cost = positiveInt(balance.evaluateActiveCurve(prefix + "cost", higherRuneCount), "rank-up cost");
         RuneRankUpRule.ClearMode clearMode = clearMode(balance.getActiveValue(prefix + "clear_mode"));
         boolean preserveEnhancements = booleanValue(prefix + "preserve_enhancements");
 
@@ -39,7 +46,7 @@ public final class RuneRankUpBalanceService {
             throw new IllegalStateException("required slots exceed rune layout size: " + requiredSlots);
         }
         if (!preserveEnhancements) {
-            throw new IllegalStateException("v1.4.4 rank-up requires preserve_enhancements=true");
+            throw new IllegalStateException("rank-up requires preserve_enhancements=true");
         }
 
         return new RuneRankUpRule(
@@ -50,6 +57,11 @@ public final class RuneRankUpBalanceService {
                 cost,
                 clearMode,
                 true);
+    }
+
+    /** Backward-compatible first-rank-up lookup. */
+    public RuneRankUpRule rule(int statusId, int sourceRank) {
+        return rule(statusId, sourceRank, 0);
     }
 
     private int positiveIntValue(String key, String label) {
