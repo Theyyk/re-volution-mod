@@ -9,7 +9,8 @@ public final class RuneRankRevertDecision {
         INVALID_COLLECTION,
         INVALID_RUNE,
         MISSING_RUNE,
-        BELOW_ALLOWED_RANK
+        BELOW_ALLOWED_RANK,
+        INVALID_POLICY
     }
 
     public final Reason reason;
@@ -23,25 +24,36 @@ public final class RuneRankRevertDecision {
     }
 
     public static RuneRankRevertDecision evaluate(int[] bestRanks, int runeIndex) {
+        return evaluate(bestRanks, runeIndex, RuneProgression.ADVANCED_RANK, 1);
+    }
+
+    public static RuneRankRevertDecision evaluate(
+            int[] bestRanks,
+            int runeIndex,
+            int allowedFromRank,
+            int revertSteps) {
         if (bestRanks == null || bestRanks.length < RuneLayoutDefinition.BOOST_TYPE_COUNT) {
             return new RuneRankRevertDecision(Reason.INVALID_COLLECTION, 0, 0);
         }
         if (runeIndex < 0 || runeIndex >= RuneLayoutDefinition.BOOST_TYPE_COUNT) {
             return new RuneRankRevertDecision(Reason.INVALID_RUNE, 0, 0);
         }
+        if (allowedFromRank <= 0 || revertSteps <= 0) {
+            return new RuneRankRevertDecision(Reason.INVALID_POLICY, 0, 0);
+        }
 
         int currentRank = bestRanks[runeIndex];
         if (currentRank <= 0) {
             return new RuneRankRevertDecision(Reason.MISSING_RUNE, 0, 0);
         }
-        if (!canRevertRank(currentRank)) {
+        if (currentRank < allowedFromRank || currentRank - revertSteps < RuneProgression.NORMAL_RANK) {
             return new RuneRankRevertDecision(Reason.BELOW_ALLOWED_RANK, currentRank, currentRank);
         }
 
-        return new RuneRankRevertDecision(Reason.ALLOWED, currentRank, currentRank - 1);
+        return new RuneRankRevertDecision(Reason.ALLOWED, currentRank, currentRank - revertSteps);
     }
 
-    /** Revert starts at ADVANCED. The one-step rule also remains valid for future higher rank ids. */
+    /** Client eligibility for the current v1.5.0 policy advertised by the bundled snapshot. */
     public static boolean canRevertRank(int rank) {
         return rank >= RuneProgression.ADVANCED_RANK;
     }
