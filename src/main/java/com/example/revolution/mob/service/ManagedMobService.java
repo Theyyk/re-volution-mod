@@ -678,6 +678,7 @@ public final class ManagedMobService {
 
     private void syncMobMetadata(MobRuntimeState spawn, EntityLiving entity) {
         if (spawn == null || entity == null) return;
+        entity.setSilent(true);
         entity.setCustomNameTag("§c" + spawn.definition.name + "|" + LargeNumbers.canonical(spawn.currentHp) + "|"
                 + LargeNumbers.canonical(spawn.definition.hp) + "|" + spawn.definition.resource + "|"
                 + LargeNumbers.canonical(spawn.definition.amount));
