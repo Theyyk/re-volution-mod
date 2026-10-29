@@ -23,24 +23,24 @@ public final class ManagedMobAppearanceEvents {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onEntityJoinWorld(EntityJoinWorldEvent event) {
-        if (!event.getWorld().isRemote) refresh(event.getEntity());
+        if (!event.getWorld().isRemote) refreshNow(event.getEntity());
     }
 
     /**
-     * ManagedMobService rewrites its health payload after hits and chunk recovery. Re-apply the visual/name
-     * fields after the service tick so appearance identity survives every metadata refresh without changing
-     * the gameplay wire fields or persistence schema.
+     * ManagedMobService can rewrite its health payload after hits and chunk recovery. The regular end-of-tick
+     * pass remains a recovery guard, while combat adapters call refreshNow immediately after damage so the
+     * technical mob ID never survives until entity metadata is flushed to clients.
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         for (World world : DimensionManager.getWorlds()) {
             if (world == null || world.isRemote) continue;
-            for (Entity entity : new ArrayList<>(world.loadedEntityList)) refresh(entity);
+            for (Entity entity : new ArrayList<>(world.loadedEntityList)) refreshNow(entity);
         }
     }
 
-    private void refresh(Entity entity) {
+    public static void refreshNow(Entity entity) {
         if (!(entity instanceof EntityZombie) && !(entity instanceof EntitySkeleton)) return;
         if (!entity.hasCustomName()) return;
 
@@ -59,12 +59,7 @@ public final class ManagedMobAppearanceEvents {
         if (raw == null || !raw.startsWith("§c") || !raw.contains("|")) return;
         String[] parts = raw.substring(2).split("\\|", -1);
         if (parts.length < 5) return;
-        String expected = "§c" + appearance.getDisplayName()
-                + "|" + parts[1]
-                + "|" + parts[2]
-                + "|" + parts[3]
-                + "|" + parts[4]
-                + "|" + MobVisualWire.encode(locationId, mobSlotId);
+        String expected = MobVisualWire.displayNamePayload(appearance, parts[1], parts[2], parts[3], parts[4]);
         if (!expected.equals(raw)) entity.setCustomNameTag(expected);
     }
 }
