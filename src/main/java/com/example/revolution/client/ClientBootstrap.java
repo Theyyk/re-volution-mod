@@ -5,6 +5,7 @@ import com.example.revolution.client.hud.HealthBarRenderer;
 import com.example.revolution.client.hud.NameHider;
 import com.example.revolution.client.hud.NotificationFeedRenderer;
 import com.example.revolution.client.hud.RealmHudRenderer;
+import com.example.revolution.client.hud.RpgHudRenderer;
 import com.example.revolution.client.input.ClientRpgSurvivalGuard;
 import com.example.revolution.client.input.EnhancementClickGuard;
 import com.example.revolution.client.input.InventoryMenuRedirectHandler;
@@ -29,6 +30,7 @@ public final class ClientBootstrap {
         MinecraftForge.EVENT_BUS.register(new NameHider());
         MinecraftForge.EVENT_BUS.register(new RealmHudRenderer());
         MinecraftForge.EVENT_BUS.register(new NotificationFeedRenderer());
+        MinecraftForge.EVENT_BUS.register(new RpgHudRenderer());
         MinecraftForge.EVENT_BUS.register(new MobZoneOverlayRenderer());
         MinecraftForge.EVENT_BUS.register(new EnhancementClickGuard());
         MinecraftForge.EVENT_BUS.register(new InventoryMenuRedirectHandler());
