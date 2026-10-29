@@ -9,6 +9,7 @@ import com.example.revolution.commands.CustomResourceCommand;
 import com.example.revolution.commands.CustomRunesCommand;
 import com.example.revolution.commands.CustomStatusCommand;
 import com.example.revolution.commands.LocationCommand;
+import com.example.revolution.commands.PrestigeCommand;
 import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.commands.StageCommand;
 import com.example.revolution.location.event.FastAutoHandler;
@@ -19,6 +20,7 @@ import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
 import com.example.revolution.player.event.PlayerJoinHandler;
 import com.example.revolution.player.event.RpgSurvivalGuard;
+import com.example.revolution.prestige.PrestigeDamageEffectHandler;
 import com.example.revolution.realm.event.RealmEntityLoadHandler;
 import com.example.revolution.realm.event.RealmLoginHandler;
 import com.example.revolution.realm.world.RealmStartupSync;
@@ -69,10 +71,11 @@ public final class ServerLifecycle {
         listeners.add(new RpgSurvivalGuard());
         listeners.add(new RealmLoginHandler(current.realms));
         listeners.add(new RealmEntityLoadHandler());
-        listeners.add(new ManagedMobEvents(current.mobs));
+        listeners.add(new ManagedMobEvents(current.mobs, current.prestige));
         listeners.add(new ManagedMobAppearanceEvents());
         listeners.add(new LegacyAttackCooldownHandler(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
+        listeners.add(new PrestigeDamageEffectHandler(current.mobs, current.effects));
         listeners.add(new PoisonMobPauseHandler(current.mobs));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
         listeners.add(new FastAutoHandler(current.fastAuto, current.stageTransitions));
@@ -107,6 +110,7 @@ public final class ServerLifecycle {
         event.registerServerCommand(new CustomStatusCommand(current.collections));
         event.registerServerCommand(new CustomResourceCommand(current.resources));
         event.registerServerCommand(new AdminPanelCommand(current.adminAccess));
+        event.registerServerCommand(new PrestigeCommand(current.prestige));
         event.registerServerCommand(new RealmCommand(current.realms));
         event.registerServerCommand(new LocationCommand(current.locationProvisioning, current.stageTransitionTriggers, current.physicalBuilds));
         event.registerServerCommand(new StageCommand(
