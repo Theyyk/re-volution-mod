@@ -12,6 +12,7 @@ public final class BalanceCurveDefinition {
     private final BalanceCurveMode mode;
     private final BigDecimal fixedValue;
     private final Map<Integer, BigDecimal> tableValues;
+    private final BigDecimal tableTailGrowth;
     private final BigDecimal formulaBase;
     private final BigDecimal formulaGrowth;
     private final List<Piece> pieces;
@@ -20,6 +21,7 @@ public final class BalanceCurveDefinition {
             BalanceCurveMode mode,
             BigDecimal fixedValue,
             Map<Integer, BigDecimal> tableValues,
+            BigDecimal tableTailGrowth,
             BigDecimal formulaBase,
             BigDecimal formulaGrowth,
             List<Piece> pieces) {
@@ -28,6 +30,7 @@ public final class BalanceCurveDefinition {
         this.tableValues = tableValues == null
                 ? Collections.emptyMap()
                 : Collections.unmodifiableMap(new TreeMap<>(tableValues));
+        this.tableTailGrowth = tableTailGrowth;
         this.formulaBase = formulaBase;
         this.formulaGrowth = formulaGrowth;
         this.pieces = pieces == null
@@ -36,44 +39,33 @@ public final class BalanceCurveDefinition {
     }
 
     public static BalanceCurveDefinition fixed(BigDecimal value) {
-        return new BalanceCurveDefinition(BalanceCurveMode.FIXED, value, null, null, null, null);
+        return new BalanceCurveDefinition(BalanceCurveMode.FIXED, value, null, null, null, null, null);
     }
 
     public static BalanceCurveDefinition table(Map<Integer, BigDecimal> values) {
-        return new BalanceCurveDefinition(BalanceCurveMode.TABLE, null, values, null, null, null);
+        return table(values, null);
+    }
+
+    /** Optional tail growth continues from the final explicit table value for every later index. */
+    public static BalanceCurveDefinition table(Map<Integer, BigDecimal> values, BigDecimal tailGrowth) {
+        return new BalanceCurveDefinition(BalanceCurveMode.TABLE, null, values, tailGrowth, null, null, null);
     }
 
     public static BalanceCurveDefinition formula(BigDecimal base, BigDecimal growth) {
-        return new BalanceCurveDefinition(BalanceCurveMode.FORMULA, null, null, base, growth, null);
+        return new BalanceCurveDefinition(BalanceCurveMode.FORMULA, null, null, null, base, growth, null);
     }
 
     public static BalanceCurveDefinition piecewise(List<Piece> pieces) {
-        return new BalanceCurveDefinition(BalanceCurveMode.PIECEWISE, null, null, null, null, pieces);
+        return new BalanceCurveDefinition(BalanceCurveMode.PIECEWISE, null, null, null, null, null, pieces);
     }
 
-    public BalanceCurveMode getMode() {
-        return mode;
-    }
-
-    public BigDecimal getFixedValue() {
-        return fixedValue;
-    }
-
-    public Map<Integer, BigDecimal> getTableValues() {
-        return tableValues;
-    }
-
-    public BigDecimal getFormulaBase() {
-        return formulaBase;
-    }
-
-    public BigDecimal getFormulaGrowth() {
-        return formulaGrowth;
-    }
-
-    public List<Piece> getPieces() {
-        return pieces;
-    }
+    public BalanceCurveMode getMode() { return mode; }
+    public BigDecimal getFixedValue() { return fixedValue; }
+    public Map<Integer, BigDecimal> getTableValues() { return tableValues; }
+    public BigDecimal getTableTailGrowth() { return tableTailGrowth; }
+    public BigDecimal getFormulaBase() { return formulaBase; }
+    public BigDecimal getFormulaGrowth() { return formulaGrowth; }
+    public List<Piece> getPieces() { return pieces; }
 
     /** Inclusive range. A null {@code to} means the final segment is unbounded. */
     public static final class Piece {
@@ -87,17 +79,9 @@ public final class BalanceCurveDefinition {
             this.curve = curve;
         }
 
-        public int getFrom() {
-            return from;
-        }
-
-        public Integer getTo() {
-            return to;
-        }
-
-        public BalanceCurveDefinition getCurve() {
-            return curve;
-        }
+        public int getFrom() { return from; }
+        public Integer getTo() { return to; }
+        public BalanceCurveDefinition getCurve() { return curve; }
 
         public boolean contains(int index) {
             return index >= from && (to == null || index <= to);

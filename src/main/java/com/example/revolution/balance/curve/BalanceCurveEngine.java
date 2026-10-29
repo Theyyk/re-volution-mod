@@ -2,6 +2,7 @@ package com.example.revolution.balance.curve;
 
 import com.example.revolution.balance.definition.BalanceCurveDefinition;
 import java.math.BigDecimal;
+import java.util.Map;
 
 /** Pure deterministic evaluator for canonical balance curves. */
 public final class BalanceCurveEngine {
@@ -15,19 +16,24 @@ public final class BalanceCurveEngine {
                 return normalized(required(curve.getFixedValue(), "fixed value"));
             case TABLE:
                 BigDecimal tableValue = curve.getTableValues().get(index);
-                if (tableValue == null) {
-                    throw new IllegalArgumentException("TABLE curve has no value for index " + index);
+                if (tableValue != null) return normalized(tableValue);
+                BigDecimal tailGrowth = curve.getTableTailGrowth();
+                if (tailGrowth != null && !curve.getTableValues().isEmpty()) {
+                    Map.Entry<Integer, BigDecimal> last = null;
+                    for (Map.Entry<Integer, BigDecimal> entry : curve.getTableValues().entrySet()) last = entry;
+                    if (last != null && index > last.getKey()) {
+                        int exponent = index - last.getKey();
+                        return normalized(last.getValue().multiply(tailGrowth.pow(exponent)));
+                    }
                 }
-                return normalized(tableValue);
+                throw new IllegalArgumentException("TABLE curve has no value for index " + index);
             case FORMULA:
                 BigDecimal base = required(curve.getFormulaBase(), "formula base");
                 BigDecimal growth = required(curve.getFormulaGrowth(), "formula growth");
                 return normalized(base.multiply(growth.pow(index)));
             case PIECEWISE:
                 for (BalanceCurveDefinition.Piece piece : curve.getPieces()) {
-                    if (piece != null && piece.contains(index)) {
-                        return evaluate(piece.getCurve(), index - piece.getFrom());
-                    }
+                    if (piece != null && piece.contains(index)) return evaluate(piece.getCurve(), index - piece.getFrom());
                 }
                 throw new IllegalArgumentException("PIECEWISE curve has no segment for index " + index);
             default:

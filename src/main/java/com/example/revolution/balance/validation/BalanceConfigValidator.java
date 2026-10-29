@@ -20,51 +20,28 @@ public final class BalanceConfigValidator {
             errors.add("config is null");
             throw new BalanceValidationException(errors);
         }
-
         if (config.getBalanceSchemaVersion() != BalanceConfig.SUPPORTED_SCHEMA_VERSION) {
             errors.add("unsupported balanceSchemaVersion " + config.getBalanceSchemaVersion()
                     + ", expected " + BalanceConfig.SUPPORTED_SCHEMA_VERSION);
         }
-
         for (Map.Entry<String, String> entry : config.getValues().entrySet()) {
             String id = entry.getKey();
-            if (id == null || !BALANCE_ID.matcher(id).matches()) {
-                errors.add("invalid value id '" + id + "'");
-            }
-            if (entry.getValue() == null || entry.getValue().trim().isEmpty()) {
-                errors.add("values." + id + " must not be blank");
-            }
+            if (id == null || !BALANCE_ID.matcher(id).matches()) errors.add("invalid value id '" + id + "'");
+            if (entry.getValue() == null || entry.getValue().trim().isEmpty()) errors.add("values." + id + " must not be blank");
         }
-
-        if (config.getCurves().isEmpty()) {
-            errors.add("curves must contain at least one entry");
-        }
-
+        if (config.getCurves().isEmpty()) errors.add("curves must contain at least one entry");
         for (Map.Entry<String, BalanceCurveDefinition> entry : config.getCurves().entrySet()) {
             String id = entry.getKey();
-            if (id == null || !BALANCE_ID.matcher(id).matches()) {
-                errors.add("invalid curve id '" + id + "'");
-            }
+            if (id == null || !BALANCE_ID.matcher(id).matches()) errors.add("invalid curve id '" + id + "'");
             validateCurve(entry.getValue(), "curves." + id, 0, errors);
         }
-
         if (!errors.isEmpty()) throw new BalanceValidationException(errors);
     }
 
     private void validateCurve(BalanceCurveDefinition curve, String path, int depth, List<String> errors) {
-        if (curve == null) {
-            errors.add(path + " is null");
-            return;
-        }
-        if (depth > MAX_CURVE_DEPTH) {
-            errors.add(path + " exceeds maximum nested curve depth " + MAX_CURVE_DEPTH);
-            return;
-        }
-        if (curve.getMode() == null) {
-            errors.add(path + ".mode is required");
-            return;
-        }
-
+        if (curve == null) { errors.add(path + " is null"); return; }
+        if (depth > MAX_CURVE_DEPTH) { errors.add(path + " exceeds maximum nested curve depth " + MAX_CURVE_DEPTH); return; }
+        if (curve.getMode() == null) { errors.add(path + ".mode is required"); return; }
         BalanceCurveMode mode = curve.getMode();
         switch (mode) {
             case FIXED:
@@ -86,10 +63,7 @@ public final class BalanceConfigValidator {
     }
 
     private void validateTable(BalanceCurveDefinition curve, String path, List<String> errors) {
-        if (curve.getTableValues().isEmpty()) {
-            errors.add(path + ".values must not be empty");
-            return;
-        }
+        if (curve.getTableValues().isEmpty()) { errors.add(path + ".values must not be empty"); return; }
         int expectedIndex = 0;
         for (Map.Entry<Integer, BigDecimal> entry : curve.getTableValues().entrySet()) {
             if (entry.getKey() == null || entry.getKey() != expectedIndex) {
@@ -99,55 +73,37 @@ public final class BalanceConfigValidator {
             validateNonNegative(entry.getValue(), path + ".values[" + expectedIndex + "]", errors);
             expectedIndex++;
         }
+        BigDecimal tailGrowth = curve.getTableTailGrowth();
+        if (tailGrowth != null && tailGrowth.signum() <= 0) errors.add(path + ".tail_growth must be > 0");
     }
 
     private void validatePieces(BalanceCurveDefinition curve, String path, int depth, List<String> errors) {
-        if (curve.getPieces().isEmpty()) {
-            errors.add(path + ".segments must not be empty");
-            return;
-        }
-
+        if (curve.getPieces().isEmpty()) { errors.add(path + ".segments must not be empty"); return; }
         int expectedFrom = 0;
         boolean unboundedSeen = false;
         for (int i = 0; i < curve.getPieces().size(); i++) {
             BalanceCurveDefinition.Piece piece = curve.getPieces().get(i);
             String piecePath = path + ".segments[" + i + "]";
-            if (piece == null) {
-                errors.add(piecePath + " is null");
-                continue;
-            }
-            if (unboundedSeen) {
-                errors.add(piecePath + " appears after an unbounded segment");
-            }
-            if (piece.getFrom() != expectedFrom) {
-                errors.add(piecePath + ".from must be " + expectedFrom + " for contiguous coverage");
-            }
-            if (piece.getFrom() < 0) {
-                errors.add(piecePath + ".from must be >= 0");
-            }
-
+            if (piece == null) { errors.add(piecePath + " is null"); continue; }
+            if (unboundedSeen) errors.add(piecePath + " appears after an unbounded segment");
+            if (piece.getFrom() != expectedFrom) errors.add(piecePath + ".from must be " + expectedFrom + " for contiguous coverage");
+            if (piece.getFrom() < 0) errors.add(piecePath + ".from must be >= 0");
             Integer to = piece.getTo();
             if (to == null) {
                 unboundedSeen = true;
-                if (i != curve.getPieces().size() - 1) {
-                    errors.add(piecePath + " may be unbounded only when it is the final segment");
-                }
+                if (i != curve.getPieces().size() - 1) errors.add(piecePath + " may be unbounded only when it is the final segment");
             } else if (to < piece.getFrom()) {
                 errors.add(piecePath + ".to must be >= from");
             } else if (to == Integer.MAX_VALUE) {
                 errors.add(piecePath + ".to must not be Integer.MAX_VALUE; omit to for an unbounded segment");
             }
-
             validateCurve(piece.getCurve(), piecePath + ".curve", depth + 1, errors);
             if (to != null && to >= piece.getFrom() && to < Integer.MAX_VALUE) expectedFrom = to + 1;
         }
     }
 
     private void validateNonNegative(BigDecimal value, String path, List<String> errors) {
-        if (value == null) {
-            errors.add(path + " is required");
-        } else if (value.signum() < 0) {
-            errors.add(path + " must be >= 0");
-        }
+        if (value == null) errors.add(path + " is required");
+        else if (value.signum() < 0) errors.add(path + " must be >= 0");
     }
 }

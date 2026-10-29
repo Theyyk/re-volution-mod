@@ -30,13 +30,20 @@ public final class NetworkWireContractTest {
                     new PlayerStatsPacket(), expected);
 
             expected.writeInt(1); ByteBufUtils.writeUTF8String(expected, "rune_dust"); expected.writeDouble(0.1D).writeInt(26);
-            for (int rune = 0; rune < 26; rune++) expected.writeInt(0).writeInt(10).writeInt(50).writeInt(100).writeInt(1000);
+            for (int rune = 0; rune < 26; rune++) {
+                expected.writeInt(0);
+                ByteBufUtils.writeUTF8String(expected, "10");
+                ByteBufUtils.writeUTF8String(expected, "50");
+                ByteBufUtils.writeUTF8String(expected, "100");
+                ByteBufUtils.writeUTF8String(expected, "1000");
+            }
             verify(RunePacketFactory.enhancements(
                     RuneStatusConfig.STATUS_POISON,
                     ResourceDefinitions.RUNE_DUST,
                     0.1D,
                     new int[26],
-                    new int[] {10, 50, 100, 1000}), new RuneEnhancementPacket(), expected);
+                    new BigDecimal[] {BigDecimal.TEN, new BigDecimal("50"), new BigDecimal("100"), new BigDecimal("1000")}),
+                    new RuneEnhancementPacket(), expected);
 
             verify(new StageTravelMenuRequestPacket(), new StageTravelMenuRequestPacket(), expected);
 

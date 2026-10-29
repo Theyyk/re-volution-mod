@@ -1,6 +1,7 @@
 package com.example.revolution.lifecycle;
 
 import com.example.revolution.combat.DamageBonusHandler;
+import com.example.revolution.combat.LegacyAttackCooldownHandler;
 import com.example.revolution.commands.AdminPanelCommand;
 import com.example.revolution.commands.CustomMobCommand;
 import com.example.revolution.commands.CustomResourceCommand;
@@ -67,6 +68,7 @@ public final class ServerLifecycle {
         listeners.add(new RealmEntityLoadHandler());
         listeners.add(new ManagedMobEvents(current.mobs));
         listeners.add(new ManagedMobAppearanceEvents());
+        listeners.add(new LegacyAttackCooldownHandler(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
         listeners.add(new FastAutoHandler(current.fastAuto, current.stageTransitions));
