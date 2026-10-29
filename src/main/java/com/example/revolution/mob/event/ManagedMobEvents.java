@@ -1,8 +1,8 @@
 package com.example.revolution.mob.event;
 
+import com.example.revolution.gameplay.GameplayDamageSource;
+import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.mob.service.ManagedMobService;
-import com.example.revolution.prestige.PrestigeBranch;
-import com.example.revolution.prestige.PrestigeService;
 import java.math.BigDecimal;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
@@ -19,10 +19,11 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 /** Forge subscriptions preserve priorities, thread phases and cancellation at the adapter boundary. */
 public final class ManagedMobEvents {
     private final ManagedMobService mobs;
-    private final PrestigeService prestige;
-    public ManagedMobEvents(ManagedMobService mobs, PrestigeService prestige) {
+    private final GameplayEventSink gameplayEvents;
+
+    public ManagedMobEvents(ManagedMobService mobs, GameplayEventSink gameplayEvents) {
         this.mobs = mobs;
-        this.prestige = prestige;
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -51,17 +52,18 @@ public final class ManagedMobEvents {
             BigDecimal hpBefore = managedHp(event.getEntityLiving().getCustomNameTag());
             EntityPlayerMP player = event.getSource().getTrueSource() instanceof EntityPlayerMP
                     ? (EntityPlayerMP) event.getSource().getTrueSource() : null;
-            boolean factualClick = player != null && !mobs.isApplyingPoisonDamage(player.getUniqueID());
+            GameplayDamageSource source = player != null && mobs.isApplyingPoisonDamage(player.getUniqueID())
+                    ? GameplayDamageSource.POISON : GameplayDamageSource.CLICK;
 
             event.setCanceled(true);
             mobs.applyDamage(event.getEntityLiving(), event.getSource(), event.getAmount());
 
-            if (factualClick && hpBefore != null) {
+            if (player != null && hpBefore != null) {
                 BigDecimal hpAfter = event.getEntityLiving().isDead
                         ? BigDecimal.ZERO : managedHp(event.getEntityLiving().getCustomNameTag());
                 if (hpAfter != null) {
                     BigDecimal dealt = hpBefore.subtract(hpAfter);
-                    if (dealt.signum() > 0) prestige.recordProgress(player.getUniqueID(), PrestigeBranch.CLICK, dealt);
+                    if (dealt.signum() > 0) gameplayEvents.confirmedDamage(player.getUniqueID(), source, dealt);
                 }
             }
             ManagedMobAppearanceEvents.refreshNow(event.getEntityLiving());
