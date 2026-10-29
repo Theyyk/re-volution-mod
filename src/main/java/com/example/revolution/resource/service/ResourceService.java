@@ -103,8 +103,9 @@ public final class ResourceService {
         return amount >= 0 && canAfford(uuid, resource, BigDecimal.valueOf(amount));
     }
 
+    /** Positive deltas are gameplay earnings; negative deltas remain ordinary spending. */
     public int addPlayerResource(UUID uuid, String resource, int amount) {
-        if (amount > 0) grantPlayerResource(uuid, resource, amount);
+        if (amount > 0) grantEarnedPlayerResource(uuid, resource, amount);
         else if (amount < 0) spendPlayerResource(uuid, resource, (int) Math.min(Integer.MAX_VALUE, -(long) amount));
         return getPlayerResource(uuid, resource);
     }
