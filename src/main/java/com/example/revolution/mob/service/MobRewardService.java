@@ -49,7 +49,7 @@ public final class MobRewardService {
 
     private void grantResolved(EntityPlayerMP player, ManagedMobDefinition definition, BigDecimal baseReward) {
         BigDecimal rewardAmount = runeEffects.rewardAmount(player.getUniqueID(), definition.resource, baseReward);
-        if (resources.grantPlayerResource(player.getUniqueID(), definition.resource, rewardAmount)) {
+        if (resources.grantEarnedPlayerResource(player.getUniqueID(), definition.resource, rewardAmount)) {
             BigDecimal newBalance = resources.getPlayerResourceValue(player.getUniqueID(), definition.resource);
             player.sendMessage(new TextComponentString("§6+" + LargeNumbers.format(rewardAmount) + " "
                     + ResourceDefinitions.getDisplayName(definition.resource) + "! Баланс: " + LargeNumbers.format(newBalance)));
@@ -59,11 +59,11 @@ public final class MobRewardService {
         }
     }
 
-    /** Retains the legacy name-based 50-coin reward, including integer balance semantics. */
+    /** Retains the legacy name-based 50-coin reward while publishing it as confirmed earned coins. */
     public void grantLegacyCoins(EntityPlayerMP player) {
-        int balance = players.getBalance(player.getUniqueID());
-        players.setBalance(player.getUniqueID(), balance + 50);
-        player.sendMessage(new TextComponentString("§6+50 монет! Баланс: " + (balance + 50)));
-        NetworkHandler.sendToClient(new PongPacket(balance + 50), player);
+        if (!resources.grantEarnedPlayerResource(player.getUniqueID(), "coins", 50)) return;
+        int balance = resources.getPlayerResource(player.getUniqueID(), "coins");
+        player.sendMessage(new TextComponentString("§6+50 монет! Баланс: " + balance));
+        NetworkHandler.sendToClient(new PongPacket(balance), player);
     }
 }
