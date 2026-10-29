@@ -1,5 +1,6 @@
 package com.example.revolution.client.input;
 
+import com.example.revolution.client.ClientUiBridge;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.StageTravelMenuRequestPacket;
 import net.minecraft.client.Minecraft;
@@ -26,6 +27,8 @@ public class KeyInputHandler {
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
+
+        ClientUiBridge.tickRunePreloader();
 
         boolean stageTravelPressed = keyOpenStageTravel.isPressed();
         Minecraft minecraft = Minecraft.getMinecraft();
