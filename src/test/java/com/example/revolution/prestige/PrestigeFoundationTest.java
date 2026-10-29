@@ -77,20 +77,20 @@ public final class PrestigeFoundationTest {
         Document improved = new Document("slot", 2).append("cardIndex", 2).append("layer", 2).append("level", 9);
         Document advanced = new Document("slot", 3).append("cardIndex", 3).append("layer", 3).append("level", 11);
         Document enhancements = new Document("1", 44).append("2", 55).append("3", 66);
-        Document deck = new Document("name", "A")
+        Document collection = new Document("name", "A")
                 .append("cards", new ArrayList<>(Arrays.asList(ordinary, improved, advanced)))
                 .append("runeEnhancements", enhancements);
-        Document player = new Document("crystals", 777).append("decks", new ArrayList<>(Arrays.asList(deck)));
+        Document player = new Document("crystals", 777).append("decks", new ArrayList<>(Arrays.asList(collection)));
 
         List<Document> reset = MongoPrestigeRepository.resetRuneRanks(player);
         assertNotNull(reset);
-        @SuppressWarnings("unchecked") List<Document> cards = (List<Document>) reset.get(0).get("cards");
-        assertEquals(1, cards.get(0).getInteger("layer"));
-        assertEquals(1, cards.get(1).getInteger("layer"));
-        assertEquals(3, cards.get(2).getInteger("layer"));
-        assertEquals(7, cards.get(0).getInteger("level"));
-        assertEquals(9, cards.get(1).getInteger("level"));
-        assertEquals(11, cards.get(2).getInteger("level"));
+        @SuppressWarnings("unchecked") List<Document> runes = (List<Document>) reset.get(0).get("cards");
+        assertEquals(1, runes.get(0).getInteger("layer"));
+        assertEquals(1, runes.get(1).getInteger("layer"));
+        assertEquals(3, runes.get(2).getInteger("layer"));
+        assertEquals(7, runes.get(0).getInteger("level"));
+        assertEquals(9, runes.get(1).getInteger("level"));
+        assertEquals(11, runes.get(2).getInteger("level"));
         assertEquals(enhancements, reset.get(0).get("runeEnhancements"));
         assertEquals(777, player.getInteger("crystals"));
         assertFalse(reset.get(0).get("runeEnhancements") == null);

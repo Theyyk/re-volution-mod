@@ -51,9 +51,9 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         }
         if (expectedRunId == null || !expectedRunId.equals(current.activeRun.runId)) return ResetCommitResult.STALE;
 
-        List<Document> resetDecks = resetRuneRanks(player);
+        List<Document> resetCollections = resetRuneRanks(player);
         Document set = new Document("prestige", encode(nextState));
-        if (resetDecks != null) set.append("decks", resetDecks);
+        if (resetCollections != null) set.append("decks", resetCollections);
         Document filter = new Document("_id", playerUuid.toString()).append("prestige.activeRun.runId", expectedRunId);
         UpdateResult result = connection.collection("players").updateOne(filter, new Document("$set", set));
         if (result != null && result.getMatchedCount() > 0) return ResetCommitResult.APPLIED;
@@ -66,25 +66,25 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
     @SuppressWarnings("unchecked")
     public static List<Document> resetRuneRanks(Document player) {
         if (player == null) return null;
-        List<Document> stored = (List<Document>) player.get("decks");
-        if (stored == null) return null;
-        List<Document> decks = new ArrayList<>();
-        for (Document storedDeck : stored) {
-            Document deck = new Document(storedDeck);
-            List<Document> cards = (List<Document>) storedDeck.get("cards");
-            if (cards != null) {
-                List<Document> resetCards = new ArrayList<>();
-                for (Document storedCard : cards) {
-                    Document card = new Document(storedCard);
-                    int rank = card.getInteger("layer", RuneStorageRules.NORMAL_RANK);
-                    if (rank < RuneStorageRules.ADVANCED_RANK) card.put("layer", RuneStorageRules.NORMAL_RANK);
-                    resetCards.add(card);
+        List<Document> storedCollections = (List<Document>) player.get("decks");
+        if (storedCollections == null) return null;
+        List<Document> collections = new ArrayList<>();
+        for (Document storedCollection : storedCollections) {
+            Document collection = new Document(storedCollection);
+            List<Document> storedRunes = (List<Document>) storedCollection.get("cards");
+            if (storedRunes != null) {
+                List<Document> resetRunes = new ArrayList<>();
+                for (Document storedRune : storedRunes) {
+                    Document rune = new Document(storedRune);
+                    int rank = rune.getInteger("layer", RuneStorageRules.NORMAL_RANK);
+                    if (rank < RuneStorageRules.ADVANCED_RANK) rune.put("layer", RuneStorageRules.NORMAL_RANK);
+                    resetRunes.add(rune);
                 }
-                deck.put("cards", resetCards);
+                collection.put("cards", resetRunes);
             }
-            decks.add(deck);
+            collections.add(collection);
         }
-        return decks;
+        return collections;
     }
 
     private Document encode(PrestigeState state) {
