@@ -129,6 +129,8 @@ def regressionTests = [
     mobRewardBonusRegression: 'com.example.revolution.rune.rules.MobRewardBonusTest',
     runeRankRevertRegression: 'com.example.revolution.rune.rules.RuneRankRevertTest',
     runeRankRevertInputRegression: 'com.example.revolution.client.RuneRankRevertInputTest',
+    runePoisonAoeRegression: 'com.example.revolution.rune.rules.RunePoisonAoeRulesTest',
+    zbtBalanceSmokeRegression: 'com.example.revolution.rune.service.ZbtBalanceSmokeTest',
     runeEnhancementPacketRegression: 'com.example.revolution.client.RuneEnhancementPacketTest',
     multiStatusRuneRegression: 'com.example.revolution.rune.config.RuneStatusConfigTest',
     multiStatusRuneEconomyRegression: 'com.example.revolution.rune.config.MultiStatusRuneEconomyTest',

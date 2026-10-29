@@ -37,19 +37,20 @@ public final class RuneCombatServiceTest {
             System.setProperty(key, "1");
             RuneCombatState state = new RuneCombatState();
             RuneCombatService combat = new RuneCombatService(players, enhancements, state);
-            check(close(combat.resolveStable(player).clickFlat, 4.2D), "all configured collections contribute to combat");
+            check(close(combat.resolveStable(player).clickFlat, 129.6D), "all configured collections contribute to ZBT combat");
             activeCollection[0] = 1;
-            check(close(combat.resolveStable(player).clickFlat, 4.2D), "viewed collection does not toggle owned combat power");
+            check(close(combat.resolveStable(player).clickFlat, 129.6D), "viewed collection does not toggle owned combat power");
             PlayerStatsService stats = new PlayerStatsService(players, enhancements);
-            check(close(stats.getTotalDamageBonusValue(player), 9.2D), "rank and enhancement multipliers in additive fallback");
+            check(close(stats.getTotalDamageBonusValue(player), 9.2D), "legacy additive player-stat fallback remains separate");
             RuneRewardBonusService rewards = new RuneRewardBonusService(players, enhancements);
-            check(close(rewards.percentFor(player, "coins"), 3.0D), "reward uses active collection");
+            check(close(rewards.percentFor(player, "coins"), 25.0D), "reward uses active collection ZBT relic value");
             activeCollection[0] = 0;
-            check(close(rewards.percentFor(player, "coins"), 1.0D), "reward switches with active collection");
+            check(close(rewards.percentFor(player, "coins"), 15.0D), "reward switches with active collection");
             check(rewards.percentFor(player, "crystals") == 0.0D, "crystals excluded from rune reward bonuses");
             check(!combat.resolve(player, 100L).rageActive, "triggering hit starts without rage");
             combat.activateRageOnMobHit(player, 100L);
-            check(combat.resolve(player, 199L).rageActive && !combat.resolve(player, 200L).rageActive, "five-second rage expiry boundary");
+            check(combat.resolve(player, 179L).rageActive && !combat.resolve(player, 180L).rageActive,
+                    "Normal rage lasts four seconds and refreshes from hit activation");
             combat.activateRageOnMobHit(player, 300L);
             RuneCombatService nextServer = new RuneCombatService(players, enhancements, new RuneCombatState());
             check(!nextServer.resolve(player, 301L).rageActive, "separate server lifetimes have separate rage");
@@ -58,7 +59,7 @@ public final class RuneCombatServiceTest {
         } finally {
             if (previous == null) System.clearProperty(key); else System.setProperty(key, previous);
         }
-        System.out.println("Global rune combat, active-collection rewards, multipliers and rage lifetime passed");
+        System.out.println("Global ZBT rune combat, active-collection rewards and rage lifetime passed");
     }
 
     @SuppressWarnings("unchecked")

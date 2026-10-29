@@ -71,7 +71,10 @@ public final class PlayerStatsSyncService {
             RuneCollectionProgression progression = purchaseProgression(uuid, activeCollection);
             canonicalPurchaseResource = purchaseBalance.purchaseResource(statusId);
             purchaseUnitCost = purchaseBalance.purchaseCost(
-                    statusId, progression.stageRank(), progression.progressionIndex());
+                    statusId,
+                    progression.stageRank(),
+                    progression.lowerProgress(),
+                    progression.higherRuneCount());
         }
 
         String awakeningResource = RuneEconomyConfig.awakeningResourceForStatus(statusId);
