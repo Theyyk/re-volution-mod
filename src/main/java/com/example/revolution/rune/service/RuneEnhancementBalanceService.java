@@ -5,11 +5,11 @@ import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.definition.RuneEnhancementTargeting;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Locale;
 
 /** Rune-domain adapter over Balance Core for enhancement economics. */
 public final class RuneEnhancementBalanceService {
-    private static final int ZBT_DEFAULT_MAX_LEVEL = 50;
     private final BalanceService balance;
 
     public RuneEnhancementBalanceService(BalanceService balance) {
@@ -35,63 +35,33 @@ public final class RuneEnhancementBalanceService {
         }
     }
 
-    /** Current ZBT table defines levels 1..50. Optional config can override the cap later. */
-    public int maxLevel(int statusId) {
-        String raw = optionalValue(statusId, "enhancement.max_level");
-        if (raw == null) return ZBT_DEFAULT_MAX_LEVEL;
-        try {
-            int value = Integer.parseInt(raw.trim());
-            if (value <= 0) throw new NumberFormatException("not positive");
-            return value;
-        } catch (RuntimeException e) {
-            throw new IllegalStateException("enhancement.max_level must be a positive integer: " + raw, e);
-        }
-    }
-
-    /** Cost of one global enhancement step at the current total collection enhancement level. */
-    public int nextCost(int statusId, int totalEnhancementLevel) {
+    /** Cost of one global enhancement step at the current factual total collection enhancement level. */
+    public BigDecimal nextCost(int statusId, int totalEnhancementLevel) {
         if (totalEnhancementLevel < 0) throw new IllegalArgumentException("total enhancement level must be >= 0");
-        if (totalEnhancementLevel >= maxLevel(statusId)) {
-            throw new IllegalStateException("maximum enhancement level reached");
-        }
         BigDecimal value = balance.evaluateActiveCurve(curveId(statusId), totalEnhancementLevel);
-        return positiveInt(value, "enhancement cost");
+        if (value == null || value.signum() <= 0) throw new IllegalStateException("enhancement cost must be > 0");
+        return value.setScale(0, RoundingMode.HALF_UP);
     }
 
     /** Sequential bulk cost from the collection-wide total enhancement level. */
-    public int bulkCost(int statusId, int totalEnhancementLevel, int amount) {
+    public BigDecimal bulkCost(int statusId, int totalEnhancementLevel, int amount) {
         if (amount <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
         if (totalEnhancementLevel < 0) throw new IllegalArgumentException("total enhancement level must be >= 0");
-        long target = (long) totalEnhancementLevel + amount;
-        if (target > maxLevel(statusId)) {
-            throw new IllegalStateException("enhancement request exceeds maximum level");
-        }
-
-        long total = 0L;
+        BigDecimal total = BigDecimal.ZERO;
         for (int i = 0; i < amount; i++) {
             long index = (long) totalEnhancementLevel + i;
-            if (index > Integer.MAX_VALUE) {
-                throw new IllegalStateException("total enhancement level exceeds supported curve index");
-            }
-            total += nextCost(statusId, (int) index);
-            if (total > Integer.MAX_VALUE) {
-                throw new IllegalStateException("enhancement cost exceeds ResourceService range");
-            }
+            if (index > Integer.MAX_VALUE) throw new IllegalStateException("total enhancement level exceeds supported curve index");
+            total = total.add(nextCost(statusId, (int) index));
         }
-        return (int) total;
+        return total;
     }
 
-    /** Zero means that this bulk amount would cross the configured maximum. */
-    public int[] bulkCosts(int statusId, int totalEnhancementLevel, int[] amounts) {
+    public BigDecimal[] bulkCosts(int statusId, int totalEnhancementLevel, int[] amounts) {
         if (amounts == null) throw new IllegalArgumentException("bulk amounts are required");
-        int[] result = new int[amounts.length];
-        int maximum = maxLevel(statusId);
+        BigDecimal[] result = new BigDecimal[amounts.length];
         for (int i = 0; i < amounts.length; i++) {
-            int amount = amounts[i];
-            if (amount <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
-            result[i] = (long) totalEnhancementLevel + amount > maximum
-                    ? 0
-                    : bulkCost(statusId, totalEnhancementLevel, amount);
+            if (amounts[i] <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
+            result[i] = bulkCost(statusId, totalEnhancementLevel, amounts[i]);
         }
         return result;
     }
@@ -102,9 +72,7 @@ public final class RuneEnhancementBalanceService {
         long total = 0L;
         for (int level : levels) {
             total += Math.max(0, level);
-            if (total > Integer.MAX_VALUE) {
-                throw new IllegalStateException("total enhancement level exceeds supported curve index");
-            }
+            if (total > Integer.MAX_VALUE) throw new IllegalStateException("total enhancement level exceeds supported curve index");
         }
         return (int) total;
     }
@@ -124,14 +92,5 @@ public final class RuneEnhancementBalanceService {
     private String curveId(int statusId) {
         if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
         return "runes." + RuneStatusConfig.statusKey(statusId) + ".enhancement.cost";
-    }
-
-    private int positiveInt(BigDecimal value, String label) {
-        if (value == null || value.signum() <= 0) throw new IllegalStateException(label + " must be > 0");
-        try {
-            return value.stripTrailingZeros().intValueExact();
-        } catch (ArithmeticException e) {
-            throw new IllegalStateException(label + " must be an integer within ResourceService range: " + value, e);
-        }
     }
 }

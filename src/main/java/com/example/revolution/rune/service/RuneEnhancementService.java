@@ -1,5 +1,6 @@
 package com.example.revolution.rune.service;
 
+import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.resource.definition.ResourceDefinitions;
@@ -8,6 +9,7 @@ import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.state.RuneInventory;
+import java.math.BigDecimal;
 import java.util.Random;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
@@ -47,18 +49,10 @@ public final class RuneEnhancementService {
         int[] currentLevels = enhancements.getLevels(player.getUniqueID(), collectionIndex);
         RuneEnhancementPlan plan;
         try {
-            plan = planning.plan(
-                    statusId,
-                    currentLevels,
-                    ownedSlots(player, collectionIndex),
-                    requestedAmount,
-                    random);
+            plan = planning.plan(statusId, currentLevels, ownedSlots(player, collectionIndex), requestedAmount, random);
         } catch (IllegalArgumentException | IllegalStateException e) {
             if ("no eligible enhancement targets remain".equals(e.getMessage())) {
                 player.sendMessage(new TextComponentString("§eНет доступных слотов для усиления."));
-            } else if ("enhancement request exceeds maximum level".equals(e.getMessage())
-                    || "maximum enhancement level reached".equals(e.getMessage())) {
-                player.sendMessage(new TextComponentString("§eДостигнут максимальный общий уровень усиления для этого статуса."));
             } else {
                 player.sendMessage(new TextComponentString("§cУсиление для этого статуса пока не настроено."));
             }
@@ -66,11 +60,12 @@ public final class RuneEnhancementService {
         }
 
         String resource = plan.getResource();
-        int cost = plan.getTotalCost();
-        int balance = resources.getPlayerResource(player.getUniqueID(), resource);
-        if (balance < cost) {
+        BigDecimal cost = plan.getTotalCost();
+        BigDecimal playerBalance = resources.getPlayerResourceValue(player.getUniqueID(), resource);
+        if (playerBalance.compareTo(cost) < 0) {
             player.sendMessage(new TextComponentString("§cНедостаточно ресурса «" + ResourceDefinitions.getDisplayName(resource)
-                    + "» для " + requestedAmount + " усилений. Нужно " + cost + ", у тебя " + balance + "."));
+                    + "» для " + requestedAmount + " усилений. Нужно " + LargeNumbers.format(cost)
+                    + ", у тебя " + LargeNumbers.format(playerBalance) + "."));
             stats.sendTo(player);
             return;
         }
@@ -91,7 +86,8 @@ public final class RuneEnhancementService {
         stats.sendTo(player);
         player.sendMessage(new TextComponentString("§aСлучайных усилений: §f" + requestedAmount
                 + "§a. Затронуто слотов: §f" + plan.getAffectedSlots()
-                + "§a. Потрачено: §e" + cost + " §f" + ResourceDefinitions.getDisplayName(resource) + "§a."));
+                + "§a. Потрачено: §e" + LargeNumbers.format(cost) + " §f"
+                + ResourceDefinitions.getDisplayName(resource) + "§a."));
     }
 
     private boolean[] ownedSlots(EntityPlayerMP player, int collectionIndex) {

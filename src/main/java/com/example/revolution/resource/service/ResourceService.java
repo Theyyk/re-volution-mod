@@ -36,19 +36,27 @@ public final class ResourceService {
         return grantPlayerResource(uuid, resource, BigDecimal.valueOf(amount));
     }
 
-    public synchronized boolean spendPlayerResource(UUID uuid, String resource, int amount) {
-        if (amount < 0) return false;
+    public synchronized boolean spendPlayerResource(UUID uuid, String resource, BigDecimal amount) {
+        if (uuid == null || amount == null || amount.signum() < 0) return false;
         String canonical = findCanonicalName(resource);
         if (canonical == null) return false;
         BigDecimal current = repository.getPlayerResourceValue(uuid, canonical);
-        BigDecimal cost = BigDecimal.valueOf(amount);
-        if (current.compareTo(cost) < 0) return false;
-        repository.writePlayerResource(uuid, canonical, current.subtract(cost));
+        if (current.compareTo(amount) < 0) return false;
+        repository.writePlayerResource(uuid, canonical, LargeNumbers.normalize(current.subtract(amount)));
         return true;
     }
 
+    public boolean spendPlayerResource(UUID uuid, String resource, int amount) {
+        return amount >= 0 && spendPlayerResource(uuid, resource, BigDecimal.valueOf(amount));
+    }
+
+    public boolean canAfford(UUID uuid, String resource, BigDecimal amount) {
+        return uuid != null && amount != null && amount.signum() >= 0
+                && repository.getPlayerResourceValue(uuid, resource).compareTo(amount) >= 0;
+    }
+
     public boolean canAfford(UUID uuid, String resource, int amount) {
-        return amount >= 0 && repository.getPlayerResourceValue(uuid, resource).compareTo(BigDecimal.valueOf(amount)) >= 0;
+        return amount >= 0 && canAfford(uuid, resource, BigDecimal.valueOf(amount));
     }
 
     public int addPlayerResource(UUID uuid, String resource, int amount) {
@@ -81,9 +89,6 @@ public final class ResourceService {
     }
 
     public void purgeDeprecatedLightnings(){ repository.purgeDeprecatedLightnings(); }
-
     public void purgeDeprecatedLightnings(UUID uuid){ repository.purgeDeprecatedLightnings(uuid); }
-
     public BigDecimal getPlayerResourceValue(UUID uuid, String resource){ return repository.getPlayerResourceValue(uuid, resource); }
-
 }
