@@ -129,10 +129,20 @@ public class RunePurchaseUiHandler {
 
     private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
         if (!(gui instanceof RunesGuiScreen) || buttons == null || !usesStatusPurchaseEconomy()) return;
-        int unitCost = Math.max(1, ClientPlayerStats.getPurchaseUnitCost()); long total = (long) unitCost * currentBuyAmount(buttons);
+        GuiButton purchase = findButton(buttons, PURCHASE_OR_AWAKENING_BUTTON_ID);
+        if (purchase == null || !purchase.enabled) return;
+
+        int unitCost = Math.max(1, ClientPlayerStats.getPurchaseUnitCost());
+        long total = (long) unitCost * currentBuyAmount(buttons);
         if (total > Integer.MAX_VALUE) total = Integer.MAX_VALUE;
-        String resource = ClientPlayerStats.getPurchaseResource(), resourceName = priceResourceName(resource);
-        for (GuiButton button : buttons) if (button.id == PURCHASE_OR_AWAKENING_BUTTON_ID && button.enabled) { button.displayString = "Купить руну:\n" + total + " " + resourceName; return; }
+
+        String resource = ClientPlayerStats.getPurchaseResource();
+        String resourceName = priceResourceName(resource);
+        BigDecimal totalCost = BigDecimal.valueOf(total);
+        BigDecimal balance = ClientPlayerStats.getResourceBalance(resource);
+
+        purchase.displayString = "Купить руну:\n" + LargeNumbers.format(totalCost) + " " + resourceName;
+        purchase.enabled = balance.signum() >= 0 && balance.compareTo(totalCost) >= 0;
     }
 
     private void applyAwakeningEconomy(GuiScreen gui, List<GuiButton> buttons) {
