@@ -72,10 +72,11 @@ public final class RunePurchaseBalanceServiceTest {
         RunePurchaseBalanceService service = new RunePurchaseBalanceService(BalanceBootstrap.activateBundledDefaults());
 
         for (int rank = 1; rank <= 3; rank++) {
-            assertEquals(100, service.purchaseCost(RuneStatusConfig.STATUS_POISON, rank, 0, 0));
-            assertEquals(100, service.purchaseCost(RuneStatusConfig.STATUS_POISON, rank, 25, 0));
+            assertEquals(20, service.purchaseCost(RuneStatusConfig.STATUS_POISON, rank, 0, 0));
+            assertEquals(5290, service.purchaseCost(RuneStatusConfig.STATUS_POISON, rank, 25, 0));
+            assertEquals(23, service.purchaseCost(RuneStatusConfig.STATUS_POISON, rank, 0, 1));
             assertEquals(1, service.duplicateReward(RuneStatusConfig.STATUS_POISON, rank, 0, 0));
-            assertEquals(1, service.duplicateReward(RuneStatusConfig.STATUS_POISON, rank, 25, 0));
+            assertEquals(2, service.duplicateReward(RuneStatusConfig.STATUS_POISON, rank, 25, 0));
         }
     }
 
