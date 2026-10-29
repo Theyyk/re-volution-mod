@@ -4,11 +4,7 @@ import com.example.revolution.rune.state.RuneInventory;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-/** Regression coverage for v1.4.9 selected-rune one-step rank revert. */
+/** Regression coverage for selected-rune one-step rank revert under nested progression. */
 public final class RuneRankRevertTest {
     public static void main(String[] args) {
         selectedAdvancedRuneRevertsOneStepOnly();
@@ -58,16 +54,19 @@ public final class RuneRankRevertTest {
         int[] ranks = full(RuneProgression.ADVANCED_RANK);
         RuneCollectionProgression before = RuneCollectionProgression.fromBestRanks(ranks);
         check(before.stageRank() == RuneProgression.ADVANCED_RANK, "full advanced collection must use advanced purchase stage");
-        check(before.progressionIndex() == RuneInventory.BOOST_TYPE_COUNT, "full advanced stage must contain all slots");
+        check(before.lowerProgress() == RuneInventory.BOOST_TYPE_COUNT, "full advanced stage must contain all slots");
 
         RuneRankRevertDecision decision = RuneRankRevertDecision.evaluate(ranks, 3);
         ranks[3] = decision.targetRank;
         RuneCollectionProgression after = RuneCollectionProgression.fromBestRanks(ranks);
-        check(after.stageRank() == RuneProgression.ADVANCED_RANK,
-                "other advanced runes keep the factual active purchase stage at advanced");
-        check(after.progressionIndex() == RuneInventory.BOOST_TYPE_COUNT - 1,
-                "reverted rune must immediately disappear from advanced-stage progression");
-        check(!after.isOwnedAtStage(3), "reverted rune must become the factual missing advanced-stage slot");
+        check(after.stageRank() == RuneProgression.IMPROVED_RANK,
+                "revert from full advanced must expose the nested improved stage");
+        check(after.lowerProgress() == 1, "the reverted rune is the one factual improved rune");
+        check(after.higherRuneCount() == RuneInventory.BOOST_TYPE_COUNT - 1,
+                "the other advanced runes apply higher-rank purchase pressure");
+        check(after.coveredCount() == RuneInventory.BOOST_TYPE_COUNT,
+                "revert does not open a free purchase slot; the cycle remains fully covered");
+        check(after.isOwnedAtStage(3), "the reverted improved rune remains owned at the improved stage");
     }
 
     private static void repeatedRevertRestoreCycleHasNoHiddenProgressionCounter() {
@@ -76,22 +75,27 @@ public final class RuneRankRevertTest {
         RuneRankRevertDecision first = RuneRankRevertDecision.evaluate(ranks, 11);
         ranks[11] = first.targetRank;
         RuneCollectionProgression reverted = RuneCollectionProgression.fromBestRanks(ranks);
-        check(reverted.progressionIndex() == RuneInventory.BOOST_TYPE_COUNT - 1,
-                "first revert must derive index 25 from ranks only");
+        check(reverted.stageRank() == RuneProgression.IMPROVED_RANK, "first revert must derive improved stage");
+        check(reverted.lowerProgress() == 1, "first revert must derive one improved rune");
+        check(reverted.higherRuneCount() == RuneInventory.BOOST_TYPE_COUNT - 1,
+                "first revert must derive 25 higher-rank runes");
 
-        // A later purchase or fully paid rank-up may restore the factual selected rank.
+        // A fully paid rank-up restores the factual selected rank.
         ranks[11] = RuneProgression.ADVANCED_RANK;
         RuneCollectionProgression restored = RuneCollectionProgression.fromBestRanks(ranks);
-        check(restored.progressionIndex() == RuneInventory.BOOST_TYPE_COUNT,
-                "restoring the factual rank must derive the full stage again");
+        check(restored.stageRank() == RuneProgression.ADVANCED_RANK, "restored collection returns to advanced stage");
+        check(restored.lowerProgress() == RuneInventory.BOOST_TYPE_COUNT,
+                "restoring the factual rank derives the full advanced stage again");
 
-        // Reverting again must return to exactly the same progression point, not decrement hidden state.
+        // Reverting again must derive exactly the same nested point, never decrement hidden state.
         RuneRankRevertDecision second = RuneRankRevertDecision.evaluate(ranks, 11);
         ranks[11] = second.targetRank;
         RuneCollectionProgression revertedAgain = RuneCollectionProgression.fromBestRanks(ranks);
         check(revertedAgain.stageRank() == reverted.stageRank(), "repeated cycle must keep the same factual stage");
-        check(revertedAgain.progressionIndex() == reverted.progressionIndex(),
-                "repeated cycle must not accumulate a hidden purchase-index delta");
+        check(revertedAgain.lowerProgress() == reverted.lowerProgress(),
+                "repeated cycle must keep the same factual lower progress");
+        check(revertedAgain.higherRuneCount() == reverted.higherRuneCount(),
+                "repeated cycle must keep the same factual higher-rank pressure");
     }
 
     private static int[] full(int rank) {

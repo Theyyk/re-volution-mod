@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.4.9`.**
+**Стабильная версия: `v1.5.0`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.4.9](docs/releases/v1.4.9.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.5.0](docs/releases/v1.5.0.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -63,27 +63,27 @@ Gameplay-мод не должен содержать приватные signing 
 
 Подробности текущего поведения: [docs/gameplay.md](docs/gameplay.md).
 
-### Balance Layer в v1.4.9
+### Balance Layer в v1.5.0
 
 - `Balance Core` хранит canonical balance snapshot, валидирует его целиком и публикует только после успешной подготовки.
 - Canonical config поддерживает числовые curves и string values, а revision/hash детерминирован и не зависит от форматирования JSON.
-- Rune purchase, duplicate rewards, enhancement, rank-up и Poison Rune Effects читают параметры из активного Balance Core snapshot.
-- Purchase progression выводится из фактических рангов рун коллекции; отдельные persisted `currentCollectionRank` и `nextPurchaseCost` не являются источником истины.
-- Канонические stage-мобы `Mob<locationId>_<mobSlotId>` могут получать из активного Balance Core необязательные overrides для `hp`, reward `resource` и reward `amount`.
-- Каждый Mob Balance field имеет независимый persistence fallback; bundled config не выдумывает и не заменяет текущие настроенные HP/награды без явно опубликованного override.
-- Non-canonical/legacy mobs остаются persistence-driven.
-- Mob identity/type, модели, PNG, spawn coordinates, population, movement mode, зоны, stage geometry и world topology не входят в Mob Balance.
+- `v1.5.0` содержит текущий ZBT Draft snapshot для Location 1 и Collection 1; статус stable относится к реализации и воспроизводимости snapshot, а не означает Final для чисел баланса.
+- Purchase progression полностью выводится из фактических per-rune ranks. Вложенный цикл после первого rank-up продолжает собирать нижний ранг вокруг уже повышенных рун, вместо переключения покупок на factual maximum rank.
+- Для purchase point используются `lowerProgress` и `higherRuneCount`; исторические `purchaseIndex`, `currentCollectionRank` и `nextPurchaseCost` не являются источником истины.
+- Purchase cost рассчитывается из ZBT base curve с pressure `1.15 ^ higherRuneCount`; duplicate reward вычисляется из актуальной цены попытки, выдаёт `rune_dust`, не возвращает coins и не двигает progression.
+- Enhancement curve ограничена текущей ZBT-таблицей `+1..+50`; усиление остаётся свойством слота и переживает rank-up/revert.
+- Rank-up использует ZBT Shard curve и factual higher-rank count.
+- Rune Rank Revert сохраняет `CTRL + ПКМ = Ослабить`, не возвращает ресурсы и читает server-side policy из Balance Core: `revert_allowed_from_rank=3`, `revert_steps=1`.
+- Poison трактуется как DPS-бюджет с 5 ticks/sec и AoE total multiplier curve для 1..10 целей; damage делится между целями по текущему числу targets.
+- Канонические `Mob1_1 .. Mob1_41` получают ZBT HP/reward overrides из active Balance Core. Stage 41 остаётся fixed boss с `30,000,000 HP` и `15,000,000 coins`, без repeat-kill scaling.
 - Admin/Control может получить текущий canonical snapshot и revision, выполнить полную валидацию candidate через Preview и атомарно применить именно подготовленный snapshot через Apply.
 - Balance Preview session-bound, revision-bound, одноразовый, имеет TTL 120 секунд и ограниченное in-memory pending state.
 - Apply использует atomic expected-revision compare-and-set; stale candidate не может перезаписать более новый active snapshot.
 - Admin/Control может read-only экспортировать active Balance snapshot через `GET /api/v1/balance/export`: ответ содержит contract version, revision, schema version, authoritative canonical JSON и deterministic spreadsheet-friendly rows.
 - Export rows используют RFC 6901 JSON Pointer и явные типы значений; canonical config и revision остаются источником истины.
 - Gameplay-мод не подключается к Google API/OAuth и не хранит внешние integration credentials; Google Sheets остаётся задачей внешнего Control/инструмента.
-- Игрок может локально откатить одну выбранную руну начиная с ранга `Продвинутая` ровно на один ранг вниз. Откат `Улучшенная -> Обычная` запрещён.
-- Rank Revert не изменяет остальные руны, не сбрасывает усиление выбранной руны, бесплатен и не возвращает ресурсы.
-- После Rank Revert следующая цена покупки и progression немедленно выводятся из фактических рангов коллекции без persisted purchase index.
 
-Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.4.9.md](docs/releases/v1.4.9.md).
+Подробности: [docs/balance-core.md](docs/balance-core.md) и [docs/releases/v1.5.0.md](docs/releases/v1.5.0.md).
 
 ### Admin / Control APIs
 
@@ -108,7 +108,7 @@ Gameplay-мод не должен содержать приватные signing 
 - Ранги рун: **Обычная → Улучшенная → Продвинутая**.
 - Покупка рун `x1`, `x5`, `x10`, `x100` с серверной проверкой экономики.
 - Дубликаты, Пыль рун, пробуждение и постоянные уровни усиления `+N` обрабатываются сервером.
-- Для подходящей руны правый клик выполняет одноступенчатый Rank Revert; левый клик сохраняет существующее действие пробуждения.
+- Для подходящей руны `CTRL + ПКМ` выполняет одноступенчатый Rank Revert; левый клик сохраняет существующее действие пробуждения.
 - Усиление и ранг - независимые множители; базовая формула: `finalPower = basePower × (1 + enhancementLevel × enhancementStep)`.
 - Поддерживаются упрощённый, полный и инженерный форматы больших чисел.
 - Основные ресурсы: `coins`, `crystals`, `rune_dust`, `rune_shards`, `rune_cores`.

@@ -56,6 +56,9 @@ public final class RuneEnhancementService {
         } catch (IllegalArgumentException | IllegalStateException e) {
             if ("no eligible enhancement targets remain".equals(e.getMessage())) {
                 player.sendMessage(new TextComponentString("§eНет доступных слотов для усиления."));
+            } else if ("enhancement request exceeds maximum level".equals(e.getMessage())
+                    || "maximum enhancement level reached".equals(e.getMessage())) {
+                player.sendMessage(new TextComponentString("§eДостигнут максимальный общий уровень усиления для этого статуса."));
             } else {
                 player.sendMessage(new TextComponentString("§cУсиление для этого статуса пока не настроено."));
             }

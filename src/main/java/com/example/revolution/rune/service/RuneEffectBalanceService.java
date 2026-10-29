@@ -99,17 +99,14 @@ public final class RuneEffectBalanceService {
                 throw new IllegalStateException("unsupported enhancement field: " + enhancementField);
             }
 
+            // TARGETED_POWER already carries its own rank/enhancement value. It is summed by target group
+            // and added once to the target flat value before shared click/poison multipliers.
             double targetedPowerScale = 1.0D;
-            if (acceptsTargetedPower) {
-                double normalPrimary = rankDouble(statusId, prefix, 1, "primary", 0.0D);
-                if (normalPrimary <= 0.0D) {
-                    throw new IllegalStateException("targeted-power effect requires positive rank.1.primary for " + group);
-                }
-                targetedPowerScale = rawPrimary / normalPrimary;
-                if ("PRIMARY".equalsIgnoreCase(enhancementField)) targetedPowerScale *= enhancementMultiplier;
-            }
 
-            double duration = nonNegative(optionalDouble(statusId, prefix + "duration_seconds", 0.0D), "duration");
+            double baseDuration = nonNegative(optionalDouble(statusId, prefix + "duration_seconds", 0.0D), "duration");
+            double duration = nonNegative(
+                    optionalDouble(statusId, prefix + "rank." + rank + ".duration_seconds", baseDuration),
+                    "duration");
             int maxStacks = nonNegativeInt(optional(statusId, prefix + "max_stacks"), 0, "max stacks");
             result.add(new ResolvedEffect(group, index, type, tags, target, statType,
                     acceptsTargetedPower, targetedPowerScale, primary, secondary, duration, maxStacks));

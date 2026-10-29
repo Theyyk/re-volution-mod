@@ -19,6 +19,7 @@ import com.example.revolution.mob.state.MobRuntimeState;
 import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.realm.definition.RealmCatalog;
 import com.example.revolution.realm.definition.RealmDefinition;
+import com.example.revolution.rune.rules.RunePoisonAoeRules;
 import com.example.revolution.rune.service.RuneMobEffectService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -56,7 +57,7 @@ public final class ManagedMobService {
     private Runnable configurationGuard = () -> { };
     public void setConfigurationGuard(Runnable guard) { configurationGuard = guard; }
     public void requireConfigurationReady() { configurationGuard.run(); }
-    private static final int POISON_TICK_INTERVAL = 20;
+    private static final int POISON_TICK_INTERVAL = RunePoisonAoeRules.MC_TICK_INTERVAL;
     private static final int INITIAL_SPAWN_DELAY_TICKS = 20;
     private static final int LOST_ENTITY_RESPAWN_DELAY_TICKS = 1;
     private static final int RANDOM_SURFACE_ATTEMPTS = 64;
@@ -368,16 +369,28 @@ public final class ManagedMobService {
     private void applyPoisonTicks() {
         if (server == null) return;
         for (EntityPlayerMP player : server.getPlayerList().getPlayers()) {
-            Double resolvedPoisonDamage = runeEffects.poisonDamage(player.getUniqueID(), player.world.getTotalWorldTime());
-            if (resolvedPoisonDamage == null || resolvedPoisonDamage <= 0.0D) continue;
-            UUID playerUuid = player.getUniqueID();
+            Double poisonDps = runeEffects.poisonDamage(player.getUniqueID(), player.world.getTotalWorldTime());
+            if (poisonDps == null || poisonDps <= 0.0D) continue;
+
+            List<EntityLiving> targets = new ArrayList<>();
             for (MobRuntimeState spawn : spawns) {
                 EntityLiving target = spawn.entity;
                 if (target == null || target.isDead || target.world != player.world || spawn.currentHp.signum() <= 0) continue;
                 if (!MobHealthRules.isWithinStatusRadiusSq(player.getDistanceSq(target))) continue;
-                poisonDamagePlayers.add(playerUuid);
-                try { target.attackEntityFrom(DamageSource.causePlayerDamage(player), resolvedPoisonDamage.floatValue()); }
-                finally { poisonDamagePlayers.remove(playerUuid); }
+                targets.add(target);
+            }
+            double perTargetTick = RunePoisonAoeRules.perTargetTick(poisonDps, targets.size());
+            if (perTargetTick <= 0.0D) continue;
+
+            UUID playerUuid = player.getUniqueID();
+            poisonDamagePlayers.add(playerUuid);
+            try {
+                for (EntityLiving target : targets) {
+                    if (target.isDead) continue;
+                    target.attackEntityFrom(DamageSource.causePlayerDamage(player), (float) perTargetTick);
+                }
+            } finally {
+                poisonDamagePlayers.remove(playerUuid);
             }
         }
     }
