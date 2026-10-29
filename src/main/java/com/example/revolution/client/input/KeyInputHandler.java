@@ -15,12 +15,17 @@ import org.lwjgl.input.Keyboard;
 @SideOnly(Side.CLIENT)
 public class KeyInputHandler {
 
+    public static KeyBinding keyOpenMenu;
     public static KeyBinding keyOpenStageTravel;
 
+    private boolean menuWasPressed = false;
     private boolean stageTravelWasPressed = false;
+    private boolean vanillaBindingsConfigured = false;
 
     public static void register() {
+        keyOpenMenu = new KeyBinding("key.revolution.menu", Keyboard.KEY_E, "key.categories.revolution");
         keyOpenStageTravel = new KeyBinding("key.revolution.stage_travel", Keyboard.KEY_L, "key.categories.revolution");
+        ClientRegistry.registerKeyBinding(keyOpenMenu);
         ClientRegistry.registerKeyBinding(keyOpenStageTravel);
     }
 
@@ -30,13 +35,37 @@ public class KeyInputHandler {
 
         ClientUiBridge.tickRunePreloader();
 
-        boolean stageTravelPressed = keyOpenStageTravel.isPressed();
         Minecraft minecraft = Minecraft.getMinecraft();
+        configureVanillaBindings(minecraft);
+        if (minecraft.gameSettings.attackIndicator != 0) {
+            minecraft.gameSettings.attackIndicator = 0;
+        }
+
+        boolean menuPressed = keyOpenMenu != null && keyOpenMenu.isPressed();
+        if (menuPressed && !menuWasPressed
+                && minecraft.player != null && minecraft.getConnection() != null
+                && minecraft.currentScreen == null && !ClientUiBridge.isRuneOpenPending()) {
+            ClientUiBridge.beginRuneOpen();
+        }
+        menuWasPressed = menuPressed;
+
+        boolean stageTravelPressed = keyOpenStageTravel != null && keyOpenStageTravel.isPressed();
         if (stageTravelPressed && !stageTravelWasPressed
                 && minecraft.player != null && minecraft.getConnection() != null
                 && minecraft.currentScreen == null) {
             NetworkHandler.INSTANCE.sendToServer(new StageTravelMenuRequestPacket());
         }
         stageTravelWasPressed = stageTravelPressed;
+    }
+
+    private void configureVanillaBindings(Minecraft minecraft) {
+        if (vanillaBindingsConfigured || minecraft == null || minecraft.gameSettings == null) return;
+
+        minecraft.gameSettings.keyBindInventory.setKeyCode(Keyboard.KEY_NONE);
+        minecraft.gameSettings.keyBindAdvancements.setKeyCode(Keyboard.KEY_NONE);
+        minecraft.gameSettings.attackIndicator = 0;
+        KeyBinding.resetKeyBindingArrayAndHash();
+        minecraft.gameSettings.saveOptions();
+        vanillaBindingsConfigured = true;
     }
 }
