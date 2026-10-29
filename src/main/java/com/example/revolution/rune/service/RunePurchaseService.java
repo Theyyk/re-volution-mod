@@ -108,9 +108,11 @@ public final class RunePurchaseService {
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             ownedAtStage[rune] = progression.isOwnedAtStage(rune);
         }
-        int stageCount = progression.progressionIndex();
+        int lowerProgress = progression.lowerProgress();
+        int higherRuneCount = progression.higherRuneCount();
+        int coveredCount = progression.coveredCount();
 
-        if (stageCount >= RuneInventory.BOOST_TYPE_COUNT) {
+        if (coveredCount >= RuneInventory.BOOST_TYPE_COUNT) {
             player.sendMessage(new TextComponentString(purchaseRank >= RuneProgression.ADVANCED_RANK
                     ? "§6Все 26 рун уже продвинутые. Достигнут максимальный ранг."
                     : "§eВсе 26 слотов текущего ранга заполнены. §6Пробудите подходящую руну."));
@@ -125,9 +127,9 @@ public final class RunePurchaseService {
         int spent = 0;
         int duplicateCompensation = 0;
 
-        while (attempts < attemptsLimit && stageCount < RuneInventory.BOOST_TYPE_COUNT) {
-            int progressionIndex = stageCount;
-            int attemptCost = purchaseBalance.purchaseCost(statusId, purchaseRank, progressionIndex);
+        while (attempts < attemptsLimit && coveredCount < RuneInventory.BOOST_TYPE_COUNT) {
+            int attemptCost = purchaseBalance.purchaseCost(
+                    statusId, purchaseRank, lowerProgress, higherRuneCount);
             int remaining = startingBalance - spent;
             if (remaining < attemptCost) break;
 
@@ -138,7 +140,8 @@ public final class RunePurchaseService {
                 duplicates++;
                 duplicateCompensation = safeAdd(
                         duplicateCompensation,
-                        purchaseBalance.duplicateReward(statusId, purchaseRank, progressionIndex));
+                        purchaseBalance.duplicateReward(
+                                statusId, purchaseRank, lowerProgress, higherRuneCount));
                 NetworkHandler.sendToClient(
                         new RuneSlotPacket(runeIndex, runeIndex, bestRanks[runeIndex], true), player);
                 continue;
@@ -146,7 +149,8 @@ public final class RunePurchaseService {
 
             ownedAtStage[runeIndex] = true;
             bestRanks[runeIndex] = purchaseRank;
-            stageCount++;
+            lowerProgress++;
+            coveredCount++;
             newRunes++;
             players.addRuneToCollection(
                     player.getUniqueID(),
@@ -161,7 +165,8 @@ public final class RunePurchaseService {
         }
 
         if (attempts <= 0) {
-            int required = purchaseBalance.purchaseCost(statusId, purchaseRank, stageCount);
+            int required = purchaseBalance.purchaseCost(
+                    statusId, purchaseRank, lowerProgress, higherRuneCount);
             player.sendMessage(new TextComponentString(
                     "§cНедостаточно ресурса «" + purchaseDisplayName + "»! Нужно минимум " + required
                             + ", у тебя " + startingBalance + "."));
@@ -188,7 +193,7 @@ public final class RunePurchaseService {
                     + ResourceDefinitions.getDisplayName(duplicateResource) + "§a."));
         }
 
-        if (stageCount >= RuneInventory.BOOST_TYPE_COUNT) {
+        if (coveredCount >= RuneInventory.BOOST_TYPE_COUNT) {
             player.sendMessage(new TextComponentString(purchaseRank >= RuneProgression.ADVANCED_RANK
                     ? "§6Все 26 рун уже продвинутые. Максимальный ранг достигнут."
                     : "§6Все 26 слотов текущего ранга заполнены. Пробудите подходящую руну."));
