@@ -1,5 +1,7 @@
 package com.example.revolution.resource.service;
 
+import com.example.revolution.effect.EffectResolver;
+import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.resource.repository.ResourceRepository;
 import java.math.BigDecimal;
@@ -9,7 +11,19 @@ import static com.example.revolution.resource.definition.ResourceDefinitions.*;
 /** Validates resource actions and preserves the existing read/modify/write economy. */
 public final class ResourceService {
     private final ResourceRepository repository;
-    public ResourceService(ResourceRepository repository) { this.repository = repository; }
+    private final EffectResolver effects;
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
+
+    public ResourceService(ResourceRepository repository) { this(repository, null); }
+
+    public ResourceService(ResourceRepository repository, EffectResolver effects) {
+        this.repository = repository;
+        this.effects = effects;
+    }
+
+    public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
+    }
 
     public int getPlayerResource(UUID uuid, String resource) {
         BigDecimal value = repository.getPlayerResourceValue(uuid, resource);
@@ -25,11 +39,41 @@ public final class ResourceService {
 
     public synchronized boolean grantPlayerResource(UUID uuid, String resource, BigDecimal amount) {
         String canonical = findCanonicalName(resource);
-        if (canonical == null || amount == null || amount.signum() < 0) return false;
+        if (canonical == null || uuid == null || amount == null || amount.signum() < 0) return false;
         if (amount.signum() == 0) return true;
         BigDecimal next = LargeNumbers.normalize(repository.getPlayerResourceValue(uuid, canonical).add(amount));
         repository.writePlayerResource(uuid, canonical, next);
         return true;
+    }
+
+    /**
+     * Grants an authoritative earned reward. Prestige reward effects are resolved before persistence,
+     * then observers receive exactly the amount that was actually granted.
+     */
+    public synchronized boolean grantEarnedPlayerResource(UUID uuid, String resource, BigDecimal baseAmount) {
+        String canonical = findCanonicalName(resource);
+        if (canonical == null || uuid == null || baseAmount == null || baseAmount.signum() < 0) return false;
+        if (baseAmount.signum() == 0) return true;
+        BigDecimal granted = LargeNumbers.normalize(baseAmount.multiply(rewardMultiplier(uuid, canonical)));
+        if (granted.signum() <= 0) return true;
+        BigDecimal next = LargeNumbers.normalize(repository.getPlayerResourceValue(uuid, canonical).add(granted));
+        repository.writePlayerResource(uuid, canonical, next);
+        gameplayEvents.earnedResource(uuid, canonical, granted);
+        return true;
+    }
+
+    public boolean grantEarnedPlayerResource(UUID uuid, String resource, int amount) {
+        return amount >= 0 && grantEarnedPlayerResource(uuid, resource, BigDecimal.valueOf(amount));
+    }
+
+    private BigDecimal rewardMultiplier(UUID uuid, String canonical) {
+        if (effects == null) return BigDecimal.ONE;
+        String normalized = normalize(canonical);
+        if ("coins".equals(normalized)) return effects.multiplier(uuid, EffectResolver.Stat.COIN_REWARD_MULTIPLIER);
+        if (RUNE_DUST.equals(normalized) || RUNE_SHARDS.equals(normalized) || RUNE_CORES.equals(normalized)) {
+            return effects.multiplier(uuid, EffectResolver.Stat.RUNE_RESOURCE_REWARD_MULTIPLIER);
+        }
+        return BigDecimal.ONE;
     }
 
     public boolean grantPlayerResource(UUID uuid, String resource, int amount) {
