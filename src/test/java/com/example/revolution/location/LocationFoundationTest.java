@@ -110,8 +110,8 @@ public final class LocationFoundationTest {
     private static void mobZonePopulationUsesStableHalfSplitAndDiskLayout() {
         assertEquals(10, MobZoneLayout.fixedCount(20), "even fixed split");
         assertEquals(10, MobZoneLayout.randomCount(20), "even random split");
-        assertEquals(11, MobZoneLayout.fixedCount(21), "odd fixed split gets extra mob");
-        assertEquals(10, MobZoneLayout.randomCount(21), "odd random split");
+        assertEquals(10, MobZoneLayout.fixedCount(21), "odd fixed split");
+        assertEquals(11, MobZoneLayout.randomCount(21), "odd random split gets extra mob");
 
         int fixedCount = MobZoneLayout.fixedCount(20);
         for (int i = 0; i < fixedCount; i++) {

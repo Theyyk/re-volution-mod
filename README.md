@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.5.2`.**
+**Стабильная версия: `v2.0.0`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.5.2](docs/releases/v1.5.2.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.0.0](docs/releases/v2.0.0.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -44,6 +44,7 @@ Gameplay-мод не должен содержать приватные signing 
 - Поддерживаются `FIXED_POINT` и `RANDOM_AREA`, а также `STATIONARY` и `ROAMING`.
 - Population отвечает за физическое наполнение stage, а существование progression stage определяется `LocationDefinition`.
 - При изменении population через Control/Admin enabled slots нормализуются примерно 50/50: `fixed=floor(n/2)`, `random=ceil(n/2)`. При нечётном значении лишний слот всегда `RANDOM_AREA`.
+- Новые fixed-позиции при population update распределяются по геометрии stage, а не клонируют одну центральную координату.
 - Финальная configured stage каждой Location автоматически является runtime/persisted boss и единственной `BOSS_ZONE`; при добавлении новой финальной stage boss-status переносится автоматически.
 - Existing geometry, transition points и world builds не должны пересоздаваться при обычном reconciliation.
 - `RANDOM_AREA` выбирает новую независимую позицию для каждой физической жизни моба.
@@ -106,17 +107,20 @@ Gameplay-мод не должен содержать приватные signing 
 - Multi-status foundation для рун.
 - Статус **Яд** с фиксированными позициями и отдельными rune-иконками.
 - Ранги рун: **Обычная → Улучшенная → Продвинутая**.
-- Покупка рун `x1`, `x5`, `x10`, `x100` с серверной проверкой экономики.
+- Покупка рун `x1`, `x5`, `x10`, `x100` с серверной проверкой экономики и блокировкой кнопки при нехватке полной стоимости выбранного количества.
 - Дубликаты, Пыль рун, пробуждение и постоянные уровни усиления `+N` обрабатываются сервером.
 - Для подходящей руны `CTRL + ПКМ` выполняет одноступенчатый Rank Revert; левый клик сохраняет существующее действие пробуждения.
 - Усиление и ранг - независимые множители; базовая формула: `finalPower = basePower × (1 + enhancementLevel × enhancementStep)`.
-- Для direct melee по managed-мобам используется cadence в стиле pre-1.9: ванильный attack cooldown не режет урон, а target hurt-resistance не отбрасывает быстрые клики; projectile/poison/secondary damage этим bypass не затрагиваются.
+- Для direct melee по managed-мобам используется cadence в стиле pre-1.9: ванильный attack cooldown не режет урон, а target hurt-resistance не отбрасывает быстрые клики; projectile/secondary damage этим bypass не затрагиваются.
+- Poison tick использует отдельный managed-mob combat pause и временно останавливает движение цели.
+- Vanilla survival HUD, голод, player damage и разрушение блоков отключены для RPG Survival runtime; Creative-администраторы сохраняют строительные возможности.
+- Кастомный RPG HUD показывает ресурсы снизу по центру и финальные click/poison значения слева сверху.
 - Поддерживаются упрощённый, полный и инженерный форматы больших чисел.
 - Основные ресурсы: `coins`, `crystals`, `rune_dust`, `rune_shards`, `rune_cores`.
 - Серверный контракт ресурсов не допускает отрицательных балансов.
 - Данные игроков и progression сохраняются в MongoDB.
 
-Основной gameplay GUI открывается клавишей `C`, меню быстрого перехода - клавишей `L`.
+Основной gameplay GUI открывается клавишей `E`, меню быстрого перехода - клавишей `L`, настройки формата больших чисел - клавишей `P`.
 
 ## DEV / PROD
 
@@ -177,11 +181,3 @@ Runtime smoke нужен только для поведения, которое 
 - [Команды](docs/commands.md)
 
 Версионные документы фиксируют состояние конкретного релиза и не переписываются под будущие функции.
-
-## Лицензия
-
-Исходный код репозитория распространяется по [MIT License](LICENSE). Сторонние материалы могут иметь отдельные условия, которые имеют приоритет для соответствующих файлов.
-
-### Шрифты Cristalix
-
-Шрифты получены из клиента Cristalix с сохранением исходных метаданных. Условия, ответ поддержки и область использования описаны в [docs/permissions/cristalix.md](docs/permissions/cristalix.md).

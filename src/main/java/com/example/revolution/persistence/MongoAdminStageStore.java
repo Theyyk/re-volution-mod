@@ -4,6 +4,7 @@ import com.example.revolution.admin.definition.StagePatch;
 import com.example.revolution.admin.repository.AdminStageStore;
 import com.example.revolution.admin.service.RecoverableAdminCommit;
 import com.example.revolution.location.definition.MobZoneIds;
+import com.example.revolution.location.service.MobZoneLayout;
 import com.example.revolution.location.service.StageMobBootstrapService;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
@@ -70,7 +71,14 @@ public final class MongoAdminStageStore implements AdminStageStore {
             if (patch.hp != null) afterMob.put("hp", patch.hp);
             if (patch.resource != null) afterMob.put("resource", patch.resource);
             if (patch.amount != null) afterMob.put("amount", patch.amount);
-            List<Document> afterSpawns = patch.population == null ? beforeSpawns : population(beforeSpawns, patch.population);
+            Document zone = null;
+            if (patch.population != null) {
+                zone = collection("custom_locations").find(new Document("locationId", internalId)).first();
+                if (zone == null) throw new IllegalArgumentException("Missing stage geometry for population layout");
+            }
+            List<Document> afterSpawns = patch.population == null
+                    ? beforeSpawns
+                    : population(beforeSpawns, patch.population, zone);
             changes.add(new Document("mob", mob).append("locationId", internalId)
                     .append("beforeMob", beforeMob).append("afterMob", afterMob)
                     .append("beforeSpawns", beforeSpawns).append("afterSpawns", afterSpawns)
@@ -108,6 +116,10 @@ public final class MongoAdminStageStore implements AdminStageStore {
     }
 
     static List<Document> population(List<Document> previous, int count) {
+        return population(previous, count, null);
+    }
+
+    static List<Document> population(List<Document> previous, int count, Document zone) {
         if (count < 1 || count > 500) throw new IllegalArgumentException("Population outside 1..500");
         List<Document> enabled = new ArrayList<>(), result = new ArrayList<>();
         int maximumId = 0;
@@ -118,6 +130,18 @@ public final class MongoAdminStageStore implements AdminStageStore {
         if (enabled.isEmpty()) throw new IllegalArgumentException("An existing spawn fallback is required");
 
         int fixedCount = count / 2;
+        double centerX = 0.0D;
+        double centerZ = 0.0D;
+        double radius = 0.0D;
+        if (zone != null) {
+            centerX = number(zone, "centerX");
+            centerZ = number(zone, "centerZ");
+            radius = number(zone, "radius");
+            if (!Double.isFinite(centerX) || !Double.isFinite(centerZ) || !Double.isFinite(radius) || radius <= 0.0D) {
+                throw new IllegalArgumentException("Invalid stage geometry for population layout");
+            }
+        }
+
         for (int i = 0; i < count; i++) {
             Document spawn = copy(enabled.get(Math.min(i, enabled.size() - 1)));
             if (i >= enabled.size()) {
@@ -125,10 +149,22 @@ public final class MongoAdminStageStore implements AdminStageStore {
                 spawn.remove("_id");
                 spawn.put("spawnId", ++maximumId);
             }
-            spawn.put("spawnMode", i < fixedCount ? "FIXED_POINT" : "RANDOM_AREA");
+            boolean fixed = i < fixedCount;
+            spawn.put("spawnMode", fixed ? "FIXED_POINT" : "RANDOM_AREA");
+            if (fixed && zone != null) {
+                MobZoneLayout.HorizontalPoint point = MobZoneLayout.fixedPoint(i, fixedCount, centerX, centerZ, radius);
+                spawn.put("x", point.getX());
+                spawn.put("z", point.getZ());
+            }
             result.add(spawn);
         }
         return result;
+    }
+
+    private static double number(Document document, String key) {
+        Object value = document.get(key);
+        if (!(value instanceof Number)) throw new IllegalArgumentException("Missing numeric stage geometry: " + key);
+        return ((Number) value).doubleValue();
     }
     private static Document copy(Document document) { return Document.parse(document.toJson()); }
     private static String canonical(Document document) {

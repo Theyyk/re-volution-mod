@@ -7,10 +7,10 @@ public final class MobZoneLayout {
 
     private MobZoneLayout() {}
 
-    /** Stable 50/50 split: for odd counts the extra mob is FIXED_POINT. */
+    /** Stable 50/50 split: for odd counts the extra mob is RANDOM_AREA. */
     public static int fixedCount(int totalCount) {
         if (totalCount <= 0) throw new IllegalArgumentException("count must be positive");
-        return (totalCount + 1) / 2;
+        return totalCount / 2;
     }
 
     public static int randomCount(int totalCount) {

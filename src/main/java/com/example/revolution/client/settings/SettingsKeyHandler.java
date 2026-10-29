@@ -11,10 +11,10 @@ import org.lwjgl.input.Keyboard;
 
 @SideOnly(Side.CLIENT)
 public class SettingsKeyHandler {
-    private static KeyBinding keyOpenSettings;
+    public static KeyBinding keyOpenSettings;
 
     public static void register() {
-        keyOpenSettings = new KeyBinding("key.revolution.settings", Keyboard.KEY_O, "key.categories.revolution");
+        keyOpenSettings = new KeyBinding("key.revolution.settings", Keyboard.KEY_P, "key.categories.revolution");
         ClientRegistry.registerKeyBinding(keyOpenSettings);
     }
 
