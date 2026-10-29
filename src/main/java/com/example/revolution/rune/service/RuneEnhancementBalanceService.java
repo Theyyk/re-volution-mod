@@ -34,9 +34,23 @@ public final class RuneEnhancementBalanceService {
         }
     }
 
+    public int maxLevel(int statusId) {
+        String raw = requiredValue(statusId, "enhancement.max_level");
+        try {
+            int value = Integer.parseInt(raw.trim());
+            if (value <= 0) throw new NumberFormatException("not positive");
+            return value;
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("enhancement.max_level must be a positive integer: " + raw, e);
+        }
+    }
+
     /** Cost of one global enhancement step at the current total collection enhancement level. */
     public int nextCost(int statusId, int totalEnhancementLevel) {
         if (totalEnhancementLevel < 0) throw new IllegalArgumentException("total enhancement level must be >= 0");
+        if (totalEnhancementLevel >= maxLevel(statusId)) {
+            throw new IllegalStateException("maximum enhancement level reached");
+        }
         BigDecimal value = balance.evaluateActiveCurve(curveId(statusId), totalEnhancementLevel);
         return positiveInt(value, "enhancement cost");
     }
@@ -45,6 +59,10 @@ public final class RuneEnhancementBalanceService {
     public int bulkCost(int statusId, int totalEnhancementLevel, int amount) {
         if (amount <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
         if (totalEnhancementLevel < 0) throw new IllegalArgumentException("total enhancement level must be >= 0");
+        long target = (long) totalEnhancementLevel + amount;
+        if (target > maxLevel(statusId)) {
+            throw new IllegalStateException("enhancement request exceeds maximum level");
+        }
 
         long total = 0L;
         for (int i = 0; i < amount; i++) {
@@ -60,11 +78,22 @@ public final class RuneEnhancementBalanceService {
         return (int) total;
     }
 
+    /**
+     * Packet/UI pricing. A zero entry means that bulk amount would cross the configured maximum
+     * and therefore must not be submitted. Valid costs are always strictly positive.
+     */
     public int[] bulkCosts(int statusId, int totalEnhancementLevel, int[] amounts) {
         if (amounts == null) throw new IllegalArgumentException("bulk amounts are required");
         int[] result = new int[amounts.length];
+        int maximum = maxLevel(statusId);
         for (int i = 0; i < amounts.length; i++) {
-            result[i] = bulkCost(statusId, totalEnhancementLevel, amounts[i]);
+            int amount = amounts[i];
+            if (amount <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
+            if ((long) totalEnhancementLevel + amount > maximum) {
+                result[i] = 0;
+            } else {
+                result[i] = bulkCost(statusId, totalEnhancementLevel, amount);
+            }
         }
         return result;
     }
