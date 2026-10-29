@@ -43,8 +43,14 @@ public final class RpgSurvivalGuard {
         EntityPlayerMP player = (EntityPlayerMP) event.player;
         if (!isProtected(player)) return;
 
+        // Keep Survival players permanently fed. Do not call
+        // FoodStats#setFoodSaturationLevel here: in the 1.12.2 dedicated-server
+        // runtime used by RE:volution that setter is not present under the
+        // reobfuscated signature emitted by ForgeGradle and causes a
+        // NoSuchMethodError. Holding food at 20 every server tick is enough to
+        // prevent hunger from ever reaching the player while preserving a
+        // stable dedicated-server code path.
         player.getFoodStats().setFoodLevel(20);
-        player.getFoodStats().setFoodSaturationLevel(20.0F);
     }
 
     private static boolean isProtected(EntityPlayerMP player) {
