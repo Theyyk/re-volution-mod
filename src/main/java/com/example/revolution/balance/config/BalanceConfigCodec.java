@@ -59,10 +59,9 @@ public final class BalanceConfigCodec {
                 break;
             case TABLE:
                 JsonArray values = new JsonArray();
-                for (Map.Entry<Integer, BigDecimal> entry : curve.getTableValues().entrySet()) {
-                    values.add(canonical(entry.getValue()));
-                }
+                for (Map.Entry<Integer, BigDecimal> entry : curve.getTableValues().entrySet()) values.add(canonical(entry.getValue()));
                 object.add("values", values);
+                if (curve.getTableTailGrowth() != null) object.addProperty("tail_growth", canonical(curve.getTableTailGrowth()));
                 break;
             case FORMULA:
                 object.addProperty("base", canonical(curve.getFormulaBase()));

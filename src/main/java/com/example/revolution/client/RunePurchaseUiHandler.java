@@ -2,6 +2,7 @@ package com.example.revolution.client;
 
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PingPacket;
+import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.state.RuneInventory;
@@ -106,20 +107,24 @@ public class RunePurchaseUiHandler {
         CostRange costs = enhancementCostRange(enhancementAmount); String resource = ClientRuneEnhancements.getResource();
         String resourceName = resource == null || resource.isEmpty() ? "" : priceResourceName(resource);
         BigDecimal balance = ClientPlayerStats.getResourceBalance(resource);
-        if (!costs.valid) { enhance.enabled = false; enhance.displayString = "Случайное усиление:\nПревышает лимит"; return; }
+        if (!costs.valid) { enhance.enabled = false; enhance.displayString = "Случайное усиление:\nНе настроено"; return; }
         if (resourceName.isEmpty()) { enhance.enabled = false; enhance.displayString = "Случайное усиление:\nНе настроено"; return; }
-        String costText = costs.minimum == costs.maximum ? String.valueOf(costs.maximum) : costs.minimum + "–" + costs.maximum;
+        String costText = costs.minimum.compareTo(costs.maximum) == 0
+                ? LargeNumbers.format(costs.maximum)
+                : LargeNumbers.format(costs.minimum) + "–" + LargeNumbers.format(costs.maximum);
         enhance.displayString = "Случайное усиление:\n" + costText + " " + resourceName;
-        enhance.enabled = balance.compareTo(BigDecimal.valueOf(costs.maximum)) >= 0;
+        enhance.enabled = balance.compareTo(costs.maximum) >= 0;
     }
 
     private CostRange enhancementCostRange(int amount) {
-        int minimum = Integer.MAX_VALUE, maximum = 0; boolean found = false;
+        BigDecimal minimum = null, maximum = null;
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-            int cost = ClientRuneEnhancements.costOf(rune, amount); if (cost <= 0) return CostRange.invalid();
-            minimum = Math.min(minimum, cost); maximum = Math.max(maximum, cost); found = true;
+            BigDecimal cost = ClientRuneEnhancements.costOf(rune, amount);
+            if (cost == null || cost.signum() <= 0) return CostRange.invalid();
+            minimum = minimum == null || cost.compareTo(minimum) < 0 ? cost : minimum;
+            maximum = maximum == null || cost.compareTo(maximum) > 0 ? cost : maximum;
         }
-        return found ? new CostRange(true, minimum, maximum) : CostRange.invalid();
+        return minimum == null ? CostRange.invalid() : new CostRange(true, minimum, maximum);
     }
 
     private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
@@ -174,8 +179,8 @@ public class RunePurchaseUiHandler {
     private GuiButton findButton(List<GuiButton> buttons, int id) { if (buttons == null) return null; for (GuiButton button : buttons) if (button.id == id) return button; return null; }
 
     private static final class CostRange {
-        final boolean valid; final int minimum; final int maximum;
-        CostRange(boolean valid, int minimum, int maximum) { this.valid = valid; this.minimum = minimum; this.maximum = maximum; }
-        static CostRange invalid() { return new CostRange(false, 0, 0); }
+        final boolean valid; final BigDecimal minimum; final BigDecimal maximum;
+        CostRange(boolean valid, BigDecimal minimum, BigDecimal maximum) { this.valid = valid; this.minimum = minimum; this.maximum = maximum; }
+        static CostRange invalid() { return new CostRange(false, BigDecimal.ZERO, BigDecimal.ZERO); }
     }
 }

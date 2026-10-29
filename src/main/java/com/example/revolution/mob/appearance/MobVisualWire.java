@@ -12,6 +12,21 @@ public final class MobVisualWire {
         return PREFIX + locationId + ":" + mobSlotId;
     }
 
+    public static String displayNamePayload(
+            MobAppearanceDefinition appearance,
+            String currentHp,
+            String maxHp,
+            String resource,
+            String amount) {
+        if (appearance == null) throw new IllegalArgumentException("appearance must not be null");
+        return "§c" + appearance.getDisplayName()
+                + "|" + currentHp
+                + "|" + maxHp
+                + "|" + resource
+                + "|" + amount
+                + "|" + encode(appearance.getLocationId(), appearance.getMobSlotId());
+    }
+
     public static int[] decode(String token) {
         if (token == null || !token.startsWith(PREFIX)) return null;
         String[] parts = token.substring(PREFIX.length()).split(":", -1);

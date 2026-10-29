@@ -2,6 +2,7 @@ package com.example.revolution.rune.service;
 
 import com.example.revolution.rune.definition.RuneEnhancementTargeting;
 import com.example.revolution.rune.state.RuneInventory;
+import java.math.BigDecimal;
 import java.util.Random;
 
 /** Pure planning layer: pricing uses global enhancement progress; RNG only chooses eligible targets. */
@@ -25,10 +26,7 @@ public final class RuneEnhancementPlanningService {
         int[] levels = normalizedLevels(currentLevels);
         RuneEnhancementTargeting targeting = balance.targeting(statusId);
         int totalEnhancementLevel = balance.totalEnhancementLevel(levels);
-        if ((long) totalEnhancementLevel + requestedAmount > balance.maxLevel(statusId)) {
-            throw new IllegalStateException("enhancement request exceeds maximum level");
-        }
-        int totalCost = balance.bulkCost(statusId, totalEnhancementLevel, requestedAmount);
+        BigDecimal totalCost = balance.bulkCost(statusId, totalEnhancementLevel, requestedAmount);
         String resource = balance.resource(statusId);
 
         int[] increments = new int[RuneInventory.BOOST_TYPE_COUNT];
@@ -41,20 +39,12 @@ public final class RuneEnhancementPlanningService {
                 if (plannedLevel >= Integer.MAX_VALUE) continue;
                 candidates[candidateCount++] = slot;
             }
-            if (candidateCount <= 0) {
-                throw new IllegalStateException("no eligible enhancement targets remain");
-            }
+            if (candidateCount <= 0) throw new IllegalStateException("no eligible enhancement targets remain");
             int selected = candidates[random.nextInt(candidateCount)];
             increments[selected]++;
         }
 
-        return new RuneEnhancementPlan(
-                resource,
-                totalEnhancementLevel,
-                totalCost,
-                requestedAmount,
-                targeting,
-                increments);
+        return new RuneEnhancementPlan(resource, totalEnhancementLevel, totalCost, requestedAmount, targeting, increments);
     }
 
     private int[] normalizedLevels(int[] currentLevels) {

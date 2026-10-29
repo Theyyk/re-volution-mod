@@ -42,6 +42,7 @@ public final class ManagedMobEvents {
         if (mobs.manages(event.getEntityLiving())) {
             event.setCanceled(true);
             mobs.applyDamage(event.getEntityLiving(), event.getSource(), event.getAmount());
+            ManagedMobAppearanceEvents.refreshNow(event.getEntityLiving());
         }
     }
     @SubscribeEvent public void onMobDeath(LivingDeathEvent event) { mobs.died(event.getEntityLiving(), event.getSource()); }

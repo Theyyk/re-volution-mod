@@ -3,6 +3,7 @@ package com.example.revolution.rune.service;
 import com.example.revolution.network.RuneCollectionsPacket;
 import com.example.revolution.network.RuneEnhancementPacket;
 import com.example.revolution.rune.definition.RuneLayoutDefinition;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,13 +16,8 @@ public final class RunePacketFactory {
             String resource,
             double powerStep,
             int[] levels,
-            int[] bulkCosts) {
-        return new RuneEnhancementPacket(
-                statusId,
-                resource,
-                powerStep,
-                levels,
-                buildCosts(bulkCosts));
+            BigDecimal[] bulkCosts) {
+        return new RuneEnhancementPacket(statusId, resource, powerStep, levels, buildCosts(bulkCosts));
     }
 
     public static RuneCollectionsPacket collections(List<String> storedNames, int activeCollection) {
@@ -33,13 +29,15 @@ public final class RunePacketFactory {
     }
 
     /** Wire format remains per-slot for compatibility, but global enhancement pricing is identical for every row. */
-    private static int[][] buildCosts(int[] bulkCosts) {
-        int[][] result = new int[RuneLayoutDefinition.BOOST_TYPE_COUNT][RuneEnhancementPacket.BULK_AMOUNTS.length];
+    private static BigDecimal[][] buildCosts(BigDecimal[] bulkCosts) {
+        BigDecimal[][] result = new BigDecimal[RuneLayoutDefinition.BOOST_TYPE_COUNT][RuneEnhancementPacket.BULK_AMOUNTS.length];
         for (int rune = 0; rune < result.length; rune++) {
+            for (int amount = 0; amount < result[rune].length; amount++) result[rune][amount] = BigDecimal.ZERO;
             if (bulkCosts == null) continue;
             int limit = Math.min(result[rune].length, bulkCosts.length);
             for (int amount = 0; amount < limit; amount++) {
-                result[rune][amount] = Math.max(0, bulkCosts[amount]);
+                BigDecimal value = bulkCosts[amount];
+                result[rune][amount] = value == null || value.signum() < 0 ? BigDecimal.ZERO : value;
             }
         }
         return result;
