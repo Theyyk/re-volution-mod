@@ -29,7 +29,7 @@ public final class RuneEffectBalanceServiceTest {
         check(dagger.statType == RuneStatType.CLICK_DAMAGE_FLAT, "dagger stat type");
         check(dagger.acceptsTargetedPower, "dagger accepts sharpening power");
         check(close(dagger.primaryValue, 144.0D), "Improved dagger +2 enhancement = 120 * 1.2");
-        check(close(dagger.targetedPowerScale, 18.0D), "targeted scaling follows rank and enhancement");
+        check(close(dagger.targetedPowerScale, 1.0D), "targeted power is added directly without target-rank rescaling");
 
         RuneEffectBalanceService.ResolvedEffect proc = only(service.effects(
                 RuneStatusConfig.STATUS_POISON, 7, 3, 2));
