@@ -17,6 +17,7 @@ import com.example.revolution.mob.event.ManagedMobEvents;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
 import com.example.revolution.player.event.PlayerJoinHandler;
+import com.example.revolution.player.event.RpgSurvivalGuard;
 import com.example.revolution.realm.event.RealmEntityLoadHandler;
 import com.example.revolution.realm.event.RealmLoginHandler;
 import com.example.revolution.realm.world.RealmStartupSync;
@@ -64,6 +65,7 @@ public final class ServerLifecycle {
         current.connect();
         current.adminAccess.init(configDirectory);
         listeners.add(new PlayerJoinHandler(current.sessions));
+        listeners.add(new RpgSurvivalGuard());
         listeners.add(new RealmLoginHandler(current.realms));
         listeners.add(new RealmEntityLoadHandler());
         listeners.add(new ManagedMobEvents(current.mobs));
