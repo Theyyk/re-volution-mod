@@ -70,11 +70,7 @@ public final class PlayerStatsSyncService {
         if (purchaseBalance != null && RuneStatusConfig.isRuneStatus(statusId)) {
             RuneCollectionProgression progression = purchaseProgression(uuid, activeCollection);
             canonicalPurchaseResource = purchaseBalance.purchaseResource(statusId);
-            purchaseUnitCost = purchaseBalance.purchaseCost(
-                    statusId,
-                    progression.stageRank(),
-                    progression.lowerProgress(),
-                    progression.higherRuneCount());
+            purchaseUnitCost = resolvePurchaseUnitCost(purchaseBalance, statusId, progression);
         }
 
         String awakeningResource = RuneEconomyConfig.awakeningResourceForStatus(statusId);
@@ -86,6 +82,20 @@ public final class PlayerStatsSyncService {
         NetworkHandler.sendToClient(new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage,
                 statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost,
                 awakeningImprovedCost, resolvedClickDamage, resolvedPoisonDamage), player);
+    }
+
+    static int resolvePurchaseUnitCost(
+            RunePurchaseBalanceService purchaseBalance,
+            int statusId,
+            RuneCollectionProgression progression) {
+        if (progression == null) throw new IllegalArgumentException("purchase progression is required");
+        if (progression.isComplete()) return 0;
+        if (purchaseBalance == null) throw new IllegalArgumentException("purchase balance is required");
+        return purchaseBalance.purchaseCost(
+                statusId,
+                progression.stageRank(),
+                progression.lowerProgress(),
+                progression.higherRuneCount());
     }
 
     private RuneCollectionProgression purchaseProgression(UUID uuid, int collectionIndex) {
