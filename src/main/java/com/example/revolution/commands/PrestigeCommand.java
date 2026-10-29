@@ -64,14 +64,17 @@ public final class PrestigeCommand extends CommandBase {
 
     private void showBranches(EntityPlayerMP player) {
         message(player, "§6Prestige branches: §f" + prestige.branches());
-        message(player, "§7CLICK is the Foundation reference branch; other sources are registry-ready for later event wiring.");
+        for (PrestigeBranch branch : prestige.branches()) {
+            message(player, "§7" + branch + " source=" + prestige.progressSource(branch));
+        }
     }
 
     private void showStatus(EntityPlayerMP player) {
         PrestigeState state = prestige.snapshot(player.getUniqueID());
-        if (state.activeRun == null) { message(player, "§7No active Prestige run. Use /prestige branches then /prestige select CLICK"); return; }
+        if (state.activeRun == null) { message(player, "§7No active Prestige run. Use /prestige branches then /prestige select <branch>"); return; }
         PrestigeState.RunState run = state.activeRun;
         message(player, "§6Prestige §f" + run.activeBranch + " §7runId=" + run.runId);
+        message(player, "§fSource: " + prestige.progressSource(run.activeBranch));
         message(player, "§fRun level: " + run.branchLevel + " | Progress: " + number(run.branchProgress)
                 + " | Currency: " + number(run.runBranchCurrency));
         message(player, "§fRanks: " + run.reachedRanks);
@@ -99,11 +102,13 @@ public final class PrestigeCommand extends CommandBase {
         PrestigeState state = prestige.snapshot(player.getUniqueID());
         if (state.activeRun == null) message(player, "§7activeBranch=null | runId=null");
         else message(player, "§7activeBranch=" + state.activeRun.activeBranch + " | runId=" + state.activeRun.runId
+                + " | source=" + prestige.progressSource(state.activeRun.activeBranch)
                 + " | progress=" + number(state.activeRun.branchProgress) + " | level=" + state.activeRun.branchLevel
                 + " | reachedRanks=" + state.activeRun.reachedRanks + " | runCurrency=" + number(state.activeRun.runBranchCurrency));
         for (PrestigeBranch branch : PrestigeBranch.values()) {
             PrestigeState.BranchState permanent = state.branch(branch);
-            message(player, "§7" + branch + " best=" + number(permanent.bestSavedProgress) + " meta=" + permanent.rankMetaLevels
+            message(player, "§7" + branch + " source=" + prestige.progressSource(branch)
+                    + " best=" + number(permanent.bestSavedProgress) + " meta=" + permanent.rankMetaLevels
                     + " cap=" + permanent.rankMetaLevelCap + " masteryTier=" + permanent.masteryTier
                     + " masteryQuest=" + permanent.masteryQuestState);
         }

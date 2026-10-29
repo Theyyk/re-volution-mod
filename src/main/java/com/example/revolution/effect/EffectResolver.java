@@ -8,7 +8,13 @@ import java.util.UUID;
 
 /** Shared stat/effect resolution layer for Rune/Prestige/Pet/Artifact-style sources. */
 public final class EffectResolver {
-    public enum Stat { CLICK_DAMAGE_MULTIPLIER }
+    public enum Stat {
+        CLICK_DAMAGE_MULTIPLIER,
+        POISON_DAMAGE_MULTIPLIER,
+        ALL_DAMAGE_MULTIPLIER,
+        COIN_REWARD_MULTIPLIER,
+        RUNE_RESOURCE_REWARD_MULTIPLIER
+    }
 
     public interface Source {
         List<Contribution> contributions(UUID playerUuid, Stat stat);

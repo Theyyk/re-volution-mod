@@ -69,19 +69,22 @@ public final class PrestigeService implements EffectResolver.Source {
 
     public List<PrestigeBranch> branches() { return registry.branches(); }
 
+    public String progressSource(PrestigeBranch branch) { return registry.get(branch).progressSource.toString(); }
+
     @Override
     public synchronized List<EffectResolver.Contribution> contributions(UUID playerUuid, EffectResolver.Stat stat) {
         PrestigeState state = repository.load(playerUuid);
         List<EffectResolver.Contribution> result = new ArrayList<>();
 
-        PrestigeState.BranchState clickPermanent = state.branch(PrestigeBranch.CLICK);
-        PrestigeBranchRegistry.BranchDefinition click = registry.get(PrestigeBranch.CLICK);
-        if (stat == EffectResolver.Stat.CLICK_DAMAGE_MULTIPLIER && click.permanentBonusPerLevel.signum() > 0) {
-            int permanentLevels = click.levelFor(clickPermanent.bestSavedProgress);
+        for (PrestigeBranch branch : registry.branches()) {
+            PrestigeState.BranchState permanent = state.branch(branch);
+            PrestigeBranchRegistry.BranchDefinition definition = registry.get(branch);
+            if (definition.permanentEffectStat != stat || definition.permanentBonusPerLevel.signum() <= 0) continue;
+            int permanentLevels = definition.levelFor(permanent.bestSavedProgress);
             if (permanentLevels > 0) {
                 result.add(new EffectResolver.Contribution(stat,
-                        click.permanentBonusPerLevel.multiply(BigDecimal.valueOf(permanentLevels)),
-                        "prestige:permanent:CLICK"));
+                        definition.permanentBonusPerLevel.multiply(BigDecimal.valueOf(permanentLevels)),
+                        "prestige:permanent:" + branch));
             }
         }
 
@@ -93,7 +96,7 @@ public final class PrestigeService implements EffectResolver.Source {
             if (rank.effectStat != stat || !run.reachedRanks.contains(rank.rankId)) continue;
             int meta = permanent.rankMetaLevels.containsKey(rank.rankId) ? permanent.rankMetaLevels.get(rank.rankId) : 0;
             result.add(new EffectResolver.Contribution(stat, rank.effectAtMetaLevel(meta),
-                    "prestige:run:" + run.runId + ":rank:" + rank.rankId));
+                    "prestige:run:" + run.runId + ":branch:" + run.activeBranch + ":rank:" + rank.rankId));
         }
         return Collections.unmodifiableList(result);
     }

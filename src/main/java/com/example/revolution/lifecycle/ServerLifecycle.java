@@ -71,7 +71,7 @@ public final class ServerLifecycle {
         listeners.add(new RpgSurvivalGuard());
         listeners.add(new RealmLoginHandler(current.realms));
         listeners.add(new RealmEntityLoadHandler());
-        listeners.add(new ManagedMobEvents(current.mobs, current.prestige));
+        listeners.add(new ManagedMobEvents(current.mobs, current.gameplayEvents));
         listeners.add(new ManagedMobAppearanceEvents());
         listeners.add(new LegacyAttackCooldownHandler(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));

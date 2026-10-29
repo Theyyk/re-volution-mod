@@ -6,6 +6,7 @@ import com.example.revolution.player.repository.PlayerIdentity;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneStorageRules;
 import com.mongodb.client.model.UpdateOptions;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -27,9 +28,7 @@ public final class MongoPlayerRepository implements PlayerRepository {
     public int getBalance(UUID uuid) {
         if (!enabled || !connection.isConnected()) return 0;
         Document doc = connection.collection("players").find(new Document("_id", uuid.toString())).first();
-        if (doc == null) return 0;
-        Integer b = doc.getInteger("balance", 0);
-        return b == null ? 0 : b;
+        return doc == null ? 0 : legacyInt(doc.get("balance"));
     }
 
     @Override
@@ -43,9 +42,7 @@ public final class MongoPlayerRepository implements PlayerRepository {
     public int getCrystals(UUID uuid) {
         if (!enabled || !connection.isConnected()) return 0;
         Document doc = connection.collection("players").find(new Document("_id", uuid.toString())).first();
-        if (doc == null) return 0;
-        Integer c = doc.getInteger("crystals", 0);
-        return c == null ? 0 : c;
+        return doc == null ? 0 : legacyInt(doc.get("crystals"));
     }
 
     @Override
@@ -53,6 +50,18 @@ public final class MongoPlayerRepository implements PlayerRepository {
         if (!enabled || !connection.isConnected()) return;
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("crystals", crystals)), new UpdateOptions().upsert(true));
+    }
+
+    private static int legacyInt(Object raw) {
+        if (raw == null) return 0;
+        try {
+            BigDecimal value = raw instanceof Number ? new BigDecimal(raw.toString()) : new BigDecimal(String.valueOf(raw));
+            if (value.signum() <= 0) return 0;
+            if (value.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) >= 0) return Integer.MAX_VALUE;
+            return value.intValue();
+        } catch (RuntimeException ignored) {
+            return 0;
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -228,6 +237,4 @@ public final class MongoPlayerRepository implements PlayerRepository {
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("lastKnownName", lastKnownName.trim())), new UpdateOptions().upsert(true));
     }
-
 }
-
