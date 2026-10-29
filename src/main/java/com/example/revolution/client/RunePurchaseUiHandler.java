@@ -50,7 +50,10 @@ public class RunePurchaseUiHandler {
             enhancementAmount = enhancementAmount == 1 ? 5 : enhancementAmount == 5 ? 10 : enhancementAmount == 10 ? 100 : 1;
             applyEnhancementEconomy(event.getGui(), event.getButtonList()); return;
         }
-        if (button.id == ENHANCE_BUTTON_ID && usesStatusPurchaseEconomy()) NetworkHandler.INSTANCE.sendToServer(new PingPacket("enhance_rune:0:" + enhancementAmount));
+        if (button.id == ENHANCE_BUTTON_ID && usesStatusPurchaseEconomy()) {
+            if (!enhancementCostRange(enhancementAmount).valid) return;
+            NetworkHandler.INSTANCE.sendToServer(new PingPacket("enhance_rune:0:" + enhancementAmount));
+        }
     }
 
     @SubscribeEvent public void onMouseInput(GuiScreenEvent.MouseInputEvent.Post event) {
@@ -103,7 +106,8 @@ public class RunePurchaseUiHandler {
         CostRange costs = enhancementCostRange(enhancementAmount); String resource = ClientRuneEnhancements.getResource();
         String resourceName = resource == null || resource.isEmpty() ? "" : priceResourceName(resource);
         BigDecimal balance = ClientPlayerStats.getResourceBalance(resource);
-        if (!costs.valid || resourceName.isEmpty()) { enhance.enabled = false; enhance.displayString = "Случайное усиление:\nНе настроено"; return; }
+        if (!costs.valid) { enhance.enabled = false; enhance.displayString = "Случайное усиление:\nПревышает лимит"; return; }
+        if (resourceName.isEmpty()) { enhance.enabled = false; enhance.displayString = "Случайное усиление:\nНе настроено"; return; }
         String costText = costs.minimum == costs.maximum ? String.valueOf(costs.maximum) : costs.minimum + "–" + costs.maximum;
         enhance.displayString = "Случайное усиление:\n" + costText + " " + resourceName;
         enhance.enabled = balance.compareTo(BigDecimal.valueOf(costs.maximum)) >= 0;
@@ -155,7 +159,7 @@ public class RunePurchaseUiHandler {
         String normalized = ResourceDefinitions.normalize(resource);
         if ("coins".equals(normalized)) return "монет"; if ("crystals".equals(normalized)) return "кристаллов";
         if (ResourceDefinitions.RUNE_DUST.equals(normalized)) return "пыли рун"; if (ResourceDefinitions.RUNE_SHARDS.equals(normalized)) return "осколков рун";
-        if (ResourceDefinitions.RUNE_CORES.equals(normalized)) return "ядер рун"; return ResourceDefinitions.getDisplayName(resource).toLowerCase(java.util.Locale.ROOT);
+        if (ResourceDefinitions.RUNE_CORES.equals(normalized)) return "ядер рун"; return ResourceDefinitions.getDisplayName(resource).toLowerCase(Locale.ROOT);
     }
 
     private int currentBuyAmount(List<GuiButton> buttons) {

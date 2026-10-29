@@ -3,20 +3,26 @@ package com.example.revolution.rune.rules;
 import com.example.revolution.rune.definition.RuneLayoutDefinition;
 
 /**
- * Derived purchase progression for one rune collection.
+ * Derived nested purchase progression for one rune collection.
  *
- * <p>The factual per-rune ranks are the source of truth. No purchase index or collection rank is
- * persisted independently. This is intentionally suitable for future local rank reverts: changing
- * one rune rank changes the derived stage population on the next calculation.</p>
+ * <p>The factual per-rune ranks are the only source of truth. A higher-rank rune occupies its slot
+ * for the current lower-rank rebuild, while purchases continue one rank below the factual maximum
+ * until all 26 slots reach that maximum rank.</p>
  */
 public final class RuneCollectionProgression {
     private final int stageRank;
-    private final int progressionIndex;
+    private final int lowerProgress;
+    private final int higherRuneCount;
     private final boolean[] ownedAtStage;
 
-    private RuneCollectionProgression(int stageRank, int progressionIndex, boolean[] ownedAtStage) {
+    private RuneCollectionProgression(
+            int stageRank,
+            int lowerProgress,
+            int higherRuneCount,
+            boolean[] ownedAtStage) {
         this.stageRank = stageRank;
-        this.progressionIndex = progressionIndex;
+        this.lowerProgress = lowerProgress;
+        this.higherRuneCount = higherRuneCount;
         this.ownedAtStage = ownedAtStage;
     }
 
@@ -25,36 +31,71 @@ public final class RuneCollectionProgression {
             throw new IllegalArgumentException("bestRanks must contain all rune slots");
         }
 
-        int stageRank = RuneProgression.NORMAL_RANK;
-        boolean hasRune = false;
+        int highestRank = RuneProgression.NORMAL_RANK;
+        int highestRankCount = 0;
         for (int rune = 0; rune < RuneLayoutDefinition.BOOST_TYPE_COUNT; rune++) {
-            if (bestRanks[rune] <= 0) continue;
-            hasRune = true;
-            stageRank = Math.max(stageRank, RuneProgression.clampRank(bestRanks[rune]));
+            int rawRank = bestRanks[rune];
+            if (rawRank <= 0) continue;
+            int rank = RuneProgression.clampRank(rawRank);
+            if (rank > highestRank) {
+                highestRank = rank;
+                highestRankCount = 1;
+            } else if (rank == highestRank) {
+                highestRankCount++;
+            }
         }
-        if (!hasRune) stageRank = RuneProgression.NORMAL_RANK;
+
+        int stageRank;
+        if (highestRank <= RuneProgression.NORMAL_RANK) {
+            stageRank = RuneProgression.NORMAL_RANK;
+        } else if (highestRankCount >= RuneLayoutDefinition.BOOST_TYPE_COUNT) {
+            stageRank = highestRank;
+        } else {
+            stageRank = Math.max(RuneProgression.NORMAL_RANK, highestRank - 1);
+        }
 
         boolean[] ownedAtStage = new boolean[RuneLayoutDefinition.BOOST_TYPE_COUNT];
-        int progressionIndex = 0;
+        int lowerProgress = 0;
+        int higherRuneCount = 0;
         for (int rune = 0; rune < RuneLayoutDefinition.BOOST_TYPE_COUNT; rune++) {
             int rawRank = bestRanks[rune];
             if (rawRank <= 0) continue;
             int rank = RuneProgression.clampRank(rawRank);
             if (rank < stageRank) continue;
             ownedAtStage[rune] = true;
-            progressionIndex++;
+            if (rank == stageRank) lowerProgress++;
+            else higherRuneCount++;
         }
 
-        return new RuneCollectionProgression(stageRank, progressionIndex, ownedAtStage);
+        return new RuneCollectionProgression(stageRank, lowerProgress, higherRuneCount, ownedAtStage);
     }
 
     public int stageRank() {
         return stageRank;
     }
 
-    /** Number of factual runes that currently belong to the active purchase stage. */
+    /** Number of factual runes exactly at the rank currently being rebuilt. */
+    public int lowerProgress() {
+        return lowerProgress;
+    }
+
+    /** Number of factual runes already above the rank currently being rebuilt. */
+    public int higherRuneCount() {
+        return higherRuneCount;
+    }
+
+    /** Number of slots already covered at or above the current purchase rank. */
+    public int coveredCount() {
+        return lowerProgress + higherRuneCount;
+    }
+
+    /** Compatibility alias: purchase curve index is the factual lower-rank progress. */
     public int progressionIndex() {
-        return progressionIndex;
+        return lowerProgress;
+    }
+
+    public boolean isComplete() {
+        return coveredCount() >= RuneLayoutDefinition.BOOST_TYPE_COUNT;
     }
 
     public boolean isOwnedAtStage(int runeIndex) {

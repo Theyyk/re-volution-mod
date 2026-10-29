@@ -68,7 +68,7 @@ public final class RuneAwakeningService {
 
         RuneRankUpRule rule;
         try {
-            rule = rankUpBalance.rule(statusId, currentRank);
+            rule = rankUpBalance.rule(statusId, currentRank, countAbove(bestRanks, currentRank));
         } catch (RuntimeException e) {
             player.sendMessage(new TextComponentString("§cПробуждение временно недоступно: правило перехода настроено некорректно."));
             return;
@@ -145,6 +145,14 @@ public final class RuneAwakeningService {
         int count = 0;
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             if (bestRanks[rune] >= rank) count++;
+        }
+        return count;
+    }
+
+    private int countAbove(int[] bestRanks, int rank) {
+        int count = 0;
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            if (bestRanks[rune] > rank) count++;
         }
         return count;
     }

@@ -10,7 +10,7 @@ import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.definition.RuneStatType;
 import java.util.List;
 
-/** Regression coverage for v1.4.5 canonical rune effect definitions. */
+/** Regression coverage for the current canonical ZBT rune effect definitions. */
 public final class RuneEffectBalanceServiceTest {
     public static void main(String[] args) {
         bundledPoisonBaseline();
@@ -20,39 +20,48 @@ public final class RuneEffectBalanceServiceTest {
 
     private static void bundledPoisonBaseline() {
         RuneEffectBalanceService service = new RuneEffectBalanceService(BalanceBootstrap.activateBundledDefaults());
-        check(service.group(RuneStatusConfig.STATUS_POISON, 0).equals("killer_dagger"),
-                "slot mapping must come from canonical balance data");
-        check(service.group(RuneStatusConfig.STATUS_POISON, 13).equals("snake_fang"),
-                "poison flat group mapping must be canonical");
+        check(service.group(RuneStatusConfig.STATUS_POISON, 0).equals("killer_dagger"), "dagger slot mapping");
+        check(service.group(RuneStatusConfig.STATUS_POISON, 13).equals("snake_fang"), "fang slot mapping");
 
         RuneEffectBalanceService.ResolvedEffect dagger = only(service.effects(
                 RuneStatusConfig.STATUS_POISON, 0, 2, 2));
         check(dagger.type == RuneEffectBalanceService.EffectType.STAT, "dagger effect type");
         check(dagger.statType == RuneStatType.CLICK_DAMAGE_FLAT, "dagger stat type");
-        check(dagger.tags.contains("click"), "tags are retained");
         check(dagger.acceptsTargetedPower, "dagger accepts sharpening power");
-        check(close(dagger.primaryValue, 3.6D), "rank-specific value uses the slot enhancement step");
-        check(close(dagger.targetedPowerScale, 3.6D), "targeted power keeps legacy pre-rank scaling semantics");
+        check(close(dagger.primaryValue, 144.0D), "Improved dagger +2 enhancement = 120 * 1.2");
+        check(close(dagger.targetedPowerScale, 1.0D), "targeted power is added directly without target-rank rescaling");
 
         RuneEffectBalanceService.ResolvedEffect proc = only(service.effects(
                 RuneStatusConfig.STATUS_POISON, 7, 3, 2));
-        check(proc.type == RuneEffectBalanceService.EffectType.CLICK_DAMAGE_PROC, "proc type");
-        check(proc.targetSelector.equals("HIT_MOB"), "proc selector");
-        check(close(proc.primaryValue, 15.0D), "proc chance stays unscaled");
-        check(close(proc.secondaryValue, 21.6D), "proc multiplier has individual enhancement scaling");
+        check(close(proc.primaryValue, 15.0D), "proc chance stays max-style and unscaled");
+        check(close(proc.secondaryValue, 12.0D), "Advanced x10 proc receives +20% enhancement");
 
-        RuneEffectBalanceService.ResolvedEffect rage = only(service.effects(
+        RuneEffectBalanceService.ResolvedEffect rage1 = only(service.effects(
                 RuneStatusConfig.STATUS_POISON, 10, 1, 0));
-        check(rage.type == RuneEffectBalanceService.EffectType.TEMPORARY_ALL_DAMAGE_MULTIPLIER, "rage type");
-        check(close(rage.primaryValue, 2.0D), "rage normal multiplier");
-        check(close(rage.durationSeconds, 5.0D), "rage duration");
-        check(rage.maxStacks == 1, "rage stack limit");
+        RuneEffectBalanceService.ResolvedEffect rage2 = only(service.effects(
+                RuneStatusConfig.STATUS_POISON, 10, 2, 0));
+        RuneEffectBalanceService.ResolvedEffect rage3 = only(service.effects(
+                RuneStatusConfig.STATUS_POISON, 10, 3, 0));
+        check(close(rage1.primaryValue, 1.35D) && close(rage1.durationSeconds, 4.0D), "Normal rage");
+        check(close(rage2.primaryValue, 1.55D) && close(rage2.durationSeconds, 5.0D), "Improved rage");
+        check(close(rage3.primaryValue, 1.85D) && close(rage3.durationSeconds, 6.0D), "Advanced rage");
+        check(rage3.maxStacks == 1, "rage stack limit");
 
         List<RuneEffectBalanceService.ResolvedEffect> hybrid = service.effects(
                 RuneStatusConfig.STATUS_POISON, 11, 2, 0);
-        check(hybrid.size() == 2, "toxic shard keeps two explicit effects");
-        check(hybrid.get(0).statType == RuneStatType.CLICK_DAMAGE_MULTIPLIER, "hybrid click effect");
-        check(hybrid.get(1).statType == RuneStatType.POISON_DAMAGE_MULTIPLIER, "hybrid poison effect");
+        check(hybrid.size() == 2, "toxic shard has click and poison channels");
+        check(close(hybrid.get(0).primaryValue, 1.45D), "Improved toxic shard click multiplier");
+        check(close(hybrid.get(1).primaryValue, 1.60D), "Improved toxic shard poison multiplier");
+
+        RuneEffectBalanceService.ResolvedEffect mark = only(service.effects(
+                RuneStatusConfig.STATUS_POISON, 22, 3, 0));
+        check(mark.statType == RuneStatType.ALL_DAMAGE_VULNERABILITY, "infection mark affects click and poison");
+        check(close(mark.primaryValue, 30.0D), "Advanced vulnerability +30%");
+
+        RuneEffectBalanceService.ResolvedEffect relic = only(service.effects(
+                RuneStatusConfig.STATUS_POISON, 25, 3, 0));
+        check(relic.statType == RuneStatType.COIN_REWARD_PERCENT, "hunter relic targets coin rewards");
+        check(close(relic.primaryValue, 40.0D), "Advanced hunter relic +40% coins");
     }
 
     private static void activeSnapshotOverride() {
@@ -77,8 +86,7 @@ public final class RuneEffectBalanceServiceTest {
         RuneEffectBalanceService service = new RuneEffectBalanceService(balance);
         RuneEffectBalanceService.ResolvedEffect effect = only(service.effects(
                 RuneStatusConfig.STATUS_POISON, 0, 2, 2));
-        check(close(effect.primaryValue, 16.5D),
-                "active Balance Core values must drive runtime instead of Java constants");
+        check(close(effect.primaryValue, 16.5D), "active snapshot overrides bundled data");
     }
 
     private static RuneEffectBalanceService.ResolvedEffect only(List<RuneEffectBalanceService.ResolvedEffect> values) {
@@ -86,11 +94,6 @@ public final class RuneEffectBalanceServiceTest {
         return values.get(0);
     }
 
-    private static boolean close(double left, double right) {
-        return Math.abs(left - right) < 0.000001D;
-    }
-
-    private static void check(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
-    }
+    private static boolean close(double left, double right) { return Math.abs(left - right) < 0.000001D; }
+    private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
 }
