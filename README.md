@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v1.5.1`.**
+**Стабильная версия: `v1.5.2`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.5.1](docs/releases/v1.5.1.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v1.5.2](docs/releases/v1.5.2.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -71,7 +71,7 @@ Gameplay-мод не должен содержать приватные signing 
 - Purchase progression полностью выводится из фактических per-rune ranks. Вложенный цикл после первого rank-up продолжает собирать нижний ранг вокруг уже повышенных рун, вместо переключения покупок на factual maximum rank.
 - Для purchase point используются `lowerProgress` и `higherRuneCount`; исторические `purchaseIndex`, `currentCollectionRank` и `nextPurchaseCost` не являются источником истины.
 - Purchase cost рассчитывается из ZBT base curve с pressure `1.15 ^ higherRuneCount`; duplicate reward вычисляется из актуальной цены попытки, выдаёт `rune_dust`, не возвращает coins и не двигает progression.
-- Enhancement curve ограничена текущей ZBT-таблицей `+1..+50`; усиление остаётся свойством слота и переживает rank-up/revert.
+- Enhancement cost использует текущую ZBT-таблицу `+1..+50` без изменений, а после последней явно заданной точки продолжается data-driven TABLE tail с ростом `1.10`; hard cap усилений отсутствует. Усиление остаётся свойством слота и переживает rank-up/revert.
 - Rank-up использует ZBT Shard curve и factual higher-rank count.
 - Rune Rank Revert сохраняет `CTRL + ПКМ = Ослабить`, не возвращает ресурсы и читает server-side policy из Balance Core: `revert_allowed_from_rank=3`, `revert_steps=1`.
 - Poison трактуется как DPS-бюджет с 5 ticks/sec и AoE total multiplier curve для 1..10 целей; damage делится между целями по текущему числу targets.
@@ -110,6 +110,7 @@ Gameplay-мод не должен содержать приватные signing 
 - Дубликаты, Пыль рун, пробуждение и постоянные уровни усиления `+N` обрабатываются сервером.
 - Для подходящей руны `CTRL + ПКМ` выполняет одноступенчатый Rank Revert; левый клик сохраняет существующее действие пробуждения.
 - Усиление и ранг - независимые множители; базовая формула: `finalPower = basePower × (1 + enhancementLevel × enhancementStep)`.
+- Для direct melee по managed-мобам используется cadence в стиле pre-1.9: ванильный attack cooldown не режет урон, а target hurt-resistance не отбрасывает быстрые клики; projectile/poison/secondary damage этим bypass не затрагиваются.
 - Поддерживаются упрощённый, полный и инженерный форматы больших чисел.
 - Основные ресурсы: `coins`, `crystals`, `rune_dust`, `rune_shards`, `rune_cores`.
 - Серверный контракт ресурсов не допускает отрицательных балансов.
