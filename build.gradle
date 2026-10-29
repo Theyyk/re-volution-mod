@@ -13,7 +13,8 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '2.0.1'
+// Stable release metadata for v2.1.0.
+version = '2.1.0'
 group = 'com.example.revolution'
 archivesBaseName = 'RE-volution'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
