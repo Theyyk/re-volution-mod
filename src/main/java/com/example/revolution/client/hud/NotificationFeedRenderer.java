@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.util.text.ChatType;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
@@ -31,7 +32,7 @@ public final class NotificationFeedRenderer {
 
         String plain = TextFormatting.getTextWithoutFormattingCodes(event.getMessage().getFormattedText());
         boolean legacyRuneStatus = plain != null && plain.startsWith("Активная колода:");
-        if (event.getType() != 1 && !legacyRuneStatus) return;
+        if (event.getType() != ChatType.SYSTEM && !legacyRuneStatus) return;
 
         event.setCanceled(true);
         push(event.getMessage().getFormattedText());
