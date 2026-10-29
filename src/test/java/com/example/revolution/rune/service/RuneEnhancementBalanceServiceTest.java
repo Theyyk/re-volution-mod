@@ -24,6 +24,7 @@ public final class RuneEnhancementBalanceServiceTest {
 
         assertEquals(ResourceDefinitions.RUNE_DUST, service.resource(RuneStatusConfig.STATUS_POISON));
         assertEquals(RuneEnhancementTargeting.ALL_SLOTS, service.targeting(RuneStatusConfig.STATUS_POISON));
+        assertEquals(50, service.maxLevel(RuneStatusConfig.STATUS_POISON));
         assertEquals(1, service.nextCost(RuneStatusConfig.STATUS_POISON, 0));
         assertEquals(16, service.nextCost(RuneStatusConfig.STATUS_POISON, 9));
         assertEquals(12440, service.nextCost(RuneStatusConfig.STATUS_POISON, 49));
@@ -32,6 +33,10 @@ public final class RuneEnhancementBalanceServiceTest {
         assertEquals(2936, service.bulkCost(RuneStatusConfig.STATUS_POISON, 0, 30));
         assertEquals(15550, service.bulkCost(RuneStatusConfig.STATUS_POISON, 0, 40));
         assertEquals(81520, service.bulkCost(RuneStatusConfig.STATUS_POISON, 0, 50));
+        assertThrows(IllegalStateException.class,
+                () -> service.nextCost(RuneStatusConfig.STATUS_POISON, 50));
+        assertThrows(IllegalStateException.class,
+                () -> service.bulkCost(RuneStatusConfig.STATUS_POISON, 49, 5));
         assertEquals(5, service.totalEnhancementLevel(new int[] {2, 3}));
     }
 
@@ -64,7 +69,7 @@ public final class RuneEnhancementBalanceServiceTest {
     }
 
     @Test
-    void ownedOnlyNeverTargetsClosedSlots() {
+    void ownedOnlyNeverTargetsClosedSlotsWithinZbtCap() {
         RuneEnhancementBalanceService balance = service("OWNED_ONLY", "{\"mode\":\"FIXED\",\"value\":\"10\"}");
         RuneEnhancementPlanningService planner = new RuneEnhancementPlanningService(balance);
         boolean[] owned = new boolean[RuneInventory.BOOST_TYPE_COUNT];
@@ -75,18 +80,21 @@ public final class RuneEnhancementBalanceServiceTest {
                 RuneStatusConfig.STATUS_POISON,
                 new int[RuneInventory.BOOST_TYPE_COUNT],
                 owned,
-                100,
+                50,
                 new Random(42L));
 
         int[] increments = plan.getIncrements();
         assertEquals(RuneEnhancementTargeting.OWNED_ONLY, plan.getTargeting());
-        assertEquals(100, sum(increments));
+        assertEquals(50, sum(increments));
         assertTrue(increments[4] > 0);
         assertTrue(increments[7] > 0);
         for (int slot = 0; slot < increments.length; slot++) {
             if (slot == 4 || slot == 7) continue;
             assertEquals(0, increments[slot]);
         }
+        assertThrows(IllegalStateException.class, () -> planner.plan(
+                RuneStatusConfig.STATUS_POISON,
+                new int[RuneInventory.BOOST_TYPE_COUNT], owned, 51, new Random(42L)));
     }
 
     @Test
