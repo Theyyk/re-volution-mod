@@ -16,6 +16,10 @@ public final class RunePurchaseBalanceService {
         this.balance = balance;
     }
 
+    RuneRankRevertBalanceService revertBalanceRules() {
+        return new RuneRankRevertBalanceService(balance);
+    }
+
     public String purchaseResource(int statusId) {
         return canonicalResource(requiredValue(statusId, "purchase.resource"), "purchase");
     }
@@ -24,11 +28,6 @@ public final class RunePurchaseBalanceService {
         return canonicalResource(requiredValue(statusId, "duplicate.resource"), "duplicate");
     }
 
-    /**
-     * Price of one attempt at the factual nested progression point.
-     * Base curve is indexed only by lower-rank progress, then pressure is applied for every rune
-     * already above the current purchase rank. Fractional prices round HALF_UP to ResourceService integers.
-     */
     public int purchaseCost(int statusId, int rank, int lowerProgress, int higherRuneCount) {
         if (higherRuneCount < 0) throw new IllegalArgumentException("higherRuneCount must be >= 0");
         BigDecimal base = requiredCurve(statusId, "purchase", rank, lowerProgress);
@@ -39,12 +38,10 @@ public final class RunePurchaseBalanceService {
         return positiveRoundedInt(resolved, "purchase cost");
     }
 
-    /** Backward-compatible call for callers/configs without higher-rank pressure. */
     public int purchaseCost(int statusId, int rank, int lowerProgress) {
         return purchaseCost(statusId, rank, lowerProgress, 0);
     }
 
-    /** Duplicate compensation is always derived from the exact current purchase cost when rate is configured. */
     public int duplicateReward(int statusId, int rank, int lowerProgress, int higherRuneCount) {
         String rateRaw = optionalValue(statusId, "duplicate.rate");
         if (rateRaw == null) {
@@ -56,7 +53,6 @@ public final class RunePurchaseBalanceService {
         return Math.max(1, rounded);
     }
 
-    /** Backward-compatible call for legacy duplicate curves. */
     public int duplicateReward(int statusId, int rank, int lowerProgress) {
         return duplicateReward(statusId, rank, lowerProgress, 0);
     }
