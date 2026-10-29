@@ -2,6 +2,7 @@ package com.example.revolution.network;
 
 import com.example.revolution.rune.definition.RuneLayoutDefinition;
 import io.netty.buffer.ByteBuf;
+import java.math.BigDecimal;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
@@ -12,11 +13,11 @@ public class RuneEnhancementPacket implements IMessage {
     private String resource = "";
     private double powerStep;
     private int[] levels = new int[RuneLayoutDefinition.BOOST_TYPE_COUNT];
-    private int[][] costs = new int[RuneLayoutDefinition.BOOST_TYPE_COUNT][BULK_AMOUNTS.length];
+    private BigDecimal[][] costs = emptyCosts();
 
     public RuneEnhancementPacket() {}
 
-    public RuneEnhancementPacket(int statusId, String resource, double powerStep, int[] levels, int[][] costs) {
+    public RuneEnhancementPacket(int statusId, String resource, double powerStep, int[] levels, BigDecimal[][] costs) {
         this.statusId = statusId;
         this.resource = resource == null ? "" : resource;
         this.powerStep = Math.max(0.0D, powerStep);
@@ -30,7 +31,8 @@ public class RuneEnhancementPacket implements IMessage {
                 if (costs[rune] == null) continue;
                 int amountLimit = Math.min(this.costs[rune].length, costs[rune].length);
                 for (int amount = 0; amount < amountLimit; amount++) {
-                    this.costs[rune][amount] = Math.max(0, costs[rune][amount]);
+                    BigDecimal value = costs[rune][amount];
+                    this.costs[rune][amount] = value == null || value.signum() < 0 ? BigDecimal.ZERO : value;
                 }
             }
         }
@@ -43,12 +45,12 @@ public class RuneEnhancementPacket implements IMessage {
         powerStep = Math.max(0.0D, buf.readDouble());
         int encodedCount = Math.max(0, buf.readInt());
         levels = new int[RuneLayoutDefinition.BOOST_TYPE_COUNT];
-        costs = new int[RuneLayoutDefinition.BOOST_TYPE_COUNT][BULK_AMOUNTS.length];
+        costs = emptyCosts();
         for (int rune = 0; rune < encodedCount; rune++) {
             int level = Math.max(0, buf.readInt());
-            int[] runeCosts = new int[BULK_AMOUNTS.length];
+            BigDecimal[] runeCosts = new BigDecimal[BULK_AMOUNTS.length];
             for (int amount = 0; amount < BULK_AMOUNTS.length; amount++) {
-                runeCosts[amount] = Math.max(0, buf.readInt());
+                runeCosts[amount] = parseCost(ByteBufUtils.readUTF8String(buf));
             }
             if (rune >= RuneLayoutDefinition.BOOST_TYPE_COUNT) continue;
             levels[rune] = level;
@@ -65,7 +67,8 @@ public class RuneEnhancementPacket implements IMessage {
         for (int rune = 0; rune < levels.length; rune++) {
             buf.writeInt(Math.max(0, levels[rune]));
             for (int amount = 0; amount < BULK_AMOUNTS.length; amount++) {
-                buf.writeInt(Math.max(0, costs[rune][amount]));
+                BigDecimal value = costs[rune][amount];
+                ByteBufUtils.writeUTF8String(buf, value == null || value.signum() < 0 ? "0" : value.toPlainString());
             }
         }
     }
@@ -75,11 +78,26 @@ public class RuneEnhancementPacket implements IMessage {
     public double getPowerStep() { return powerStep; }
     public int[] getLevels() { return levels.clone(); }
 
-    public int[][] getCosts() {
-        int[][] copy = new int[costs.length][BULK_AMOUNTS.length];
-        for (int rune = 0; rune < costs.length; rune++) {
-            System.arraycopy(costs[rune], 0, copy[rune], 0, BULK_AMOUNTS.length);
-        }
+    public BigDecimal[][] getCosts() {
+        BigDecimal[][] copy = emptyCosts();
+        for (int rune = 0; rune < costs.length; rune++) System.arraycopy(costs[rune], 0, copy[rune], 0, BULK_AMOUNTS.length);
         return copy;
+    }
+
+    private static BigDecimal[][] emptyCosts() {
+        BigDecimal[][] result = new BigDecimal[RuneLayoutDefinition.BOOST_TYPE_COUNT][BULK_AMOUNTS.length];
+        for (int rune = 0; rune < result.length; rune++) {
+            for (int amount = 0; amount < BULK_AMOUNTS.length; amount++) result[rune][amount] = BigDecimal.ZERO;
+        }
+        return result;
+    }
+
+    private static BigDecimal parseCost(String raw) {
+        try {
+            BigDecimal value = new BigDecimal(raw == null || raw.trim().isEmpty() ? "0" : raw.trim());
+            return value.signum() < 0 ? BigDecimal.ZERO : value;
+        } catch (RuntimeException e) {
+            return BigDecimal.ZERO;
+        }
     }
 }
