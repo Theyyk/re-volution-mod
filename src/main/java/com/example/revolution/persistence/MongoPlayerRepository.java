@@ -193,7 +193,7 @@ public final class MongoPlayerRepository implements PlayerRepository {
         }
         if (target == null) return false;
         target.put("slot", runeIndex); target.put("cardIndex", runeIndex);
-        target.put("layer", Math.max(RuneStorageRules.NORMAL_RANK, Math.min(RuneStorageRules.ADVANCED_RANK, layer)));
+        target.put("layer", RuneStorageRules.clampGameplayRank(layer));
         if (!target.containsKey("level")) target.put("level", 1);
         collection.put("cards", runes); collections.set(collectionIndex, collection);
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
