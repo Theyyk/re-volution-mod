@@ -1,6 +1,10 @@
 package com.example.revolution.mob.event;
 
 import com.example.revolution.mob.service.ManagedMobService;
+import com.example.revolution.prestige.PrestigeBranch;
+import com.example.revolution.prestige.PrestigeService;
+import java.math.BigDecimal;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
@@ -15,7 +19,11 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 /** Forge subscriptions preserve priorities, thread phases and cancellation at the adapter boundary. */
 public final class ManagedMobEvents {
     private final ManagedMobService mobs;
-    public ManagedMobEvents(ManagedMobService mobs) { this.mobs = mobs; }
+    private final PrestigeService prestige;
+    public ManagedMobEvents(ManagedMobService mobs, PrestigeService prestige) {
+        this.mobs = mobs;
+        this.prestige = prestige;
+    }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onEntityJoinWorld(EntityJoinWorldEvent event) {
@@ -40,11 +48,34 @@ public final class ManagedMobEvents {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onLivingHurt(LivingHurtEvent event) {
         if (mobs.manages(event.getEntityLiving())) {
+            BigDecimal hpBefore = managedHp(event.getEntityLiving().getCustomNameTag());
+            EntityPlayerMP player = event.getSource().getTrueSource() instanceof EntityPlayerMP
+                    ? (EntityPlayerMP) event.getSource().getTrueSource() : null;
+            boolean factualClick = player != null && !mobs.isApplyingPoisonDamage(player.getUniqueID());
+
             event.setCanceled(true);
             mobs.applyDamage(event.getEntityLiving(), event.getSource(), event.getAmount());
+
+            if (factualClick && hpBefore != null) {
+                BigDecimal hpAfter = event.getEntityLiving().isDead
+                        ? BigDecimal.ZERO : managedHp(event.getEntityLiving().getCustomNameTag());
+                if (hpAfter != null) {
+                    BigDecimal dealt = hpBefore.subtract(hpAfter);
+                    if (dealt.signum() > 0) prestige.recordProgress(player.getUniqueID(), PrestigeBranch.CLICK, dealt);
+                }
+            }
             ManagedMobAppearanceEvents.refreshNow(event.getEntityLiving());
         }
     }
+
+    private static BigDecimal managedHp(String customName) {
+        if (customName == null || !customName.startsWith("§c")) return null;
+        String[] parts = customName.substring(2).split("\\|");
+        if (parts.length < 2) return null;
+        try { return new BigDecimal(parts[1]); }
+        catch (NumberFormatException ignored) { return null; }
+    }
+
     @SubscribeEvent public void onMobDeath(LivingDeathEvent event) { mobs.died(event.getEntityLiving(), event.getSource()); }
     @SubscribeEvent public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END) mobs.tick();

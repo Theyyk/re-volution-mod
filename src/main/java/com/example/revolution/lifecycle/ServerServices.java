@@ -9,6 +9,7 @@ import com.example.revolution.admin.service.AdminToolsService;
 import com.example.revolution.admin.service.AdminStageBatchService;
 import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.balance.service.BalanceService;
+import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
 import com.example.revolution.location.world.REBuilderAdapter;
@@ -44,6 +45,7 @@ import com.example.revolution.persistence.MongoLocationStageTemplateRepository;
 import com.example.revolution.persistence.MongoMobProgressionRepository;
 import com.example.revolution.persistence.MongoMobRepository;
 import com.example.revolution.persistence.MongoPlayerRepository;
+import com.example.revolution.persistence.MongoPrestigeRepository;
 import com.example.revolution.persistence.MongoResourceRepository;
 import com.example.revolution.persistence.MongoRuneEnhancementRepository;
 import com.example.revolution.persistence.MongoStageTransitionPreferenceRepository;
@@ -53,6 +55,8 @@ import com.example.revolution.player.service.PlayerCollectionService;
 import com.example.revolution.player.service.PlayerSessionService;
 import com.example.revolution.player.service.PlayerStatsService;
 import com.example.revolution.player.service.PlayerStatsSyncService;
+import com.example.revolution.prestige.PrestigeBranchRegistry;
+import com.example.revolution.prestige.PrestigeService;
 import com.example.revolution.realm.service.RealmService;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
@@ -108,6 +112,8 @@ public final class ServerServices implements AutoCloseable {
     public final RuneAdminService runeAdmin;
     public final PlayerCollectionService collections;
     public final RealmService realms = new RealmService();
+    public final PrestigeService prestige;
+    public final EffectResolver effects;
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         this.logger = logger;
@@ -124,6 +130,10 @@ public final class ServerServices implements AutoCloseable {
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
         resources = new ResourceService(new MongoResourceRepository(connection));
         balance = BalanceBootstrap.activateBundledDefaults();
+        PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
+        prestige = new PrestigeService(new MongoPrestigeRepository(connection, persistentGameplay), prestigeBranches);
+        effects = new EffectResolver();
+        effects.register(prestige);
         MobRepository storedMobRepository = new MongoMobRepository(connection, persistentGameplay);
         MobRepository mobRepository = new BalanceAwareMobRepository(storedMobRepository, new MobBalanceService(balance));
         RuneEffectBalanceService effectBalance = new RuneEffectBalanceService(balance);
