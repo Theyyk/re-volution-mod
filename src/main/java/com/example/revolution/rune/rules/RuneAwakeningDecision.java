@@ -23,11 +23,11 @@ public final class RuneAwakeningDecision {
         this.nextRank = nextRank;
     }
 
-    /** Backward-compatible default rule for the current three-rank progression. */
+    /** Default rule for the shared v2.3.0 gameplay progression through MYTHIC. */
     public static RuneAwakeningDecision evaluate(int[] bestRanks, int runeIndex) {
         int currentRank = rawCurrentRank(bestRanks, runeIndex);
         if (currentRank <= 0) return basicValidationFailure(bestRanks, runeIndex);
-        return evaluate(bestRanks, runeIndex, RuneProgression.nextRank(currentRank), RuneLayoutDefinition.BOOST_TYPE_COUNT);
+        return evaluate(bestRanks, runeIndex, RuneProgression.nextRank(currentRank), RuneLayoutDefinition.SLOTS_PER_COLLECTION);
     }
 
     /** Evaluate one data-driven forward transition without persisting collection-level progression state. */
@@ -43,15 +43,15 @@ public final class RuneAwakeningDecision {
         if (RuneProgression.isMaximumRank(currentRank)) {
             return blocked(Reason.MAXIMUM_RANK, currentRank);
         }
-        if (targetRank <= currentRank || targetRank > RuneProgression.ADVANCED_RANK) {
+        if (targetRank <= currentRank || targetRank > RuneProgression.MYTHIC_RANK) {
             return blocked(Reason.MAXIMUM_RANK, currentRank);
         }
-        if (requiredSlots <= 0 || requiredSlots > RuneLayoutDefinition.BOOST_TYPE_COUNT) {
+        if (requiredSlots <= 0 || requiredSlots > RuneLayoutDefinition.SLOTS_PER_COLLECTION) {
             return blocked(Reason.INVALID_COLLECTION, currentRank);
         }
 
         int readySlots = 0;
-        for (int rune = 0; rune < RuneLayoutDefinition.BOOST_TYPE_COUNT; rune++) {
+        for (int rune = 0; rune < RuneLayoutDefinition.SLOTS_PER_COLLECTION; rune++) {
             if (bestRanks[rune] >= currentRank) readySlots++;
         }
         if (readySlots < requiredSlots) {
@@ -66,21 +66,21 @@ public final class RuneAwakeningDecision {
     }
 
     private static RuneAwakeningDecision basicValidationFailure(int[] bestRanks, int runeIndex) {
-        if (bestRanks == null || bestRanks.length < RuneLayoutDefinition.BOOST_TYPE_COUNT) {
+        if (bestRanks == null || bestRanks.length < RuneLayoutDefinition.SLOTS_PER_COLLECTION) {
             return blocked(Reason.INVALID_COLLECTION, 0);
         }
-        if (runeIndex < 0 || runeIndex >= RuneLayoutDefinition.BOOST_TYPE_COUNT) {
+        if (runeIndex < 0 || runeIndex >= RuneLayoutDefinition.SLOTS_PER_COLLECTION) {
             return blocked(Reason.INVALID_RUNE, 0);
         }
-        if (bestRanks[runeIndex] < RuneProgression.NORMAL_RANK) {
+        if (bestRanks[runeIndex] < RuneProgression.ORDINARY_RANK) {
             return blocked(Reason.MISSING_RUNE, 0);
         }
         return null;
     }
 
     private static int rawCurrentRank(int[] bestRanks, int runeIndex) {
-        if (bestRanks == null || bestRanks.length < RuneLayoutDefinition.BOOST_TYPE_COUNT) return 0;
-        if (runeIndex < 0 || runeIndex >= RuneLayoutDefinition.BOOST_TYPE_COUNT) return 0;
+        if (bestRanks == null || bestRanks.length < RuneLayoutDefinition.SLOTS_PER_COLLECTION) return 0;
+        if (runeIndex < 0 || runeIndex >= RuneLayoutDefinition.SLOTS_PER_COLLECTION) return 0;
         return bestRanks[runeIndex];
     }
 
