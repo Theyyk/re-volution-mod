@@ -11,16 +11,27 @@ import java.util.List;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
 
-/** Reverts exactly one selected rune by one rank without touching resources or enhancements. */
+/** Reverts exactly one selected rune without touching resources or enhancements. */
 public final class RuneRankRevertService {
     private final PlayerRepository players;
     private final PlayerStatsSyncService stats;
     private final RuneSyncService sync;
+    private final RuneRankRevertBalanceService balanceRules;
 
+    /** Compatibility constructor preserving the established v1.4.9 policy. */
     public RuneRankRevertService(PlayerRepository players, PlayerStatsSyncService stats, RuneSyncService sync) {
+        this(players, stats, sync, null);
+    }
+
+    public RuneRankRevertService(
+            PlayerRepository players,
+            PlayerStatsSyncService stats,
+            RuneSyncService sync,
+            RuneRankRevertBalanceService balanceRules) {
         this.players = players;
         this.stats = stats;
         this.sync = sync;
+        this.balanceRules = balanceRules;
     }
 
     public void revertRune(EntityPlayerMP player, int collectionIndex, int runeIndex) {
@@ -41,13 +52,27 @@ public final class RuneRankRevertService {
             bestRanks[rune.runeIndex] = Math.max(bestRanks[rune.runeIndex], rune.layer);
         }
 
-        RuneRankRevertDecision decision = RuneRankRevertDecision.evaluate(bestRanks, runeIndex);
+        RuneRankRevertDecision decision;
+        int allowedFromRank = RuneProgression.ADVANCED_RANK;
+        try {
+            if (balanceRules == null) {
+                decision = RuneRankRevertDecision.evaluate(bestRanks, runeIndex);
+            } else {
+                allowedFromRank = balanceRules.allowedFromRank(statusId);
+                decision = RuneRankRevertDecision.evaluate(
+                        bestRanks, runeIndex, allowedFromRank, balanceRules.steps(statusId));
+            }
+        } catch (RuntimeException e) {
+            player.sendMessage(new TextComponentString("§cОткат ранга временно недоступен: правило настроено некорректно."));
+            return;
+        }
+
         if (!decision.isAllowed()) {
             if (decision.reason == RuneRankRevertDecision.Reason.MISSING_RUNE) {
                 player.sendMessage(new TextComponentString("§cЭта руна ещё не получена."));
             } else if (decision.reason == RuneRankRevertDecision.Reason.BELOW_ALLOWED_RANK) {
                 player.sendMessage(new TextComponentString("§eОткат доступен начиная с ранга «"
-                        + RuneProgression.rankName(RuneProgression.ADVANCED_RANK) + "»."));
+                        + RuneProgression.rankName(allowedFromRank) + "»."));
             } else {
                 player.sendMessage(new TextComponentString("§cЭту руну сейчас нельзя откатить."));
             }
