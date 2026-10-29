@@ -5,6 +5,8 @@ import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PongPacket;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
+import com.example.revolution.rune.definition.RuneCollectionId;
+import com.example.revolution.rune.repository.RuneCollectionStateRepository;
 import java.util.List;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
@@ -17,6 +19,7 @@ public final class RuneActionService {
     private final RuneAwakeningService awakening;
     private final RuneRankRevertService revert;
     private final RuneSyncService sync;
+    private final RuneCollectionUnlockService collectionUnlocks;
 
     public RuneActionService(
             PlayerRepository players,
@@ -44,6 +47,9 @@ public final class RuneActionService {
         this.awakening = awakening;
         this.revert = revert;
         this.sync = sync;
+        this.collectionUnlocks = players instanceof RuneCollectionStateRepository
+                ? new RuneCollectionUnlockService(players, (RuneCollectionStateRepository) players)
+                : null;
     }
 
     public void handle(EntityPlayerMP player, String action) {
@@ -63,14 +69,20 @@ public final class RuneActionService {
             collectionIndex = 0;
             players.setActiveCollection(player.getUniqueID(), collectionIndex);
         }
+        if (!isCollectionUnlocked(player, collectionIndex)) {
+            collectionIndex = 0;
+            players.setActiveCollection(player.getUniqueID(), 0);
+        }
 
         if (action.equals("buy_card")) {
             purchase.buyRunes(player, collectionIndex, 1, false);
+            evaluateCollectionUnlock(player);
         } else if (action.startsWith("buy_cards:")) {
             String rawAmount = action.substring("buy_cards:".length());
 
             if (rawAmount.equalsIgnoreCase("all")) {
                 purchase.buyRunes(player, collectionIndex, Integer.MAX_VALUE, true);
+                evaluateCollectionUnlock(player);
                 return;
             }
 
@@ -81,6 +93,7 @@ public final class RuneActionService {
                     return;
                 }
                 purchase.buyRunes(player, collectionIndex, requestedAmount, false);
+                evaluateCollectionUnlock(player);
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНекорректное количество рун."));
             }
@@ -105,6 +118,7 @@ public final class RuneActionService {
             String rawIndex = action.substring("upgrade_rune:".length());
             try {
                 awakening.awakenRune(player, collectionIndex, Integer.parseInt(rawIndex));
+                evaluateCollectionUnlock(player);
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНекорректная руна."));
             }
@@ -124,14 +138,21 @@ public final class RuneActionService {
         } else if (action.equals("load_cards")) {
             sync.sendRunes(player, collectionIndex);
         } else if (action.equals("load_decks")) {
+            evaluateCollectionUnlock(player);
             sync.sendCollectionState(player);
         } else if (action.startsWith("switch_deck:")) {
             String rawIndex = action.substring("switch_deck:".length());
             try {
                 int targetCollection = Integer.parseInt(rawIndex);
+                RuneCollectionId targetId = RuneCollectionId.fromLegacyIndex(targetCollection);
                 List<String> collections = players.getCollectionNames(player.getUniqueID());
-                if (targetCollection < 0 || targetCollection >= collections.size()) {
-                    player.sendMessage(new TextComponentString("§cТакой колоды не существует."));
+                if (targetId == null || targetCollection < 0 || targetCollection >= collections.size()) {
+                    player.sendMessage(new TextComponentString("§cТакой коллекции не существует."));
+                    sync.sendCollectionState(player);
+                    return;
+                }
+                if (!isCollectionUnlocked(player, targetCollection)) {
+                    player.sendMessage(new TextComponentString("§cЭта коллекция ещё не открыта."));
                     sync.sendCollectionState(player);
                     return;
                 }
@@ -139,11 +160,25 @@ public final class RuneActionService {
                 sync.sendCollectionState(player);
                 sync.sendRunes(player, targetCollection);
                 stats.sendTo(player);
-                player.sendMessage(new TextComponentString("§aАктивная колода: §e" + collections.get(targetCollection)));
+                player.sendMessage(new TextComponentString("§aАктивная коллекция: §e" + (targetCollection + 1)));
             } catch (NumberFormatException e) {
-                player.sendMessage(new TextComponentString("§cНекорректный номер колоды."));
+                player.sendMessage(new TextComponentString("§cНекорректный номер коллекции."));
             }
         }
+    }
+
+    private boolean isCollectionUnlocked(EntityPlayerMP player, int collectionIndex) {
+        if (collectionUnlocks == null) return true;
+        RuneCollectionId id = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        return collectionUnlocks.isUnlocked(player.getUniqueID(), id);
+    }
+
+    private void evaluateCollectionUnlock(EntityPlayerMP player) {
+        if (collectionUnlocks == null) return;
+        RuneCollectionId unlocked = collectionUnlocks.evaluateNextUnlock(player.getUniqueID());
+        if (unlocked == null) return;
+        player.sendMessage(new TextComponentString("§aОткрыта коллекция рун §e" + (unlocked.legacyIndex() + 1) + "§a!"));
+        sync.sendCollectionState(player);
     }
 
     private static boolean isImportantPlayerAction(String action) {
@@ -159,8 +194,8 @@ public final class RuneActionService {
         if (action.equals("buy_card")) return "buy_rune";
         if (action.startsWith("buy_cards:")) return "buy_runes:" + action.substring("buy_cards:".length());
         if (action.equals("load_cards")) return "load_runes";
-        if (action.equals("load_decks")) return "load_statuses";
-        if (action.startsWith("switch_deck:")) return "switch_status:" + action.substring("switch_deck:".length());
+        if (action.equals("load_decks")) return "load_collections";
+        if (action.startsWith("switch_deck:")) return "switch_collection:" + action.substring("switch_deck:".length());
         return action;
     }
 
