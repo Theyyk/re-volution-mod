@@ -32,6 +32,7 @@ public final class ClientRpgSurvivalGuard {
             case HOTBAR:
             case HEALTH:
             case FOOD:
+            case EXPERIENCE:
                 event.setCanceled(true);
                 break;
             default:
