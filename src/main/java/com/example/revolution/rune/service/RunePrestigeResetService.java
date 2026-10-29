@@ -28,15 +28,26 @@ public final class RunePrestigeResetService {
     }
 
     private void resetCollection(UUID playerUuid, int collectionIndex) {
-        List<RuneRecord> records = players.getRunesInCollection(playerUuid, collectionIndex);
+        List<RuneRecord> initial = players.getRunesInCollection(playerUuid, collectionIndex);
         Set<Integer> processedRuneIndexes = new HashSet<>();
-        for (RuneRecord record : records) {
+        for (RuneRecord record : initial) {
             if (!processedRuneIndexes.add(record.runeIndex)) continue;
-            int bestRank = bestRank(records, record.runeIndex);
+            resetRune(playerUuid, collectionIndex, record.runeIndex, initial.size());
+        }
+    }
+
+    /**
+     * Legacy saves may contain more than one physical record for the same runeIndex. The repository
+     * updates the currently highest record, so repeat until the factual best rank reaches the policy
+     * target. The record-count bound prevents a malformed repository from causing an endless loop.
+     */
+    private void resetRune(UUID playerUuid, int collectionIndex, int runeIndex, int maxAttempts) {
+        for (int attempt = 0; attempt <= maxAttempts; attempt++) {
+            List<RuneRecord> records = players.getRunesInCollection(playerUuid, collectionIndex);
+            int bestRank = bestRank(records, runeIndex);
             int targetRank = RunePrestigeResetRules.rankAfterReset(bestRank);
-            if (targetRank != bestRank) {
-                players.setRuneRank(playerUuid, collectionIndex, record.runeIndex, targetRank);
-            }
+            if (targetRank == bestRank) return;
+            if (!players.setRuneRank(playerUuid, collectionIndex, runeIndex, targetRank)) return;
         }
     }
 
