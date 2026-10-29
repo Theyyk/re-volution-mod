@@ -33,6 +33,14 @@ public final class PrestigeProgressRouterTest {
     }
 
     @Test
+    public void allDamageAutomaticallyAcceptsFutureDamageSources() {
+        Fixture all = fixture(PrestigeBranch.ALL_DAMAGE, 207);
+        all.router.confirmedDamage(all.player, GameplayDamageSource.FIRE, new BigDecimal("30"));
+        all.router.confirmedDamage(all.player, GameplayDamageSource.PET, new BigDecimal("15"));
+        assertProgress(all, "45");
+    }
+
+    @Test
     public void coinsProgressFromEarnedEventNotFromBalanceState() {
         Fixture coins = fixture(PrestigeBranch.COINS, 204);
         coins.router.earnedResource(coins.player, "coins", new BigDecimal("100"));
