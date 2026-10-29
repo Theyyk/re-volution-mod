@@ -9,6 +9,7 @@ import java.util.Locale;
 
 /** Rune-domain adapter over Balance Core for enhancement economics. */
 public final class RuneEnhancementBalanceService {
+    private static final int ZBT_DEFAULT_MAX_LEVEL = 50;
     private final BalanceService balance;
 
     public RuneEnhancementBalanceService(BalanceService balance) {
@@ -34,8 +35,10 @@ public final class RuneEnhancementBalanceService {
         }
     }
 
+    /** Current ZBT table defines levels 1..50. Optional config can override the cap later. */
     public int maxLevel(int statusId) {
-        String raw = requiredValue(statusId, "enhancement.max_level");
+        String raw = optionalValue(statusId, "enhancement.max_level");
+        if (raw == null) return ZBT_DEFAULT_MAX_LEVEL;
         try {
             int value = Integer.parseInt(raw.trim());
             if (value <= 0) throw new NumberFormatException("not positive");
@@ -78,10 +81,7 @@ public final class RuneEnhancementBalanceService {
         return (int) total;
     }
 
-    /**
-     * Packet/UI pricing. A zero entry means that bulk amount would cross the configured maximum
-     * and therefore must not be submitted. Valid costs are always strictly positive.
-     */
+    /** Zero means that this bulk amount would cross the configured maximum. */
     public int[] bulkCosts(int statusId, int totalEnhancementLevel, int[] amounts) {
         if (amounts == null) throw new IllegalArgumentException("bulk amounts are required");
         int[] result = new int[amounts.length];
@@ -89,11 +89,9 @@ public final class RuneEnhancementBalanceService {
         for (int i = 0; i < amounts.length; i++) {
             int amount = amounts[i];
             if (amount <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
-            if ((long) totalEnhancementLevel + amount > maximum) {
-                result[i] = 0;
-            } else {
-                result[i] = bulkCost(statusId, totalEnhancementLevel, amount);
-            }
+            result[i] = (long) totalEnhancementLevel + amount > maximum
+                    ? 0
+                    : bulkCost(statusId, totalEnhancementLevel, amount);
         }
         return result;
     }
@@ -112,8 +110,15 @@ public final class RuneEnhancementBalanceService {
     }
 
     private String requiredValue(int statusId, String suffix) {
+        String value = optionalValue(statusId, suffix);
+        if (value == null) throw new IllegalStateException("missing enhancement balance value: " + suffix);
+        return value;
+    }
+
+    private String optionalValue(int statusId, String suffix) {
         if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
-        return balance.getActiveValue("runes." + RuneStatusConfig.statusKey(statusId) + "." + suffix);
+        return balance.getActiveSnapshot().getConfig().getValue(
+                "runes." + RuneStatusConfig.statusKey(statusId) + "." + suffix);
     }
 
     private String curveId(int statusId) {
