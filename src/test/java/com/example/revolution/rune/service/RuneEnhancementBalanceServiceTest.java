@@ -19,14 +19,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public final class RuneEnhancementBalanceServiceTest {
     @Test
-    void bundledDefaultsPreserveCurrentPoisonBaseline() {
+    void bundledDefaultsUseZbtEnhancementCurve() {
         RuneEnhancementBalanceService service = new RuneEnhancementBalanceService(BalanceBootstrap.activateBundledDefaults());
 
         assertEquals(ResourceDefinitions.RUNE_DUST, service.resource(RuneStatusConfig.STATUS_POISON));
         assertEquals(RuneEnhancementTargeting.ALL_SLOTS, service.targeting(RuneStatusConfig.STATUS_POISON));
-        assertEquals(10, service.nextCost(RuneStatusConfig.STATUS_POISON, 0));
-        assertEquals(10, service.nextCost(RuneStatusConfig.STATUS_POISON, 500));
-        assertEquals(50, service.bulkCost(RuneStatusConfig.STATUS_POISON, 17, 5));
+        assertEquals(1, service.nextCost(RuneStatusConfig.STATUS_POISON, 0));
+        assertEquals(16, service.nextCost(RuneStatusConfig.STATUS_POISON, 9));
+        assertEquals(12440, service.nextCost(RuneStatusConfig.STATUS_POISON, 49));
+        assertEquals(73, service.bulkCost(RuneStatusConfig.STATUS_POISON, 0, 10));
+        assertEquals(531, service.bulkCost(RuneStatusConfig.STATUS_POISON, 0, 20));
+        assertEquals(2936, service.bulkCost(RuneStatusConfig.STATUS_POISON, 0, 30));
+        assertEquals(15550, service.bulkCost(RuneStatusConfig.STATUS_POISON, 0, 40));
+        assertEquals(81520, service.bulkCost(RuneStatusConfig.STATUS_POISON, 0, 50));
         assertEquals(5, service.totalEnhancementLevel(new int[] {2, 3}));
     }
 
