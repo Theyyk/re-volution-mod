@@ -61,11 +61,14 @@ public final class MobRewardService {
         }
     }
 
-    /** Retains the legacy name-based 50-coin reward while publishing it as confirmed earned coins. */
+    /** Retains the legacy name-based coin reward while publishing it as confirmed earned coins. */
     public void grantLegacyCoins(EntityPlayerMP player) {
+        BigDecimal before = resources.getPlayerResourceValue(player.getUniqueID(), "coins");
         if (!resources.grantEarnedPlayerResource(player.getUniqueID(), "coins", 50)) return;
+        BigDecimal after = resources.getPlayerResourceValue(player.getUniqueID(), "coins");
+        BigDecimal granted = after.subtract(before).max(BigDecimal.ZERO);
         int balance = resources.getPlayerResource(player.getUniqueID(), "coins");
-        player.sendMessage(new TextComponentString("§6+50 монет! Баланс: " + balance));
+        player.sendMessage(new TextComponentString("§6+" + LargeNumbers.format(granted) + " монет! Баланс: " + LargeNumbers.format(after)));
         NetworkHandler.sendToClient(new PongPacket(balance), player);
     }
 }
