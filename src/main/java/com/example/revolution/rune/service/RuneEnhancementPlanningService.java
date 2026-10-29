@@ -25,6 +25,9 @@ public final class RuneEnhancementPlanningService {
         int[] levels = normalizedLevels(currentLevels);
         RuneEnhancementTargeting targeting = balance.targeting(statusId);
         int totalEnhancementLevel = balance.totalEnhancementLevel(levels);
+        if ((long) totalEnhancementLevel + requestedAmount > balance.maxLevel(statusId)) {
+            throw new IllegalStateException("enhancement request exceeds maximum level");
+        }
         int totalCost = balance.bulkCost(statusId, totalEnhancementLevel, requestedAmount);
         String resource = balance.resource(statusId);
 
