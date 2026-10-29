@@ -13,30 +13,36 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Regression coverage for v1.4.6 canonical MobL_N Balance Core overrides. */
+/** Regression coverage for canonical MobL_N Balance Core overrides. */
 public final class MobBalanceServiceTest {
     public static void main(String[] args) {
-        bundledDefaultsPreservePersistence();
+        bundledDefaultsApplyZbtLocationOne();
         activeSnapshotOverridesCanonicalMob();
         partialAndLegacyFallbacks();
         invalidBalanceValuesFailClosed();
         System.out.println("Mob Balance canonical overrides and persistence fallbacks passed");
     }
 
-    private static void bundledDefaultsPreservePersistence() {
+    private static void bundledDefaultsApplyZbtLocationOne() {
         FakeMobRepository stored = new FakeMobRepository();
         stored.mob = mob("Mob1_8", "10");
-        stored.resource = "coins";
+        stored.resource = "rune_dust";
         stored.reward = new BigDecimal("5");
         MobRepository repository = new BalanceAwareMobRepository(stored,
                 new MobBalanceService(BalanceBootstrap.activateBundledDefaults()));
 
-        check(repository.getMob("Mob1_8").hp.compareTo(new BigDecimal("10")) == 0,
-                "bundled defaults must not overwrite configured HP");
+        check(repository.getMob("Mob1_8").hp.compareTo(new BigDecimal("2500")) == 0,
+                "ZBT Location 1 HP must override persistence");
         check(repository.getMobResource("Mob1_8").equals("coins"),
-                "bundled defaults must not overwrite configured resource");
-        check(repository.getMobAmountValue("Mob1_8").compareTo(new BigDecimal("5")) == 0,
-                "bundled defaults must not overwrite configured reward");
+                "ZBT Location 1 reward resource must override persistence");
+        check(repository.getMobAmountValue("Mob1_8").compareTo(new BigDecimal("1000")) == 0,
+                "ZBT Location 1 reward amount must override persistence");
+
+        stored.mob = mob("Mob1_41", "1");
+        check(repository.getMob("Mob1_41").hp.compareTo(new BigDecimal("30000000")) == 0,
+                "Stage 41 boss uses fixed 30M HP");
+        check(repository.getMobAmountValue("Mob1_41").compareTo(new BigDecimal("15000000")) == 0,
+                "Stage 41 boss reward is fixed 15M coins");
     }
 
     private static void activeSnapshotOverridesCanonicalMob() {
