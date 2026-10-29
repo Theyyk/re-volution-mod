@@ -24,16 +24,18 @@ public final class RuneRankUpBalanceServiceTest {
         RuneRankUpRule normal = service.rule(RuneStatusConfig.STATUS_POISON, RuneProgression.NORMAL_RANK, 0);
         assertEquals(RuneProgression.IMPROVED_RANK, normal.targetRank);
         assertEquals(26, normal.requiredSlots);
-        assertEquals(ResourceDefinitions.RUNE_DUST, normal.resource);
-        assertEquals(100, normal.cost);
+        assertEquals(ResourceDefinitions.RUNE_SHARDS, normal.resource);
+        assertEquals(1, normal.cost);
+        assertEquals(159, service.rule(RuneStatusConfig.STATUS_POISON, RuneProgression.NORMAL_RANK, 25).cost);
         assertEquals(RuneRankUpRule.ClearMode.AT_OR_BELOW_SOURCE, normal.clearMode);
         assertTrue(normal.preserveEnhancements);
 
         RuneRankUpRule improved = service.rule(RuneStatusConfig.STATUS_POISON, RuneProgression.IMPROVED_RANK, 0);
         assertEquals(RuneProgression.ADVANCED_RANK, improved.targetRank);
         assertEquals(26, improved.requiredSlots);
-        assertEquals(ResourceDefinitions.RUNE_DUST, improved.resource);
-        assertEquals(100, improved.cost);
+        assertEquals(ResourceDefinitions.RUNE_SHARDS, improved.resource);
+        assertEquals(1, improved.cost);
+        assertEquals(159, service.rule(RuneStatusConfig.STATUS_POISON, RuneProgression.IMPROVED_RANK, 25).cost);
     }
 
     @Test
