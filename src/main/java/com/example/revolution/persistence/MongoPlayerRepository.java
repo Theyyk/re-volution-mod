@@ -3,18 +3,22 @@ package com.example.revolution.persistence;
 import com.example.revolution.RevolutionMod;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.repository.PlayerIdentity;
+import com.example.revolution.rune.definition.RuneCollectionId;
+import com.example.revolution.rune.repository.RuneCollectionStateRepository;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneStorageRules;
 import com.mongodb.client.model.UpdateOptions;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.bson.Document;
 
-public final class MongoPlayerRepository implements PlayerRepository {
+public final class MongoPlayerRepository implements PlayerRepository, RuneCollectionStateRepository {
     private final MongoConnection connection;
     private final boolean enabled;
+    private final RuneCollectionStateRepository runeCollectionStates;
 
     public MongoPlayerRepository(MongoConnection connection) { this(connection, true); }
 
@@ -22,6 +26,7 @@ public final class MongoPlayerRepository implements PlayerRepository {
     public MongoPlayerRepository(MongoConnection connection, boolean enabled) {
         this.connection = connection;
         this.enabled = enabled;
+        this.runeCollectionStates = new MongoRuneCollectionStateRepository(connection, enabled);
     }
 
     @Override
@@ -213,6 +218,16 @@ public final class MongoPlayerRepository implements PlayerRepository {
         collections.get(collectionIndex).put("cards", new ArrayList<Document>());
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
+    }
+
+    @Override
+    public Set<RuneCollectionId> getUnlockedCollections(UUID uuid) {
+        return runeCollectionStates.getUnlockedCollections(uuid);
+    }
+
+    @Override
+    public boolean unlockCollection(UUID uuid, RuneCollectionId collectionId) {
+        return runeCollectionStates.unlockCollection(uuid, collectionId);
     }
 
     @Override
