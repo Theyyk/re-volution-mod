@@ -8,6 +8,7 @@ import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
@@ -41,6 +42,29 @@ public final class LegacyAttackCooldownHandler {
                 player.getCooledAttackStrength(0.5F),
                 attackDamage,
                 enchantmentDamage));
+    }
+
+    /**
+     * Vanilla 1.12.2 applies target hurt-resistance before LivingHurtEvent. A rapid
+     * melee hit can therefore be discarded before cooldown normalization has a
+     * chance to run. Clear only the managed target's current i-frame window for
+     * the exact primary melee attack captured above so every click reaches the
+     * normal damage pipeline.
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onLivingAttack(LivingAttackEvent event) {
+        if (!(event.getSource().getTrueSource() instanceof EntityPlayerMP)) return;
+        if (!mobs.manages(event.getEntityLiving())) return;
+
+        EntityPlayerMP player = (EntityPlayerMP) event.getSource().getTrueSource();
+        if (event.getSource().getImmediateSource() != player) return;
+
+        PendingAttack attack = pending.get(player.getUniqueID());
+        if (attack == null) return;
+        if (attack.targetEntityId != event.getEntityLiving().getEntityId()) return;
+        if (attack.worldTick != player.getServerWorld().getTotalWorldTime()) return;
+
+        event.getEntityLiving().hurtResistantTime = 0;
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
