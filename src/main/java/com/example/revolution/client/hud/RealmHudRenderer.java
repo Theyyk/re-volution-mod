@@ -12,14 +12,13 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-/** Lower-left Realm indicator with the compact RE:volution control legend above it. */
+/** Lower-right Realm indicator with the compact RE:volution control legend above it. */
 @SideOnly(Side.CLIENT)
 public final class RealmHudRenderer {
     private static final int MARGIN = 6;
     private static final int LINE_GAP = 2;
     private static final int HINT_COLOR = 0xAFAFAF;
     private static final int REALM_COLOR = 0xE6E6E6;
-    private static final int HINT_LINE_COUNT = 3;
 
     @SubscribeEvent
     public void onRenderText(RenderGameOverlayEvent.Text event) {
@@ -29,29 +28,28 @@ public final class RealmHudRenderer {
         FontRenderer font = minecraft.fontRenderer;
         ScaledResolution resolution = event.getResolution();
         int lineStep = font.FONT_HEIGHT + LINE_GAP;
-        int x = MARGIN;
+        int right = resolution.getScaledWidth() - MARGIN;
         int y = resolution.getScaledHeight() - font.FONT_HEIGHT - MARGIN;
 
         String realm = labelForDimension(minecraft.player.dimension);
         if (realm != null) {
-            font.drawStringWithShadow(realm, x, y, REALM_COLOR);
+            drawRightAligned(font, realm, right, y, REALM_COLOR);
         }
 
         y -= lineStep;
-        drawHint(font, keyName(KeyInputHandler.keyOpenStageTravel), "Локации", x, y);
+        drawHint(font, keyName(KeyInputHandler.keyOpenStageTravel), "Локации", right, y);
         y -= lineStep;
-        drawHint(font, keyName(SettingsKeyHandler.keyOpenSettings), "Формат чисел", x, y);
+        drawHint(font, keyName(SettingsKeyHandler.keyOpenSettings), "Формат чисел", right, y);
         y -= lineStep;
-        drawHint(font, keyName(KeyInputHandler.keyOpenMenu), "Меню", x, y);
+        drawHint(font, keyName(KeyInputHandler.keyOpenMenu), "Меню", right, y);
     }
 
-    static int reservedBottomPixels(FontRenderer font) {
-        if (font == null) return 52;
-        return MARGIN + font.FONT_HEIGHT + (font.FONT_HEIGHT + LINE_GAP) * HINT_LINE_COUNT + 8;
+    private static void drawHint(FontRenderer font, String key, String action, int right, int y) {
+        drawRightAligned(font, "§f" + key + " §7- " + action, right, y, HINT_COLOR);
     }
 
-    private static void drawHint(FontRenderer font, String key, String action, int x, int y) {
-        font.drawStringWithShadow("§f" + key + " §7- " + action, x, y, HINT_COLOR);
+    private static void drawRightAligned(FontRenderer font, String text, int right, int y, int color) {
+        font.drawStringWithShadow(text, right - font.getStringWidth(text), y, color);
     }
 
     private static String keyName(KeyBinding binding) {
