@@ -7,6 +7,7 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 /** Server-authoritative RPG rules for players that remain in Survival mode. */
 public final class RpgSurvivalGuard {
@@ -33,6 +34,17 @@ public final class RpgSurvivalGuard {
                 && isProtected((EntityPlayerMP) event.getEntityPlayer())) {
             event.setCanceled(true);
         }
+    }
+
+    @SubscribeEvent
+    public void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        if (!(event.player instanceof EntityPlayerMP)) return;
+        EntityPlayerMP player = (EntityPlayerMP) event.player;
+        if (!isProtected(player)) return;
+
+        player.getFoodStats().setFoodLevel(20);
+        player.getFoodStats().setFoodSaturationLevel(20.0F);
     }
 
     private static boolean isProtected(EntityPlayerMP player) {
