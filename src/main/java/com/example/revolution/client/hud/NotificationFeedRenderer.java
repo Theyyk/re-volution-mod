@@ -17,7 +17,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-/** Compact bottom-left RPG notification feed for server/system messages. */
+/** Compact bottom-right RPG notification feed for server/system messages. */
 @SideOnly(Side.CLIENT)
 public final class NotificationFeedRenderer {
     private static final int MAX_VISIBLE = 3;
@@ -47,12 +47,13 @@ public final class NotificationFeedRenderer {
         if (entries.isEmpty()) return;
 
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.player == null) return;
+        if (minecraft.player == null || minecraft.gameSettings.hideGUI) return;
         FontRenderer font = minecraft.fontRenderer;
         ScaledResolution resolution = event.getResolution();
 
-        int x = 8;
-        int bottom = resolution.getScaledHeight() - 8;
+        int right = resolution.getScaledWidth() - 8;
+        int x = right - MAX_TEXT_WIDTH - 12;
+        int bottom = resolution.getScaledHeight() - RealmHudRenderer.reservedBottomPixels(font);
         List<Entry> visible = new ArrayList<>(entries);
         for (int i = visible.size() - 1; i >= 0; i--) {
             Entry entry = visible.get(i);
@@ -63,13 +64,14 @@ public final class NotificationFeedRenderer {
             int background = (alpha * 150 / 255) << 24;
             int accent = (alpha * 190 / 255) << 24 | 0x5E8FB3;
 
-            Gui.drawRect(x, y, x + MAX_TEXT_WIDTH + 12, bottom, background);
-            Gui.drawRect(x, y, x + 2, bottom, accent);
+            Gui.drawRect(x, y, right, bottom, background);
+            Gui.drawRect(right - 2, y, right, bottom, accent);
 
             int textY = y + 4;
             int textColor = (alpha << 24) | 0xE6E6E6;
             for (String line : lines) {
-                font.drawStringWithShadow(line, x + 7, textY, textColor);
+                int textX = right - 7 - font.getStringWidth(line);
+                font.drawStringWithShadow(line, textX, textY, textColor);
                 textY += font.FONT_HEIGHT + 1;
             }
             bottom = y - 4;
