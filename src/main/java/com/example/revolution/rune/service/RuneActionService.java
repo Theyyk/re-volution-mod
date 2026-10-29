@@ -26,7 +26,7 @@ public final class RuneActionService {
             RuneAwakeningService awakening,
             RuneSyncService sync) {
         this(players, stats, purchase, enhancement, awakening,
-                new RuneRankRevertService(players, stats, sync), sync);
+                new RuneRankRevertService(players, stats, sync, purchase.revertBalanceRules()), sync);
     }
 
     RuneActionService(
@@ -153,6 +153,7 @@ public final class RuneActionService {
                 || action.startsWith("upgrade_rune:")
                 || action.startsWith("revert_rune:");
     }
+
     private static String logActionName(String action) {
         if (action == null) return "null";
         if (action.equals("buy_card")) return "buy_rune";
