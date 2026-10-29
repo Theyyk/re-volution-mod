@@ -49,9 +49,11 @@ public final class MobRewardService {
 
     private void grantResolved(EntityPlayerMP player, ManagedMobDefinition definition, BigDecimal baseReward) {
         BigDecimal rewardAmount = runeEffects.rewardAmount(player.getUniqueID(), definition.resource, baseReward);
+        BigDecimal before = resources.getPlayerResourceValue(player.getUniqueID(), definition.resource);
         if (resources.grantEarnedPlayerResource(player.getUniqueID(), definition.resource, rewardAmount)) {
             BigDecimal newBalance = resources.getPlayerResourceValue(player.getUniqueID(), definition.resource);
-            player.sendMessage(new TextComponentString("§6+" + LargeNumbers.format(rewardAmount) + " "
+            BigDecimal granted = newBalance.subtract(before).max(BigDecimal.ZERO);
+            player.sendMessage(new TextComponentString("§6+" + LargeNumbers.format(granted) + " "
                     + ResourceDefinitions.getDisplayName(definition.resource) + "! Баланс: " + LargeNumbers.format(newBalance)));
             stats.sendTo(player);
         } else {
