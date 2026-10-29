@@ -19,6 +19,7 @@ public final class RealmHudRenderer {
     private static final int LINE_GAP = 2;
     private static final int HINT_COLOR = 0xAFAFAF;
     private static final int REALM_COLOR = 0xE6E6E6;
+    private static final int LINE_COUNT = 4;
 
     @SubscribeEvent
     public void onRenderText(RenderGameOverlayEvent.Text event) {
@@ -32,9 +33,7 @@ public final class RealmHudRenderer {
         int y = resolution.getScaledHeight() - font.FONT_HEIGHT - MARGIN;
 
         String realm = labelForDimension(minecraft.player.dimension);
-        if (realm != null) {
-            drawRightAligned(font, realm, right, y, REALM_COLOR);
-        }
+        if (realm != null) drawRightAligned(font, realm, right, y, REALM_COLOR);
 
         y -= lineStep;
         drawHint(font, keyName(KeyInputHandler.keyOpenStageTravel), "Локации", right, y);
@@ -42,6 +41,11 @@ public final class RealmHudRenderer {
         drawHint(font, keyName(SettingsKeyHandler.keyOpenSettings), "Формат чисел", right, y);
         y -= lineStep;
         drawHint(font, keyName(KeyInputHandler.keyOpenMenu), "Меню", right, y);
+    }
+
+    static int reservedBottomPixels(FontRenderer font) {
+        if (font == null) return 58;
+        return MARGIN + LINE_COUNT * font.FONT_HEIGHT + (LINE_COUNT - 1) * LINE_GAP + 8;
     }
 
     private static void drawHint(FontRenderer font, String key, String action, int right, int y) {
