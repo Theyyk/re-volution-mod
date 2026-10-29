@@ -10,6 +10,7 @@ import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.state.RuneInventory;
+import java.math.BigDecimal;
 import java.util.List;
 import net.minecraft.entity.player.EntityPlayerMP;
 
@@ -46,14 +47,12 @@ public final class RuneSyncService {
 
     public void sendEnhancements(EntityPlayerMP player, int collectionIndex) {
         int configuredStatus = RuneStatusConfig.statusForCollection(collectionIndex);
-        int statusId = RuneStatusConfig.isRuneStatus(configuredStatus)
-                ? configuredStatus
-                : RuneStatusConfig.STATUS_POISON;
+        int statusId = RuneStatusConfig.isRuneStatus(configuredStatus) ? configuredStatus : RuneStatusConfig.STATUS_POISON;
         int[] levels = RuneStatusConfig.isRuneStatus(configuredStatus)
                 ? enhancements.getLevels(player.getUniqueID(), collectionIndex)
                 : new int[RuneInventory.BOOST_TYPE_COUNT];
         int totalEnhancementLevel = enhancementBalance.totalEnhancementLevel(levels);
-        int[] bulkCosts = enhancementBalance.bulkCosts(
+        BigDecimal[] bulkCosts = enhancementBalance.bulkCosts(
                 statusId,
                 totalEnhancementLevel,
                 RuneEnhancementPacket.BULK_AMOUNTS);
