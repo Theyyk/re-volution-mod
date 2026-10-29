@@ -3,7 +3,9 @@ package com.example.revolution.rune.service;
 import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.definition.RuneStatType;
+import com.example.revolution.rune.repository.RuneCollectionStateRepository;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneCombatMath;
@@ -49,15 +51,16 @@ public final class RuneCombatService {
     }
 
     /**
-     * Resolves permanent combat power from every configured rune collection. The selected collection
-     * only controls which collection is being viewed/edited in the GUI; it does not disable combat
-     * power already owned in other configured collections.
+     * Resolves permanent combat power from every permanently unlocked rune collection. The selected
+     * collection only controls which collection is viewed/edited in the GUI; it does not disable
+     * combat power already owned in other unlocked collections.
      */
     public RuneCombatMath.Snapshot resolveStable(UUID uuid) {
         if (uuid == null) return null;
-        int collectionCount = players.getCollectionNames(uuid).size();
+        int collectionCount = Math.min(players.getCollectionNames(uuid).size(), RuneCollectionId.values().length);
         RuneCombatMath.Snapshot aggregate = null;
         for (int collectionIndex = 0; collectionIndex < collectionCount; collectionIndex++) {
+            if (!isCollectionUnlocked(uuid, collectionIndex)) continue;
             if (RuneStatusConfig.statusForCollection(collectionIndex) != RuneStatusConfig.STATUS_POISON) continue;
             RuneCombatMath.Snapshot collection = resolvePoisonCollection(uuid, collectionIndex);
             if (collection == null) continue;
@@ -145,8 +148,9 @@ public final class RuneCombatService {
 
     public void activateRageOnMobHit(UUID uuid, long worldTick) {
         if (uuid == null) return;
-        int collectionCount = players.getCollectionNames(uuid).size();
+        int collectionCount = Math.min(players.getCollectionNames(uuid).size(), RuneCollectionId.values().length);
         for (int collectionIndex = 0; collectionIndex < collectionCount; collectionIndex++) {
+            if (!isCollectionUnlocked(uuid, collectionIndex)) continue;
             if (RuneStatusConfig.statusForCollection(collectionIndex) != RuneStatusConfig.STATUS_POISON) continue;
 
             RuneInventory inventory = new RuneInventory();
@@ -175,6 +179,13 @@ public final class RuneCombatService {
 
     public boolean isRageActive(UUID uuid, long worldTick) {
         return state.isActive(uuid, worldTick);
+    }
+
+    private boolean isCollectionUnlocked(UUID uuid, int collectionIndex) {
+        RuneCollectionId id = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (id == null) return false;
+        if (!(players instanceof RuneCollectionStateRepository)) return true;
+        return ((RuneCollectionStateRepository) players).getUnlockedCollections(uuid).contains(id);
     }
 
     private int enhancementLevel(int[] levels, int rune) {
