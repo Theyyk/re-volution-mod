@@ -39,6 +39,10 @@ public final class RunePurchaseService {
         this.stats.bindPurchaseBalance(purchaseBalance);
     }
 
+    RuneRankRevertBalanceService revertBalanceRules() {
+        return purchaseBalance.revertBalanceRules();
+    }
+
     private static final int LEGACY_RUNE_COST = 100;
     private final Random random = new Random();
 
