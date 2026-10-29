@@ -109,7 +109,10 @@ public final class RuneEffectBalanceService {
                 if ("PRIMARY".equalsIgnoreCase(enhancementField)) targetedPowerScale *= enhancementMultiplier;
             }
 
-            double duration = nonNegative(optionalDouble(statusId, prefix + "duration_seconds", 0.0D), "duration");
+            double baseDuration = nonNegative(optionalDouble(statusId, prefix + "duration_seconds", 0.0D), "duration");
+            double duration = nonNegative(
+                    optionalDouble(statusId, prefix + "rank." + rank + ".duration_seconds", baseDuration),
+                    "duration");
             int maxStacks = nonNegativeInt(optional(statusId, prefix + "max_stacks"), 0, "max stacks");
             result.add(new ResolvedEffect(group, index, type, tags, target, statType,
                     acceptsTargetedPower, targetedPowerScale, primary, secondary, duration, maxStacks));
