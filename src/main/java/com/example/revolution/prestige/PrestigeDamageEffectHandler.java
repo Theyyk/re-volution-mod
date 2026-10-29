@@ -8,7 +8,7 @@ import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-/** Applies resolved Prestige click effects after existing damage logic and before managed-mob consumption. */
+/** Applies resolved Prestige damage effects after existing damage logic and before managed-mob consumption. */
 public final class PrestigeDamageEffectHandler {
     private final ManagedMobService mobs;
     private final EffectResolver effects;
@@ -23,8 +23,11 @@ public final class PrestigeDamageEffectHandler {
         if (!mobs.manages(event.getEntityLiving())) return;
         if (!(event.getSource().getTrueSource() instanceof EntityPlayerMP)) return;
         EntityPlayerMP player = (EntityPlayerMP) event.getSource().getTrueSource();
-        if (mobs.isApplyingPoisonDamage(player.getUniqueID())) return;
-        BigDecimal multiplier = effects.multiplier(player.getUniqueID(), EffectResolver.Stat.CLICK_DAMAGE_MULTIPLIER);
+        BigDecimal multiplier = effects.multiplier(player.getUniqueID(), EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER);
+        EffectResolver.Stat sourceStat = mobs.isApplyingPoisonDamage(player.getUniqueID())
+                ? EffectResolver.Stat.POISON_DAMAGE_MULTIPLIER
+                : EffectResolver.Stat.CLICK_DAMAGE_MULTIPLIER;
+        multiplier = multiplier.multiply(effects.multiplier(player.getUniqueID(), sourceStat));
         if (multiplier.compareTo(BigDecimal.ONE) == 0) return;
         event.setAmount((float) (event.getAmount() * multiplier.doubleValue()));
     }
