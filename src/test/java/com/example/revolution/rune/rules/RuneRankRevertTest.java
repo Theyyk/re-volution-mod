@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 public final class RuneRankRevertTest {
     public static void main(String[] args) {
         selectedAdvancedRuneRevertsOneStepOnly();
+        selectedMythicRuneRevertsToAdvanced();
         lowerAndInvalidRanksAreRejected();
         progressionIsAlwaysDerivedFromActualRanks();
         repeatedRevertRestoreCycleHasNoHiddenProgressionCounter();
@@ -15,6 +16,7 @@ public final class RuneRankRevertTest {
     }
 
     @Test void selectedAdvancedRuneRevertsOneStep() { selectedAdvancedRuneRevertsOneStepOnly(); }
+    @Test void selectedMythicRuneRevertsOneStep() { selectedMythicRuneRevertsToAdvanced(); }
     @Test void rejectsLowerAndInvalidRanks() { lowerAndInvalidRanksAreRejected(); }
     @Test void derivesProgressionAfterRevert() { progressionIsAlwaysDerivedFromActualRanks(); }
     @Test void abuseCycleHasNoHiddenCounter() { repeatedRevertRestoreCycleHasNoHiddenProgressionCounter(); }
@@ -34,13 +36,25 @@ public final class RuneRankRevertTest {
         }
     }
 
+    private static void selectedMythicRuneRevertsToAdvanced() {
+        int[] ranks = full(RuneProgression.MYTHIC_RANK);
+        RuneRankRevertDecision decision = RuneRankRevertDecision.evaluate(ranks, 4);
+
+        check(decision.isAllowed(), "Mythic selected rune must use the generic revert path");
+        check(decision.currentRank == RuneProgression.MYTHIC_RANK, "source rank must be Mythic");
+        check(decision.targetRank == RuneProgression.ADVANCED_RANK,
+                "Mythic revert must move exactly one rank down to Advanced");
+        check(RuneRankRevertDecision.canRevertRank(RuneProgression.MYTHIC_RANK),
+                "client eligibility must include Mythic through the same policy");
+    }
+
     private static void lowerAndInvalidRanksAreRejected() {
         int[] ranks = full(RuneProgression.IMPROVED_RANK);
         check(RuneRankRevertDecision.evaluate(ranks, 0).reason == RuneRankRevertDecision.Reason.BELOW_ALLOWED_RANK,
-                "improved -> normal player revert must stay forbidden");
-        ranks[0] = RuneProgression.NORMAL_RANK;
+                "improved -> ordinary player revert must stay forbidden");
+        ranks[0] = RuneProgression.ORDINARY_RANK;
         check(RuneRankRevertDecision.evaluate(ranks, 0).reason == RuneRankRevertDecision.Reason.BELOW_ALLOWED_RANK,
-                "normal rank must not be revertable");
+                "ordinary rank must not be revertable");
         ranks[0] = 0;
         check(RuneRankRevertDecision.evaluate(ranks, 0).reason == RuneRankRevertDecision.Reason.MISSING_RUNE,
                 "unowned rune must not be revertable");
@@ -80,14 +94,12 @@ public final class RuneRankRevertTest {
         check(reverted.higherRuneCount() == RuneInventory.BOOST_TYPE_COUNT - 1,
                 "first revert must derive 25 higher-rank runes");
 
-        // A fully paid rank-up restores the factual selected rank.
         ranks[11] = RuneProgression.ADVANCED_RANK;
         RuneCollectionProgression restored = RuneCollectionProgression.fromBestRanks(ranks);
         check(restored.stageRank() == RuneProgression.ADVANCED_RANK, "restored collection returns to advanced stage");
         check(restored.lowerProgress() == RuneInventory.BOOST_TYPE_COUNT,
                 "restoring the factual rank derives the full advanced stage again");
 
-        // Reverting again must derive exactly the same nested point, never decrement hidden state.
         RuneRankRevertDecision second = RuneRankRevertDecision.evaluate(ranks, 11);
         ranks[11] = second.targetRank;
         RuneCollectionProgression revertedAgain = RuneCollectionProgression.fromBestRanks(ranks);

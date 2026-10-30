@@ -1,7 +1,7 @@
 package com.example.revolution.rune.service;
 
 import com.example.revolution.balance.service.BalanceService;
-import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 
 /** Server-side Balance Core adapter for selected-rune rank revert policy. */
 public final class RuneRankRevertBalanceService {
@@ -13,16 +13,23 @@ public final class RuneRankRevertBalanceService {
     }
 
     public int allowedFromRank(int statusId) {
-        return positiveInt(statusId, "revert_allowed_from_rank");
+        return positiveInt(RuneBalanceNamespace.legacyStatus(statusId), "revert_allowed_from_rank");
+    }
+
+    public int allowedFromRank(RuneCollectionId collectionId) {
+        return positiveInt(RuneBalanceNamespace.collection(collectionId), "revert_allowed_from_rank");
     }
 
     public int steps(int statusId) {
-        return positiveInt(statusId, "revert_steps");
+        return positiveInt(RuneBalanceNamespace.legacyStatus(statusId), "revert_steps");
     }
 
-    private int positiveInt(int statusId, String suffix) {
-        if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
-        String raw = balance.getActiveValue("runes." + RuneStatusConfig.statusKey(statusId) + "." + suffix);
+    public int steps(RuneCollectionId collectionId) {
+        return positiveInt(RuneBalanceNamespace.collection(collectionId), "revert_steps");
+    }
+
+    private int positiveInt(String namespace, String suffix) {
+        String raw = balance.getActiveValue(RuneBalanceNamespace.valueKey(namespace, suffix));
         try {
             int value = Integer.parseInt(raw.trim());
             if (value <= 0) throw new NumberFormatException("not positive");

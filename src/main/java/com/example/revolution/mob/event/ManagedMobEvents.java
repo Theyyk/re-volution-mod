@@ -1,8 +1,10 @@
 package com.example.revolution.mob.event;
 
+import com.example.revolution.gameplay.GameplayDamageContext;
 import com.example.revolution.gameplay.GameplayDamageSource;
 import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.mob.service.ManagedMobService;
+import com.example.revolution.rune.service.RuneTransientEffectRuntime;
 import java.math.BigDecimal;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
@@ -20,10 +22,19 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 public final class ManagedMobEvents {
     private final ManagedMobService mobs;
     private final GameplayEventSink gameplayEvents;
+    private final RuneTransientEffectRuntime transientRuneEffects;
 
     public ManagedMobEvents(ManagedMobService mobs, GameplayEventSink gameplayEvents) {
+        this(mobs, gameplayEvents, null);
+    }
+
+    public ManagedMobEvents(
+            ManagedMobService mobs,
+            GameplayEventSink gameplayEvents,
+            RuneTransientEffectRuntime transientRuneEffects) {
         this.mobs = mobs;
         this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
+        this.transientRuneEffects = transientRuneEffects;
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -52,8 +63,11 @@ public final class ManagedMobEvents {
             BigDecimal hpBefore = managedHp(event.getEntityLiving().getCustomNameTag());
             EntityPlayerMP player = event.getSource().getTrueSource() instanceof EntityPlayerMP
                     ? (EntityPlayerMP) event.getSource().getTrueSource() : null;
-            GameplayDamageSource source = player != null && mobs.isApplyingPoisonDamage(player.getUniqueID())
-                    ? GameplayDamageSource.POISON : GameplayDamageSource.CLICK;
+            GameplayDamageSource source = GameplayDamageContext.current();
+            if (source == null) {
+                source = player != null && mobs.isApplyingPoisonDamage(player.getUniqueID())
+                        ? GameplayDamageSource.POISON : GameplayDamageSource.CLICK;
+            }
 
             event.setCanceled(true);
             mobs.applyDamage(event.getEntityLiving(), event.getSource(), event.getAmount());
@@ -63,7 +77,12 @@ public final class ManagedMobEvents {
                         ? BigDecimal.ZERO : managedHp(event.getEntityLiving().getCustomNameTag());
                 if (hpAfter != null) {
                     BigDecimal dealt = hpBefore.subtract(hpAfter);
-                    if (dealt.signum() > 0) gameplayEvents.confirmedDamage(player.getUniqueID(), source, dealt);
+                    if (dealt.signum() > 0) {
+                        gameplayEvents.confirmedDamage(player.getUniqueID(), source, dealt);
+                        if (transientRuneEffects != null) {
+                            transientRuneEffects.confirmedDamage(player, event.getEntityLiving(), source, dealt);
+                        }
+                    }
                 }
             }
             ManagedMobAppearanceEvents.refreshNow(event.getEntityLiving());
@@ -80,7 +99,9 @@ public final class ManagedMobEvents {
 
     @SubscribeEvent public void onMobDeath(LivingDeathEvent event) { mobs.died(event.getEntityLiving(), event.getSource()); }
     @SubscribeEvent public void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) mobs.tick();
+        if (event.phase != TickEvent.Phase.END) return;
+        mobs.tick();
+        if (transientRuneEffects != null) transientRuneEffects.tick();
     }
     @SubscribeEvent public void onMobDrops(LivingDropsEvent event) {
         if (mobs.suppressVanillaDrops(event.getEntityLiving())) { event.getDrops().clear(); event.setCanceled(true); }

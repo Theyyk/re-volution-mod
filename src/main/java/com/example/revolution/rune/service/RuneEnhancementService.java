@@ -5,7 +5,7 @@ import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
-import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.state.RuneInventory;
@@ -39,8 +39,8 @@ public final class RuneEnhancementService {
     }
 
     public void enhanceRune(EntityPlayerMP player, int collectionIndex, int ignoredRuneIndex, int requestedAmount) {
-        int statusId = RuneStatusConfig.statusForCollection(collectionIndex);
-        if (!RuneStatusConfig.isRuneStatus(statusId)) {
+        RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (collectionId == null) {
             player.sendMessage(new TextComponentString("§cУсиление недоступно для этой legacy-коллекции."));
             return;
         }
@@ -49,12 +49,12 @@ public final class RuneEnhancementService {
         int[] currentLevels = enhancements.getLevels(player.getUniqueID(), collectionIndex);
         RuneEnhancementPlan plan;
         try {
-            plan = planning.plan(statusId, currentLevels, ownedSlots(player, collectionIndex), requestedAmount, random);
+            plan = planning.plan(collectionId, currentLevels, ownedSlots(player, collectionIndex), requestedAmount, random);
         } catch (IllegalArgumentException | IllegalStateException e) {
             if ("no eligible enhancement targets remain".equals(e.getMessage())) {
                 player.sendMessage(new TextComponentString("§eНет доступных слотов для усиления."));
             } else {
-                player.sendMessage(new TextComponentString("§cУсиление для этого статуса пока не настроено."));
+                player.sendMessage(new TextComponentString("§cУсиление для этой коллекции пока не настроено."));
             }
             return;
         }

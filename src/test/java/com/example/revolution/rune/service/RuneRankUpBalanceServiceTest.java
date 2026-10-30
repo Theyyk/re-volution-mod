@@ -61,11 +61,15 @@ public final class RuneRankUpBalanceServiceTest {
     }
 
     @Test
-    void maximumRankAndInvalidIndexAreRejected() {
+    void mythicIsMaximumRankAndInvalidIndexIsRejected() {
         RuneRankUpBalanceService service = new RuneRankUpBalanceService(BalanceBootstrap.activateBundledDefaults());
 
+        RuneRankUpRule advanced = service.rule(RuneStatusConfig.STATUS_POISON, RuneProgression.ADVANCED_RANK, 0);
+        assertEquals(RuneProgression.MYTHIC_RANK, advanced.targetRank);
+        assertEquals(ResourceDefinitions.RUNE_CORES, advanced.resource);
+
         assertThrows(IllegalArgumentException.class,
-                () -> service.rule(RuneStatusConfig.STATUS_POISON, RuneProgression.ADVANCED_RANK, 0));
+                () -> service.rule(RuneStatusConfig.STATUS_POISON, RuneProgression.MYTHIC_RANK, 0));
         assertThrows(IllegalArgumentException.class,
                 () -> service.rule(RuneStatusConfig.STATUS_POISON, RuneProgression.NORMAL_RANK, -1));
         assertThrows(IllegalArgumentException.class,

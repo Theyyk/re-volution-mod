@@ -44,6 +44,7 @@ final class RuneGuiPreloader {
         collectionNames = Collections.emptyList();
         activeCollection = 0;
         runes.clear();
+        ClientRuneCollections.reset();
         suppressInitialRefresh = false;
         refreshStarted = false;
         openedAt = 0L;
@@ -114,7 +115,9 @@ final class RuneGuiPreloader {
 
         RuneResourcesGuiScreen screen = new RuneResourcesGuiScreen();
         mc.displayGuiScreen(screen);
-        screen.setCollections(collectionNames, activeCollection);
+        if (!ClientRuneCollections.applyTo(screen)) {
+            screen.setCollections(collectionNames, activeCollection);
+        }
         screen.clearRunes();
         for (RuneSnapshot rune : runes) {
             screen.addRuneFromServer(rune.slot, rune.runeIndex, rune.layer);

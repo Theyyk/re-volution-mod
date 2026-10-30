@@ -9,19 +9,35 @@ import java.util.UUID;
 
 /** Server-authoritative Prestige run engine. */
 public final class PrestigeService implements EffectResolver.Source {
+    public interface AppliedResetParticipant {
+        void afterAppliedReset(UUID playerUuid);
+    }
+
+    private static final AppliedResetParticipant NO_RESET_PARTICIPANT = playerUuid -> { };
+
     private final PrestigeRepository repository;
     private final PrestigeBranchRegistry registry;
     private final PrestigeResetService resets;
+    private final AppliedResetParticipant appliedResetParticipant;
 
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry) {
-        this(repository, registry, (player, branch) -> registry.get(branch).defaultSaveMultiplier);
+        this(repository, registry, (player, branch) -> registry.get(branch).defaultSaveMultiplier, NO_RESET_PARTICIPANT);
     }
 
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry,
                            PrestigeResetService.SaveMultiplierProvider saveMultipliers) {
+        this(repository, registry, saveMultipliers, NO_RESET_PARTICIPANT);
+    }
+
+    public PrestigeService(
+            PrestigeRepository repository,
+            PrestigeBranchRegistry registry,
+            PrestigeResetService.SaveMultiplierProvider saveMultipliers,
+            AppliedResetParticipant appliedResetParticipant) {
         this.repository = repository;
         this.registry = registry;
         this.resets = new PrestigeResetService(repository, registry, saveMultipliers);
+        this.appliedResetParticipant = appliedResetParticipant == null ? NO_RESET_PARTICIPANT : appliedResetParticipant;
     }
 
     public synchronized PrestigeState.RunState startRun(UUID playerUuid, PrestigeBranch branch) {
@@ -62,7 +78,11 @@ public final class PrestigeService implements EffectResolver.Source {
     }
 
     public synchronized PrestigeResetService.ResetResult reset(UUID playerUuid, String expectedRunId) {
-        return resets.reset(playerUuid, expectedRunId);
+        PrestigeResetService.ResetResult result = resets.reset(playerUuid, expectedRunId);
+        if (result == PrestigeResetService.ResetResult.APPLIED) {
+            appliedResetParticipant.afterAppliedReset(playerUuid);
+        }
+        return result;
     }
 
     public synchronized PrestigeState snapshot(UUID playerUuid) { return repository.load(playerUuid).copy(); }
