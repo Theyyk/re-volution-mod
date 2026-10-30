@@ -18,7 +18,8 @@ public final class BalanceBootstrap {
     private static final String DEFAULT_RESOURCE = "/balance/default-balance.json";
     private static final String[] VERSION_OVERLAYS = {
             "/balance/v2.3.0-rune-collections.json",
-            "/balance/v2.3.0-rune-status-template.json"
+            "/balance/v2.3.0-rune-status-template.json",
+            "/balance/v2.3.0-rune-generic-effects.json"
     };
 
     private BalanceBootstrap() {}
