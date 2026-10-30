@@ -65,6 +65,8 @@ import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.prestige.PrestigeBranchRegistry;
 import com.example.revolution.prestige.PrestigeProgressRouter;
 import com.example.revolution.prestige.PrestigeService;
+import com.example.revolution.prestige.exchange.definition.RunExchangeCatalog;
+import com.example.revolution.prestige.exchange.service.RunExchangeService;
 import com.example.revolution.realm.service.RealmService;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
@@ -88,6 +90,8 @@ import com.example.revolution.rune.service.RuneTransientEffectRuntime;
 import com.example.revolution.rune.state.RuneCombatState;
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.Locale;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.Logger;
 
@@ -124,6 +128,7 @@ public final class ServerServices implements AutoCloseable {
     public final PlayerCollectionService collections;
     public final RealmService realms = new RealmService();
     public final PrestigeService prestige;
+    public final RunExchangeService runExchange;
     public final EffectResolver effects;
     public final GameplayEventSink gameplayEvents;
     public final PetService pets;
@@ -152,11 +157,14 @@ public final class ServerServices implements AutoCloseable {
                 prestigeBranches,
                 (playerUuid, branch) -> prestigeBranches.get(branch).defaultSaveMultiplier,
                 runePrestigeReset::reset);
+        prestige.setFragmentRewardProvider(branch -> new BigDecimal(balance.getActiveValue(
+                "prestige.fragment_reward." + branch.name().toLowerCase(Locale.ROOT) + ".per_level")));
         effects = new EffectResolver();
         effects.register(prestige);
         gameplayEvents = new PrestigeProgressRouter(prestige, prestigeBranches);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
         resources.setGameplayEventSink(gameplayEvents);
+        runExchange = new RunExchangeService(prestige, resources, RunExchangeCatalog.empty());
         PetCatalog petCatalog = new PetCatalog();
         PetBalanceService petBalance = new PetBalanceService(balance);
         pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
