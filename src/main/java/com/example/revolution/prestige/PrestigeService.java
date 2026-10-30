@@ -7,10 +7,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-/** Server-authoritative Prestige run engine. */
+/** Server-authoritative Mastery run engine. Legacy Prestige names remain for compatibility. */
 public final class PrestigeService implements EffectResolver.Source {
     public interface AppliedResetParticipant { void afterAppliedReset(UUID playerUuid); }
     public interface FragmentRewardProvider { BigDecimal rewardPerLevel(PrestigeBranch branch); }
+    public enum FragmentSource { MASTERY, PET }
     private static final AppliedResetParticipant NO_RESET_PARTICIPANT = playerUuid -> { };
     private static final FragmentRewardProvider DEFAULT_FRAGMENT_REWARDS = branch -> BigDecimal.ONE;
     private final PrestigeRepository repository;
@@ -34,14 +35,13 @@ public final class PrestigeService implements EffectResolver.Source {
         this.appliedResetParticipant = appliedResetParticipant == null ? NO_RESET_PARTICIPANT : appliedResetParticipant;
     }
 
-    /** Runtime wiring point; tests and legacy callers retain the established +1 default until configured. */
     public synchronized void setFragmentRewardProvider(FragmentRewardProvider provider) {
         fragmentRewards = provider == null ? DEFAULT_FRAGMENT_REWARDS : provider;
     }
 
     public synchronized PrestigeState.RunState startRun(UUID playerUuid, PrestigeBranch branch) {
         PrestigeState state = repository.load(playerUuid);
-        if (state.activeRun != null) throw new IllegalStateException("A Prestige run is already active; reset it before switching branch");
+        if (state.activeRun != null) throw new IllegalStateException("A Mastery run is already active; reset it before switching branch");
         registry.get(branch);
         PrestigeState.RunState run = new PrestigeState.RunState();
         run.runId = UUID.randomUUID().toString();
@@ -63,11 +63,8 @@ public final class PrestigeService implements EffectResolver.Source {
         run.branchLevel = definition.levelFor(run.branchProgress);
         if (run.branchLevel > oldLevel) {
             BigDecimal rewardPerLevel = fragmentRewards.rewardPerLevel(sourceBranch);
-            if (rewardPerLevel == null || rewardPerLevel.signum() < 0) {
-                throw new IllegalStateException("Fragment reward must be non-negative for " + sourceBranch);
-            }
-            run.runBranchCurrency = run.runBranchCurrency.add(
-                    rewardPerLevel.multiply(BigDecimal.valueOf(run.branchLevel - oldLevel)));
+            if (rewardPerLevel == null || rewardPerLevel.signum() < 0) throw new IllegalStateException("Fragment reward must be non-negative for " + sourceBranch);
+            run.masteryPendingFragments = run.masteryPendingFragments.add(rewardPerLevel.multiply(BigDecimal.valueOf(run.branchLevel - oldLevel)));
         }
         for (PrestigeBranchRegistry.RankDefinition rank : definition.ranks) {
             if (run.branchProgress.compareTo(rank.unlockProgress) >= 0 && !run.reachedRanks.contains(rank.rankId)) run.reachedRanks.add(rank.rankId);
@@ -75,7 +72,7 @@ public final class PrestigeService implements EffectResolver.Source {
         repository.save(playerUuid, state);
     }
 
-    /** Run-scoped Fragment of Knowledge spending with stale-run rejection. */
+    /** Compatibility name: spends the single run-scoped spendable Fragments balance. */
     public synchronized boolean spendRunBranchCurrency(UUID playerUuid, String expectedRunId, BigDecimal amount) {
         if (playerUuid == null || expectedRunId == null || amount == null || amount.signum() < 0) return false;
         PrestigeState state = repository.load(playerUuid);
@@ -84,6 +81,32 @@ public final class PrestigeService implements EffectResolver.Source {
         run.runBranchCurrency = run.runBranchCurrency.subtract(amount);
         repository.save(playerUuid, state);
         return true;
+    }
+
+    /** Authoritative Pet reward path. Threshold reach alone never calls this method. */
+    public synchronized boolean addPetPendingFragments(UUID playerUuid, String expectedRunId, BigDecimal amount) {
+        if (playerUuid == null || expectedRunId == null || amount == null || amount.signum() <= 0) return false;
+        PrestigeState state = repository.load(playerUuid);
+        PrestigeState.RunState run = state.activeRun;
+        if (run == null || !expectedRunId.equals(run.runId)) return false;
+        run.petPendingFragments = run.petPendingFragments.add(amount);
+        repository.save(playerUuid, state);
+        return true;
+    }
+
+    /** Moves factual pending from exactly one source into the shared Fragments balance. */
+    public synchronized BigDecimal collectFragments(UUID playerUuid, String expectedRunId, FragmentSource source) {
+        if (playerUuid == null || expectedRunId == null || source == null) return BigDecimal.ZERO;
+        PrestigeState state = repository.load(playerUuid);
+        PrestigeState.RunState run = state.activeRun;
+        if (run == null || !expectedRunId.equals(run.runId)) return BigDecimal.ZERO;
+        BigDecimal pending = source == FragmentSource.MASTERY ? run.masteryPendingFragments : run.petPendingFragments;
+        if (pending == null || pending.signum() <= 0) return BigDecimal.ZERO;
+        run.runBranchCurrency = run.runBranchCurrency.add(pending);
+        if (source == FragmentSource.MASTERY) run.masteryPendingFragments = BigDecimal.ZERO;
+        else run.petPendingFragments = BigDecimal.ZERO;
+        repository.save(playerUuid, state);
+        return pending;
     }
 
     public synchronized PrestigeState.RunState activeRun(UUID playerUuid) {
@@ -109,8 +132,7 @@ public final class PrestigeService implements EffectResolver.Source {
             PrestigeBranchRegistry.BranchDefinition definition = registry.get(branch);
             if (definition.permanentEffectStat != stat || definition.permanentBonusPerLevel.signum() <= 0) continue;
             int permanentLevels = definition.levelFor(permanent.bestSavedProgress);
-            if (permanentLevels > 0) result.add(new EffectResolver.Contribution(stat,
-                    definition.permanentBonusPerLevel.multiply(BigDecimal.valueOf(permanentLevels)), "prestige:permanent:" + branch));
+            if (permanentLevels > 0) result.add(new EffectResolver.Contribution(stat, definition.permanentBonusPerLevel.multiply(BigDecimal.valueOf(permanentLevels)), "mastery:permanent:" + branch));
         }
         PrestigeState.RunState run = state.activeRun;
         if (run == null) return Collections.unmodifiableList(result);
@@ -119,8 +141,7 @@ public final class PrestigeService implements EffectResolver.Source {
         for (PrestigeBranchRegistry.RankDefinition rank : definition.ranks) {
             if (rank.effectStat != stat || !run.reachedRanks.contains(rank.rankId)) continue;
             int meta = permanent.rankMetaLevels.containsKey(rank.rankId) ? permanent.rankMetaLevels.get(rank.rankId) : 0;
-            result.add(new EffectResolver.Contribution(stat, rank.effectAtMetaLevel(meta),
-                    "prestige:run:" + run.runId + ":branch:" + run.activeBranch + ":rank:" + rank.rankId));
+            result.add(new EffectResolver.Contribution(stat, rank.effectAtMetaLevel(meta), "mastery:run:" + run.runId + ":branch:" + run.activeBranch + ":rank:" + rank.rankId));
         }
         return Collections.unmodifiableList(result);
     }
