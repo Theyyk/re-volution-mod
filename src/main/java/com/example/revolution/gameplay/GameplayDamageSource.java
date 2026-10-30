@@ -4,11 +4,6 @@ package com.example.revolution.gameplay;
 public enum GameplayDamageSource {
     CLICK,
     POISON,
-    BURNING,
-    BLEEDING,
-    CURSE,
-    WITHER,
-    DECAY,
     FIRE,
     ICE,
     LIGHTNING,

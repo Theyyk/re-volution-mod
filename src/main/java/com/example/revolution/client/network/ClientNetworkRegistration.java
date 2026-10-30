@@ -7,7 +7,6 @@ import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.PlayerStatsPacket;
 import com.example.revolution.network.PongPacket;
-import com.example.revolution.network.RuneCollectionMetadataPacket;
 import com.example.revolution.network.RuneCollectionsPacket;
 import com.example.revolution.network.RuneEnhancementPacket;
 import com.example.revolution.network.RuneSlotPacket;
@@ -32,6 +31,5 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(StageTravelMenuPacketClientHandler.class, StageTravelMenuPacket.class, 11, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(StageTravelTeleportRequestClientHandler.class, StageTravelTeleportRequestPacket.class, 12, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(FastAutoTogglePacketClientHandler.class, FastAutoTogglePacket.class, 13, Side.CLIENT);
-        NetworkHandler.INSTANCE.registerMessage(RuneCollectionMetadataPacketHandler.class, RuneCollectionMetadataPacket.class, 14, Side.CLIENT);
     }
 }

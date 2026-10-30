@@ -16,10 +16,6 @@ import java.util.UUID;
 import org.bson.Document;
 
 public final class MongoPlayerRepository implements PlayerRepository, RuneCollectionStateRepository {
-    private static final String RUNE_ROOT = "runeCollections";
-    private static final String FIXED_COLLECTIONS = "collections";
-    private static final String FIXED_SLOTS = "slots";
-
     private final MongoConnection connection;
     private final boolean enabled;
     private final RuneCollectionStateRepository runeCollectionStates;
@@ -80,27 +76,21 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
         if (!enabled || !connection.isConnected()) return result;
         Document doc = connection.collection("players").find(new Document("_id", uuid.toString())).first();
         if (doc == null) return result;
-
-        if (isAdditiveFixedCollection(collectionIndex)) {
-            List<Document> runes = fixedRunes(doc, collectionIndex);
-            if (runes == null) return result;
-            appendRuneRecords(result, runes);
-            return result;
-        }
-        if (collectionIndex != 0) return result;
-
         List<Document> collections = (List<Document>) doc.get("decks");
-        if (collections == null || collections.isEmpty()) {
-            RevolutionMod.logger.warn("getRunesInCollection: legacy collection 0 not found");
+        if (collections == null || collectionIndex < 0 || collectionIndex >= collections.size()) {
+            RevolutionMod.logger.warn("getRunesInCollection: collection " + collectionIndex + " not found");
             return result;
         }
-        Document collection = collections.get(0);
+        Document collection = collections.get(collectionIndex);
         List<Document> runes = (List<Document>) collection.get("cards");
         if (runes == null) {
-            RevolutionMod.logger.info("getRunesInCollection: legacy collection 0 has no rune storage");
+            RevolutionMod.logger.info("getRunesInCollection: collection " + collectionIndex + " has no rune storage");
             return result;
         }
-        appendRuneRecords(result, runes);
+        for (Document c : runes) {
+            result.add(new RuneRecord(c.getInteger("slot", 0), c.getInteger("cardIndex", 0),
+                    c.getInteger("layer", 1), c.getInteger("level", 1)));
+        }
         return result;
     }
 
@@ -172,42 +162,22 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
     @SuppressWarnings("unchecked")
     @Override
     public void addRuneToCollection(UUID uuid, int collectionIndex, int slot, int runeIndex, int layer, int level) {
-        if (!enabled || !connection.isConnected()) {
-            RevolutionMod.logger.warn("addRuneToCollection: !connection.isConnected()");
-            return;
-        }
-        Document rune = runeDocument(slot, runeIndex, layer, level);
-        if (isAdditiveFixedCollection(collectionIndex)) {
-            String path = fixedSlotsPath(collectionIndex);
-            connection.collection("players").updateOne(
-                    new Document("_id", uuid.toString()),
-                    new Document("$push", new Document(path, rune))
-                            .append("$setOnInsert", new Document("activeDeck", 0)),
-                    new UpdateOptions().upsert(true));
-            RevolutionMod.logger.debug("addRuneToCollection: added rune to fixed collection " + collectionIndex + ", slot=" + slot);
-            return;
-        }
-        if (collectionIndex != 0) return;
-
+        if (!enabled || !connection.isConnected()) { RevolutionMod.logger.warn("addRuneToCollection: !connection.isConnected()"); return; }
         Document doc = connection.collection("players").find(new Document("_id", uuid.toString())).first();
-        if (doc == null) {
-            RevolutionMod.logger.warn("addRuneToCollection: player document not found for " + uuid);
-            return;
-        }
+        if (doc == null) { RevolutionMod.logger.warn("addRuneToCollection: player document not found for " + uuid); return; }
         List<Document> collections = (List<Document>) doc.get("decks");
-        if (collections == null || collections.isEmpty()) {
-            RevolutionMod.logger.warn("addRuneToCollection: legacy collection 0 not found");
-            return;
+        if (collections == null) { RevolutionMod.logger.warn("addRuneToCollection: collections == null"); return; }
+        if (collectionIndex < 0 || collectionIndex >= collections.size()) {
+            RevolutionMod.logger.warn("addRuneToCollection: collection " + collectionIndex + " not found (size: " + collections.size() + ")"); return;
         }
-        Document collection = collections.get(0);
+        Document collection = collections.get(collectionIndex);
         List<Document> runes = (List<Document>) collection.get("cards");
         if (runes == null) runes = new ArrayList<>();
-        runes.add(rune);
-        collection.put("cards", runes);
-        collections.set(0, collection);
+        runes.add(new Document("slot", slot).append("cardIndex", runeIndex).append("layer", layer).append("level", level));
+        collection.put("cards", runes); collections.set(collectionIndex, collection);
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
-        RevolutionMod.logger.debug("addRuneToCollection: added rune to legacy collection 0 (total=" + runes.size() + ", slot=" + slot + ")");
+        RevolutionMod.logger.debug("addRuneToCollection: added rune to collection " + collectionIndex + " (total in collection: " + runes.size() + ", slot=" + slot + ")");
     }
 
     @SuppressWarnings("unchecked")
@@ -216,35 +186,24 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
         if (!enabled || !connection.isConnected()) return false;
         Document doc = connection.collection("players").find(new Document("_id", uuid.toString())).first();
         if (doc == null) return false;
-
-        if (isAdditiveFixedCollection(collectionIndex)) {
-            List<Document> runes = fixedRunes(doc, collectionIndex);
-            if (runes == null) return false;
-            Document target = highestRankRecord(runes, runeIndex);
-            if (target == null) return false;
-            normalizeRankRecord(target, runeIndex, layer);
-            connection.collection("players").updateOne(
-                    new Document("_id", uuid.toString()),
-                    new Document("$set", new Document(fixedSlotsPath(collectionIndex), runes)),
-                    new UpdateOptions().upsert(true));
-            RevolutionMod.logger.info("setRuneRank: fixed collection=" + collectionIndex + ", rune=" + runeIndex + ", rank=" + layer);
-            return true;
-        }
-        if (collectionIndex != 0) return false;
-
         List<Document> collections = (List<Document>) doc.get("decks");
-        if (collections == null || collections.isEmpty()) return false;
-        Document collection = collections.get(0);
+        if (collections == null || collectionIndex < 0 || collectionIndex >= collections.size()) return false;
+        Document collection = collections.get(collectionIndex);
         List<Document> runes = (List<Document>) collection.get("cards");
         if (runes == null) return false;
-        Document target = highestRankRecord(runes, runeIndex);
+        Document target = null;
+        for (Document rune : runes) {
+            if (rune.getInteger("cardIndex", -1) != runeIndex) continue;
+            if (target == null || rune.getInteger("layer", 1) > target.getInteger("layer", 1)) target = rune;
+        }
         if (target == null) return false;
-        normalizeRankRecord(target, runeIndex, layer);
-        collection.put("cards", runes);
-        collections.set(0, collection);
+        target.put("slot", runeIndex); target.put("cardIndex", runeIndex);
+        target.put("layer", RuneStorageRules.clampGameplayRank(layer));
+        if (!target.containsKey("level")) target.put("level", 1);
+        collection.put("cards", runes); collections.set(collectionIndex, collection);
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
-        RevolutionMod.logger.info("setRuneRank: legacy collection=0, rune=" + runeIndex + ", rank=" + layer);
+        RevolutionMod.logger.info("setRuneRank: collection=" + collectionIndex + ", rune=" + runeIndex + ", rank=" + layer);
         return true;
     }
 
@@ -252,20 +211,11 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
     @Override
     public void clearCollection(UUID uuid, int collectionIndex) {
         if (!enabled || !connection.isConnected()) return;
-        if (isAdditiveFixedCollection(collectionIndex)) {
-            connection.collection("players").updateOne(
-                    new Document("_id", uuid.toString()),
-                    new Document("$set", new Document(fixedSlotsPath(collectionIndex), new ArrayList<Document>())),
-                    new UpdateOptions().upsert(true));
-            return;
-        }
-        if (collectionIndex != 0) return;
-
         Document doc = connection.collection("players").find(new Document("_id", uuid.toString())).first();
         if (doc == null) return;
         List<Document> collections = (List<Document>) doc.get("decks");
-        if (collections == null || collections.isEmpty()) return;
-        collections.get(0).put("cards", new ArrayList<Document>());
+        if (collections == null || collectionIndex >= collections.size()) return;
+        collections.get(collectionIndex).put("cards", new ArrayList<Document>());
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
     }
@@ -301,65 +251,5 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
         if (!enabled || !connection.isConnected() || uuid == null || lastKnownName == null || lastKnownName.trim().isEmpty()) return;
         connection.collection("players").updateOne(new Document("_id", uuid.toString()),
                 new Document("$set", new Document("lastKnownName", lastKnownName.trim())), new UpdateOptions().upsert(true));
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<Document> fixedRunes(Document player, int collectionIndex) {
-        RuneCollectionId id = RuneCollectionId.fromLegacyIndex(collectionIndex);
-        if (id == null || id == RuneCollectionId.COLLECTION_01) return null;
-        Document root = player.get(RUNE_ROOT, Document.class);
-        if (root == null) return null;
-        Document collections = root.get(FIXED_COLLECTIONS, Document.class);
-        if (collections == null) return null;
-        Document collection = collections.get(id.id(), Document.class);
-        if (collection == null) return null;
-        Object raw = collection.get(FIXED_SLOTS);
-        return raw instanceof List ? (List<Document>) raw : null;
-    }
-
-    private static boolean isAdditiveFixedCollection(int collectionIndex) {
-        RuneCollectionId id = RuneCollectionId.fromLegacyIndex(collectionIndex);
-        return id != null && id != RuneCollectionId.COLLECTION_01;
-    }
-
-    private static String fixedSlotsPath(int collectionIndex) {
-        RuneCollectionId id = RuneCollectionId.fromLegacyIndex(collectionIndex);
-        if (id == null || id == RuneCollectionId.COLLECTION_01) {
-            throw new IllegalArgumentException("fixed rune collection index required");
-        }
-        return RUNE_ROOT + "." + FIXED_COLLECTIONS + "." + id.id() + "." + FIXED_SLOTS;
-    }
-
-    private static Document runeDocument(int slot, int runeIndex, int layer, int level) {
-        return new Document("slot", slot)
-                .append("cardIndex", runeIndex)
-                .append("layer", RuneStorageRules.clampGameplayRank(layer))
-                .append("level", Math.max(1, level));
-    }
-
-    private static void appendRuneRecords(List<RuneRecord> out, List<Document> runes) {
-        for (Document rune : runes) {
-            out.add(new RuneRecord(
-                    rune.getInteger("slot", 0),
-                    rune.getInteger("cardIndex", 0),
-                    rune.getInteger("layer", 1),
-                    rune.getInteger("level", 1)));
-        }
-    }
-
-    private static Document highestRankRecord(List<Document> runes, int runeIndex) {
-        Document target = null;
-        for (Document rune : runes) {
-            if (rune.getInteger("cardIndex", -1) != runeIndex) continue;
-            if (target == null || rune.getInteger("layer", 1) > target.getInteger("layer", 1)) target = rune;
-        }
-        return target;
-    }
-
-    private static void normalizeRankRecord(Document target, int runeIndex, int layer) {
-        target.put("slot", runeIndex);
-        target.put("cardIndex", runeIndex);
-        target.put("layer", RuneStorageRules.clampGameplayRank(layer));
-        if (!target.containsKey("level")) target.put("level", 1);
     }
 }

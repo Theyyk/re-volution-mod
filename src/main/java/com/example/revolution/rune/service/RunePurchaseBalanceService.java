@@ -2,7 +2,7 @@ package com.example.revolution.rune.service;
 
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.resource.definition.ResourceDefinitions;
-import com.example.revolution.rune.definition.RuneCollectionId;
+import com.example.revolution.rune.config.RuneStatusConfig;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -21,101 +21,67 @@ public final class RunePurchaseBalanceService {
     }
 
     public String purchaseResource(int statusId) {
-        return purchaseResourceNamespace(RuneBalanceNamespace.legacyStatus(statusId));
-    }
-
-    public String purchaseResource(RuneCollectionId collectionId) {
-        return purchaseResourceNamespace(RuneBalanceNamespace.collection(collectionId));
+        return canonicalResource(requiredValue(statusId, "purchase.resource"), "purchase");
     }
 
     public String duplicateResource(int statusId) {
-        return duplicateResourceNamespace(RuneBalanceNamespace.legacyStatus(statusId));
-    }
-
-    public String duplicateResource(RuneCollectionId collectionId) {
-        return duplicateResourceNamespace(RuneBalanceNamespace.collection(collectionId));
+        return canonicalResource(requiredValue(statusId, "duplicate.resource"), "duplicate");
     }
 
     public int purchaseCost(int statusId, int rank, int lowerProgress, int higherRuneCount) {
-        return purchaseCostNamespace(RuneBalanceNamespace.legacyStatus(statusId), rank, lowerProgress, higherRuneCount);
-    }
-
-    public int purchaseCost(RuneCollectionId collectionId, int rank, int lowerProgress, int higherRuneCount) {
-        return purchaseCostNamespace(RuneBalanceNamespace.collection(collectionId), rank, lowerProgress, higherRuneCount);
+        if (higherRuneCount < 0) throw new IllegalArgumentException("higherRuneCount must be >= 0");
+        BigDecimal base = requiredCurve(statusId, "purchase", rank, lowerProgress);
+        BigDecimal multiplier = optionalDecimalValue(
+                statusId, "purchase.higher_rank_multiplier", DEFAULT_HIGHER_RANK_MULTIPLIER);
+        if (multiplier.signum() <= 0) throw new IllegalStateException("purchase higher-rank multiplier must be > 0");
+        BigDecimal resolved = base.multiply(multiplier.pow(higherRuneCount));
+        return positiveRoundedInt(resolved, "purchase cost");
     }
 
     public int purchaseCost(int statusId, int rank, int lowerProgress) {
         return purchaseCost(statusId, rank, lowerProgress, 0);
     }
 
-    public int purchaseCost(RuneCollectionId collectionId, int rank, int lowerProgress) {
-        return purchaseCost(collectionId, rank, lowerProgress, 0);
-    }
-
     public int duplicateReward(int statusId, int rank, int lowerProgress, int higherRuneCount) {
-        return duplicateRewardNamespace(RuneBalanceNamespace.legacyStatus(statusId), rank, lowerProgress, higherRuneCount);
-    }
-
-    public int duplicateReward(RuneCollectionId collectionId, int rank, int lowerProgress, int higherRuneCount) {
-        return duplicateRewardNamespace(RuneBalanceNamespace.collection(collectionId), rank, lowerProgress, higherRuneCount);
+        String rateRaw = optionalValue(statusId, "duplicate.rate");
+        if (rateRaw == null) {
+            return nonNegativeInt(requiredCurve(statusId, "duplicate", rank, lowerProgress), "duplicate reward");
+        }
+        BigDecimal rate = parseNonNegativeDecimal(rateRaw, "duplicate rate");
+        BigDecimal purchaseCost = BigDecimal.valueOf(purchaseCost(statusId, rank, lowerProgress, higherRuneCount));
+        int rounded = nonNegativeRoundedInt(purchaseCost.multiply(rate), "duplicate reward");
+        return Math.max(1, rounded);
     }
 
     public int duplicateReward(int statusId, int rank, int lowerProgress) {
         return duplicateReward(statusId, rank, lowerProgress, 0);
     }
 
-    public int duplicateReward(RuneCollectionId collectionId, int rank, int lowerProgress) {
-        return duplicateReward(collectionId, rank, lowerProgress, 0);
-    }
-
-    private String purchaseResourceNamespace(String namespace) {
-        return canonicalResource(requiredValue(namespace, "purchase.resource"), "purchase");
-    }
-
-    private String duplicateResourceNamespace(String namespace) {
-        return canonicalResource(requiredValue(namespace, "duplicate.resource"), "duplicate");
-    }
-
-    private int purchaseCostNamespace(String namespace, int rank, int lowerProgress, int higherRuneCount) {
-        if (higherRuneCount < 0) throw new IllegalArgumentException("higherRuneCount must be >= 0");
-        BigDecimal base = requiredCurve(namespace, "purchase", rank, lowerProgress);
-        BigDecimal multiplier = optionalDecimalValue(
-                namespace, "purchase.higher_rank_multiplier", DEFAULT_HIGHER_RANK_MULTIPLIER);
-        if (multiplier.signum() <= 0) throw new IllegalStateException("purchase higher-rank multiplier must be > 0");
-        BigDecimal resolved = base.multiply(multiplier.pow(higherRuneCount));
-        return positiveRoundedInt(resolved, "purchase cost");
-    }
-
-    private int duplicateRewardNamespace(String namespace, int rank, int lowerProgress, int higherRuneCount) {
-        String rateRaw = optionalValue(namespace, "duplicate.rate");
-        if (rateRaw == null) {
-            return nonNegativeInt(requiredCurve(namespace, "duplicate", rank, lowerProgress), "duplicate reward");
-        }
-        BigDecimal rate = parseNonNegativeDecimal(rateRaw, "duplicate rate");
-        BigDecimal purchaseCost = BigDecimal.valueOf(
-                purchaseCostNamespace(namespace, rank, lowerProgress, higherRuneCount));
-        int rounded = nonNegativeRoundedInt(purchaseCost.multiply(rate), "duplicate reward");
-        return Math.max(1, rounded);
-    }
-
-    private BigDecimal requiredCurve(String namespace, String action, int rank, int index) {
+    private BigDecimal requiredCurve(int statusId, String action, int rank, int index) {
+        if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
         if (rank <= 0) throw new IllegalArgumentException("rank must be positive");
         if (index < 0) throw new IllegalArgumentException("curve index must be >= 0");
-        return balance.evaluateActiveCurve(RuneBalanceNamespace.curveKey(namespace, action, rank), index);
+        return balance.evaluateActiveCurve(curveId(statusId, action, rank), index);
     }
 
-    private String requiredValue(String namespace, String suffix) {
-        return balance.getActiveValue(RuneBalanceNamespace.valueKey(namespace, suffix));
+    private String requiredValue(int statusId, String suffix) {
+        if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
+        return balance.getActiveValue("runes." + RuneStatusConfig.statusKey(statusId) + "." + suffix);
     }
 
-    private String optionalValue(String namespace, String suffix) {
+    private String optionalValue(int statusId, String suffix) {
+        if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
         return balance.getActiveSnapshot().getConfig().getValue(
-                RuneBalanceNamespace.valueKey(namespace, suffix));
+                "runes." + RuneStatusConfig.statusKey(statusId) + "." + suffix);
     }
 
-    private BigDecimal optionalDecimalValue(String namespace, String suffix, BigDecimal fallback) {
-        String raw = optionalValue(namespace, suffix);
+    private BigDecimal optionalDecimalValue(int statusId, String suffix, BigDecimal fallback) {
+        String raw = optionalValue(statusId, suffix);
         return raw == null ? fallback : parseNonNegativeDecimal(raw, suffix);
+    }
+
+    private String curveId(int statusId, String action, int rank) {
+        return "runes." + RuneStatusConfig.statusKey(statusId) + "." + action + ".rank." + rank;
     }
 
     private String canonicalResource(String configured, String action) {

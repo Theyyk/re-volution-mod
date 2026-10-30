@@ -28,7 +28,6 @@ public class NetworkHandler {
         INSTANCE.registerMessage(StageTravelMenuPacketServerHandler.class, StageTravelMenuPacket.class, 11, Side.CLIENT);
         INSTANCE.registerMessage(StageTravelTeleportRequestHandler.class, StageTravelTeleportRequestPacket.class, 12, Side.SERVER);
         INSTANCE.registerMessage(FastAutoTogglePacketHandler.class, FastAutoTogglePacket.class, 13, Side.SERVER);
-        INSTANCE.registerMessage(RuneCollectionMetadataPacketServerHandler.class, RuneCollectionMetadataPacket.class, 14, Side.CLIENT);
     }
 
     /**
