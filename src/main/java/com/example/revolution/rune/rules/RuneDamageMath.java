@@ -9,12 +9,14 @@ public final class RuneDamageMath {
     public static final class ChannelStats {
         public double flat;
         public double multiplier = 1.0D;
+        public double effectivenessMultiplier = 1.0D;
         public double vulnerabilityPercent;
 
         public ChannelStats copy() {
             ChannelStats copy = new ChannelStats();
             copy.flat = flat;
             copy.multiplier = multiplier;
+            copy.effectivenessMultiplier = effectivenessMultiplier;
             copy.vulnerabilityPercent = vulnerabilityPercent;
             return copy;
         }
@@ -58,10 +60,12 @@ public final class RuneDamageMath {
         ChannelStats stats = snapshot.existing(channel);
         double flat = stats == null ? 0.0D : nonNegative(stats.flat);
         double multiplier = stats == null ? 1.0D : safeMultiplier(stats.multiplier);
+        double effectiveness = stats == null ? 1.0D : safeMultiplier(stats.effectivenessMultiplier);
         double vulnerability = stats == null ? 0.0D : stats.vulnerabilityPercent;
 
         double damage = Math.max(0.0D, sanitize(baseDamage) + flat);
         damage *= multiplier;
+        damage *= effectiveness;
         damage *= vulnerabilityMultiplier(vulnerability + snapshot.allDamageVulnerabilityPercent);
         damage *= safeMultiplier(snapshot.allDamageMultiplier);
         if (snapshot.temporaryAllDamageActive) {
