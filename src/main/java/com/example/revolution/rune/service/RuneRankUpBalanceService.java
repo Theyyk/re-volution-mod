@@ -23,7 +23,7 @@ public final class RuneRankUpBalanceService {
      */
     public RuneRankUpRule rule(int statusId, int sourceRank, int higherRuneCount) {
         if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
-        if (higherRuneCount < 0 || higherRuneCount >= RuneLayoutDefinition.BOOST_TYPE_COUNT) {
+        if (higherRuneCount < 0 || higherRuneCount >= RuneLayoutDefinition.SLOTS_PER_COLLECTION) {
             throw new IllegalArgumentException("higherRuneCount must be within 0..25");
         }
         int normalizedSource = RuneProgression.clampRank(sourceRank);
@@ -39,10 +39,10 @@ public final class RuneRankUpBalanceService {
         RuneRankUpRule.ClearMode clearMode = clearMode(balance.getActiveValue(prefix + "clear_mode"));
         boolean preserveEnhancements = booleanValue(prefix + "preserve_enhancements");
 
-        if (targetRank <= normalizedSource || targetRank > RuneProgression.ADVANCED_RANK) {
-            throw new IllegalStateException("rank-up target must be above source and within the supported rank range");
+        if (targetRank <= normalizedSource || targetRank > RuneLayoutDefinition.MAX_GAMEPLAY_RANK) {
+            throw new IllegalStateException("rank-up target must be above source and within the supported gameplay rank range");
         }
-        if (requiredSlots > RuneLayoutDefinition.BOOST_TYPE_COUNT) {
+        if (requiredSlots > RuneLayoutDefinition.SLOTS_PER_COLLECTION) {
             throw new IllegalStateException("required slots exceed rune layout size: " + requiredSlots);
         }
         if (!preserveEnhancements) {
