@@ -93,10 +93,11 @@ public final class PetService {
         if (expectedRunId == null || !expectedRunId.equals(ctx.run.runId)) return Result.STALE_RUN;
         if (selected(ctx.run, petId) == null) return Result.NOT_ELIGIBLE;
         PetPlayerState.PetProgress progress = ctx.state.pets.get(petId); if (progress == null) return Result.NOT_OWNED;
-        BigDecimal threshold = balance.xpForNextLevel(progress.level);
+        BigDecimal threshold = nextRequiredXp(progress);
         if (threshold.signum() <= 0 || progress.xp.compareTo(threshold) < 0) return Result.NOT_ELIGIBLE;
         BigDecimal reward = balance.levelUpFragmentReward();
         if (reward.signum() > 0 && !prestige.addPetPendingFragments(playerUuid, expectedRunId, reward)) return Result.STALE_RUN;
+        progress.appliedLevelXp = threshold;
         progress.level = progress.level.add(BigInteger.ONE);
         // XP intentionally remains unchanged: accumulated XP may satisfy several future manual level-ups.
         repository.save(playerUuid, ctx.state);
@@ -121,7 +122,7 @@ public final class PetService {
         for (PetPlayerState.SelectedPet selected : ctx.run.selectedPets) {
             PetPlayerState.PetProgress progress = ctx.state.pets.get(selected.petId);
             if (selected.petId.equals(petId) || (progress != null && progress.rank.progressionOrder() > sourceRank.progressionOrder())) { preserved.add(selected); continue; }
-            if (progress != null) { progress.level = BigInteger.ONE; progress.xp = BigDecimal.ZERO; }
+            if (progress != null) { progress.level = BigInteger.ONE; progress.xp = BigDecimal.ZERO; progress.appliedLevelXp = BigDecimal.ZERO; }
             if (!selected.premiumSlot) ctx.run.cooldownUntil.put(selected.petId, now + cooldownMillis); else ctx.run.cooldownUntil.remove(selected.petId);
         }
         ctx.run.selectedPets.clear(); ctx.run.selectedPets.addAll(preserved); normalize(ctx.state, ctx.run); repository.save(playerUuid, ctx.state); return Result.APPLIED;
@@ -149,7 +150,12 @@ public final class PetService {
     public synchronized void markOnline(UUID playerUuid) { RunContext ctx = run(playerUuid, true); if (ctx == null) return; ctx.run.lastPetXpAccrualAt = System.currentTimeMillis(); repository.save(playerUuid, ctx.state); }
     public synchronized List<PetDefinition> catalog() { return catalog.all(); }
     public synchronized BigDecimal nextNormalSlotCost(UUID playerUuid) { RunContext ctx = run(playerUuid, true); long purchases = ctx == null ? 0L : ctx.run.totalNormalSlotPurchasesThisRun; return balance.normalSlotCost(purchases + 1L); }
-    public synchronized BigDecimal nextLevelThreshold(UUID playerUuid, String petId) { PetPlayerState state = repository.load(playerUuid); PetPlayerState.PetProgress progress = state.pets.get(petId); return balance.xpForNextLevel(progress == null ? BigInteger.ONE : progress.level); }
+    public synchronized BigDecimal nextLevelThreshold(UUID playerUuid, String petId) { PetPlayerState state = repository.load(playerUuid); PetPlayerState.PetProgress progress = state.pets.get(petId); return progress == null ? balance.xpForNextLevel(BigInteger.ONE) : nextRequiredXp(progress); }
+
+    private BigDecimal nextRequiredXp(PetPlayerState.PetProgress progress) {
+        BigDecimal applied = progress.appliedLevelXp == null ? BigDecimal.ZERO : progress.appliedLevelXp.max(BigDecimal.ZERO);
+        return applied.add(balance.xpForNextLevel(progress.level));
+    }
 
     private RunContext run(UUID playerUuid, boolean bind) {
         PrestigeState.RunState active = prestige.activeRun(playerUuid); if (active == null) return null;
