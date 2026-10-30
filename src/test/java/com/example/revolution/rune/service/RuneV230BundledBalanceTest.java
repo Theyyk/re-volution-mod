@@ -68,4 +68,36 @@ public final class RuneV230BundledBalanceTest {
         assertEquals(RuneStatType.BURNING_DAMAGE_MULTIPLIER, hybrid.get(0).statType);
         assertEquals(RuneStatType.CLICK_DAMAGE_MULTIPLIER, hybrid.get(1).statType);
     }
+
+    @Test
+    void technicalSlotsUseGenericTimedAndEffectivenessSemantics() {
+        RuneEffectBalanceService effects = new RuneEffectBalanceService(BalanceBootstrap.activateBundledDefaults());
+
+        RuneEffectBalanceService.ResolvedEffect delayed = effects.effects(
+                RuneCollectionId.COLLECTION_06, 19, 2, 0).get(0);
+        assertEquals(RuneEffectBalanceService.EffectType.DELAYED_DAMAGE_BONUS, delayed.type);
+        assertEquals("BURNING", delayed.targetSelector);
+        assertEquals("HIT_MOB", delayed.trigger);
+        assertEquals("TARGET_ALIVE", delayed.condition);
+        assertEquals(2.0D, delayed.delaySeconds, 0.000001D);
+        assertEquals(1.08D, delayed.primaryValue, 0.000001D);
+
+        RuneEffectBalanceService.ResolvedEffect effectiveness = effects.effects(
+                RuneCollectionId.COLLECTION_03, 20, 3, 0).get(0);
+        assertEquals(RuneEffectBalanceService.EffectType.EFFECTIVENESS, effectiveness.type);
+        assertEquals("DECAY", effectiveness.targetSelector);
+        assertEquals(1.15D, effectiveness.primaryValue, 0.000001D);
+
+        RuneEffectBalanceService.ResolvedEffect duration = effects.effects(
+                RuneCollectionId.COLLECTION_07, 21, 1, 0).get(0);
+        assertEquals(RuneEffectBalanceService.EffectType.TEMPORARY_EFFECT_DURATION, duration.type);
+        assertEquals("CURSE", duration.targetSelector);
+        assertEquals(1.03D, duration.primaryValue, 0.000001D);
+
+        RuneEffectBalanceService.ResolvedEffect enhancement = effects.effects(
+                RuneCollectionId.COLLECTION_05, 22, 4, 0).get(0);
+        assertEquals(RuneEffectBalanceService.EffectType.ENHANCEMENT_EFFECTIVENESS, enhancement.type);
+        assertEquals("BLEEDING", enhancement.targetSelector);
+        assertEquals(1.15D, enhancement.primaryValue, 0.000001D);
+    }
 }
