@@ -72,6 +72,17 @@ public final class MongoRuneEnhancementRepository implements RuneEnhancementRepo
     }
 
     @Override
+    public void resetRune(UUID uuid, int collectionIndex, int runeIndex) {
+        if (uuid == null || collectionIndex < 0 || runeIndex < 0 || runeIndex >= RuneInventory.BOOST_TYPE_COUNT) return;
+
+        String field = "decks." + collectionIndex + ".runeEnhancements." + runeKey(runeIndex);
+        connection.collection("players").updateOne(
+                new Document("_id", uuid.toString()),
+                new Document("$unset", new Document(field, ""))
+        );
+    }
+
+    @Override
     public void resetCollection(UUID uuid, int collectionIndex) {
         if (uuid == null || collectionIndex < 0) return;
 

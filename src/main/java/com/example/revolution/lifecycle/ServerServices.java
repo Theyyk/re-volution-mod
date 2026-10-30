@@ -137,7 +137,7 @@ public final class ServerServices implements AutoCloseable {
 
         balance = BalanceBootstrap.activateBundledDefaults();
         PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
-        RunePrestigeResetService runePrestigeReset = new RunePrestigeResetService(players);
+        RunePrestigeResetService runePrestigeReset = new RunePrestigeResetService(players, enhancements);
         prestige = new PrestigeService(
                 new MongoPrestigeRepository(connection, persistentGameplay),
                 prestigeBranches,

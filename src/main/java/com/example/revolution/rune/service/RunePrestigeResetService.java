@@ -3,6 +3,7 @@ package com.example.revolution.rune.service;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneCollectionStateRepository;
+import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RunePrestigeResetRules;
 import java.util.HashSet;
@@ -10,13 +11,16 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-/** Applies the Prestige rank policy to factual rune state. Enhancement storage is deliberately untouched. */
+/** Applies the Prestige selective-wipe policy to factual rune state. */
 public final class RunePrestigeResetService {
     private final PlayerRepository players;
+    private final RuneEnhancementRepository enhancements;
 
-    public RunePrestigeResetService(PlayerRepository players) {
+    public RunePrestigeResetService(PlayerRepository players, RuneEnhancementRepository enhancements) {
         if (players == null) throw new IllegalArgumentException("player repository is required");
+        if (enhancements == null) throw new IllegalArgumentException("enhancement repository is required");
         this.players = players;
+        this.enhancements = enhancements;
     }
 
     public void reset(UUID playerUuid) {
@@ -37,17 +41,22 @@ public final class RunePrestigeResetService {
     }
 
     /**
-     * Legacy saves may contain more than one physical record for the same runeIndex. The repository
-     * updates the currently highest record, so repeat until the factual best rank reaches the policy
-     * target. The record-count bound prevents a malformed repository from causing an endless loop.
+     * The factual pre-reset rank decides both parts of the selective wipe:
+     * ranks below Advanced return to Ordinary and lose enhancement progress; Advanced+ preserves both.
+     * Legacy saves may contain more than one physical record for the same runeIndex, so repeat until
+     * the factual best rank reaches the policy target. The record-count bound prevents endless loops.
      */
     private void resetRune(UUID playerUuid, int collectionIndex, int runeIndex, int maxAttempts) {
         for (int attempt = 0; attempt <= maxAttempts; attempt++) {
             List<RuneRecord> records = players.getRunesInCollection(playerUuid, collectionIndex);
             int bestRank = bestRank(records, runeIndex);
+            if (!RunePrestigeResetRules.shouldReset(bestRank)) return;
+
             int targetRank = RunePrestigeResetRules.rankAfterReset(bestRank);
+            if (targetRank != bestRank && !players.setRuneRank(playerUuid, collectionIndex, runeIndex, targetRank)) return;
+
+            enhancements.resetRune(playerUuid, collectionIndex, runeIndex);
             if (targetRank == bestRank) return;
-            if (!players.setRuneRank(playerUuid, collectionIndex, runeIndex, targetRank)) return;
         }
     }
 
