@@ -11,6 +11,7 @@ import com.example.revolution.rune.rules.RuneDamageMath;
 import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +25,33 @@ import net.minecraft.entity.player.EntityPlayerMP;
  * Persistent rune state remains in repositories; pending effects disappear with the server lifetime.
  */
 public final class RuneTransientEffectRuntime {
+    public static final class DelayedEffectDescriptor {
+        public final RuneCollectionId collectionId;
+        public final int runeIndex;
+        public final RuneDamageChannel channel;
+        public final double multiplier;
+        public final long delayTicks;
+        public final String trigger;
+        public final String condition;
+
+        private DelayedEffectDescriptor(
+                RuneCollectionId collectionId,
+                int runeIndex,
+                RuneDamageChannel channel,
+                double multiplier,
+                long delayTicks,
+                String trigger,
+                String condition) {
+            this.collectionId = collectionId;
+            this.runeIndex = runeIndex;
+            this.channel = channel;
+            this.multiplier = multiplier;
+            this.delayTicks = delayTicks;
+            this.trigger = trigger;
+            this.condition = condition;
+        }
+    }
+
     private static final class PendingDamage {
         final EntityPlayerMP player;
         final EntityLivingBase target;
@@ -68,18 +96,10 @@ public final class RuneTransientEffectRuntime {
         this.combat = combat;
     }
 
-    /** Schedules delayed effects only from confirmed direct CLICK damage, never recursively from statuses. */
-    public synchronized void confirmedDamage(
-            EntityPlayerMP player,
-            EntityLivingBase target,
-            GameplayDamageSource source,
-            BigDecimal actualDamage) {
-        if (player == null || target == null || source != GameplayDamageSource.CLICK) return;
-        if (actualDamage == null || actualDamage.signum() <= 0) return;
-        if (player.world == null || target.world == null || player.world != target.world || player.world.isRemote) return;
-
-        long now = player.world.getTotalWorldTime();
-        UUID uuid = player.getUniqueID();
+    /** Pure repository/balance resolution used by scheduling and regression tests. */
+    public List<DelayedEffectDescriptor> resolveDelayedEffects(UUID uuid) {
+        if (uuid == null) return Collections.emptyList();
+        List<DelayedEffectDescriptor> result = new ArrayList<>();
         for (RuneCollectionId collectionId : availableCollections(uuid)) {
             if (!isCollectionUnlocked(uuid, collectionId)) continue;
             RuneInventory inventory = inventory(uuid, collectionId);
@@ -98,10 +118,34 @@ public final class RuneTransientEffectRuntime {
                     long delayTicks = Math.max(1L, Math.round(effect.delaySeconds * 20.0D));
                     double multiplier = Math.max(0.0D, effect.primaryValue);
                     if (multiplier <= 0.0D) continue;
-                    pending.add(new PendingDamage(
-                            player, target, channel, multiplier, now + delayTicks, effect.condition));
+                    result.add(new DelayedEffectDescriptor(
+                            collectionId, rune, channel, multiplier, delayTicks,
+                            effect.trigger, effect.condition));
                 }
             }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    /** Schedules delayed effects only from confirmed direct CLICK damage, never recursively from statuses. */
+    public synchronized void confirmedDamage(
+            EntityPlayerMP player,
+            EntityLivingBase target,
+            GameplayDamageSource source,
+            BigDecimal actualDamage) {
+        if (player == null || target == null || source != GameplayDamageSource.CLICK) return;
+        if (actualDamage == null || actualDamage.signum() <= 0) return;
+        if (player.world == null || target.world == null || player.world != target.world || player.world.isRemote) return;
+
+        long now = player.world.getTotalWorldTime();
+        for (DelayedEffectDescriptor effect : resolveDelayedEffects(player.getUniqueID())) {
+            pending.add(new PendingDamage(
+                    player,
+                    target,
+                    effect.channel,
+                    effect.multiplier,
+                    now + effect.delayTicks,
+                    effect.condition));
         }
     }
 
