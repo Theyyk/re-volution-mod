@@ -15,7 +15,12 @@ public final class RuneEffectBalanceService {
         STAT,
         TARGETED_POWER,
         CLICK_DAMAGE_PROC,
-        TEMPORARY_ALL_DAMAGE_MULTIPLIER
+        TEMPORARY_ALL_DAMAGE_MULTIPLIER,
+        EFFECTIVENESS,
+        DELAYED_DAMAGE_BONUS,
+        TEMPORARY_DAMAGE_MULTIPLIER,
+        TEMPORARY_EFFECT_DURATION,
+        ENHANCEMENT_EFFECTIVENESS
     }
 
     public static final class ResolvedEffect {
@@ -24,11 +29,14 @@ public final class RuneEffectBalanceService {
         public final EffectType type;
         public final String tags;
         public final String targetSelector;
+        public final String trigger;
+        public final String condition;
         public final RuneStatType statType;
         public final boolean acceptsTargetedPower;
         public final double targetedPowerScale;
         public final double primaryValue;
         public final double secondaryValue;
+        public final double delaySeconds;
         public final double durationSeconds;
         public final int maxStacks;
 
@@ -38,11 +46,14 @@ public final class RuneEffectBalanceService {
                 EffectType type,
                 String tags,
                 String targetSelector,
+                String trigger,
+                String condition,
                 RuneStatType statType,
                 boolean acceptsTargetedPower,
                 double targetedPowerScale,
                 double primaryValue,
                 double secondaryValue,
+                double delaySeconds,
                 double durationSeconds,
                 int maxStacks) {
             this.group = group;
@@ -50,11 +61,14 @@ public final class RuneEffectBalanceService {
             this.type = type;
             this.tags = tags;
             this.targetSelector = targetSelector;
+            this.trigger = trigger;
+            this.condition = condition;
             this.statType = statType;
             this.acceptsTargetedPower = acceptsTargetedPower;
             this.targetedPowerScale = targetedPowerScale;
             this.primaryValue = primaryValue;
             this.secondaryValue = secondaryValue;
+            this.delaySeconds = delaySeconds;
             this.durationSeconds = durationSeconds;
             this.maxStacks = maxStacks;
         }
@@ -102,6 +116,8 @@ public final class RuneEffectBalanceService {
             EffectType type = enumValue(EffectType.class, required(namespace, prefix + "type"), "effect type");
             String tags = required(namespace, prefix + "tags");
             String target = required(namespace, prefix + "target_selector");
+            String trigger = optional(namespace, prefix + "trigger");
+            String condition = optional(namespace, prefix + "condition");
             String statTypeRaw = optional(namespace, prefix + "stat_type");
             RuneStatType statType = statTypeRaw == null ? null
                     : enumValue(RuneStatType.class, statTypeRaw, "stat type");
@@ -124,13 +140,17 @@ public final class RuneEffectBalanceService {
             // and added once to the target flat value before shared channel multipliers.
             double targetedPowerScale = 1.0D;
 
+            double baseDelay = nonNegative(optionalDouble(namespace, prefix + "delay_seconds", 0.0D), "delay");
+            double delay = nonNegative(
+                    optionalDouble(namespace, prefix + "rank." + rank + ".delay_seconds", baseDelay),
+                    "delay");
             double baseDuration = nonNegative(optionalDouble(namespace, prefix + "duration_seconds", 0.0D), "duration");
             double duration = nonNegative(
                     optionalDouble(namespace, prefix + "rank." + rank + ".duration_seconds", baseDuration),
                     "duration");
             int maxStacks = nonNegativeInt(optional(namespace, prefix + "max_stacks"), 0, "max stacks");
-            result.add(new ResolvedEffect(group, index, type, tags, target, statType,
-                    acceptsTargetedPower, targetedPowerScale, primary, secondary, duration, maxStacks));
+            result.add(new ResolvedEffect(group, index, type, tags, target, trigger, condition, statType,
+                    acceptsTargetedPower, targetedPowerScale, primary, secondary, delay, duration, maxStacks));
         }
         return Collections.unmodifiableList(result);
     }
