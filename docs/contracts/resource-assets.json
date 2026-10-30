@@ -1,5 +1,7 @@
 {
   "src/main/resources/balance/default-balance.json": "3337a9273ec4224505195489b3ef9acbbe07a96b2f1fba99cf0c976a425d6239",
+  "src/main/resources/balance/v2.3.0-rune-collections.json": "22cb52eb86d0d566c8cf143b6f6a910931fb86cb4b43b32d2c4e8d5ad40780b4",
+  "src/main/resources/balance/v2.3.0-rune-status-template.json": "bcefaf7ece527ee79e93b9eff5e55f696679c108b9eb639e7b4f985ecf702ffa",
   "src/main/resources/assets/revolution/fonts/README.md": "9349c5452b2b628a10e80b274118d1bbd331502e5275277a048bb367b5d123db",
   "src/main/resources/assets/revolution/fonts/minecraft_five.otf": "afd068f97cacae7d1b08d01719feb6c00c177b3b7d1cb04d27a032417b0e4c29",
   "src/main/resources/assets/revolution/fonts/minecraft_seven.otf": "3ac46d75d4fe3aae7412d18e09047b70073a8e779488f72560c09f8c474fecc6",
