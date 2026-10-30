@@ -21,7 +21,7 @@ import org.apache.logging.log4j.Logger;
 public final class RevolutionMod {
     public static final String MODID = "revolution";
     public static final String NAME = "RE:volution Mod";
-    public static final String VERSION = "2.3.0";
+    public static final String VERSION = "2.3.1";
     public static Logger logger;
 
     @Mod.Instance(MODID)
