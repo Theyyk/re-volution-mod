@@ -2,7 +2,7 @@ package com.example.revolution.rune.service;
 
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.resource.definition.ResourceDefinitions;
-import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.definition.RuneLayoutDefinition;
 import com.example.revolution.rune.definition.RuneRankUpRule;
 import com.example.revolution.rune.rules.RuneProgression;
@@ -22,7 +22,24 @@ public final class RuneRankUpBalanceService {
      * higherRuneCount is the number of slots already above sourceRank before this rank-up.
      */
     public RuneRankUpRule rule(int statusId, int sourceRank, int higherRuneCount) {
-        if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
+        return ruleNamespace(RuneBalanceNamespace.legacyStatus(statusId), sourceRank, higherRuneCount);
+    }
+
+    /** Stable fixed-collection lookup used by v2.3.0 gameplay. */
+    public RuneRankUpRule rule(RuneCollectionId collectionId, int sourceRank, int higherRuneCount) {
+        return ruleNamespace(RuneBalanceNamespace.collection(collectionId), sourceRank, higherRuneCount);
+    }
+
+    /** Backward-compatible first-rank-up lookup. */
+    public RuneRankUpRule rule(int statusId, int sourceRank) {
+        return rule(statusId, sourceRank, 0);
+    }
+
+    public RuneRankUpRule rule(RuneCollectionId collectionId, int sourceRank) {
+        return rule(collectionId, sourceRank, 0);
+    }
+
+    private RuneRankUpRule ruleNamespace(String namespace, int sourceRank, int higherRuneCount) {
         if (higherRuneCount < 0 || higherRuneCount >= RuneLayoutDefinition.SLOTS_PER_COLLECTION) {
             throw new IllegalArgumentException("higherRuneCount must be within 0..25");
         }
@@ -31,7 +48,7 @@ public final class RuneRankUpBalanceService {
             throw new IllegalArgumentException("maximum rank has no forward transition");
         }
 
-        String prefix = "runes." + RuneStatusConfig.statusKey(statusId) + ".rankup.rank." + normalizedSource + ".";
+        String prefix = RuneBalanceNamespace.valueKey(namespace, "rankup.rank." + normalizedSource + ".");
         int targetRank = positiveIntValue(prefix + "target", "target rank");
         int requiredSlots = positiveIntValue(prefix + "required_slots", "required slots");
         String resource = canonicalResource(balance.getActiveValue(prefix + "resource"));
@@ -57,11 +74,6 @@ public final class RuneRankUpBalanceService {
                 cost,
                 clearMode,
                 true);
-    }
-
-    /** Backward-compatible first-rank-up lookup. */
-    public RuneRankUpRule rule(int statusId, int sourceRank) {
-        return rule(statusId, sourceRank, 0);
     }
 
     private int positiveIntValue(String key, String label) {
