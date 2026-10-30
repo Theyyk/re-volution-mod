@@ -5,13 +5,10 @@ import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RuneEnhancementPacket;
 import com.example.revolution.network.RuneSlotPacket;
 import com.example.revolution.player.repository.PlayerRepository;
-import com.example.revolution.rune.config.RuneEconomyConfig;
-import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneCollectionStateRepository;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
-import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,32 +55,38 @@ public final class RuneSyncService {
     public void sendRunes(EntityPlayerMP player, int collectionIndex) {
         NetworkHandler.sendToClient(new RuneSlotPacket(-1, 0, 0, false), player);
         List<RuneRecord> runes = players.getRunesInCollection(player.getUniqueID(), collectionIndex);
-        int statusId = RuneStatusConfig.statusForCollection(collectionIndex);
-        RevolutionMod.logger.debug("Sending runes to client for status " + statusId + ": " + runes.size());
+        RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        RevolutionMod.logger.debug("Sending runes to client for collection "
+                + (collectionId == null ? collectionIndex : collectionId.id()) + ": " + runes.size());
         for (RuneRecord rune : runes) {
             NetworkHandler.sendToClient(new RuneSlotPacket(rune.slot, rune.runeIndex, rune.layer, false), player);
         }
-        sendEnhancements(player, collectionIndex);
+        if (collectionId != null) sendEnhancements(player, collectionIndex);
     }
 
     public void sendEnhancements(EntityPlayerMP player, int collectionIndex) {
-        int configuredStatus = RuneStatusConfig.statusForCollection(collectionIndex);
-        int statusId = RuneStatusConfig.isRuneStatus(configuredStatus) ? configuredStatus : RuneStatusConfig.STATUS_POISON;
-        int[] levels = RuneStatusConfig.isRuneStatus(configuredStatus)
-                ? enhancements.getLevels(player.getUniqueID(), collectionIndex)
-                : new int[RuneInventory.BOOST_TYPE_COUNT];
+        RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (collectionId == null) return;
+
+        int[] levels = enhancements.getLevels(player.getUniqueID(), collectionIndex);
         int totalEnhancementLevel = enhancementBalance.totalEnhancementLevel(levels);
         BigDecimal[] bulkCosts = enhancementBalance.bulkCosts(
-                statusId,
+                collectionId,
                 totalEnhancementLevel,
                 RuneEnhancementPacket.BULK_AMOUNTS);
         NetworkHandler.sendToClient(
                 RunePacketFactory.enhancements(
-                        statusId,
-                        enhancementBalance.resource(statusId),
-                        RuneEconomyConfig.enhancementPowerStep(statusId),
+                        transportIdentity(collectionId),
+                        enhancementBalance.resource(collectionId),
+                        enhancementBalance.powerStep(collectionId),
                         levels,
                         bulkCosts),
                 player);
+    }
+
+    private static int transportIdentity(RuneCollectionId collectionId) {
+        // Preserve Collection 1's established client identity. New fixed collections only need a
+        // distinct stable pulse key inside RuneEnhancementPacket; gameplay never reads this value.
+        return collectionId == RuneCollectionId.COLLECTION_01 ? 1 : -(collectionId.legacyIndex() + 1);
     }
 }
