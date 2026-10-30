@@ -89,10 +89,11 @@ public class PetSystemTest {
         Fixture f = funded(); f.pets.purchaseNormalSlot(f.id); buyAndSelect(f, "pet_01");
         PetPlayerState state = f.petRepo.load(f.id); state.pet("pet_01").xp = new BigDecimal("1000"); f.petRepo.save(f.id, state);
         String runId = f.prestige.activeRun(f.id).runId; BigDecimal beforeXp = f.pets.snapshot(f.id).pets.get("pet_01").xp;
+        BigDecimal beforeSpendable = f.prestige.activeRun(f.id).runBranchCurrency;
         assertEquals(PetService.Result.APPLIED, f.pets.levelUpPet(f.id, "pet_01", runId));
         PetPlayerState after = f.pets.snapshot(f.id); assertEquals(BigInteger.valueOf(2), after.pets.get("pet_01").level); assertEquals(0, beforeXp.compareTo(after.pets.get("pet_01").xp));
         PrestigeState.RunState run = f.prestige.activeRun(f.id); assertEquals(0, f.petBalance.levelUpFragmentReward().compareTo(run.petPendingFragments));
-        assertEquals(0, new BigDecimal("1000000").compareTo(run.runBranchCurrency));
+        assertEquals(0, beforeSpendable.compareTo(run.runBranchCurrency));
         assertEquals(PetService.Result.APPLIED, f.pets.levelUpPet(f.id, "pet_01", runId)); assertEquals(BigInteger.valueOf(3), f.pets.snapshot(f.id).pets.get("pet_01").level);
     }
 
