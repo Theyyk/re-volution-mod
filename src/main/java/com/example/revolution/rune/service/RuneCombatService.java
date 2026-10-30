@@ -12,8 +12,10 @@ import com.example.revolution.rune.rules.RuneCombatMath;
 import com.example.revolution.rune.rules.RuneDamageMath;
 import com.example.revolution.rune.state.RuneCombatState;
 import com.example.revolution.rune.state.RuneInventory;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -106,18 +108,8 @@ public final class RuneCombatService {
         }
 
         int[] enhancementLevels = enhancements.getLevels(uuid, collectionIndex);
-        Map<String, Double> targetedBasePower = new HashMap<>();
-        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-            RuneInventory.Entry owned = inventory.getBoost(rune);
-            if (owned == null) continue;
-            int enhancementLevel = enhancementLevel(enhancementLevels, rune);
-            for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
-                    collectionId, rune, owned.layer, enhancementLevel)) {
-                if (effect.type == RuneEffectBalanceService.EffectType.TARGETED_POWER) {
-                    targetedBasePower.merge(effect.targetSelector, Math.max(0.0D, effect.primaryValue), Double::sum);
-                }
-            }
-        }
+        Map<RuneDamageChannel, Double> effectiveness = new EnumMap<>(RuneDamageChannel.class);
+        Map<RuneDamageChannel, Double> enhancementEffectiveness = new EnumMap<>(RuneDamageChannel.class);
 
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             RuneInventory.Entry owned = inventory.getBoost(rune);
@@ -125,12 +117,61 @@ public final class RuneCombatService {
             int enhancementLevel = enhancementLevel(enhancementLevels, rune);
             for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
                     collectionId, rune, owned.layer, enhancementLevel)) {
+                RuneDamageChannel target = effectChannel(effect);
+                if (target == null) continue;
+                if (effect.type == RuneEffectBalanceService.EffectType.EFFECTIVENESS) {
+                    multiply(effectiveness, target, effect.primaryValue);
+                } else if (effect.type == RuneEffectBalanceService.EffectType.ENHANCEMENT_EFFECTIVENESS) {
+                    multiply(enhancementEffectiveness, target, effect.primaryValue);
+                }
+            }
+        }
+
+        for (Map.Entry<RuneDamageChannel, Double> entry : effectiveness.entrySet()) {
+            aggregate.damage.channel(entry.getKey()).effectivenessMultiplier *= Math.max(0.0D, entry.getValue());
+        }
+
+        Map<String, Double> targetedBasePower = new HashMap<>();
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            RuneInventory.Entry owned = inventory.getBoost(rune);
+            if (owned == null) continue;
+            int enhancementLevel = enhancementLevel(enhancementLevels, rune);
+            List<RuneEffectBalanceService.ResolvedEffect> enhanced = effectBalance.effects(
+                    collectionId, rune, owned.layer, enhancementLevel);
+            List<RuneEffectBalanceService.ResolvedEffect> base = enhancementLevel == 0
+                    ? enhanced : effectBalance.effects(collectionId, rune, owned.layer, 0);
+            for (int index = 0; index < enhanced.size(); index++) {
+                RuneEffectBalanceService.ResolvedEffect effect = enhanced.get(index);
+                if (effect.type != RuneEffectBalanceService.EffectType.TARGETED_POWER) continue;
+                RuneEffectBalanceService.ResolvedEffect baseline = index < base.size() ? base.get(index) : effect;
+                double primary = enhancementAdjusted(effect.primaryValue, baseline.primaryValue,
+                        effectChannel(effect), enhancementEffectiveness);
+                targetedBasePower.merge(effect.targetSelector, Math.max(0.0D, primary), Double::sum);
+            }
+        }
+
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            RuneInventory.Entry owned = inventory.getBoost(rune);
+            if (owned == null) continue;
+            int enhancementLevel = enhancementLevel(enhancementLevels, rune);
+            List<RuneEffectBalanceService.ResolvedEffect> enhanced = effectBalance.effects(
+                    collectionId, rune, owned.layer, enhancementLevel);
+            List<RuneEffectBalanceService.ResolvedEffect> base = enhancementLevel == 0
+                    ? enhanced : effectBalance.effects(collectionId, rune, owned.layer, 0);
+            for (int index = 0; index < enhanced.size(); index++) {
+                RuneEffectBalanceService.ResolvedEffect effect = enhanced.get(index);
+                RuneEffectBalanceService.ResolvedEffect baseline = index < base.size() ? base.get(index) : effect;
+                RuneDamageChannel target = effectChannel(effect);
+                double primary = enhancementAdjusted(effect.primaryValue, baseline.primaryValue,
+                        target, enhancementEffectiveness);
+                double secondary = enhancementAdjusted(effect.secondaryValue, baseline.secondaryValue,
+                        target, enhancementEffectiveness);
                 switch (effect.type) {
                     case STAT:
                         if (effect.statType == null) {
                             throw new IllegalStateException("STAT rune effect requires stat_type for " + effect.group);
                         }
-                        double value = effect.primaryValue;
+                        double value = primary;
                         if (effect.acceptsTargetedPower) {
                             value += targetedBasePower.getOrDefault(effect.group, 0.0D) * effect.targetedPowerScale;
                         }
@@ -140,16 +181,21 @@ public final class RuneCombatService {
                         if (collectionId == RuneCollectionId.COLLECTION_01
                                 || "CLICK".equalsIgnoreCase(effect.targetSelector)) {
                             aggregate.clickProcChancePercent = Math.max(
-                                    aggregate.clickProcChancePercent, effect.primaryValue);
+                                    aggregate.clickProcChancePercent, primary);
                             aggregate.clickProcDamageMultiplier = Math.max(
-                                    aggregate.clickProcDamageMultiplier, effect.secondaryValue);
+                                    aggregate.clickProcDamageMultiplier, secondary);
                         }
                         break;
                     case TEMPORARY_ALL_DAMAGE_MULTIPLIER:
+                    case TEMPORARY_DAMAGE_MULTIPLIER:
                         aggregate.temporaryAllDamageMultiplier = Math.max(
-                                aggregate.temporaryAllDamageMultiplier, effect.primaryValue);
+                                aggregate.temporaryAllDamageMultiplier, primary);
                         break;
                     case TARGETED_POWER:
+                    case EFFECTIVENESS:
+                    case ENHANCEMENT_EFFECTIVENESS:
+                    case DELAYED_DAMAGE_BONUS:
+                    case TEMPORARY_EFFECT_DURATION:
                     default:
                         break;
                 }
@@ -194,6 +240,7 @@ public final class RuneCombatService {
                 inventory.set(rune.slot, rune.runeIndex, rune.layer);
             }
             int[] enhancementLevels = enhancements.getLevels(uuid, collectionId.legacyIndex());
+            double durationMultiplier = temporaryDurationMultiplier(collectionId, inventory, enhancementLevels);
 
             for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
                 RuneInventory.Entry owned = inventory.getBoost(rune);
@@ -201,10 +248,11 @@ public final class RuneCombatService {
                 int enhancementLevel = enhancementLevel(enhancementLevels, rune);
                 for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
                         collectionId, rune, owned.layer, enhancementLevel)) {
-                    if (effect.type != RuneEffectBalanceService.EffectType.TEMPORARY_ALL_DAMAGE_MULTIPLIER
+                    if ((effect.type != RuneEffectBalanceService.EffectType.TEMPORARY_ALL_DAMAGE_MULTIPLIER
+                            && effect.type != RuneEffectBalanceService.EffectType.TEMPORARY_DAMAGE_MULTIPLIER)
                             || !"HIT_MOB".equalsIgnoreCase(effect.targetSelector)
                             || effect.maxStacks < 1) continue;
-                    long durationTicks = Math.max(1L, Math.round(effect.durationSeconds * 20.0D));
+                    long durationTicks = Math.max(1L, Math.round(effect.durationSeconds * durationMultiplier * 20.0D));
                     state.activate(uuid, worldTick + durationTicks);
                     return;
                 }
@@ -214,6 +262,23 @@ public final class RuneCombatService {
 
     public boolean isRageActive(UUID uuid, long worldTick) {
         return state.isActive(uuid, worldTick);
+    }
+
+    private double temporaryDurationMultiplier(
+            RuneCollectionId collectionId, RuneInventory inventory, int[] enhancementLevels) {
+        double multiplier = 1.0D;
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            RuneInventory.Entry owned = inventory.getBoost(rune);
+            if (owned == null) continue;
+            int enhancementLevel = enhancementLevel(enhancementLevels, rune);
+            for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
+                    collectionId, rune, owned.layer, enhancementLevel)) {
+                if (effect.type == RuneEffectBalanceService.EffectType.TEMPORARY_EFFECT_DURATION) {
+                    multiplier *= Math.max(0.0D, effect.primaryValue);
+                }
+            }
+        }
+        return multiplier;
     }
 
     private RuneCollectionId[] availableCollections(UUID uuid) {
@@ -233,6 +298,37 @@ public final class RuneCombatService {
 
     private int enhancementLevel(int[] levels, int rune) {
         return levels != null && rune >= 0 && rune < levels.length ? Math.max(0, levels[rune]) : 0;
+    }
+
+    private void multiply(Map<RuneDamageChannel, Double> values, RuneDamageChannel channel, double multiplier) {
+        if (channel == null || !Double.isFinite(multiplier)) return;
+        values.put(channel, values.getOrDefault(channel, 1.0D) * Math.max(0.0D, multiplier));
+    }
+
+    private double enhancementAdjusted(
+            double enhancedValue,
+            double baseValue,
+            RuneDamageChannel channel,
+            Map<RuneDamageChannel, Double> effectiveness) {
+        if (channel == null) return enhancedValue;
+        double multiplier = effectiveness.getOrDefault(channel, 1.0D);
+        return baseValue + (enhancedValue - baseValue) * Math.max(0.0D, multiplier);
+    }
+
+    private RuneDamageChannel effectChannel(RuneEffectBalanceService.ResolvedEffect effect) {
+        if (effect == null) return null;
+        if (effect.statType != null) {
+            RuneDamageChannel channel = RuneDamageChannel.fromDamageStat(effect.statType);
+            if (channel != null) return channel;
+            channel = RuneDamageChannel.fromVulnerabilityStat(effect.statType);
+            if (channel != null) return channel;
+        }
+        if (effect.targetSelector == null) return null;
+        try {
+            return RuneDamageChannel.valueOf(effect.targetSelector.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     private void accumulate(RuneDamageMath.Snapshot snapshot, RuneStatType type, double value) {
