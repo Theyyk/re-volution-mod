@@ -5,7 +5,7 @@ import com.example.revolution.network.RuneSlotPacket;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.resource.definition.ResourceDefinitions;
-import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.definition.RuneRankUpRule;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneAwakeningDecision;
@@ -36,8 +36,8 @@ public final class RuneAwakeningService {
     }
 
     public void awakenRune(EntityPlayerMP player, int collectionIndex, int runeIndex) {
-        int statusId = RuneStatusConfig.statusForCollection(collectionIndex);
-        if (!RuneStatusConfig.isRuneStatus(statusId)) {
+        RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (collectionId == null) {
             player.sendMessage(new TextComponentString("§cПробуждение недоступно для этой legacy-коллекции."));
             return;
         }
@@ -69,7 +69,7 @@ public final class RuneAwakeningService {
 
         RuneRankUpRule rule;
         try {
-            rule = rankUpBalance.rule(statusId, currentRank, countAbove(bestRanks, currentRank));
+            rule = rankUpBalance.rule(collectionId, currentRank, countAbove(bestRanks, currentRank));
         } catch (RuntimeException e) {
             player.sendMessage(new TextComponentString("§cПробуждение временно недоступно: правило перехода настроено некорректно."));
             return;
