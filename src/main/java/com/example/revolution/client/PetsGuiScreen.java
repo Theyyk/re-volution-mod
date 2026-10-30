@@ -15,8 +15,8 @@ public final class PetsGuiScreen extends GuiScreen {
     private static final int RUNES = 200;
     private static final int BUY_NORMAL_SLOT = 500;
     private static final int BUY_PREMIUM_SLOT = 501;
-    private static final int CARD_W = 180;
-    private static final int CARD_H = 57;
+    private static final int TILE_W = 180;
+    private static final int TILE_H = 57;
     private static final int GAP = 7;
 
     @Override public void initGui() {
@@ -40,7 +40,7 @@ public final class PetsGuiScreen extends GuiScreen {
     }
 
     @Override protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
-        int index = cardAt(mouseX, mouseY);
+        int index = tileAt(mouseX, mouseY);
         if (index >= 0) {
             List<PetSnapshotPacket.Entry> entries = ClientPets.entries();
             if (index < entries.size()) {
@@ -61,15 +61,15 @@ public final class PetsGuiScreen extends GuiScreen {
         NetworkHandler.INSTANCE.sendToServer(new PetActionPacket(action, petId));
     }
 
-    private int cardAt(int mouseX, int mouseY) {
-        int cols = Math.max(1, Math.min(4, (width - 24 + GAP) / (CARD_W + GAP)));
-        int gridW = cols * CARD_W + (cols - 1) * GAP;
+    private int tileAt(int mouseX, int mouseY) {
+        int cols = Math.max(1, Math.min(4, (width - 24 + GAP) / (TILE_W + GAP)));
+        int gridW = cols * TILE_W + (cols - 1) * GAP;
         int left = (width - gridW) / 2;
         int top = 62;
         for (int i = 0; i < ClientPets.entries().size(); i++) {
-            int x = left + (i % cols) * (CARD_W + GAP);
-            int y = top + (i / cols) * (CARD_H + GAP);
-            if (mouseX >= x && mouseX < x + CARD_W && mouseY >= y && mouseY < y + CARD_H) return i;
+            int x = left + (i % cols) * (TILE_W + GAP);
+            int y = top + (i / cols) * (TILE_H + GAP);
+            if (mouseX >= x && mouseX < x + TILE_W && mouseY >= y && mouseY < y + TILE_H) return i;
         }
         return -1;
     }
@@ -81,20 +81,20 @@ public final class PetsGuiScreen extends GuiScreen {
         drawCenteredString(fontRenderer, slots, width / 2, 38, 0xD8D8D8);
 
         List<PetSnapshotPacket.Entry> entries = ClientPets.entries();
-        int cols = Math.max(1, Math.min(4, (width - 24 + GAP) / (CARD_W + GAP)));
-        int gridW = cols * CARD_W + (cols - 1) * GAP;
+        int cols = Math.max(1, Math.min(4, (width - 24 + GAP) / (TILE_W + GAP)));
+        int gridW = cols * TILE_W + (cols - 1) * GAP;
         int left = (width - gridW) / 2;
         int top = 62;
         long now = System.currentTimeMillis();
         for (int i = 0; i < entries.size(); i++) {
             PetSnapshotPacket.Entry e = entries.get(i);
-            int x = left + (i % cols) * (CARD_W + GAP);
-            int y = top + (i / cols) * (CARD_H + GAP);
-            boolean hover = mouseX >= x && mouseX < x + CARD_W && mouseY >= y && mouseY < y + CARD_H;
+            int x = left + (i % cols) * (TILE_W + GAP);
+            int y = top + (i / cols) * (TILE_H + GAP);
+            boolean hover = mouseX >= x && mouseX < x + TILE_W && mouseY >= y && mouseY < y + TILE_H;
             int bg = e.selected && e.premiumSlot ? 0xAA4D2968 : e.selected ? 0xAA254A35 : 0xAA20242A;
             int border = hover ? 0xFFFFFFFF : 0xFF555B66;
-            drawRect(x, y, x + CARD_W, y + CARD_H, border);
-            drawRect(x + 1, y + 1, x + CARD_W - 1, y + CARD_H - 1, bg);
+            drawRect(x, y, x + TILE_W, y + TILE_H, border);
+            drawRect(x + 1, y + 1, x + TILE_W - 1, y + TILE_H - 1, bg);
             fontRenderer.drawString(e.petId + "  " + e.rank, x + 5, y + 5, 0xFFFFFF);
             fontRenderer.drawString("Lvl " + e.level + "  XP " + e.xp, x + 5, y + 17, 0xD0D0D0);
             String state;
