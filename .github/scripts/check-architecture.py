@@ -88,6 +88,7 @@ def validate():
         'client/network/StageTravelMenuPacketClientHandler.java',
         'client/network/StageTravelTeleportRequestClientHandler.java',
         'client/network/FastAutoTogglePacketClientHandler.java',
+        'client/network/RuneCollectionMetadataPacketHandler.java',
         'client/input/KeyInputHandler.java',
         'client/input/EnhancementClickGuard.java',
         'mob/event/ManagedMobEvents.java',
@@ -148,6 +149,7 @@ def validate():
             ('StageTravelMenuPacket', 11, 'CLIENT'),
             ('StageTravelTeleportRequestPacket', 12, 'SERVER'),
             ('FastAutoTogglePacket', 13, 'SERVER'),
+            ('RuneCollectionMetadataPacket', 14, 'CLIENT'),
         ],
         'client/network/ClientNetworkRegistration.java': [
             ('PingPacket', 0, 'CLIENT'),
@@ -162,6 +164,7 @@ def validate():
             ('StageTravelMenuPacket', 11, 'CLIENT'),
             ('StageTravelTeleportRequestPacket', 12, 'CLIENT'),
             ('FastAutoTogglePacket', 13, 'CLIENT'),
+            ('RuneCollectionMetadataPacket', 14, 'CLIENT'),
         ],
     }
     for path, expected in expected_registrations.items():
@@ -171,6 +174,7 @@ def validate():
         assert all(number not in {5, 6} for _, number, _ in compact), path + ': admin packet IDs 5/6 must stay reserved'
         assert ('RuneEnhancementPacket', 7, 'CLIENT') in compact, path + ': discriminator 7 changed'
         assert ('FastAutoTogglePacket', 13, 'SERVER' if path.startswith('network/') else 'CLIENT') in compact, path + ': discriminator 13 changed'
+        assert ('RuneCollectionMetadataPacket', 14, 'CLIENT') in compact, path + ': discriminator 14 changed'
         if path.startswith('network/'):
             assert actual[0][0] == 'RateLimitedPingPacketHandler', 'Enhancement anti-spam bypassed'
 
@@ -202,7 +206,7 @@ def validate():
                 details.append('Digest mismatch: ' + path + ' expected=' + assets[path] + ' actual=' + actual_assets[path])
         raise AssertionError('Resource assets changed; review the resource contract explicitly\n' + '\n'.join(details))
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13, optional client and resource assets passed.')
+    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13/14, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':
