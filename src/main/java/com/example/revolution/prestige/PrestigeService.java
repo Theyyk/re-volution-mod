@@ -10,11 +10,14 @@ import java.util.UUID;
 /** Server-authoritative Prestige run engine. */
 public final class PrestigeService implements EffectResolver.Source {
     public interface AppliedResetParticipant { void afterAppliedReset(UUID playerUuid); }
+    public interface FragmentRewardProvider { BigDecimal rewardPerLevel(PrestigeBranch branch); }
     private static final AppliedResetParticipant NO_RESET_PARTICIPANT = playerUuid -> { };
+    private static final FragmentRewardProvider DEFAULT_FRAGMENT_REWARDS = branch -> BigDecimal.ONE;
     private final PrestigeRepository repository;
     private final PrestigeBranchRegistry registry;
     private final PrestigeResetService resets;
     private final AppliedResetParticipant appliedResetParticipant;
+    private FragmentRewardProvider fragmentRewards = DEFAULT_FRAGMENT_REWARDS;
 
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry) {
         this(repository, registry, (player, branch) -> registry.get(branch).defaultSaveMultiplier, NO_RESET_PARTICIPANT);
@@ -29,6 +32,11 @@ public final class PrestigeService implements EffectResolver.Source {
         this.registry = registry;
         this.resets = new PrestigeResetService(repository, registry, saveMultipliers);
         this.appliedResetParticipant = appliedResetParticipant == null ? NO_RESET_PARTICIPANT : appliedResetParticipant;
+    }
+
+    /** Runtime wiring point; tests and legacy callers retain the established +1 default until configured. */
+    public synchronized void setFragmentRewardProvider(FragmentRewardProvider provider) {
+        fragmentRewards = provider == null ? DEFAULT_FRAGMENT_REWARDS : provider;
     }
 
     public synchronized PrestigeState.RunState startRun(UUID playerUuid, PrestigeBranch branch) {
@@ -53,7 +61,14 @@ public final class PrestigeService implements EffectResolver.Source {
         int oldLevel = run.branchLevel;
         run.branchProgress = run.branchProgress.add(factualAmount);
         run.branchLevel = definition.levelFor(run.branchProgress);
-        if (run.branchLevel > oldLevel) run.runBranchCurrency = run.runBranchCurrency.add(BigDecimal.valueOf(run.branchLevel - oldLevel));
+        if (run.branchLevel > oldLevel) {
+            BigDecimal rewardPerLevel = fragmentRewards.rewardPerLevel(sourceBranch);
+            if (rewardPerLevel == null || rewardPerLevel.signum() < 0) {
+                throw new IllegalStateException("Fragment reward must be non-negative for " + sourceBranch);
+            }
+            run.runBranchCurrency = run.runBranchCurrency.add(
+                    rewardPerLevel.multiply(BigDecimal.valueOf(run.branchLevel - oldLevel)));
+        }
         for (PrestigeBranchRegistry.RankDefinition rank : definition.ranks) {
             if (run.branchProgress.compareTo(rank.unlockProgress) >= 0 && !run.reachedRanks.contains(rank.rankId)) run.reachedRanks.add(rank.rankId);
         }
