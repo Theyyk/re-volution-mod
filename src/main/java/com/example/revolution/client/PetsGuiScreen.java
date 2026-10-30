@@ -45,7 +45,7 @@ public final class PetsGuiScreen extends GuiScreen {
             List<PetSnapshotPacket.Entry> entries = ClientPets.entries();
             if (index < entries.size()) {
                 PetSnapshotPacket.Entry e = entries.get(index);
-                if (mouseButton == 1 && isShiftKeyDown()) send("revert_pet", e.petId);
+                if (mouseButton == 1 && isCtrlKeyDown()) send("revert_pet", e.petId);
                 else if (mouseButton == 0) {
                     if (!e.owned) send("purchase_pet", e.petId);
                     else if (!e.selected) send("select_pet", e.petId);
@@ -107,7 +107,7 @@ public final class PetsGuiScreen extends GuiScreen {
             fontRenderer.drawString(effects, x + 5, y + 41, 0x9EA7B3);
         }
         if (!entries.isEmpty()) drawString(fontRenderer,
-                "ЛКМ: купить / выбрать / пробудить   Shift+ПКМ: ранг -1", 10, height - 16, 0xB8C0CA);
+                "ЛКМ: купить / выбрать / пробудить   Ctrl+ПКМ: ранг -1", 10, height - 16, 0xB8C0CA);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
