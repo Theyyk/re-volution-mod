@@ -10,9 +10,7 @@ import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import net.minecraftforge.fml.relauncher.Side;
 
 public class NetworkHandler {
-
-    public static final SimpleNetworkWrapper INSTANCE =
-            NetworkRegistry.INSTANCE.newSimpleChannel("revolution:main");
+    public static final SimpleNetworkWrapper INSTANCE = NetworkRegistry.INSTANCE.newSimpleChannel("revolution:main");
 
     public static void registerServer() {
         INSTANCE.registerMessage(RateLimitedPingPacketHandler.class, PingPacket.class, 0, Side.SERVER);
@@ -29,12 +27,10 @@ public class NetworkHandler {
         INSTANCE.registerMessage(StageTravelTeleportRequestHandler.class, StageTravelTeleportRequestPacket.class, 12, Side.SERVER);
         INSTANCE.registerMessage(FastAutoTogglePacketHandler.class, FastAutoTogglePacket.class, 13, Side.SERVER);
         INSTANCE.registerMessage(RuneCollectionMetadataPacketServerHandler.class, RuneCollectionMetadataPacket.class, 14, Side.CLIENT);
+        INSTANCE.registerMessage(PetActionPacketHandler.class, PetActionPacket.class, 15, Side.SERVER);
+        INSTANCE.registerMessage(PetSnapshotPacketServerHandler.class, PetSnapshotPacket.class, 16, Side.CLIENT);
     }
 
-    /**
-     * Returns true only when the connecting client advertised this mod during the Forge handshake.
-     * Vanilla/no-mod clients are intentionally allowed to join, but must never receive custom packets.
-     */
     public static boolean clientHasRevolutionMod(EntityPlayerMP player) {
         if (player == null || player.connection == null || player.connection.netManager == null) return false;
         try {
@@ -42,12 +38,9 @@ public class NetworkHandler {
             if (dispatcher == null) return false;
             Map<String, String> modList = dispatcher.getModList();
             return modList != null && modList.containsKey(RevolutionMod.MODID);
-        } catch (RuntimeException ignored) {
-            return false;
-        }
+        } catch (RuntimeException ignored) { return false; }
     }
 
-    /** Safely sends a custom packet only to clients that actually have RevolutionMod installed. */
     public static boolean sendToClient(IMessage message, EntityPlayerMP player) {
         if (message == null || !clientHasRevolutionMod(player)) return false;
         INSTANCE.sendTo(message, player);
