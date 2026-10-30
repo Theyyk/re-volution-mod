@@ -10,6 +10,7 @@ import java.util.Locale;
 
 /** Rune-domain adapter over Balance Core for enhancement economics. */
 public final class RuneEnhancementBalanceService {
+    private static final double DEFAULT_POWER_STEP = 0.10D;
     private final BalanceService balance;
 
     public RuneEnhancementBalanceService(BalanceService balance) {
@@ -31,6 +32,20 @@ public final class RuneEnhancementBalanceService {
 
     public RuneEnhancementTargeting targeting(RuneCollectionId collectionId) {
         return targetingNamespace(RuneBalanceNamespace.collection(collectionId));
+    }
+
+    public double powerStep(RuneCollectionId collectionId) {
+        String namespace = RuneBalanceNamespace.collection(collectionId);
+        String raw = balance.getActiveSnapshot().getConfig().getValue(
+                RuneBalanceNamespace.valueKey(namespace, "enhancement.power_step"));
+        if (raw == null || raw.trim().isEmpty()) return DEFAULT_POWER_STEP;
+        try {
+            double value = Double.parseDouble(raw.trim());
+            if (!Double.isFinite(value) || value < 0.0D) throw new NumberFormatException("invalid power step");
+            return value;
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("enhancement power_step must be a finite value >= 0: " + raw, e);
+        }
     }
 
     /** Cost of one global enhancement step at the current factual total collection enhancement level. */
