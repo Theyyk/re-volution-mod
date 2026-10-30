@@ -24,6 +24,7 @@ import com.example.revolution.prestige.PrestigeDamageEffectHandler;
 import com.example.revolution.realm.event.RealmEntityLoadHandler;
 import com.example.revolution.realm.event.RealmLoginHandler;
 import com.example.revolution.realm.world.RealmStartupSync;
+import com.example.revolution.rune.event.RuneStatusTickHandler;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -77,6 +78,7 @@ public final class ServerLifecycle {
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new PrestigeDamageEffectHandler(current.mobs, current.effects));
         listeners.add(new PoisonMobPauseHandler(current.mobs));
+        listeners.add(new RuneStatusTickHandler(current.mobs, current.combat));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
         listeners.add(new FastAutoHandler(current.fastAuto, current.stageTransitions));
         for (Object listener : listeners) MinecraftForge.EVENT_BUS.register(listener);
