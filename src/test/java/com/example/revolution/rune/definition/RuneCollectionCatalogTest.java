@@ -49,8 +49,34 @@ public final class RuneCollectionCatalogTest {
     }
 
     @Test
-    void technicalCatalogCarriesHybridPetAndGenericEffectShapes() {
+    void technicalCatalogMatchesProductionTemplateSlotSemantics() {
         RuneCollectionDefinition burning = RuneCollectionCatalog.get(RuneCollectionId.COLLECTION_06);
+
+        assertEquals(RuneEffectType.DAMAGE_FLAT,
+                burning.rune(RuneSlotId.ofOrdinal(7)).effects.get(0).type);
+        assertEquals(RuneEffectType.DAMAGE_MULTIPLIER,
+                burning.rune(RuneSlotId.ofOrdinal(8)).effects.get(0).type);
+        assertEquals(RuneEffectType.ALL_DAMAGE_MULTIPLIER,
+                burning.rune(RuneSlotId.ofOrdinal(12)).effects.get(0).type);
+
+        RuneDefinition proc = burning.rune(RuneSlotId.ofOrdinal(14));
+        assertEquals(2, proc.effects.size());
+        assertEquals(RuneEffectType.PROC_CHANCE, proc.effects.get(0).type);
+        assertEquals(RuneEffectType.PROC_DAMAGE_MULTIPLIER, proc.effects.get(1).type);
+
+        RuneEffectDefinition temporary = burning.rune(RuneSlotId.ofOrdinal(15)).effects.get(0);
+        assertEquals(RuneEffectType.TEMPORARY_DAMAGE_MULTIPLIER, temporary.type);
+        assertEquals("ALL_DAMAGE", temporary.targetSelector);
+
+        assertEquals(RuneEffectType.DELAYED_DAMAGE_BONUS,
+                burning.rune(RuneSlotId.ofOrdinal(20)).effects.get(0).type);
+        assertEquals(RuneEffectType.EFFECTIVENESS,
+                burning.rune(RuneSlotId.ofOrdinal(21)).effects.get(0).type);
+        assertEquals(RuneEffectType.TEMPORARY_EFFECT_DURATION,
+                burning.rune(RuneSlotId.ofOrdinal(22)).effects.get(0).type);
+        assertEquals(RuneEffectType.ENHANCEMENT_EFFECTIVENESS,
+                burning.rune(RuneSlotId.ofOrdinal(23)).effects.get(0).type);
+
         RuneDefinition hybrid = burning.rune(RuneSlotId.ofOrdinal(24));
         assertEquals(2, hybrid.effects.size());
         assertEquals(RuneDamageChannel.BURNING, hybrid.effects.get(0).damageChannel);
