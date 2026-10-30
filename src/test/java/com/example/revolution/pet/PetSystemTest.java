@@ -20,8 +20,8 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class PetSystemTest {
     @Test public void purchaseIsOncePerRunAndAdvancedOwnershipPersists() {
