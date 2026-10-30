@@ -50,7 +50,7 @@ public final class RuneTechnicalCatalog {
             case 13:
                 return Arrays.asList(label("PROC_CHANCE", channel, false), label("PROC_DAMAGE_MULTIPLIER", channel, false));
             case 14:
-                return one("TEMPORARY_DAMAGE_MULTIPLIER", channel);
+                return one("TEMPORARY_DAMAGE_MULTIPLIER", null);
             case 15:
                 return one("ALL_DAMAGE_MULTIPLIER", null);
             case 16:
