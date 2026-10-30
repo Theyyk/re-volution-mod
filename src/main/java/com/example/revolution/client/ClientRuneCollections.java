@@ -35,4 +35,24 @@ final class ClientRuneCollections {
     static int progress(int index) {
         return index >= 0 && index < progress.size() ? progress.get(index) : 0;
     }
+
+    /**
+     * Functional selector labels. The button itself remains icon-only, so this text is surfaced by
+     * the existing hover tooltip without changing the Collection 1 layout contract.
+     */
+    static List<String> selectorNames() {
+        List<String> result = new ArrayList<>(names.size());
+        for (int i = 0; i < names.size(); i++) {
+            String name = names.get(i);
+            if (!isUnlocked(i)) {
+                int source = Math.max(0, i - 1);
+                result.add(name + " [закрыто: " + progress(source) + "/" + unlockThreshold + "]");
+            } else if (i + 1 < names.size() && !isUnlocked(i + 1)) {
+                result.add(name + " [до следующей: " + progress(i) + "/" + unlockThreshold + "]");
+            } else {
+                result.add(name);
+            }
+        }
+        return result;
+    }
 }
