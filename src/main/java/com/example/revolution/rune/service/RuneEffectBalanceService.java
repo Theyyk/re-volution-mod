@@ -67,7 +67,7 @@ public final class RuneEffectBalanceService {
         this.balance = balance;
     }
 
-    /** Legacy C1/status facade retained byte-for-byte at the caller boundary. */
+    /** Legacy C1/status facade retained at the caller boundary. */
     public String group(int statusId, int slot) {
         return group(legacyNamespace(statusId), slot);
     }
@@ -147,9 +147,33 @@ public final class RuneEffectBalanceService {
         return value.trim();
     }
 
+    /**
+     * Direct collection values always win. Fixed v2.3 collections may opt into a shared technical
+     * effect template through runes.<collection>.effect_template. This keeps draft numbers in Balance
+     * Core without copying the same 26-slot skeleton six times.
+     */
     private String optional(String namespace, String suffix) {
-        String value = balance.getActiveSnapshot().getConfig().getValue(key(namespace, suffix));
-        return value == null ? null : value.trim();
+        String value = rawOptional(key(namespace, suffix));
+        if (value == null) {
+            String template = rawOptional(key(namespace, "effect_template"));
+            if (template != null && !template.trim().isEmpty()) {
+                value = rawOptional("runes.templates." + template.trim() + "." + suffix);
+            }
+        }
+        return value == null ? null : substitute(namespace, value.trim());
+    }
+
+    private String rawOptional(String key) {
+        return balance.getActiveSnapshot().getConfig().getValue(key);
+    }
+
+    private String substitute(String namespace, String value) {
+        if (value == null || value.indexOf('{') < 0) return value;
+        String channel = rawOptional(key(namespace, "primary_channel"));
+        if (channel == null || channel.trim().isEmpty()) return value;
+        String normalized = channel.trim().toUpperCase(Locale.ROOT);
+        return value.replace("{CHANNEL}", normalized)
+                .replace("{channel}", normalized.toLowerCase(Locale.ROOT));
     }
 
     private String key(String namespace, String suffix) {
