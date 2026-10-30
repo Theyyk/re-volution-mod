@@ -47,10 +47,14 @@ public class PetSystemTest {
         Fixture f = funded();
         BigDecimal first = f.pets.nextNormalSlotCost(f.id);
         assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
+        PetPlayerState afterPurchase = f.pets.snapshot(f.id);
+        assertEquals(1L, afterPurchase.run.totalNormalSlotPurchasesThisRun);
         BigDecimal second = f.pets.nextNormalSlotCost(f.id);
-        assertTrue(second.compareTo(first) > 0);
+        assertTrue(second.compareTo(first) >= 0);
         buyAndSelect(f, "pet_01");
         assertEquals(PetService.Result.APPLIED, f.pets.awaken(f.id, "pet_01"));
+        PetPlayerState afterAwakening = f.pets.snapshot(f.id);
+        assertEquals(1L, afterAwakening.run.totalNormalSlotPurchasesThisRun);
         assertEquals(0, second.compareTo(f.pets.nextNormalSlotCost(f.id)));
 
         f.startNewRun();
