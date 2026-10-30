@@ -18,6 +18,7 @@ import com.example.revolution.mob.event.ManagedMobAppearanceEvents;
 import com.example.revolution.mob.event.ManagedMobEvents;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
+import com.example.revolution.pet.event.PetRuntimeHandler;
 import com.example.revolution.player.event.PlayerJoinHandler;
 import com.example.revolution.player.event.RpgSurvivalGuard;
 import com.example.revolution.prestige.PrestigeDamageEffectHandler;
@@ -81,6 +82,7 @@ public final class ServerLifecycle {
         listeners.add(new RuneStatusTickHandler(current.mobs, current.combat));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
         listeners.add(new FastAutoHandler(current.fastAuto, current.stageTransitions));
+        listeners.add(new PetRuntimeHandler(current.pets, current.petEffects, current.effects, current.mobs));
         for (Object listener : listeners) MinecraftForge.EVENT_BUS.register(listener);
     }
 
