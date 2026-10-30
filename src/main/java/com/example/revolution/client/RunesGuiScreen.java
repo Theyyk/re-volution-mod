@@ -5,18 +5,13 @@ import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PingPacket;
 import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.rune.definition.PrimaryRuneCatalog;
-import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.state.RuneInventory;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderItem;
@@ -728,11 +723,11 @@ public class RunesGuiScreen extends GuiScreen {
                 if (owned == null) return;
                 PrimaryRuneCatalog.Definition definition = PrimaryRuneCatalog.at(i);
                 if (definition == null) return;
-                List<String> tooltip = new ArrayList<>();
-                tooltip.add("§b" + definition.name);
-                tooltip.add("§7Ранг: §f" + RuneProgression.rankName(owned.layer));
-                tooltip.add("§7Тип: §f" + definition.type);
-                drawCanvasTooltip(tooltip, mouseX, mouseY);
+                drawCanvasTooltip(RuneTooltipContent.lines(
+                        definition,
+                        owned.layer,
+                        ClientRuneEnhancements.levelOf(i),
+                        ClientRuneEnhancements.multiplierOf(i)), mouseX, mouseY);
                 return;
             }
             RuneInventory.Entry rune = getRuneForVisualSlot(i);
