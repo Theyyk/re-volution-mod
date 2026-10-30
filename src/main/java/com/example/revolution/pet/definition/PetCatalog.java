@@ -22,15 +22,15 @@ public final class PetCatalog {
         add(pet("pet_08", PetEffectType.MONSTER_RESOURCE_MULTIPLIER, ""));
         add(pet("pet_09", PetEffectType.PET_XP_MULTIPLIER, ""));
         add(new PetDefinition("pet_10", "pet_10", "pet.purchase.pet_10", Arrays.asList(
-                effect("pet_10", "critChance", PetEffectType.CLICK_CRIT_CHANCE, ""),
-                effect("pet_10", "critDamage", PetEffectType.CLICK_CRIT_DAMAGE_MULTIPLIER, ""))));
+                effect("pet_10", "crit_chance", PetEffectType.CLICK_CRIT_CHANCE, ""),
+                effect("pet_10", "crit_damage", PetEffectType.CLICK_CRIT_DAMAGE_MULTIPLIER, ""))));
         add(pet("pet_11", PetEffectType.AUTO_CLICK, ""));
         add(new PetDefinition("pet_12", "pet_12", "pet.purchase.pet_12", Arrays.asList(
-                effect("pet_12", "allDamage", PetEffectType.ALL_DAMAGE_MULTIPLIER, ""),
-                effect("pet_12", "goldTradeoff", PetEffectType.MONSTER_GOLD_MULTIPLIER, ""))));
+                effect("pet_12", "all_damage", PetEffectType.ALL_DAMAGE_MULTIPLIER, ""),
+                effect("pet_12", "gold_tradeoff", PetEffectType.MONSTER_GOLD_MULTIPLIER, ""))));
         add(new PetDefinition("pet_13", "pet_13", "pet.purchase.pet_13", Arrays.asList(
-                effect("pet_13", "clickSuppress", PetEffectType.DAMAGE_MULTIPLIER, "CLICK"),
-                effect("pet_13", "poisonBoost", PetEffectType.DAMAGE_MULTIPLIER, "POISON"))));
+                effect("pet_13", "click_suppress", PetEffectType.DAMAGE_MULTIPLIER, "CLICK"),
+                effect("pet_13", "poison_boost", PetEffectType.DAMAGE_MULTIPLIER, "POISON"))));
         add(pet("pet_14", PetEffectType.SPECIAL_EFFECT_MULTIPLIER, ""));
         add(pet("pet_15", PetEffectType.FORGE_RESOURCE_MULTIPLIER, ""));
         add(pet("pet_16", PetEffectType.FORGE_SPEED_MULTIPLIER, ""));
