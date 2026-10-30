@@ -8,19 +8,28 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class PrestigeFragmentRewardTest {
-    @Test public void fragmentRewardProviderControlsFactualLevelRewards() {
+    @Test public void fragmentRewardProviderCreditsMasteryPendingUntilCollected() {
         UUID id = UUID.randomUUID();
         MemoryRepo repo = new MemoryRepo();
         PrestigeService service = new PrestigeService(repo, new PrestigeBranchRegistry());
         service.setFragmentRewardProvider(branch -> new BigDecimal("2.5"));
-        service.startRun(id, PrestigeBranch.CLICK);
+        PrestigeState.RunState started = service.startRun(id, PrestigeBranch.CLICK);
 
         service.recordProgress(id, PrestigeBranch.CLICK, new BigDecimal("1000000000"));
         PrestigeState.RunState run = service.activeRun(id);
         assertNotNull(run);
         assertTrue(run.branchLevel > 0);
         BigDecimal expected = new BigDecimal("2.5").multiply(BigDecimal.valueOf(run.branchLevel));
-        assertEquals(0, expected.compareTo(run.runBranchCurrency));
+        assertEquals(0, expected.compareTo(run.masteryPendingFragments));
+        assertEquals(0, BigDecimal.ZERO.compareTo(run.runBranchCurrency));
+        assertEquals(0, BigDecimal.ZERO.compareTo(run.petPendingFragments));
+
+        assertEquals(0, expected.compareTo(service.collectFragments(id, started.runId, PrestigeService.FragmentSource.MASTERY)));
+        PrestigeState.RunState collected = service.activeRun(id);
+        assertEquals(0, expected.compareTo(collected.runBranchCurrency));
+        assertEquals(0, BigDecimal.ZERO.compareTo(collected.masteryPendingFragments));
+        assertEquals(0, BigDecimal.ZERO.compareTo(collected.petPendingFragments));
+        assertEquals(0, BigDecimal.ZERO.compareTo(service.collectFragments(id, started.runId, PrestigeService.FragmentSource.MASTERY)));
     }
 
     private static final class MemoryRepo implements PrestigeRepository {

@@ -35,13 +35,17 @@ public final class PetPlayerState {
     public static final class PetProgress {
         public PetRank rank = PetRank.ORDINARY;
         public BigInteger level = BigInteger.ONE;
+        /** Banked XP. v2.4.0 values are preserved as the current-level remainder baseline. */
         public BigDecimal xp = BigDecimal.ZERO;
+        /** XP thresholds already committed by v2.4.1 manual Level Ups. Legacy saves default to zero. */
+        public BigDecimal appliedLevelXp = BigDecimal.ZERO;
 
         public PetProgress copy() {
             PetProgress copy = new PetProgress();
             copy.rank = rank;
             copy.level = level;
             copy.xp = xp;
+            copy.appliedLevelXp = appliedLevelXp;
             return copy;
         }
     }
