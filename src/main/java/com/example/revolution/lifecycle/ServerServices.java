@@ -45,12 +45,18 @@ import com.example.revolution.persistence.MongoLocationRepository;
 import com.example.revolution.persistence.MongoLocationStageTemplateRepository;
 import com.example.revolution.persistence.MongoMobProgressionRepository;
 import com.example.revolution.persistence.MongoMobRepository;
+import com.example.revolution.persistence.MongoPetRepository;
 import com.example.revolution.persistence.MongoPlayerRepository;
 import com.example.revolution.persistence.MongoPrestigeRepository;
 import com.example.revolution.persistence.MongoResourceRepository;
 import com.example.revolution.persistence.MongoRuneEnhancementRepository;
 import com.example.revolution.persistence.MongoStageTransitionPreferenceRepository;
 import com.example.revolution.persistence.MongoStageTransitionTriggerRepository;
+import com.example.revolution.pet.definition.PetCatalog;
+import com.example.revolution.pet.repository.PetRepository;
+import com.example.revolution.pet.service.PetBalanceService;
+import com.example.revolution.pet.service.PetEffectSource;
+import com.example.revolution.pet.service.PetService;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerCollectionService;
 import com.example.revolution.player.service.PlayerSessionService;
@@ -59,6 +65,8 @@ import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.prestige.PrestigeBranchRegistry;
 import com.example.revolution.prestige.PrestigeProgressRouter;
 import com.example.revolution.prestige.PrestigeService;
+import com.example.revolution.prestige.exchange.definition.RunExchangeCatalog;
+import com.example.revolution.prestige.exchange.service.RunExchangeService;
 import com.example.revolution.realm.service.RealmService;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
@@ -82,6 +90,8 @@ import com.example.revolution.rune.service.RuneTransientEffectRuntime;
 import com.example.revolution.rune.state.RuneCombatState;
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.Locale;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.Logger;
 
@@ -118,8 +128,11 @@ public final class ServerServices implements AutoCloseable {
     public final PlayerCollectionService collections;
     public final RealmService realms = new RealmService();
     public final PrestigeService prestige;
+    public final RunExchangeService runExchange;
     public final EffectResolver effects;
     public final GameplayEventSink gameplayEvents;
+    public final PetService pets;
+    public final PetEffectSource petEffects;
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         this.logger = logger;
@@ -134,6 +147,7 @@ public final class ServerServices implements AutoCloseable {
         StageTransitionPreferenceRepository transitionPreferences = new MongoStageTransitionPreferenceRepository(connection, persistentGameplay);
         FastAutoPreferenceRepository fastAutoPreferences = new MongoFastAutoPreferenceRepository(connection, persistentGameplay);
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
+        PetRepository petRepository = new MongoPetRepository(connection, persistentGameplay);
 
         balance = BalanceBootstrap.activateBundledDefaults();
         PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
@@ -143,11 +157,19 @@ public final class ServerServices implements AutoCloseable {
                 prestigeBranches,
                 (playerUuid, branch) -> prestigeBranches.get(branch).defaultSaveMultiplier,
                 runePrestigeReset::reset);
+        prestige.setFragmentRewardProvider(branch -> new BigDecimal(balance.getActiveValue(
+                "prestige.fragment_reward." + branch.name().toLowerCase(Locale.ROOT) + ".per_level")));
         effects = new EffectResolver();
         effects.register(prestige);
         gameplayEvents = new PrestigeProgressRouter(prestige, prestigeBranches);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
         resources.setGameplayEventSink(gameplayEvents);
+        runExchange = new RunExchangeService(prestige, resources, RunExchangeCatalog.empty());
+        PetCatalog petCatalog = new PetCatalog();
+        PetBalanceService petBalance = new PetBalanceService(balance);
+        pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
+        petEffects = new PetEffectSource(petRepository, petCatalog, petBalance);
+        effects.register(petEffects);
 
         MobRepository storedMobRepository = new MongoMobRepository(connection, persistentGameplay);
         MobRepository mobRepository = new BalanceAwareMobRepository(storedMobRepository, new MobBalanceService(balance));

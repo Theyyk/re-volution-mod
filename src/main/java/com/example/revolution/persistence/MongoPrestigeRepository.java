@@ -24,23 +24,19 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         this.enabled = enabled;
     }
 
-    @Override
-    public PrestigeState load(UUID playerUuid) {
+    @Override public PrestigeState load(UUID playerUuid) {
         if (!enabled || !connection.isConnected()) return new PrestigeState();
         Document player = connection.collection("players").find(new Document("_id", playerUuid.toString())).first();
-        if (player == null) return new PrestigeState();
-        return decode(player.get("prestige", Document.class));
+        return player == null ? new PrestigeState() : decode(player.get("prestige", Document.class));
     }
 
-    @Override
-    public void save(UUID playerUuid, PrestigeState state) {
+    @Override public void save(UUID playerUuid, PrestigeState state) {
         if (!enabled || !connection.isConnected()) return;
         connection.collection("players").updateOne(new Document("_id", playerUuid.toString()),
                 new Document("$set", new Document("prestige", encode(state))), new UpdateOptions().upsert(true));
     }
 
-    @Override
-    public ResetCommitResult commitReset(UUID playerUuid, String expectedRunId, PrestigeState nextState) {
+    @Override public ResetCommitResult commitReset(UUID playerUuid, String expectedRunId, PrestigeState nextState) {
         if (!enabled || !connection.isConnected()) return ResetCommitResult.STALE;
         Document player = connection.collection("players").find(new Document("_id", playerUuid.toString())).first();
         if (player == null) return ResetCommitResult.STALE;
@@ -52,8 +48,10 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         if (expectedRunId == null || !expectedRunId.equals(current.activeRun.runId)) return ResetCommitResult.STALE;
 
         List<Document> resetCollections = resetRuneRanks(player);
+        Document resetPets = MongoPetRepository.resetForPrestige(player);
         Document set = new Document("prestige", encode(nextState));
         if (resetCollections != null) set.append("decks", resetCollections);
+        if (resetPets != null) set.append("petSystem", resetPets);
         Document filter = new Document("_id", playerUuid.toString()).append("prestige.activeRun.runId", expectedRunId);
         UpdateResult result = connection.collection("players").updateOne(filter, new Document("$set", set));
         if (result != null && result.getMatchedCount() > 0) return ResetCommitResult.APPLIED;
@@ -101,23 +99,18 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         Document modifiers = new Document();
         for (Map.Entry<String, BigDecimal> entry : run.runModifiers.entrySet()) modifiers.append(entry.getKey(), exact(entry.getValue()));
         return new Document("runId", run.runId)
-                .append("branch", run.activeBranch.name())
-                .append("startedAt", run.startedAt)
-                .append("progress", exact(run.branchProgress))
-                .append("level", run.branchLevel)
+                .append("branch", run.activeBranch.name()).append("startedAt", run.startedAt)
+                .append("progress", exact(run.branchProgress)).append("level", run.branchLevel)
                 .append("reachedRanks", new ArrayList<>(run.reachedRanks))
-                .append("runBranchCurrency", exact(run.runBranchCurrency))
-                .append("runModifiers", modifiers);
+                .append("runBranchCurrency", exact(run.runBranchCurrency)).append("runModifiers", modifiers);
     }
 
     private Document encodeBranch(PrestigeState.BranchState state) {
         Document meta = new Document();
         for (Map.Entry<String, Integer> entry : state.rankMetaLevels.entrySet()) meta.append(entry.getKey(), entry.getValue());
         return new Document("bestSavedProgress", exact(state.bestSavedProgress))
-                .append("rankMetaLevels", meta)
-                .append("rankMetaLevelCap", state.rankMetaLevelCap)
-                .append("masteryTier", state.masteryTier)
-                .append("masteryQuestState", state.masteryQuestState);
+                .append("rankMetaLevels", meta).append("rankMetaLevelCap", state.rankMetaLevelCap)
+                .append("masteryTier", state.masteryTier).append("masteryQuestState", state.masteryQuestState);
     }
 
     @SuppressWarnings("unchecked")
@@ -126,56 +119,43 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         if (root == null) return state;
         state.lastResetRunId = root.getString("lastResetRunId");
         Document run = root.get("activeRun", Document.class);
-        if (run != null) {
-            try {
-                PrestigeState.RunState active = new PrestigeState.RunState();
-                active.runId = run.getString("runId");
-                active.activeBranch = PrestigeBranch.valueOf(run.getString("branch"));
-                Object started = run.get("startedAt");
-                active.startedAt = started instanceof Number ? ((Number) started).longValue() : 0L;
-                active.branchProgress = decimal(run.get("progress"));
-                active.branchLevel = run.getInteger("level", 0);
-                List<String> ranks = (List<String>) run.get("reachedRanks");
-                if (ranks != null) active.reachedRanks.addAll(ranks);
-                active.runBranchCurrency = decimal(run.get("runBranchCurrency"));
-                Document modifiers = run.get("runModifiers", Document.class);
-                if (modifiers != null) for (String key : modifiers.keySet()) active.runModifiers.put(key, decimal(modifiers.get(key)));
-                if (active.runId != null) state.activeRun = active;
-            } catch (RuntimeException ignored) {
-                state.activeRun = null;
-            }
-        }
+        if (run != null) try {
+            PrestigeState.RunState active = new PrestigeState.RunState();
+            active.runId = run.getString("runId");
+            active.activeBranch = PrestigeBranch.valueOf(run.getString("branch"));
+            Object started = run.get("startedAt");
+            active.startedAt = started instanceof Number ? ((Number) started).longValue() : 0L;
+            active.branchProgress = decimal(run.get("progress"));
+            active.branchLevel = run.getInteger("level", 0);
+            List<String> ranks = (List<String>) run.get("reachedRanks");
+            if (ranks != null) active.reachedRanks.addAll(ranks);
+            active.runBranchCurrency = decimal(run.get("runBranchCurrency"));
+            Document modifiers = run.get("runModifiers", Document.class);
+            if (modifiers != null) for (String key : modifiers.keySet()) active.runModifiers.put(key, decimal(modifiers.get(key)));
+            if (active.runId != null) state.activeRun = active;
+        } catch (RuntimeException ignored) { state.activeRun = null; }
         Document branches = root.get("branches", Document.class);
-        if (branches != null) {
-            for (PrestigeBranch branch : PrestigeBranch.values()) {
-                Document stored = branches.get(branch.name(), Document.class);
-                if (stored == null) continue;
-                PrestigeState.BranchState target = state.branch(branch);
-                target.bestSavedProgress = decimal(stored.get("bestSavedProgress"));
-                target.rankMetaLevelCap = Math.max(0, stored.getInteger("rankMetaLevelCap", target.rankMetaLevelCap));
-                target.masteryTier = Math.max(0, stored.getInteger("masteryTier", 0));
-                String quest = stored.getString("masteryQuestState");
-                if (quest != null) target.masteryQuestState = quest;
-                Document meta = stored.get("rankMetaLevels", Document.class);
-                if (meta != null) {
-                    for (String key : meta.keySet()) {
-                        Object value = meta.get(key);
-                        if (value instanceof Number) target.rankMetaLevels.put(key, Math.max(0, ((Number) value).intValue()));
-                    }
-                }
+        if (branches != null) for (PrestigeBranch branch : PrestigeBranch.values()) {
+            Document stored = branches.get(branch.name(), Document.class);
+            if (stored == null) continue;
+            PrestigeState.BranchState target = state.branch(branch);
+            target.bestSavedProgress = decimal(stored.get("bestSavedProgress"));
+            target.rankMetaLevelCap = Math.max(0, stored.getInteger("rankMetaLevelCap", target.rankMetaLevelCap));
+            target.masteryTier = Math.max(0, stored.getInteger("masteryTier", 0));
+            String quest = stored.getString("masteryQuestState");
+            if (quest != null) target.masteryQuestState = quest;
+            Document meta = stored.get("rankMetaLevels", Document.class);
+            if (meta != null) for (String key : meta.keySet()) {
+                Object value = meta.get(key);
+                if (value instanceof Number) target.rankMetaLevels.put(key, Math.max(0, ((Number) value).intValue()));
             }
         }
         return state;
     }
 
-    private static String exact(BigDecimal value) {
-        if (value == null || value.signum() == 0) return "0";
-        return value.stripTrailingZeros().toPlainString();
-    }
-
+    private static String exact(BigDecimal value) { return value == null || value.signum() == 0 ? "0" : value.stripTrailingZeros().toPlainString(); }
     private static BigDecimal decimal(Object value) {
         if (value == null) return BigDecimal.ZERO;
-        try { return new BigDecimal(String.valueOf(value)); }
-        catch (NumberFormatException ignored) { return BigDecimal.ZERO; }
+        try { return new BigDecimal(String.valueOf(value)); } catch (NumberFormatException ignored) { return BigDecimal.ZERO; }
     }
 }
