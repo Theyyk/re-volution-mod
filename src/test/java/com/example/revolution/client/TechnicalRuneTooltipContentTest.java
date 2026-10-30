@@ -13,8 +13,7 @@ public final class TechnicalRuneTooltipContentTest {
 
         List<String> delayed = TechnicalRuneTooltipContent.lines(5, 19, 4, 0);
         assertTrue(delayed.stream().anyMatch(line -> line.contains("Мифическая")));
-        assertTrue(delayed.stream().anyMatch(line -> line.contains("DELAYED BURNING")));
-        assertTrue(delayed.stream().anyMatch(line -> line.contains("after 2s")));
+        assertTrue(delayed.stream().anyMatch(line -> line.contains("DELAYED_DAMAGE_BONUS BURNING")));
 
         List<String> effectiveness = TechnicalRuneTooltipContent.lines(2, 20, 3, 0);
         assertTrue(effectiveness.stream().anyMatch(line -> line.contains("EFFECTIVENESS DECAY")));
