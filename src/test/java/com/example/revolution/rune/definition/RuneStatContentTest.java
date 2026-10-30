@@ -6,7 +6,12 @@ import java.util.List;
 
 public final class RuneStatContentTest {
     public static void run() {
-        check(RuneStatType.values().length == 30, "v1.2.10 scalar stat catalog should contain 30 reference-backed types");
+        check(RuneStatType.values().length == 31,
+                "v2.3.0 scalar stat catalog should contain the 30 reference-backed types plus PET_XP_MULTIPLIER");
+        check(RuneStatType.PET_XP_MULTIPLIER.displayName.equals("Опыт питомца"),
+                "v2.3.0 must expose the canonical pet XP multiplier stat");
+        check(RuneStatType.PET_XP_MULTIPLIER.format(1.5D).equals("x1.5"),
+                "Pet XP must use multiplier formatting");
 
         check(RuneStatType.CLICK_DAMAGE_FLAT.format(12.5D).equals("+12.5"), "Flat click damage formatting changed");
         check(RuneStatType.POISON_DAMAGE_MULTIPLIER.format(3.0D).equals("x3"), "Damage multiplier formatting changed");
@@ -84,7 +89,7 @@ public final class RuneStatContentTest {
         check(targeted.tooltipLine(RuneInventory.IMPROVED_RANK, 1.5D).equals("+25.2 к силе Булава"),
                 "Targeted power should scale with the owning rune rank and enhancement");
 
-        System.out.println("v1.2.10 rune stat types and composite reference effects regression checks passed");
+        System.out.println("v2.3.0 rune stat types, pet XP and composite reference effects regression checks passed");
     }
 
     public static void main(String[] args) {
