@@ -145,6 +145,8 @@ def regressionTests = [
     mobContributionRegression: 'com.example.revolution.mob.rules.MobContributionTest',
     mobProgressionRegression: 'com.example.revolution.mob.rules.MobProgressionTest',
     runeTransportContractRegression: 'com.example.revolution.network.RuneTransportContractTest',
+    runeCollectionMetadataPacketRegression: 'com.example.revolution.network.RuneCollectionMetadataPacketTest',
+    runeStatusDamageRuntimeRegression: 'com.example.revolution.rune.service.RuneStatusDamageRuntimeTest',
     enhancementRateLimitRegression: 'com.example.revolution.network.EnhancementRequestLimiterTest',
     networkWireContractRegression: 'com.example.revolution.network.NetworkWireContractTest',
     fileAdminWhitelistRepositoryRegression: 'com.example.revolution.persistence.FileAdminWhitelistRepositoryTest',
