@@ -53,18 +53,18 @@ public final class RuneCombatServiceTest {
             check(close(
                     damageWithBothCollections.channel(RuneDamageChannel.POISON).flat
                             - damageWithFirstCollection.channel(RuneDamageChannel.POISON).flat,
-                    10.0D),
-                    "C2 Normal slot 0 contributes its fixed POISON flat value");
+                    30.0D),
+                    "C2 Improved slot 0 contributes its fixed POISON flat value");
             check(close(
                     damageWithBothCollections.channel(RuneDamageChannel.POISON).multiplier
                             / damageWithFirstCollection.channel(RuneDamageChannel.POISON).multiplier,
-                    1.05D),
-                    "C2 Normal capstone contributes its fixed POISON multiplier");
+                    1.15D),
+                    "C2 Improved capstone contributes its fixed POISON multiplier");
             check(close(
                     damageWithBothCollections.allDamageMultiplier
                             / damageWithFirstCollection.allDamageMultiplier,
-                    1.02D),
-                    "C2 Normal capstone contributes its fixed all-damage multiplier");
+                    1.05D),
+                    "C2 Improved capstone contributes its fixed all-damage multiplier");
 
             collectionCount[0] = 2;
             activeCollection[0] = 1;
