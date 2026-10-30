@@ -70,6 +70,64 @@ public final class RuneCollectionUnlockServiceTest {
         assertEquals(2, collectionNames.size(), "re-evaluation does not duplicate compatibility storage");
     }
 
+    @Test
+    void qualifyingCollectionsUnlockTheWholeFixedChainThroughCollectionSeven() {
+        UUID player = UUID.randomUUID();
+        List<List<RuneRecord>> collections = new ArrayList<>();
+        for (int collection = 0; collection < RuneCollectionId.values().length; collection++) {
+            List<RuneRecord> records = new ArrayList<>();
+            for (int rune = 0; rune < 13; rune++) {
+                records.add(new RuneRecord(rune, rune, 2, 1));
+            }
+            collections.add(records);
+        }
+
+        List<String> collectionNames = new ArrayList<>(Collections.singletonList("Legacy"));
+        Set<RuneCollectionId> unlocked = EnumSet.of(RuneCollectionId.COLLECTION_01);
+        PlayerRepository players = (PlayerRepository) Proxy.newProxyInstance(
+                PlayerRepository.class.getClassLoader(),
+                new Class<?>[]{PlayerRepository.class},
+                (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "getRunesInCollection":
+                            int collection = (int) args[1];
+                            return collection >= 0 && collection < collections.size()
+                                    ? new ArrayList<>(collections.get(collection))
+                                    : Collections.emptyList();
+                        case "getCollectionNames":
+                            return new ArrayList<>(collectionNames);
+                        case "addCollection":
+                            collectionNames.add((String) args[1]);
+                            return true;
+                        default:
+                            return defaultValue(method.getReturnType());
+                    }
+                });
+        RuneCollectionStateRepository states = new RuneCollectionStateRepository() {
+            @Override public Set<RuneCollectionId> getUnlockedCollections(UUID uuid) {
+                return EnumSet.copyOf(unlocked);
+            }
+
+            @Override public boolean unlockCollection(UUID uuid, RuneCollectionId collectionId) {
+                return unlocked.add(collectionId);
+            }
+        };
+
+        RuneCollectionUnlockService service = new RuneCollectionUnlockService(players, states);
+        RuneCollectionId[] ids = RuneCollectionId.values();
+        for (int target = 1; target < ids.length; target++) {
+            assertEquals(ids[target], service.evaluateNextUnlock(player),
+                    "the next fixed collection unlocks from factual Improved+ progress");
+            assertTrue(service.isUnlocked(player, ids[target]));
+            assertEquals(target + 1, collectionNames.size(),
+                    "legacy backing storage is provisioned exactly through the unlocked collection");
+        }
+
+        assertEquals(EnumSet.allOf(RuneCollectionId.class), service.unlocked(player));
+        assertNull(service.evaluateNextUnlock(player), "Collection 7 is the terminal collection");
+        assertEquals(7, collectionNames.size(), "no eighth compatibility collection is created");
+    }
+
     private static Object defaultValue(Class<?> type) {
         if (!type.isPrimitive()) return null;
         if (type == boolean.class) return false;
