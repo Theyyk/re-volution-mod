@@ -4,9 +4,12 @@ import com.example.revolution.network.RuneCollectionMetadataPacket;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import net.minecraft.client.gui.GuiButton;
 
 /** Client-side read model for the fixed v2.3.0 collection chain. */
 final class ClientRuneCollections {
+    private static final int ELEMENT_BUTTON_START_ID = 100;
+
     private static List<String> ids = Collections.emptyList();
     private static List<String> names = Collections.emptyList();
     private static List<Integer> progress = Collections.emptyList();
@@ -16,13 +19,22 @@ final class ClientRuneCollections {
 
     private ClientRuneCollections() {}
 
+    static void reset() {
+        ids = Collections.emptyList();
+        names = Collections.emptyList();
+        progress = Collections.emptyList();
+        unlockedMask = 1;
+        activeCollection = 0;
+        unlockThreshold = 13;
+    }
+
     static void accept(RuneCollectionMetadataPacket packet) {
         ids = Collections.unmodifiableList(new ArrayList<>(packet.getCollectionIds()));
         names = Collections.unmodifiableList(new ArrayList<>(packet.getDisplayNames()));
         progress = Collections.unmodifiableList(new ArrayList<>(packet.getImprovedOrHigherProgress()));
         unlockedMask = packet.getUnlockedMask();
         activeCollection = packet.getActiveCollection();
-        unlockThreshold = packet.getUnlockThreshold();
+        unlockThreshold = Math.max(1, packet.getUnlockThreshold());
     }
 
     static List<String> ids() { return ids; }
@@ -54,5 +66,16 @@ final class ClientRuneCollections {
             }
         }
         return result;
+    }
+
+    /** Applies the metadata read model to the existing screen without making GUI layout authoritative. */
+    static boolean applyTo(RunesGuiScreen screen) {
+        if (screen == null || names.isEmpty()) return false;
+        screen.setCollections(selectorNames(), activeCollection);
+        for (GuiButton button : screen.buttonList) {
+            int index = button.id - ELEMENT_BUTTON_START_ID;
+            if (index >= 0 && index < names.size()) button.enabled = isUnlocked(index);
+        }
+        return true;
     }
 }

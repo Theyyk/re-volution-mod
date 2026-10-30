@@ -76,8 +76,7 @@ public final class ClientUiBridge {
     public static void acceptCollectionMetadata(RuneCollectionMetadataPacket message) {
         ClientRuneCollections.accept(message);
         if (Minecraft.getMinecraft().currentScreen instanceof RunesGuiScreen) {
-            RunesGuiScreen screen = (RunesGuiScreen) Minecraft.getMinecraft().currentScreen;
-            screen.setCollections(ClientRuneCollections.selectorNames(), ClientRuneCollections.activeCollection());
+            ClientRuneCollections.applyTo((RunesGuiScreen) Minecraft.getMinecraft().currentScreen);
         }
     }
 
