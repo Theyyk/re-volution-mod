@@ -156,14 +156,14 @@ public final class RuneCollectionCatalog {
     private static List<RuneEffectDefinition> technicalEffects(
             RuneDamageChannel channel, String channelKey, int ordinal) {
         List<RuneEffectDefinition> effects = new ArrayList<>();
-        if (ordinal <= 6) {
+        if (ordinal <= 7) {
             effects.add(RuneEffectDefinition.damage(RuneEffectType.DAMAGE_FLAT, channel, 0.0D));
         } else if (ordinal <= 10) {
             effects.add(RuneEffectDefinition.damage(RuneEffectType.DAMAGE_MULTIPLIER, channel, 1.0D));
         } else if (ordinal == 11) {
             effects.add(RuneEffectDefinition.damage(RuneEffectType.VULNERABILITY, channel, 0.0D));
         } else if (ordinal == 12) {
-            effects.add(RuneEffectDefinition.damage(RuneEffectType.EFFECTIVENESS, channel, 1.0D));
+            effects.add(RuneEffectDefinition.scalar(RuneEffectType.ALL_DAMAGE_MULTIPLIER, 1.0D));
         } else if (ordinal == 13) {
             effects.add(new RuneEffectDefinition(
                     RuneEffectType.TARGETED_POWER, channel, channelKey + "_flat_01", null, null,
@@ -172,10 +172,13 @@ public final class RuneCollectionCatalog {
             effects.add(new RuneEffectDefinition(
                     RuneEffectType.PROC_CHANCE, channel, channel.name(), "HIT_MOB", null,
                     0.0D, 0.0D, 0.0D));
-        } else if (ordinal == 15) {
             effects.add(new RuneEffectDefinition(
                     RuneEffectType.PROC_DAMAGE_MULTIPLIER, channel, channel.name(), "HIT_MOB", null,
                     1.0D, 0.0D, 0.0D));
+        } else if (ordinal == 15) {
+            effects.add(new RuneEffectDefinition(
+                    RuneEffectType.TEMPORARY_DAMAGE_MULTIPLIER, null, "ALL_DAMAGE", "HIT_MOB", null,
+                    1.0D, 0.0D, 1.0D));
         } else if (ordinal == 16) {
             effects.add(RuneEffectDefinition.scalar(RuneEffectType.ALL_DAMAGE_MULTIPLIER, 1.0D));
         } else if (ordinal == 17) {
@@ -186,12 +189,10 @@ public final class RuneCollectionCatalog {
             effects.add(RuneEffectDefinition.scalar(RuneEffectType.PET_XP_MULTIPLIER, 1.0D));
         } else if (ordinal == 20) {
             effects.add(new RuneEffectDefinition(
-                    RuneEffectType.DELAYED_DAMAGE_BONUS, channel, channel.name(), "AFTER_DELAY", null,
+                    RuneEffectType.DELAYED_DAMAGE_BONUS, channel, channel.name(), "HIT_MOB", "TARGET_ALIVE",
                     1.0D, 0.0D, 1.0D));
         } else if (ordinal == 21) {
-            effects.add(new RuneEffectDefinition(
-                    RuneEffectType.TEMPORARY_DAMAGE_MULTIPLIER, channel, channel.name(), "HIT_MOB", null,
-                    1.0D, 0.0D, 1.0D));
+            effects.add(RuneEffectDefinition.damage(RuneEffectType.EFFECTIVENESS, channel, 1.0D));
         } else if (ordinal == 22) {
             effects.add(new RuneEffectDefinition(
                     RuneEffectType.TEMPORARY_EFFECT_DURATION, channel, channel.name(), null, null,
