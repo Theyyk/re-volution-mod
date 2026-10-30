@@ -4,12 +4,9 @@ import com.example.revolution.network.RuneCollectionMetadataPacket;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import net.minecraft.client.gui.GuiButton;
 
 /** Client-side read model for the fixed v2.3.0 collection chain. */
 final class ClientRuneCollections {
-    private static final int ELEMENT_BUTTON_START_ID = 100;
-
     private static List<String> ids = Collections.emptyList();
     private static List<String> names = Collections.emptyList();
     private static List<Integer> progress = Collections.emptyList();
@@ -68,14 +65,14 @@ final class ClientRuneCollections {
         return result;
     }
 
-    /** Applies the metadata read model to the existing screen without making GUI layout authoritative. */
+    /**
+     * Applies metadata labels to the existing screen. Locked collection selection remains enforced
+     * server-side by RuneActionService; GUI internals are intentionally not made public just to
+     * duplicate that gameplay authority on the client.
+     */
     static boolean applyTo(RunesGuiScreen screen) {
         if (screen == null || names.isEmpty()) return false;
         screen.setCollections(selectorNames(), activeCollection);
-        for (GuiButton button : screen.buttonList) {
-            int index = button.id - ELEMENT_BUTTON_START_ID;
-            if (index >= 0 && index < names.size()) button.enabled = isUnlocked(index);
-        }
         return true;
     }
 }
