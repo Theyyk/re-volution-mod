@@ -7,6 +7,7 @@ import com.example.revolution.pet.definition.PetRank;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.util.Locale;
 
 /** Typed Pet view over Balance Core. */
 public final class PetBalanceService {
@@ -30,7 +31,10 @@ public final class PetBalanceService {
         BigInteger safe = level == null || level.signum() <= 0 ? BigInteger.ONE : level;
         return nonNegative(value("pet.xp.level_base")).multiply(new BigDecimal(safe));
     }
-    public BigDecimal rankScale(PetRank rank) { return nonNegative(value("pet.rank." + rank.name() + ".scale")); }
+    public BigDecimal rankScale(PetRank rank) {
+        PetRank safe = rank == null ? PetRank.ORDINARY : rank;
+        return nonNegative(value("pet.rank." + safe.name().toLowerCase(Locale.ROOT) + ".scale"));
+    }
     public BigDecimal autoclickCps() { return nonNegative(value("pet.autoclick.cps")); }
     private BigDecimal value(String key) { return new BigDecimal(balance.getActiveValue(key)); }
     private static BigDecimal nonNegative(BigDecimal value) { return value.signum() < 0 ? BigDecimal.ZERO : value; }
