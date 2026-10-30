@@ -7,5 +7,6 @@ public interface RuneEnhancementRepository {
     int getLevel(UUID uuid, int collectionIndex, int runeIndex);
     int[] getLevels(UUID uuid, int collectionIndex);
     int addLevels(UUID uuid, int collectionIndex, int runeIndex, int amount);
+    void resetRune(UUID uuid, int collectionIndex, int runeIndex);
     void resetCollection(UUID uuid, int collectionIndex);
 }
