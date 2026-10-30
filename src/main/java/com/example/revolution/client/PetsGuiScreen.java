@@ -3,6 +3,7 @@ package com.example.revolution.client;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PetActionPacket;
 import com.example.revolution.network.PetSnapshotPacket;
+import com.example.revolution.prestige.definition.PrestigeRunResources;
 import java.io.IOException;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -23,9 +24,9 @@ public final class PetsGuiScreen extends GuiScreen {
         buttonList.clear();
         buttonList.add(new GuiButton(RUNES, 8, 8, 76, 20, "Руны"));
         buttonList.add(new GuiButton(CLOSE, width - 28, 8, 20, 20, "X"));
-        buttonList.add(new GuiButton(BUY_NORMAL_SLOT, 96, 8, 190, 20,
-                "Normal slot: " + ClientPets.nextNormalSlotCost() + " фрагм."));
-        GuiButton premium = new GuiButton(BUY_PREMIUM_SLOT, 292, 8, 180, 20, "Premium slot (Crystals)");
+        buttonList.add(new GuiButton(BUY_NORMAL_SLOT, 96, 8, 230, 20,
+                PrestigeRunResources.FRAGMENT_OF_KNOWLEDGE_PLURAL + ": " + ClientPets.nextNormalSlotCost()));
+        GuiButton premium = new GuiButton(BUY_PREMIUM_SLOT, 332, 8, 180, 20, "Premium slot (Crystals)");
         premium.enabled = ClientPets.premiumSlots() < 2;
         buttonList.add(premium);
         NetworkHandler.INSTANCE.sendToServer(new PetActionPacket("sync"));
