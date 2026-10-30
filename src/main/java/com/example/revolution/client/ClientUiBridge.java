@@ -2,6 +2,7 @@ package com.example.revolution.client;
 
 import com.example.revolution.RevolutionMod;
 import com.example.revolution.network.PlayerStatsPacket;
+import com.example.revolution.network.RuneCollectionMetadataPacket;
 import com.example.revolution.network.RuneCollectionsPacket;
 import com.example.revolution.network.RuneEnhancementPacket;
 import com.example.revolution.network.RuneSlotPacket;
@@ -70,6 +71,10 @@ public final class ClientUiBridge {
             RunesGuiScreen screen = (RunesGuiScreen) Minecraft.getMinecraft().currentScreen;
             screen.setCollections(message.getCollectionNames(), message.getActiveCollection());
         }
+    }
+
+    public static void acceptCollectionMetadata(RuneCollectionMetadataPacket message) {
+        ClientRuneCollections.accept(message);
     }
 
     public static void acceptPlayerStats(PlayerStatsPacket message) {
