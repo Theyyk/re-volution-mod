@@ -62,7 +62,8 @@ public final class RuneAwakeningService {
 
         int currentRank = RuneProgression.clampRank(bestRanks[runeIndex]);
         if (RuneProgression.isMaximumRank(currentRank)) {
-            player.sendMessage(new TextComponentString("§6Эта руна уже продвинутая."));
+            player.sendMessage(new TextComponentString("§6Эта руна уже достигла максимального ранга «"
+                    + RuneProgression.rankName(currentRank) + "»."));
             return;
         }
 
