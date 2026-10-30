@@ -1,5 +1,6 @@
 package com.example.revolution.combat;
 
+import com.example.revolution.gameplay.GameplayDamageContext;
 import com.example.revolution.mob.service.ManagedMobService;
 import com.example.revolution.player.service.PlayerStatsService;
 import com.example.revolution.rune.rules.RuneCombatMath;
@@ -27,7 +28,7 @@ public class DamageBonusHandler {
         if (!(event.getSource().getTrueSource() instanceof EntityPlayerMP)) return;
 
         EntityPlayerMP player = (EntityPlayerMP) event.getSource().getTrueSource();
-        if (mobs.isApplyingPoisonDamage(player.getUniqueID())) return;
+        if (GameplayDamageContext.current() != null || mobs.isApplyingPoisonDamage(player.getUniqueID())) return;
 
         // The v1.2.10 rune combat model is PvE-only: rage/proc are explicitly triggered by a mob hit.
         if (!(event.getEntityLiving() instanceof EntityPlayer)) {
