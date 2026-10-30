@@ -11,14 +11,12 @@ BASE = 'com.example.revolution.'
 
 
 def resource_digest(path, data):
-    # Git checks text out with CRLF on Windows and LF on Linux. Binary assets stay exact.
     if Path(path).suffix in {'.md', '.json', '.mcmeta', '.txt'}:
         data = data.replace(b'\r\n', b'\n')
     return hashlib.sha256(data).hexdigest()
 
 
 def violations(path, source):
-    """Pure rule function, also exercised with deliberately invalid source examples."""
     errors = []
     imports = re.findall(r'^import (?:static )?([^;]+);', source, re.M)
     dependencies = [value for value in imports if value.startswith(BASE)]
@@ -89,27 +87,25 @@ def validate():
         'client/network/StageTravelTeleportRequestClientHandler.java',
         'client/network/FastAutoTogglePacketClientHandler.java',
         'client/network/RuneCollectionMetadataPacketHandler.java',
+        'client/network/PetActionPacketClientHandler.java',
+        'client/network/PetSnapshotPacketHandler.java',
         'client/input/KeyInputHandler.java',
         'client/input/EnhancementClickGuard.java',
         'mob/event/ManagedMobEvents.java',
         'mob/event/MobDeathHandler.java',
         'player/event/PlayerJoinHandler.java',
+        'pet/event/PetRuntimeHandler.java',
     }
     missing_adapters = sorted(required_adapter_paths.difference(source_map))
     assert not missing_adapters, 'Adapter package topology regressed: ' + ', '.join(missing_adapters)
     forbidden_old_adapter_paths = {
         'client/ClientLifecycle.java', 'client/ClientNetworkRegistration.java',
         'client/KeyInputHandler.java', 'client/AdminPanelKeyHandler.java', 'client/EnhancementClickGuard.java',
-        'client/input/AdminPanelKeyHandler.java',
-        'client/AdminPanelScreen.java',
-        'client/network/AdminPanelRequestClientHandler.java',
-        'client/network/AdminPanelStateClientHandler.java',
-        'network/admin/AdminPanelRequestHandler.java',
-        'network/admin/AdminPanelRequestPacket.java',
-        'network/admin/AdminPanelStatePacket.java',
-        'network/admin/AdminPanelStateServerHandler.java',
-        'admin/service/AdminPanelService.java',
-        'mob/ManagedMobEvents.java', 'mob/MobDeathHandler.java', 'player/PlayerJoinHandler.java',
+        'client/input/AdminPanelKeyHandler.java', 'client/AdminPanelScreen.java',
+        'network/admin/AdminPanelRequestClientHandler.java', 'network/admin/AdminPanelStateClientHandler.java',
+        'network/admin/AdminPanelRequestHandler.java', 'network/admin/AdminPanelRequestPacket.java',
+        'network/admin/AdminPanelStatePacket.java', 'network/admin/AdminPanelStateServerHandler.java',
+        'admin/service/AdminPanelService.java', 'mob/ManagedMobEvents.java', 'mob/MobDeathHandler.java', 'player/PlayerJoinHandler.java',
     }
     stale_adapters = sorted(forbidden_old_adapter_paths.intersection(source_map))
     assert not stale_adapters, 'Removed/relocated adapters returned: ' + ', '.join(stale_adapters)
@@ -130,41 +126,27 @@ def validate():
             if re.search(r'(?<!\))\b' + re.escape(name) + r'\.' + nio_mutators + r'\s*\(', source):
                 unsafe_nio.append(f'{path}: direct typed NIO mutation on {name}')
     assert not unsafe_nio, 'Early-Java-8 unsafe NIO calls:\n' + '\n'.join(unsafe_nio)
-    assert '((java.nio.Buffer) transform).clear();' in source_map['client/GuiDrawing.java'], \
-        'GUI surface buffer reset lost early-Java-8 compatibility'
-    assert '((java.nio.Buffer) matrix).clear();' in source_map['client/GuiFontRenderer.java'], \
-        'GUI font buffer reset lost early-Java-8 compatibility'
+    assert '((java.nio.Buffer) transform).clear();' in source_map['client/GuiDrawing.java'], 'GUI surface buffer reset lost early-Java-8 compatibility'
+    assert '((java.nio.Buffer) matrix).clear();' in source_map['client/GuiFontRenderer.java'], 'GUI font buffer reset lost early-Java-8 compatibility'
 
     expected_registrations = {
         'network/NetworkHandler.java': [
-            ('PingPacket', 0, 'SERVER'),
-            ('PongPacket', 1, 'CLIENT'),
-            ('RuneSlotPacket', 2, 'CLIENT'),
-            ('RuneCollectionsPacket', 3, 'CLIENT'),
-            ('PlayerStatsPacket', 4, 'CLIENT'),
-            ('RuneEnhancementPacket', 7, 'CLIENT'),
-            ('MobZoneOverlayRequestPacket', 8, 'SERVER'),
-            ('MobZoneOverlayPacket', 9, 'CLIENT'),
-            ('StageTravelMenuRequestPacket', 10, 'SERVER'),
-            ('StageTravelMenuPacket', 11, 'CLIENT'),
-            ('StageTravelTeleportRequestPacket', 12, 'SERVER'),
-            ('FastAutoTogglePacket', 13, 'SERVER'),
-            ('RuneCollectionMetadataPacket', 14, 'CLIENT'),
+            ('PingPacket', 0, 'SERVER'), ('PongPacket', 1, 'CLIENT'), ('RuneSlotPacket', 2, 'CLIENT'),
+            ('RuneCollectionsPacket', 3, 'CLIENT'), ('PlayerStatsPacket', 4, 'CLIENT'),
+            ('RuneEnhancementPacket', 7, 'CLIENT'), ('MobZoneOverlayRequestPacket', 8, 'SERVER'),
+            ('MobZoneOverlayPacket', 9, 'CLIENT'), ('StageTravelMenuRequestPacket', 10, 'SERVER'),
+            ('StageTravelMenuPacket', 11, 'CLIENT'), ('StageTravelTeleportRequestPacket', 12, 'SERVER'),
+            ('FastAutoTogglePacket', 13, 'SERVER'), ('RuneCollectionMetadataPacket', 14, 'CLIENT'),
+            ('PetActionPacket', 15, 'SERVER'), ('PetSnapshotPacket', 16, 'CLIENT'),
         ],
         'client/network/ClientNetworkRegistration.java': [
-            ('PingPacket', 0, 'CLIENT'),
-            ('PongPacket', 1, 'CLIENT'),
-            ('RuneSlotPacket', 2, 'CLIENT'),
-            ('RuneCollectionsPacket', 3, 'CLIENT'),
-            ('PlayerStatsPacket', 4, 'CLIENT'),
-            ('RuneEnhancementPacket', 7, 'CLIENT'),
-            ('MobZoneOverlayRequestPacket', 8, 'CLIENT'),
-            ('MobZoneOverlayPacket', 9, 'CLIENT'),
-            ('StageTravelMenuRequestPacket', 10, 'CLIENT'),
-            ('StageTravelMenuPacket', 11, 'CLIENT'),
-            ('StageTravelTeleportRequestPacket', 12, 'CLIENT'),
-            ('FastAutoTogglePacket', 13, 'CLIENT'),
-            ('RuneCollectionMetadataPacket', 14, 'CLIENT'),
+            ('PingPacket', 0, 'CLIENT'), ('PongPacket', 1, 'CLIENT'), ('RuneSlotPacket', 2, 'CLIENT'),
+            ('RuneCollectionsPacket', 3, 'CLIENT'), ('PlayerStatsPacket', 4, 'CLIENT'),
+            ('RuneEnhancementPacket', 7, 'CLIENT'), ('MobZoneOverlayRequestPacket', 8, 'CLIENT'),
+            ('MobZoneOverlayPacket', 9, 'CLIENT'), ('StageTravelMenuRequestPacket', 10, 'CLIENT'),
+            ('StageTravelMenuPacket', 11, 'CLIENT'), ('StageTravelTeleportRequestPacket', 12, 'CLIENT'),
+            ('FastAutoTogglePacket', 13, 'CLIENT'), ('RuneCollectionMetadataPacket', 14, 'CLIENT'),
+            ('PetActionPacket', 15, 'CLIENT'), ('PetSnapshotPacket', 16, 'CLIENT'),
         ],
     }
     for path, expected in expected_registrations.items():
@@ -175,6 +157,8 @@ def validate():
         assert ('RuneEnhancementPacket', 7, 'CLIENT') in compact, path + ': discriminator 7 changed'
         assert ('FastAutoTogglePacket', 13, 'SERVER' if path.startswith('network/') else 'CLIENT') in compact, path + ': discriminator 13 changed'
         assert ('RuneCollectionMetadataPacket', 14, 'CLIENT') in compact, path + ': discriminator 14 changed'
+        assert ('PetActionPacket', 15, 'SERVER' if path.startswith('network/') else 'CLIENT') in compact, path + ': discriminator 15 changed'
+        assert ('PetSnapshotPacket', 16, 'CLIENT') in compact, path + ': discriminator 16 changed'
         if path.startswith('network/'):
             assert actual[0][0] == 'RateLimitedPingPacketHandler', 'Enhancement anti-spam bypassed'
 
@@ -194,19 +178,14 @@ def validate():
     actual_assets = {path.relative_to(ROOT).as_posix(): resource_digest(path, path.read_bytes())
                      for path in (ROOT / 'src/main/resources').rglob('*') if path.is_file() and path.name != 'mcmod.info'}
     if actual_assets != assets:
-        expected_paths = set(assets)
-        actual_paths = set(actual_assets)
-        details = []
-        for path in sorted(expected_paths - actual_paths):
-            details.append('Missing resource: ' + path)
-        for path in sorted(actual_paths - expected_paths):
-            details.append('Unexpected resource: ' + path + ' actual=' + actual_assets[path])
+        expected_paths = set(assets); actual_paths = set(actual_assets); details = []
+        for path in sorted(expected_paths - actual_paths): details.append('Missing resource: ' + path)
+        for path in sorted(actual_paths - expected_paths): details.append('Unexpected resource: ' + path + ' actual=' + actual_assets[path])
         for path in sorted(expected_paths & actual_paths):
-            if assets[path] != actual_assets[path]:
-                details.append('Digest mismatch: ' + path + ' expected=' + assets[path] + ' actual=' + actual_assets[path])
+            if assets[path] != actual_assets[path]: details.append('Digest mismatch: ' + path + ' expected=' + assets[path] + ' actual=' + actual_assets[path])
         raise AssertionError('Resource assets changed; review the resource contract explicitly\n' + '\n'.join(details))
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13/14, optional client and resource assets passed.')
+    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13/14/15/16, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':
