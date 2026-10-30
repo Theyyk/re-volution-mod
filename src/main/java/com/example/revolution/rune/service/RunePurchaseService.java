@@ -7,7 +7,7 @@ import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
-import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneCollectionProgression;
 import com.example.revolution.rune.rules.RuneProgression;
@@ -47,15 +47,16 @@ public final class RunePurchaseService {
     private final Random random = new Random();
 
     public void buyRunes(EntityPlayerMP player, int collectionIndex, int requestedAmount, boolean buyAll) {
-        List<String> collections = players.getCollectionNames(player.getUniqueID());
-        if (collections.isEmpty() || collectionIndex < 0 || collectionIndex >= collections.size()) {
-            player.sendMessage(new TextComponentString("§cУ тебя нет доступных колод."));
+        RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (collectionId != null) {
+            buyRunes(player, collectionIndex, collectionId, requestedAmount, buyAll);
             return;
         }
 
-        int statusId = RuneStatusConfig.statusForCollection(collectionIndex);
-        if (RuneStatusConfig.isRuneStatus(statusId)) {
-            buyRunes(player, collectionIndex, statusId, requestedAmount, buyAll);
+        // Compatibility path only for old external/custom decks outside the fixed 0..6 Rune System.
+        List<String> collections = players.getCollectionNames(player.getUniqueID());
+        if (collections.isEmpty() || collectionIndex < 0 || collectionIndex >= collections.size()) {
+            player.sendMessage(new TextComponentString("§cУ тебя нет доступных колод."));
             return;
         }
 
@@ -93,9 +94,14 @@ public final class RunePurchaseService {
         finishLegacyPurchase(player, balance, requestedAmount, buyAll, amountToBuy, amountToBuy, 0);
     }
 
-    private void buyRunes(EntityPlayerMP player, int collectionIndex, int statusId, int requestedAmount, boolean buyAll) {
-        String purchaseResource = purchaseBalance.purchaseResource(statusId);
-        String duplicateResource = purchaseBalance.duplicateResource(statusId);
+    private void buyRunes(
+            EntityPlayerMP player,
+            int collectionIndex,
+            RuneCollectionId collectionId,
+            int requestedAmount,
+            boolean buyAll) {
+        String purchaseResource = purchaseBalance.purchaseResource(collectionId);
+        String duplicateResource = purchaseBalance.duplicateResource(collectionId);
         String purchaseDisplayName = ResourceDefinitions.getDisplayName(purchaseResource);
         int startingBalance = resources.getPlayerResource(player.getUniqueID(), purchaseResource);
 
@@ -117,8 +123,8 @@ public final class RunePurchaseService {
         int coveredCount = progression.coveredCount();
 
         if (coveredCount >= RuneInventory.BOOST_TYPE_COUNT) {
-            player.sendMessage(new TextComponentString(purchaseRank >= RuneProgression.ADVANCED_RANK
-                    ? "§6Все 26 рун уже продвинутые. Достигнут максимальный ранг."
+            player.sendMessage(new TextComponentString(RuneProgression.isMaximumRank(purchaseRank)
+                    ? "§6Все 26 рун уже мифические. Достигнут максимальный ранг v2.3.0."
                     : "§eВсе 26 слотов текущего ранга заполнены. §6Пробудите подходящую руну."));
             syncPurchaseBalance(player, purchaseResource, startingBalance);
             return;
@@ -133,7 +139,7 @@ public final class RunePurchaseService {
 
         while (attempts < attemptsLimit && coveredCount < RuneInventory.BOOST_TYPE_COUNT) {
             int attemptCost = purchaseBalance.purchaseCost(
-                    statusId, purchaseRank, lowerProgress, higherRuneCount);
+                    collectionId, purchaseRank, lowerProgress, higherRuneCount);
             int remaining = startingBalance - spent;
             if (remaining < attemptCost) break;
 
@@ -145,7 +151,7 @@ public final class RunePurchaseService {
                 duplicateCompensation = safeAdd(
                         duplicateCompensation,
                         purchaseBalance.duplicateReward(
-                                statusId, purchaseRank, lowerProgress, higherRuneCount));
+                                collectionId, purchaseRank, lowerProgress, higherRuneCount));
                 NetworkHandler.sendToClient(
                         new RuneSlotPacket(runeIndex, runeIndex, bestRanks[runeIndex], true), player);
                 continue;
@@ -170,7 +176,7 @@ public final class RunePurchaseService {
 
         if (attempts <= 0) {
             int required = purchaseBalance.purchaseCost(
-                    statusId, purchaseRank, lowerProgress, higherRuneCount);
+                    collectionId, purchaseRank, lowerProgress, higherRuneCount);
             player.sendMessage(new TextComponentString(
                     "§cНедостаточно ресурса «" + purchaseDisplayName + "»! Нужно минимум " + required
                             + ", у тебя " + startingBalance + "."));
@@ -198,8 +204,8 @@ public final class RunePurchaseService {
         }
 
         if (coveredCount >= RuneInventory.BOOST_TYPE_COUNT) {
-            player.sendMessage(new TextComponentString(purchaseRank >= RuneProgression.ADVANCED_RANK
-                    ? "§6Все 26 рун уже продвинутые. Максимальный ранг достигнут."
+            player.sendMessage(new TextComponentString(RuneProgression.isMaximumRank(purchaseRank)
+                    ? "§6Все 26 рун уже мифические. Максимальный ранг v2.3.0 достигнут."
                     : "§6Все 26 слотов текущего ранга заполнены. Пробудите подходящую руну."));
         }
     }

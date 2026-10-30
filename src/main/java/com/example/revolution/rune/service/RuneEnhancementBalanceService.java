@@ -2,7 +2,7 @@ package com.example.revolution.rune.service;
 
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.resource.definition.ResourceDefinitions;
-import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.definition.RuneEnhancementTargeting;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -10,6 +10,7 @@ import java.util.Locale;
 
 /** Rune-domain adapter over Balance Core for enhancement economics. */
 public final class RuneEnhancementBalanceService {
+    private static final double DEFAULT_POWER_STEP = 0.10D;
     private final BalanceService balance;
 
     public RuneEnhancementBalanceService(BalanceService balance) {
@@ -18,52 +19,59 @@ public final class RuneEnhancementBalanceService {
     }
 
     public String resource(int statusId) {
-        String configured = requiredValue(statusId, "enhancement.resource");
-        String canonical = ResourceDefinitions.findCanonicalName(configured);
-        if (canonical == null || canonical.trim().isEmpty()) {
-            throw new IllegalStateException("enhancement resource is not registered: " + configured);
-        }
-        return canonical;
+        return resourceNamespace(RuneBalanceNamespace.legacyStatus(statusId));
+    }
+
+    public String resource(RuneCollectionId collectionId) {
+        return resourceNamespace(RuneBalanceNamespace.collection(collectionId));
     }
 
     public RuneEnhancementTargeting targeting(int statusId) {
-        String configured = requiredValue(statusId, "enhancement.targeting");
+        return targetingNamespace(RuneBalanceNamespace.legacyStatus(statusId));
+    }
+
+    public RuneEnhancementTargeting targeting(RuneCollectionId collectionId) {
+        return targetingNamespace(RuneBalanceNamespace.collection(collectionId));
+    }
+
+    public double powerStep(RuneCollectionId collectionId) {
+        String namespace = RuneBalanceNamespace.collection(collectionId);
+        String raw = balance.getActiveSnapshot().getConfig().getValue(
+                RuneBalanceNamespace.valueKey(namespace, "enhancement.power_step"));
+        if (raw == null || raw.trim().isEmpty()) return DEFAULT_POWER_STEP;
         try {
-            return RuneEnhancementTargeting.valueOf(configured.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("unsupported enhancement targeting: " + configured, e);
+            double value = Double.parseDouble(raw.trim());
+            if (!Double.isFinite(value) || value < 0.0D) throw new NumberFormatException("invalid power step");
+            return value;
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("enhancement power_step must be a finite value >= 0: " + raw, e);
         }
     }
 
     /** Cost of one global enhancement step at the current factual total collection enhancement level. */
     public BigDecimal nextCost(int statusId, int totalEnhancementLevel) {
-        if (totalEnhancementLevel < 0) throw new IllegalArgumentException("total enhancement level must be >= 0");
-        BigDecimal value = balance.evaluateActiveCurve(curveId(statusId), totalEnhancementLevel);
-        if (value == null || value.signum() <= 0) throw new IllegalStateException("enhancement cost must be > 0");
-        return value.setScale(0, RoundingMode.HALF_UP);
+        return nextCostNamespace(RuneBalanceNamespace.legacyStatus(statusId), totalEnhancementLevel);
+    }
+
+    public BigDecimal nextCost(RuneCollectionId collectionId, int totalEnhancementLevel) {
+        return nextCostNamespace(RuneBalanceNamespace.collection(collectionId), totalEnhancementLevel);
     }
 
     /** Sequential bulk cost from the collection-wide total enhancement level. */
     public BigDecimal bulkCost(int statusId, int totalEnhancementLevel, int amount) {
-        if (amount <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
-        if (totalEnhancementLevel < 0) throw new IllegalArgumentException("total enhancement level must be >= 0");
-        BigDecimal total = BigDecimal.ZERO;
-        for (int i = 0; i < amount; i++) {
-            long index = (long) totalEnhancementLevel + i;
-            if (index > Integer.MAX_VALUE) throw new IllegalStateException("total enhancement level exceeds supported curve index");
-            total = total.add(nextCost(statusId, (int) index));
-        }
-        return total;
+        return bulkCostNamespace(RuneBalanceNamespace.legacyStatus(statusId), totalEnhancementLevel, amount);
+    }
+
+    public BigDecimal bulkCost(RuneCollectionId collectionId, int totalEnhancementLevel, int amount) {
+        return bulkCostNamespace(RuneBalanceNamespace.collection(collectionId), totalEnhancementLevel, amount);
     }
 
     public BigDecimal[] bulkCosts(int statusId, int totalEnhancementLevel, int[] amounts) {
-        if (amounts == null) throw new IllegalArgumentException("bulk amounts are required");
-        BigDecimal[] result = new BigDecimal[amounts.length];
-        for (int i = 0; i < amounts.length; i++) {
-            if (amounts[i] <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
-            result[i] = bulkCost(statusId, totalEnhancementLevel, amounts[i]);
-        }
-        return result;
+        return bulkCostsNamespace(RuneBalanceNamespace.legacyStatus(statusId), totalEnhancementLevel, amounts);
+    }
+
+    public BigDecimal[] bulkCosts(RuneCollectionId collectionId, int totalEnhancementLevel, int[] amounts) {
+        return bulkCostsNamespace(RuneBalanceNamespace.collection(collectionId), totalEnhancementLevel, amounts);
     }
 
     /** Sum of all persisted slot levels; this is the only progression index used for enhancement price. */
@@ -77,20 +85,56 @@ public final class RuneEnhancementBalanceService {
         return (int) total;
     }
 
-    private String requiredValue(int statusId, String suffix) {
-        String value = optionalValue(statusId, suffix);
+    private String resourceNamespace(String namespace) {
+        String configured = requiredValue(namespace, "enhancement.resource");
+        String canonical = ResourceDefinitions.findCanonicalName(configured);
+        if (canonical == null || canonical.trim().isEmpty()) {
+            throw new IllegalStateException("enhancement resource is not registered: " + configured);
+        }
+        return canonical;
+    }
+
+    private RuneEnhancementTargeting targetingNamespace(String namespace) {
+        String configured = requiredValue(namespace, "enhancement.targeting");
+        try {
+            return RuneEnhancementTargeting.valueOf(configured.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("unsupported enhancement targeting: " + configured, e);
+        }
+    }
+
+    private BigDecimal nextCostNamespace(String namespace, int totalEnhancementLevel) {
+        if (totalEnhancementLevel < 0) throw new IllegalArgumentException("total enhancement level must be >= 0");
+        BigDecimal value = balance.evaluateActiveCurve(RuneBalanceNamespace.valueKey(namespace, "enhancement.cost"), totalEnhancementLevel);
+        if (value == null || value.signum() <= 0) throw new IllegalStateException("enhancement cost must be > 0");
+        return value.setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal bulkCostNamespace(String namespace, int totalEnhancementLevel, int amount) {
+        if (amount <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
+        if (totalEnhancementLevel < 0) throw new IllegalArgumentException("total enhancement level must be >= 0");
+        BigDecimal total = BigDecimal.ZERO;
+        for (int i = 0; i < amount; i++) {
+            long index = (long) totalEnhancementLevel + i;
+            if (index > Integer.MAX_VALUE) throw new IllegalStateException("total enhancement level exceeds supported curve index");
+            total = total.add(nextCostNamespace(namespace, (int) index));
+        }
+        return total;
+    }
+
+    private BigDecimal[] bulkCostsNamespace(String namespace, int totalEnhancementLevel, int[] amounts) {
+        if (amounts == null) throw new IllegalArgumentException("bulk amounts are required");
+        BigDecimal[] result = new BigDecimal[amounts.length];
+        for (int i = 0; i < amounts.length; i++) {
+            if (amounts[i] <= 0) throw new IllegalArgumentException("enhancement amount must be positive");
+            result[i] = bulkCostNamespace(namespace, totalEnhancementLevel, amounts[i]);
+        }
+        return result;
+    }
+
+    private String requiredValue(String namespace, String suffix) {
+        String value = balance.getActiveSnapshot().getConfig().getValue(RuneBalanceNamespace.valueKey(namespace, suffix));
         if (value == null) throw new IllegalStateException("missing enhancement balance value: " + suffix);
         return value;
-    }
-
-    private String optionalValue(int statusId, String suffix) {
-        if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
-        return balance.getActiveSnapshot().getConfig().getValue(
-                "runes." + RuneStatusConfig.statusKey(statusId) + "." + suffix);
-    }
-
-    private String curveId(int statusId) {
-        if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
-        return "runes." + RuneStatusConfig.statusKey(statusId) + ".enhancement.cost";
     }
 }

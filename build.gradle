@@ -13,8 +13,8 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-// Stable release metadata for v2.2.0.
-version = '2.2.0'
+// Stable release metadata for v2.3.0.
+version = '2.3.0'
 group = 'com.example.revolution'
 archivesBaseName = 'RE-volution'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
@@ -144,7 +144,10 @@ def regressionTests = [
     mobVirtualHealthRegression: 'com.example.revolution.mob.rules.MobVirtualHealthTest',
     mobContributionRegression: 'com.example.revolution.mob.rules.MobContributionTest',
     mobProgressionRegression: 'com.example.revolution.mob.rules.MobProgressionTest',
+    gameplayDamageContextRegression: 'com.example.revolution.gameplay.GameplayDamageContextTest',
     runeTransportContractRegression: 'com.example.revolution.network.RuneTransportContractTest',
+    runeCollectionMetadataPacketRegression: 'com.example.revolution.network.RuneCollectionMetadataPacketTest',
+    runeStatusDamageRuntimeRegression: 'com.example.revolution.rune.service.RuneStatusDamageRuntimeTest',
     enhancementRateLimitRegression: 'com.example.revolution.network.EnhancementRequestLimiterTest',
     networkWireContractRegression: 'com.example.revolution.network.NetworkWireContractTest',
     fileAdminWhitelistRepositoryRegression: 'com.example.revolution.persistence.FileAdminWhitelistRepositoryTest',

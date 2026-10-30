@@ -4,17 +4,18 @@ import com.example.revolution.rune.definition.RuneLayoutDefinition;
 import com.example.revolution.rune.rules.RuneAwakeningDecision;
 import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.rules.RuneStorageRules;
-import java.util.Arrays;
-import java.util.List;
 
 /** Keeps server records intact and groups them into the visible rune catalog. */
 public final class RuneInventory {
     // Read compatibility only: old purchases may use slots 26-49.
     public static final int LEGACY_RECORD_CAPACITY = RuneLayoutDefinition.LEGACY_RECORD_CAPACITY;
-    public static final int BOOST_TYPE_COUNT = RuneLayoutDefinition.BOOST_TYPE_COUNT;
+    public static final int BOOST_TYPE_COUNT = RuneLayoutDefinition.SLOTS_PER_COLLECTION;
+    /** Legacy alias retained for source compatibility. */
     public static final int NORMAL_RANK = RuneLayoutDefinition.NORMAL_RANK;
+    public static final int ORDINARY_RANK = RuneLayoutDefinition.ORDINARY_RANK;
     public static final int IMPROVED_RANK = RuneLayoutDefinition.IMPROVED_RANK;
     public static final int ADVANCED_RANK = RuneLayoutDefinition.ADVANCED_RANK;
+    public static final int MYTHIC_RANK = RuneLayoutDefinition.MYTHIC_RANK;
 
     public static final class Entry {
         public final int runeIndex;
@@ -30,7 +31,7 @@ public final class RuneInventory {
 
     public void set(int slot, int runeIndex, int layer) {
         if (slot < 0 || slot >= LEGACY_RECORD_CAPACITY || runeIndex < 0 || runeIndex >= BOOST_TYPE_COUNT) return;
-        slots[slot] = new Entry(runeIndex, RuneProgression.clampRank(layer));
+        slots[slot] = new Entry(runeIndex, RuneStorageRules.clampGameplayRank(layer));
     }
 
     public Entry get(int slot) {
@@ -95,12 +96,12 @@ public final class RuneInventory {
         return ranks;
     }
 
-    /** Purchase attempts stop once all 26 fixed runes of the element are collected. */
+    /** Purchase attempts stop once all 26 fixed runes of the collection are collected. */
     public boolean isPurchaseLimitReached() {
         return hasAllCatalogRunes();
     }
 
-    /** Legacy helper for old non-element collections that still use fixed storage slots. */
+    /** Legacy helper for old collections that still use fixed storage slots. */
     public static java.util.List<Integer> freePurchaseSlots(java.util.List<Integer> occupiedSlots) {
         return RuneStorageRules.freePurchaseSlots(occupiedSlots);
     }

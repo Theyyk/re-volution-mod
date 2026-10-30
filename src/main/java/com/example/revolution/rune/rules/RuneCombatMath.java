@@ -1,6 +1,11 @@
 package com.example.revolution.rune.rules;
 
-/** Pure combat calculation for the v1.2.10 rune damage model. */
+import com.example.revolution.rune.definition.RuneDamageChannel;
+
+/**
+ * Compatibility facade for the original C1 click + poison model.
+ * Generic v2.3.0 channel math lives in RuneDamageMath.
+ */
 public final class RuneCombatMath {
     private RuneCombatMath() {}
 
@@ -21,47 +26,40 @@ public final class RuneCombatMath {
     }
 
     public static double clickDamage(double vanillaClickDamage, Snapshot snapshot, boolean procTriggered) {
-        if (snapshot == null) return sanitize(vanillaClickDamage);
-
-        double click = Math.max(0.0D, sanitize(vanillaClickDamage) + nonNegative(snapshot.clickFlat));
-        click *= safeMultiplier(snapshot.clickMultiplier);
-        click *= vulnerabilityMultiplier(snapshot.clickVulnerabilityPercent + snapshot.allDamageVulnerabilityPercent);
-        if (procTriggered) click *= safeMultiplier(snapshot.procDamageMultiplier);
-        click *= safeMultiplier(snapshot.allDamageMultiplier);
-        if (snapshot.rageActive) click *= safeMultiplier(snapshot.rageMultiplier);
-        return sanitize(click);
+        if (snapshot == null) return RuneDamageMath.sanitize(vanillaClickDamage);
+        RuneDamageMath.Snapshot generic = generic(snapshot);
+        double click = RuneDamageMath.damage(vanillaClickDamage, RuneDamageChannel.CLICK, generic);
+        if (procTriggered) click *= RuneDamageMath.safeMultiplier(snapshot.procDamageMultiplier);
+        return RuneDamageMath.sanitize(click);
     }
 
     public static double poisonDamage(Snapshot snapshot) {
         if (snapshot == null) return 0.0D;
-
-        double poison = nonNegative(snapshot.poisonFlat);
-        poison *= safeMultiplier(snapshot.poisonMultiplier);
-        poison *= vulnerabilityMultiplier(snapshot.poisonVulnerabilityPercent + snapshot.allDamageVulnerabilityPercent);
-        poison *= safeMultiplier(snapshot.allDamageMultiplier);
-        if (snapshot.rageActive) poison *= safeMultiplier(snapshot.rageMultiplier);
-        return sanitize(poison);
+        return RuneDamageMath.statusDamage(RuneDamageChannel.POISON, generic(snapshot));
     }
 
     public static double totalDamage(double vanillaClickDamage, Snapshot snapshot, boolean procTriggered) {
-        return sanitize(clickDamage(vanillaClickDamage, snapshot, procTriggered) + poisonDamage(snapshot));
+        return RuneDamageMath.sanitize(clickDamage(vanillaClickDamage, snapshot, procTriggered) + poisonDamage(snapshot));
     }
 
-    private static double vulnerabilityMultiplier(double percent) {
-        if (!Double.isFinite(percent)) return 1.0D;
-        return Math.max(0.0D, 1.0D + percent / 100.0D);
-    }
+    public static RuneDamageMath.Snapshot generic(Snapshot snapshot) {
+        RuneDamageMath.Snapshot generic = new RuneDamageMath.Snapshot();
+        if (snapshot == null) return generic;
 
-    private static double safeMultiplier(double value) {
-        return Double.isFinite(value) ? Math.max(0.0D, value) : 1.0D;
-    }
+        RuneDamageMath.ChannelStats click = generic.channel(RuneDamageChannel.CLICK);
+        click.flat = snapshot.clickFlat;
+        click.multiplier = snapshot.clickMultiplier;
+        click.vulnerabilityPercent = snapshot.clickVulnerabilityPercent;
 
-    private static double nonNegative(double value) {
-        return Double.isFinite(value) ? Math.max(0.0D, value) : 0.0D;
-    }
+        RuneDamageMath.ChannelStats poison = generic.channel(RuneDamageChannel.POISON);
+        poison.flat = snapshot.poisonFlat;
+        poison.multiplier = snapshot.poisonMultiplier;
+        poison.vulnerabilityPercent = snapshot.poisonVulnerabilityPercent;
 
-    private static double sanitize(double value) {
-        if (!Double.isFinite(value)) return Float.MAX_VALUE;
-        return Math.max(0.0D, Math.min((double) Float.MAX_VALUE, value));
+        generic.allDamageVulnerabilityPercent = snapshot.allDamageVulnerabilityPercent;
+        generic.allDamageMultiplier = snapshot.allDamageMultiplier;
+        generic.temporaryAllDamageActive = snapshot.rageActive;
+        generic.temporaryAllDamageMultiplier = snapshot.rageMultiplier;
+        return generic;
     }
 }

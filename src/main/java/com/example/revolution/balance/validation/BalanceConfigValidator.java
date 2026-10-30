@@ -35,6 +35,7 @@ public final class BalanceConfigValidator {
             if (id == null || !BALANCE_ID.matcher(id).matches()) errors.add("invalid curve id '" + id + "'");
             validateCurve(entry.getValue(), "curves." + id, 0, errors);
         }
+        RuneV230BalanceValidator.validateIfPresent(config, errors);
         if (!errors.isEmpty()) throw new BalanceValidationException(errors);
     }
 

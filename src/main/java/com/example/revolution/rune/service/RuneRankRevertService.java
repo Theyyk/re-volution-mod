@@ -2,7 +2,7 @@ package com.example.revolution.rune.service;
 
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
-import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.rules.RuneRankRevertDecision;
@@ -35,8 +35,8 @@ public final class RuneRankRevertService {
     }
 
     public void revertRune(EntityPlayerMP player, int collectionIndex, int runeIndex) {
-        int statusId = RuneStatusConfig.statusForCollection(collectionIndex);
-        if (!RuneStatusConfig.isRuneStatus(statusId)) {
+        RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (collectionId == null) {
             player.sendMessage(new TextComponentString("§cОткат ранга недоступен для этой legacy-коллекции."));
             return;
         }
@@ -58,9 +58,9 @@ public final class RuneRankRevertService {
             if (balanceRules == null) {
                 decision = RuneRankRevertDecision.evaluate(bestRanks, runeIndex);
             } else {
-                allowedFromRank = balanceRules.allowedFromRank(statusId);
+                allowedFromRank = balanceRules.allowedFromRank(collectionId);
                 decision = RuneRankRevertDecision.evaluate(
-                        bestRanks, runeIndex, allowedFromRank, balanceRules.steps(statusId));
+                        bestRanks, runeIndex, allowedFromRank, balanceRules.steps(collectionId));
             }
         } catch (RuntimeException e) {
             player.sendMessage(new TextComponentString("§cОткат ранга временно недоступен: правило настроено некорректно."));

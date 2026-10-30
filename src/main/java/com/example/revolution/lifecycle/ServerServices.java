@@ -72,11 +72,13 @@ import com.example.revolution.rune.service.RuneEnhancementBalanceService;
 import com.example.revolution.rune.service.RuneEnhancementPlanningService;
 import com.example.revolution.rune.service.RuneEnhancementService;
 import com.example.revolution.rune.service.RuneMobEffectService;
+import com.example.revolution.rune.service.RunePrestigeResetService;
 import com.example.revolution.rune.service.RunePurchaseBalanceService;
 import com.example.revolution.rune.service.RunePurchaseService;
 import com.example.revolution.rune.service.RuneRankUpBalanceService;
 import com.example.revolution.rune.service.RuneRewardBonusService;
 import com.example.revolution.rune.service.RuneSyncService;
+import com.example.revolution.rune.service.RuneTransientEffectRuntime;
 import com.example.revolution.rune.state.RuneCombatState;
 import java.io.File;
 import java.io.IOException;
@@ -110,6 +112,7 @@ public final class ServerServices implements AutoCloseable {
     public final PlayerSessionService sessions;
     public final PlayerStatsService playerStats;
     public final RuneCombatService combat;
+    public final RuneTransientEffectRuntime runeTransientEffects;
     public final MobAdminService mobAdmin;
     public final RuneAdminService runeAdmin;
     public final PlayerCollectionService collections;
@@ -134,7 +137,12 @@ public final class ServerServices implements AutoCloseable {
 
         balance = BalanceBootstrap.activateBundledDefaults();
         PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
-        prestige = new PrestigeService(new MongoPrestigeRepository(connection, persistentGameplay), prestigeBranches);
+        RunePrestigeResetService runePrestigeReset = new RunePrestigeResetService(players);
+        prestige = new PrestigeService(
+                new MongoPrestigeRepository(connection, persistentGameplay),
+                prestigeBranches,
+                (playerUuid, branch) -> prestigeBranches.get(branch).defaultSaveMultiplier,
+                runePrestigeReset::reset);
         effects = new EffectResolver();
         effects.register(prestige);
         gameplayEvents = new PrestigeProgressRouter(prestige, prestigeBranches);
@@ -145,6 +153,7 @@ public final class ServerServices implements AutoCloseable {
         MobRepository mobRepository = new BalanceAwareMobRepository(storedMobRepository, new MobBalanceService(balance));
         RuneEffectBalanceService effectBalance = new RuneEffectBalanceService(balance);
         combat = new RuneCombatService(players, enhancements, combatState, effectBalance);
+        runeTransientEffects = new RuneTransientEffectRuntime(players, enhancements, effectBalance, combat);
         RuneMobEffectService runeEffects = new RuneMobEffectService(
                 combat, new RuneRewardBonusService(players, enhancements, effectBalance));
         playerStats = new PlayerStatsService(players, enhancements);
@@ -209,6 +218,7 @@ public final class ServerServices implements AutoCloseable {
 
     @Override public void close() {
         adminApi.close();
+        runeTransientEffects.clear();
         mobs.clear();
         fastAuto.clear();
         mobProgression.clear();

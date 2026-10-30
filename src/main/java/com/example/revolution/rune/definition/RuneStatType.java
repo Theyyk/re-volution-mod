@@ -38,14 +38,14 @@ public enum RuneStatType {
     CLICK_CRIT_CHANCE("Шанс крита", DisplayKind.PERCENT),
     CLICK_CRIT_DAMAGE_MULTIPLIER("Крит. урон при клике", DisplayKind.MULTIPLIER),
 
-    // Current RE:volution names replace the old reference GOLD/RESOURCE aliases.
     COIN_REWARD_PERCENT("Добыча монет", DisplayKind.PERCENT),
     RESOURCE_REWARD_PERCENT("Добыча ресурса", DisplayKind.PERCENT),
+    PET_XP_MULTIPLIER("Опыт питомца", DisplayKind.MULTIPLIER),
 
     // Targeted stat: a concrete rune/family target is stored separately when used.
     RUNE_POWER_FLAT("Сила рун", DisplayKind.FLAT),
 
-    // Reserved content types. Their gameplay systems will be wired later.
+    // Legacy/reference-only aliases kept readable for old configuration snapshots.
     HERO_XP_MULTIPLIER("Опыт героев", DisplayKind.MULTIPLIER),
     MAGIC_SPHERE_DURATION("Время работы магических сфер", DisplayKind.SECONDS);
 
@@ -67,8 +67,6 @@ public enum RuneStatType {
     public String format(double value) {
         switch (displayKind) {
             case MULTIPLIER:
-                // ASCII x is used deliberately: the active 1.12.2 GUI font renders
-                // the Unicode multiplication sign as '?'.
                 return "x" + compact(value);
             case PERCENT:
                 return "+" + compact(value) + "%";

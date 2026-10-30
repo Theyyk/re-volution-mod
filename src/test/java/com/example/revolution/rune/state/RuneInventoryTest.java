@@ -60,16 +60,25 @@ public final class RuneInventoryTest {
         check(inventory.awakeningDecision(0).nextRank == RuneInventory.ADVANCED_RANK,
                 "Inventory decision must target advanced rank from improved");
 
-        inventory.set(0, 0, RuneInventory.ADVANCED_RANK);
-        check(inventory.getBoost(0).layer == RuneInventory.ADVANCED_RANK,
-                "Advanced rank must be the highest visible state");
-        check(!inventory.canAwaken(0), "Advanced is the current maximum rank");
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            inventory.set(rune, rune, RuneInventory.ADVANCED_RANK);
+        }
+        check(inventory.canAwaken(0), "A full advanced collection may awaken into Mythic");
+        check(inventory.awakeningDecision(0).nextRank == RuneInventory.MYTHIC_RANK,
+                "Inventory decision must target Mythic rank from advanced");
+
+        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
+            inventory.set(rune, rune, RuneInventory.MYTHIC_RANK);
+        }
+        check(inventory.getBoost(0).layer == RuneInventory.MYTHIC_RANK,
+                "Mythic rank must be the highest visible gameplay state");
+        check(!inventory.canAwaken(0), "Mythic is the current maximum gameplay rank");
         check(inventory.awakeningDecision(0).reason == RuneAwakeningDecision.Reason.MAXIMUM_RANK,
-                "Inventory must expose maximum-rank awakening state");
+                "Inventory must expose maximum-rank awakening state at Mythic");
 
         inventory.set(1, 1, 99);
-        check(inventory.getBoost(1).layer == RuneInventory.ADVANCED_RANK,
-                "Incoming ranks above advanced must be clamped to the maximum");
+        check(inventory.getBoost(1).layer == RuneInventory.MYTHIC_RANK,
+                "Incoming ranks above Mythic must be clamped to the gameplay maximum");
         inventory.set(2, 2, -10);
         check(inventory.getBoost(2).layer == RuneInventory.NORMAL_RANK,
                 "Incoming ranks below normal must be clamped to normal");
@@ -87,7 +96,7 @@ public final class RuneInventoryTest {
         check(free.size() == 1 && free.get(0) == 25,
                 "Legacy fixed-slot helper must still expose the missing 26th position");
 
-        System.out.println("26 fixed rune slots, awakening progression, rune economy and rank regression checks passed");
+        System.out.println("26 fixed rune slots, Mythic awakening progression, rune economy and rank regression checks passed");
     }
 
     private static void check(boolean condition, String message) {
