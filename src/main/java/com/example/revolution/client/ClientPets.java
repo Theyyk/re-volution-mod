@@ -10,15 +10,23 @@ public final class ClientPets {
     private static int normalSlots;
     private static int premiumSlots;
     private static String nextNormalSlotCost = "0";
+    private static String runId = "";
+    private static String fragments = "0";
+    private static String petPendingFragments = "0";
     private static List<PetSnapshotPacket.Entry> entries = Collections.emptyList();
     private ClientPets() {}
 
     public static synchronized void accept(PetSnapshotPacket packet) {
         normalSlots = packet.getNormalSlots(); premiumSlots = packet.getPremiumSlots();
-        nextNormalSlotCost = packet.getNextNormalSlotCost(); entries = new ArrayList<>(packet.getEntries());
+        nextNormalSlotCost = packet.getNextNormalSlotCost(); runId = packet.getRunId();
+        fragments = packet.getFragments(); petPendingFragments = packet.getPetPendingFragments();
+        entries = new ArrayList<>(packet.getEntries());
     }
     public static synchronized int normalSlots() { return normalSlots; }
     public static synchronized int premiumSlots() { return premiumSlots; }
     public static synchronized String nextNormalSlotCost() { return nextNormalSlotCost; }
+    public static synchronized String runId() { return runId; }
+    public static synchronized String fragments() { return fragments; }
+    public static synchronized String petPendingFragments() { return petPendingFragments; }
     public static synchronized List<PetSnapshotPacket.Entry> entries() { return new ArrayList<>(entries); }
 }

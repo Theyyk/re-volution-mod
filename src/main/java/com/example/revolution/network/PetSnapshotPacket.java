@@ -14,6 +14,8 @@ public final class PetSnapshotPacket implements IMessage {
         public String rank = "ORDINARY";
         public String level = "1";
         public String xp = "0";
+        public String nextLevelThreshold = "0";
+        public boolean levelUpReady;
         public boolean owned;
         public boolean selected;
         public boolean premiumSlot;
@@ -22,9 +24,10 @@ public final class PetSnapshotPacket implements IMessage {
         public String effects = "";
 
         public Entry() {}
-        public Entry(String petId, String rank, String level, String xp, boolean owned, boolean selected,
-                     boolean premiumSlot, long cooldownUntil, String purchaseCost, String effects) {
-            this.petId = petId; this.rank = rank; this.level = level; this.xp = xp; this.owned = owned;
+        public Entry(String petId, String rank, String level, String xp, String nextLevelThreshold, boolean levelUpReady,
+                     boolean owned, boolean selected, boolean premiumSlot, long cooldownUntil, String purchaseCost, String effects) {
+            this.petId = petId; this.rank = rank; this.level = level; this.xp = xp;
+            this.nextLevelThreshold = nextLevelThreshold; this.levelUpReady = levelUpReady; this.owned = owned;
             this.selected = selected; this.premiumSlot = premiumSlot; this.cooldownUntil = cooldownUntil;
             this.purchaseCost = purchaseCost; this.effects = effects;
         }
@@ -33,41 +36,50 @@ public final class PetSnapshotPacket implements IMessage {
     private int normalSlots;
     private int premiumSlots;
     private String nextNormalSlotCost = "0";
+    private String runId = "";
+    private String fragments = "0";
+    private String petPendingFragments = "0";
     private final List<Entry> entries = new ArrayList<>();
 
     public PetSnapshotPacket() {}
-    public PetSnapshotPacket(int normalSlots, int premiumSlots, String nextNormalSlotCost, List<Entry> entries) {
+    public PetSnapshotPacket(int normalSlots, int premiumSlots, String nextNormalSlotCost, String runId,
+                             String fragments, String petPendingFragments, List<Entry> entries) {
         this.normalSlots = normalSlots; this.premiumSlots = premiumSlots;
         this.nextNormalSlotCost = nextNormalSlotCost == null ? "0" : nextNormalSlotCost;
+        this.runId = runId == null ? "" : runId; this.fragments = fragments == null ? "0" : fragments;
+        this.petPendingFragments = petPendingFragments == null ? "0" : petPendingFragments;
         if (entries != null) this.entries.addAll(entries);
     }
     public int getNormalSlots() { return normalSlots; }
     public int getPremiumSlots() { return premiumSlots; }
     public String getNextNormalSlotCost() { return nextNormalSlotCost; }
+    public String getRunId() { return runId; }
+    public String getFragments() { return fragments; }
+    public String getPetPendingFragments() { return petPendingFragments; }
     public List<Entry> getEntries() { return Collections.unmodifiableList(entries); }
 
     @Override public void fromBytes(ByteBuf buf) {
-        normalSlots = buf.readInt(); premiumSlots = buf.readInt();
-        nextNormalSlotCost = ByteBufUtils.readUTF8String(buf); entries.clear();
-        int count = Math.max(0, Math.min(256, buf.readInt()));
+        normalSlots = buf.readInt(); premiumSlots = buf.readInt(); nextNormalSlotCost = ByteBufUtils.readUTF8String(buf);
+        runId = ByteBufUtils.readUTF8String(buf); fragments = ByteBufUtils.readUTF8String(buf); petPendingFragments = ByteBufUtils.readUTF8String(buf);
+        entries.clear(); int count = Math.max(0, Math.min(256, buf.readInt()));
         for (int i = 0; i < count; i++) {
-            Entry e = new Entry();
-            e.petId = ByteBufUtils.readUTF8String(buf); e.rank = ByteBufUtils.readUTF8String(buf);
+            Entry e = new Entry(); e.petId = ByteBufUtils.readUTF8String(buf); e.rank = ByteBufUtils.readUTF8String(buf);
             e.level = ByteBufUtils.readUTF8String(buf); e.xp = ByteBufUtils.readUTF8String(buf);
+            e.nextLevelThreshold = ByteBufUtils.readUTF8String(buf); e.levelUpReady = buf.readBoolean();
             e.owned = buf.readBoolean(); e.selected = buf.readBoolean(); e.premiumSlot = buf.readBoolean();
-            e.cooldownUntil = buf.readLong(); e.purchaseCost = ByteBufUtils.readUTF8String(buf);
-            e.effects = ByteBufUtils.readUTF8String(buf); entries.add(e);
+            e.cooldownUntil = buf.readLong(); e.purchaseCost = ByteBufUtils.readUTF8String(buf); e.effects = ByteBufUtils.readUTF8String(buf); entries.add(e);
         }
     }
     @Override public void toBytes(ByteBuf buf) {
         buf.writeInt(normalSlots); buf.writeInt(premiumSlots); ByteBufUtils.writeUTF8String(buf, nextNormalSlotCost);
+        ByteBufUtils.writeUTF8String(buf, runId); ByteBufUtils.writeUTF8String(buf, fragments); ByteBufUtils.writeUTF8String(buf, petPendingFragments);
         buf.writeInt(entries.size());
         for (Entry e : entries) {
             ByteBufUtils.writeUTF8String(buf, e.petId); ByteBufUtils.writeUTF8String(buf, e.rank);
             ByteBufUtils.writeUTF8String(buf, e.level); ByteBufUtils.writeUTF8String(buf, e.xp);
+            ByteBufUtils.writeUTF8String(buf, e.nextLevelThreshold); buf.writeBoolean(e.levelUpReady);
             buf.writeBoolean(e.owned); buf.writeBoolean(e.selected); buf.writeBoolean(e.premiumSlot);
-            buf.writeLong(e.cooldownUntil); ByteBufUtils.writeUTF8String(buf, e.purchaseCost);
-            ByteBufUtils.writeUTF8String(buf, e.effects);
+            buf.writeLong(e.cooldownUntil); ByteBufUtils.writeUTF8String(buf, e.purchaseCost); ByteBufUtils.writeUTF8String(buf, e.effects);
         }
     }
 }

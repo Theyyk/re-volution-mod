@@ -14,7 +14,7 @@ import org.bson.Document;
 
 /** Backward-compatible Pet persistence embedded in the existing players document. */
 public final class MongoPetRepository implements PetRepository {
-    private static final int SCHEMA_VERSION = 1;
+    private static final int SCHEMA_VERSION = 2;
     private final MongoConnection connection;
     private final boolean enabled;
 
@@ -75,7 +75,8 @@ public final class MongoPetRepository implements PetRepository {
             PetPlayerState.PetProgress p = entry.getValue();
             pets.append(entry.getKey(), new Document("rank", p.rank.name())
                     .append("level", p.level.max(BigInteger.ONE).toString())
-                    .append("xp", exact(p.xp)));
+                    .append("xp", exact(p.xp))
+                    .append("appliedLevelXp", exact(p.appliedLevelXp)));
         }
         root.append("pets", pets);
         if (state.run != null) {
@@ -109,6 +110,7 @@ public final class MongoPetRepository implements PetRepository {
             p.rank = PetRank.parse(stored.getString("rank"));
             try { p.level = new BigInteger(String.valueOf(stored.get("level"))).max(BigInteger.ONE); } catch (RuntimeException ignored) { p.level = BigInteger.ONE; }
             try { p.xp = new BigDecimal(String.valueOf(stored.get("xp"))).max(BigDecimal.ZERO); } catch (RuntimeException ignored) { p.xp = BigDecimal.ZERO; }
+            try { p.appliedLevelXp = new BigDecimal(String.valueOf(stored.get("appliedLevelXp"))).max(BigDecimal.ZERO); } catch (RuntimeException ignored) { p.appliedLevelXp = BigDecimal.ZERO; }
             state.pets.put(petId, p);
         }
         Document runDoc = root.get("run", Document.class);

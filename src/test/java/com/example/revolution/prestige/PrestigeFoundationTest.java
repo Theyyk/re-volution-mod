@@ -33,7 +33,9 @@ public final class PrestigeFoundationTest {
         PrestigeState running = prestige.snapshot(player);
         assertEquals(2, running.activeRun.branchLevel);
         assertEquals(Arrays.asList("CLICK_I", "CLICK_II"), running.activeRun.reachedRanks);
-        assertEquals(new BigDecimal("2"), running.activeRun.runBranchCurrency);
+        assertEquals(0, BigDecimal.ZERO.compareTo(running.activeRun.runBranchCurrency));
+        assertEquals(0, new BigDecimal("2").compareTo(running.activeRun.masteryPendingFragments));
+        assertEquals(0, BigDecimal.ZERO.compareTo(running.activeRun.petPendingFragments));
         assertEquals(0, effects.multiplier(player, EffectResolver.Stat.CLICK_DAMAGE_MULTIPLIER)
                 .compareTo(new BigDecimal("1.15")));
 
