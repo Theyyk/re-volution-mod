@@ -7,7 +7,6 @@ import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneCollectionStateRepository;
-import java.util.List;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
 
@@ -62,10 +61,8 @@ public final class RuneActionService {
             RevolutionMod.logger.debug("Packet from " + player.getName() + ": " + loggedAction);
         }
 
-        List<String> collectionNames = players.getCollectionNames(player.getUniqueID());
         int collectionIndex = players.getActiveCollection(player.getUniqueID());
-
-        if (!collectionNames.isEmpty() && (collectionIndex < 0 || collectionIndex >= collectionNames.size())) {
+        if (RuneCollectionId.fromLegacyIndex(collectionIndex) == null) {
             collectionIndex = 0;
             players.setActiveCollection(player.getUniqueID(), collectionIndex);
         }
@@ -145,8 +142,7 @@ public final class RuneActionService {
             try {
                 int targetCollection = Integer.parseInt(rawIndex);
                 RuneCollectionId targetId = RuneCollectionId.fromLegacyIndex(targetCollection);
-                List<String> collections = players.getCollectionNames(player.getUniqueID());
-                if (targetId == null || targetCollection < 0 || targetCollection >= collections.size()) {
+                if (targetId == null) {
                     player.sendMessage(new TextComponentString("§cТакой коллекции не существует."));
                     sync.sendCollectionState(player);
                     return;

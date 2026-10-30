@@ -1,5 +1,6 @@
 package com.example.revolution.mob.event;
 
+import com.example.revolution.gameplay.GameplayDamageContext;
 import com.example.revolution.gameplay.GameplayDamageSource;
 import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.mob.service.ManagedMobService;
@@ -52,8 +53,11 @@ public final class ManagedMobEvents {
             BigDecimal hpBefore = managedHp(event.getEntityLiving().getCustomNameTag());
             EntityPlayerMP player = event.getSource().getTrueSource() instanceof EntityPlayerMP
                     ? (EntityPlayerMP) event.getSource().getTrueSource() : null;
-            GameplayDamageSource source = player != null && mobs.isApplyingPoisonDamage(player.getUniqueID())
-                    ? GameplayDamageSource.POISON : GameplayDamageSource.CLICK;
+            GameplayDamageSource source = GameplayDamageContext.current();
+            if (source == null) {
+                source = player != null && mobs.isApplyingPoisonDamage(player.getUniqueID())
+                        ? GameplayDamageSource.POISON : GameplayDamageSource.CLICK;
+            }
 
             event.setCanceled(true);
             mobs.applyDamage(event.getEntityLiving(), event.getSource(), event.getAmount());

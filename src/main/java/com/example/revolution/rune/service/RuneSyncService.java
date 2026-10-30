@@ -7,10 +7,13 @@ import com.example.revolution.network.RuneSlotPacket;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.rune.config.RuneEconomyConfig;
 import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
+import com.example.revolution.rune.repository.RuneCollectionStateRepository;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.entity.player.EntityPlayerMP;
 
@@ -18,6 +21,7 @@ public final class RuneSyncService {
     private final PlayerRepository players;
     private final RuneEnhancementRepository enhancements;
     private final RuneEnhancementBalanceService enhancementBalance;
+    private final RuneCollectionUnlockService collectionUnlocks;
 
     public RuneSyncService(
             PlayerRepository players,
@@ -26,12 +30,29 @@ public final class RuneSyncService {
         this.players = players;
         this.enhancements = enhancements;
         this.enhancementBalance = enhancementBalance;
+        this.collectionUnlocks = players instanceof RuneCollectionStateRepository
+                ? new RuneCollectionUnlockService(players, (RuneCollectionStateRepository) players)
+                : null;
     }
 
     public void sendCollectionState(EntityPlayerMP player) {
         List<String> collections = players.getCollectionNames(player.getUniqueID());
         int activeCollection = players.getActiveCollection(player.getUniqueID());
         NetworkHandler.sendToClient(RunePacketFactory.collections(collections, activeCollection), player);
+        if (collectionUnlocks == null) return;
+
+        List<Integer> progress = new ArrayList<>();
+        for (RuneCollectionId collection : RuneCollectionId.values()) {
+            progress.add(collectionUnlocks.improvedOrHigherProgress(player.getUniqueID(), collection));
+        }
+        NetworkHandler.sendToClient(
+                RunePacketFactory.collectionMetadata(
+                        collections,
+                        activeCollection,
+                        collectionUnlocks.unlocked(player.getUniqueID()),
+                        progress,
+                        collectionUnlocks.threshold()),
+                player);
     }
 
     public void sendRunes(EntityPlayerMP player, int collectionIndex) {

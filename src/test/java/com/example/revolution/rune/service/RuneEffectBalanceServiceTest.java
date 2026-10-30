@@ -7,6 +7,7 @@ import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.balance.validation.BalanceConfigValidator;
 import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.definition.RuneStatType;
 import java.util.List;
 
@@ -15,12 +16,14 @@ public final class RuneEffectBalanceServiceTest {
     public static void main(String[] args) {
         bundledPoisonBaseline();
         activeSnapshotOverride();
+        stableCollectionNamespace();
         System.out.println("Canonical rune effect groups, ranks, selectors and enhancement steps passed");
     }
 
     private static void bundledPoisonBaseline() {
         RuneEffectBalanceService service = new RuneEffectBalanceService(BalanceBootstrap.activateBundledDefaults());
         check(service.group(RuneStatusConfig.STATUS_POISON, 0).equals("killer_dagger"), "dagger slot mapping");
+        check(service.group(RuneCollectionId.COLLECTION_01, 0).equals("killer_dagger"), "C1 stable id keeps poison namespace");
         check(service.group(RuneStatusConfig.STATUS_POISON, 13).equals("snake_fang"), "fang slot mapping");
 
         RuneEffectBalanceService.ResolvedEffect dagger = only(service.effects(
@@ -87,6 +90,31 @@ public final class RuneEffectBalanceServiceTest {
         RuneEffectBalanceService.ResolvedEffect effect = only(service.effects(
                 RuneStatusConfig.STATUS_POISON, 0, 2, 2));
         check(close(effect.primaryValue, 16.5D), "active snapshot overrides bundled data");
+    }
+
+    private static void stableCollectionNamespace() {
+        BalanceService balance = new BalanceService(
+                new BalanceConfigParser(), new BalanceConfigValidator(),
+                new BalanceConfigCodec(), new BalanceCurveEngine());
+        balance.activate("{"
+                + "\"balanceSchemaVersion\":1,"
+                + "\"values\":{"
+                + "\"runes.collection_02.slot.0.group\":\"decay_flat_01\","
+                + "\"runes.collection_02.effect.decay_flat_01.count\":\"1\","
+                + "\"runes.collection_02.effect.decay_flat_01.1.type\":\"STAT\","
+                + "\"runes.collection_02.effect.decay_flat_01.1.tags\":\"decay,damage,flat\","
+                + "\"runes.collection_02.effect.decay_flat_01.1.target_selector\":\"SELF\","
+                + "\"runes.collection_02.effect.decay_flat_01.1.stat_type\":\"DECAY_DAMAGE_FLAT\","
+                + "\"runes.collection_02.effect.decay_flat_01.1.rank.1.primary\":\"5\","
+                + "\"runes.collection_02.effect.decay_flat_01.1.rank.2.primary\":\"15\","
+                + "\"runes.collection_02.effect.decay_flat_01.1.rank.3.primary\":\"45\","
+                + "\"runes.collection_02.effect.decay_flat_01.1.rank.4.primary\":\"135\"},"
+                + "\"curves\":{\"test\":{\"mode\":\"FIXED\",\"value\":\"1\"}}}");
+        RuneEffectBalanceService service = new RuneEffectBalanceService(balance);
+        RuneEffectBalanceService.ResolvedEffect effect = only(service.effects(
+                RuneCollectionId.COLLECTION_02, 0, 4, 0));
+        check(effect.statType == RuneStatType.DECAY_DAMAGE_FLAT, "C2 stable namespace stat type");
+        check(close(effect.primaryValue, 135.0D), "C2 Mythic value comes from collection namespace");
     }
 
     private static RuneEffectBalanceService.ResolvedEffect only(List<RuneEffectBalanceService.ResolvedEffect> values) {
