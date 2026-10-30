@@ -45,7 +45,8 @@ public final class PetService {
     }
 
     public synchronized PetPlayerState snapshot(UUID playerUuid) {
-        PetPlayerState state = repository.load(playerUuid);
+        RunContext ctx = run(playerUuid, true);
+        PetPlayerState state = ctx == null ? repository.load(playerUuid) : ctx.state;
         removeExpiredCooldowns(state, System.currentTimeMillis());
         return state.copy();
     }
@@ -187,8 +188,8 @@ public final class PetService {
 
     public synchronized List<PetDefinition> catalog() { return catalog.all(); }
     public synchronized BigDecimal nextNormalSlotCost(UUID playerUuid) {
-        PetPlayerState state = repository.load(playerUuid);
-        long purchases = state.run == null ? 0L : state.run.totalNormalSlotPurchasesThisRun;
+        RunContext ctx = run(playerUuid, true);
+        long purchases = ctx == null ? 0L : ctx.run.totalNormalSlotPurchasesThisRun;
         return balance.normalSlotCost(purchases + 1L);
     }
 
@@ -210,37 +211,38 @@ public final class PetService {
         return new RunContext(state, state.run);
     }
 
-    private static boolean owns(PetPlayerState state, PetPlayerState.RunState run, String petId) {
-        PetPlayerState.PetProgress p = state.pets.get(petId);
-        return run.purchasedPetIds.contains(petId) || (p != null && p.rank.isPersistentAcrossPrestige());
+    private boolean owns(PetPlayerState state, PetPlayerState.RunState run, String petId) {
+        PetPlayerState.PetProgress progress = state.pets.get(petId);
+        return (progress != null && progress.rank.isPersistentAcrossPrestige()) || run.purchasedPetIds.contains(petId);
     }
+
+    private void normalize(PetPlayerState state, PetPlayerState.RunState run) {
+        run.selectedPets.sort(Comparator
+                .<PetPlayerState.SelectedPet>comparingInt(s -> state.pet(s.petId).rank.progressionOrder()).reversed()
+                .thenComparingLong(s -> s.order)
+                .thenComparing(s -> s.petId));
+    }
+
     private static PetPlayerState.SelectedPet selected(PetPlayerState.RunState run, String petId) {
-        for (PetPlayerState.SelectedPet s : run.selectedPets) if (petId.equals(s.petId)) return s;
+        for (PetPlayerState.SelectedPet selected : run.selectedPets) if (selected.petId.equals(petId)) return selected;
         return null;
     }
+
     private static long nextOrder(PetPlayerState.RunState run) {
-        long max = 0L; for (PetPlayerState.SelectedPet s : run.selectedPets) max = Math.max(max, s.order); return max + 1L;
+        long max = 0L;
+        for (PetPlayerState.SelectedPet selected : run.selectedPets) max = Math.max(max, selected.order);
+        return max == Long.MAX_VALUE ? Long.MAX_VALUE : max + 1L;
     }
+
     private static void removeExpiredCooldowns(PetPlayerState state, long now) {
         if (state.run == null) return;
-        Iterator<Long> values = state.run.cooldownUntil.values().iterator();
-        while (values.hasNext()) if (values.next() <= now) values.remove();
-    }
-    private static void normalize(PetPlayerState state, PetPlayerState.RunState run) {
-        run.selectedPets.sort(new Comparator<PetPlayerState.SelectedPet>() {
-            @Override public int compare(PetPlayerState.SelectedPet a, PetPlayerState.SelectedPet b) {
-                PetRank ar = state.pets.containsKey(a.petId) ? state.pets.get(a.petId).rank : PetRank.ORDINARY;
-                PetRank br = state.pets.containsKey(b.petId) ? state.pets.get(b.petId).rank : PetRank.ORDINARY;
-                int rank = Integer.compare(br.progressionOrder(), ar.progressionOrder());
-                if (rank != 0) return rank;
-                int order = Long.compare(a.order, b.order);
-                return order != 0 ? order : a.petId.compareTo(b.petId);
-            }
-        });
+        Iterator<java.util.Map.Entry<String, Long>> iterator = state.run.cooldownUntil.entrySet().iterator();
+        while (iterator.hasNext()) if (iterator.next().getValue() <= now) iterator.remove();
     }
 
     private static final class RunContext {
-        final PetPlayerState state; final PetPlayerState.RunState run;
+        final PetPlayerState state;
+        final PetPlayerState.RunState run;
         RunContext(PetPlayerState state, PetPlayerState.RunState run) { this.state = state; this.run = run; }
     }
 }
