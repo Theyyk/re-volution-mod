@@ -72,6 +72,7 @@ import com.example.revolution.rune.service.RuneEnhancementBalanceService;
 import com.example.revolution.rune.service.RuneEnhancementPlanningService;
 import com.example.revolution.rune.service.RuneEnhancementService;
 import com.example.revolution.rune.service.RuneMobEffectService;
+import com.example.revolution.rune.service.RunePrestigeResetService;
 import com.example.revolution.rune.service.RunePurchaseBalanceService;
 import com.example.revolution.rune.service.RunePurchaseService;
 import com.example.revolution.rune.service.RuneRankUpBalanceService;
@@ -134,7 +135,12 @@ public final class ServerServices implements AutoCloseable {
 
         balance = BalanceBootstrap.activateBundledDefaults();
         PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
-        prestige = new PrestigeService(new MongoPrestigeRepository(connection, persistentGameplay), prestigeBranches);
+        RunePrestigeResetService runePrestigeReset = new RunePrestigeResetService(players);
+        prestige = new PrestigeService(
+                new MongoPrestigeRepository(connection, persistentGameplay),
+                prestigeBranches,
+                (playerUuid, branch) -> prestigeBranches.get(branch).defaultSaveMultiplier,
+                runePrestigeReset::reset);
         effects = new EffectResolver();
         effects.register(prestige);
         gameplayEvents = new PrestigeProgressRouter(prestige, prestigeBranches);
