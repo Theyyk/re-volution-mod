@@ -14,7 +14,7 @@ public final class RuneCombatState {
     /** Legacy C1 rage API: all-damage temporary effect. */
     public void activate(UUID player, long expiresAt) {
         if (player == null) return;
-        allDamageExpiryTicks.put(player, expiresAt);
+        allDamageExpiryTicks.merge(player, expiresAt, Math::max);
     }
 
     /** Legacy C1 rage API: all-damage temporary effect. */
