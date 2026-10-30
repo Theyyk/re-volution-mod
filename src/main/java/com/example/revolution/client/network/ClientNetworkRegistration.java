@@ -4,6 +4,8 @@ import com.example.revolution.network.FastAutoTogglePacket;
 import com.example.revolution.network.MobZoneOverlayPacket;
 import com.example.revolution.network.MobZoneOverlayRequestPacket;
 import com.example.revolution.network.NetworkHandler;
+import com.example.revolution.network.PetActionPacket;
+import com.example.revolution.network.PetSnapshotPacket;
 import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.PlayerStatsPacket;
 import com.example.revolution.network.PongPacket;
@@ -24,7 +26,6 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(RuneSlotPacketHandler.class, RuneSlotPacket.class, 2, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(RuneCollectionsPacketHandler.class, RuneCollectionsPacket.class, 3, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(PlayerStatsPacketHandler.class, PlayerStatsPacket.class, 4, Side.CLIENT);
-        // Discriminators 5 and 6 remain reserved for the removed Minecraft admin-panel transport.
         NetworkHandler.INSTANCE.registerMessage(RuneEnhancementPacketHandler.class, RuneEnhancementPacket.class, 7, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(MobZoneOverlayRequestClientHandler.class, MobZoneOverlayRequestPacket.class, 8, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(MobZoneOverlayPacketClientHandler.class, MobZoneOverlayPacket.class, 9, Side.CLIENT);
@@ -33,5 +34,7 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(StageTravelTeleportRequestClientHandler.class, StageTravelTeleportRequestPacket.class, 12, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(FastAutoTogglePacketClientHandler.class, FastAutoTogglePacket.class, 13, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(RuneCollectionMetadataPacketHandler.class, RuneCollectionMetadataPacket.class, 14, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(PetActionPacketClientHandler.class, PetActionPacket.class, 15, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(PetSnapshotPacketHandler.class, PetSnapshotPacket.class, 16, Side.CLIENT);
     }
 }
