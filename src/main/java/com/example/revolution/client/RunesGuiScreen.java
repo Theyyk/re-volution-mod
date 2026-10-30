@@ -69,11 +69,6 @@ public class RunesGuiScreen extends GuiScreen {
             new ItemStack(Items.GOLD_NUGGET)
     };
 
-    private static final int[] RUNE_STATS = {
-            4080, 2140, 2920, 1940, 2550,
-            3050, 2720, 2410, 3300, 2500
-    };
-
     private final RuneInventory inventory = new RuneInventory();
     private final List<String> collectionNames = new ArrayList<>();
 
@@ -101,14 +96,9 @@ public class RunesGuiScreen extends GuiScreen {
                 name = definition.name;
                 type = definition.type;
             }
-        } else {
-            RuneInventory.Entry entry = getRuneForVisualSlot(slot);
-            if (entry != null && entry.runeIndex >= 0 && entry.runeIndex < RUNE_NAMES.length) {
-                name = RUNE_NAMES[entry.runeIndex];
-                type = entry.runeIndex < RUNE_TYPES.length
-                        ? RUNE_TYPES[entry.runeIndex]
-                        : "Ресурс";
-            }
+        } else if (slot >= 0 && slot < VISIBLE_RUNE_SLOTS) {
+            name = TechnicalRuneTooltipContent.name(activeCollection, slot);
+            type = TechnicalRuneTooltipContent.type(activeCollection, slot);
         }
 
         return name.toLowerCase(java.util.Locale.ROOT).contains(query)
@@ -278,7 +268,7 @@ public class RunesGuiScreen extends GuiScreen {
 
         for (GuiButton button : buttonList) {
             if (button.id == BUY_BUTTON_ID) {
-                int collectionRank = RuneInventory.ADVANCED_RANK;
+                int collectionRank = RuneInventory.MYTHIC_RANK;
 
                 for (int slot = 0; slot < RuneInventory.BOOST_TYPE_COUNT; slot++) {
                     RuneInventory.Entry entry = inventory.get(slot);
@@ -290,7 +280,7 @@ public class RunesGuiScreen extends GuiScreen {
                 button.enabled = !full;
 
                 if (full) {
-                    button.displayString = collectionRank >= RuneInventory.ADVANCED_RANK
+                    button.displayString = collectionRank >= RuneInventory.MYTHIC_RANK
                             ? "Максимальный ранг"
                             : "Пробудить руну";
                 } else {
@@ -454,8 +444,8 @@ public class RunesGuiScreen extends GuiScreen {
         drawFittedString("Моб #1", rankSeparatorX + 8, y + 9,
                 x + layout.centerPanelWidth - 8 - rankSeparatorX - 8, TEXT_COLOR, true);
         drawFittedString("Базовая", x + 8, y + 29, 303, LINK_TEXT_COLOR, false);
-        drawFittedString("—", x + 8, y + 47, 24, MUTED_TEXT_COLOR, false);
-        int separatorX = x + 8 + fontRenderer.getStringWidth("—") + 7;
+        drawFittedString("-", x + 8, y + 47, 24, MUTED_TEXT_COLOR, false);
+        int separatorX = x + 8 + fontRenderer.getStringWidth("-") + 7;
         drawRect(separatorX, y + 48, separatorX + 1, y + 58, MUTED_TEXT_COLOR);
         int nameX = separatorX + 8;
         drawFittedString(mc.player == null ? "Игрок" : mc.player.getName(),
@@ -515,7 +505,7 @@ public class RunesGuiScreen extends GuiScreen {
         boolean hover = mouseX >= x && mouseX < x + size && mouseY >= y && mouseY < y + size;
         drawSurface(x, y, size, size, SLOT_BG_COLOR, hover ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
         drawLock(x + size / 2 - 6, y + size / 2 - 6, EQUIPMENT_LOCK_COLOR);
-        if (hover) equipmentTooltip = name + " — недоступно";
+        if (hover) equipmentTooltip = name + " - недоступно";
     }
 
     private void drawSmallLock(int x, int y) {
@@ -543,7 +533,7 @@ public class RunesGuiScreen extends GuiScreen {
         drawHeadingString("РУНЫ", titleX, titleY, layout.runePanelWidth / 2, HEADING_TEXT_COLOR, true);
         String count = activeCollection == 0
                 ? inventory.ownedCatalogSlotCount() + " из " + PrimaryRuneCatalog.size()
-                : inventory.occupiedTypeCount(RUNE_NAMES.length) + " из " + RUNE_NAMES.length;
+                : inventory.occupiedTypeCount(VISIBLE_RUNE_SLOTS) + " из " + VISIBLE_RUNE_SLOTS;
         fontRenderer.drawString(count,
                 layout.runePanelX + layout.runePanelWidth - pad - fontRenderer.getStringWidth(count), titleY, MUTED_TEXT_COLOR);
         drawSurface(titleX, layout.runePanelY + 30, layout.runePanelWidth - pad * 2, 19,
@@ -603,25 +593,18 @@ public class RunesGuiScreen extends GuiScreen {
         }
         boolean hovered = mouseX >= x && mouseX < x + layout.runeSlotWidth
                 && mouseY >= y && mouseY < y + layout.runeSlotHeight;
-        boolean futureType = visualIndex >= RUNE_NAMES.length;
-        int border = futureType ? PANEL_BORDER_COLOR : (hovered ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
-        drawSurface(x, y, layout.runeSlotWidth, layout.runeSlotHeight, hovered ? RUNE_HOVER_BG_COLOR : SLOT_BG_COLOR, border);
-        if (futureType) {
-            int markSize = Math.max(3, Math.min(scaled(8, 3), layout.runeSlotWidth - 4));
-            int markX = x + (layout.runeSlotWidth - markSize) / 2;
-            int markY = y + layout.runeSlotHeight / 2;
-            drawRect(markX, markY, markX + markSize, markY + 1, MUTED_TEXT_COLOR);
-            return;
-        }
+        int border = hovered ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR;
+        drawSurface(x, y, layout.runeSlotWidth, layout.runeSlotHeight,
+                hovered ? RUNE_HOVER_BG_COLOR : SLOT_BG_COLOR, border);
         RuneInventory.Entry rune = getRuneForVisualSlot(visualIndex);
         if (rune == null) return;
         drawRankCorners(x, y, layout.runeSlotWidth, layout.runeSlotHeight, getRankColor(rune.layer));
-        if (rune.runeIndex >= 0 && rune.runeIndex < RUNE_ICONS.length) {
-            String type = rune.runeIndex < RUNE_TYPES.length ? RUNE_TYPES[rune.runeIndex] : "Ресурс";
-            drawRuneIcon(RUNE_ICONS[rune.runeIndex], x, y, layout.runeSlotWidth, layout.runeSlotHeight, type);
-            drawSurface(x, y, layout.runeSlotWidth, layout.runeSlotHeight, 0, border);
-            drawRankCorners(x, y, layout.runeSlotWidth, layout.runeSlotHeight, getRankColor(rune.layer));
-        }
+        ItemStack icon = rune.runeIndex >= 0 && rune.runeIndex < RUNE_ICONS.length
+                ? RUNE_ICONS[rune.runeIndex] : new ItemStack(Items.PRISMARINE_SHARD);
+        String type = TechnicalRuneTooltipContent.type(activeCollection, rune.runeIndex);
+        drawRuneIcon(icon, x, y, layout.runeSlotWidth, layout.runeSlotHeight, type);
+        drawSurface(x, y, layout.runeSlotWidth, layout.runeSlotHeight, 0, border);
+        drawRankCorners(x, y, layout.runeSlotWidth, layout.runeSlotHeight, getRankColor(rune.layer));
     }
 
     private void drawPrimaryRuneSlot(int x, int y, int slot, int mouseX, int mouseY) {
@@ -753,17 +736,11 @@ public class RunesGuiScreen extends GuiScreen {
                 return;
             }
             RuneInventory.Entry rune = getRuneForVisualSlot(i);
-            if (rune == null || rune.runeIndex < 0 || rune.runeIndex >= RUNE_NAMES.length) return;
-            int runeIndex = rune.runeIndex;
-
-            List<String> tooltip = new ArrayList<>();
-            tooltip.add("§b" + RUNE_NAMES[runeIndex]);
-            tooltip.add("");
-            tooltip.add("§7Ранг: §f" + RuneProgression.rankName(rune.layer));
-            tooltip.add("§7Тип: §f" + (runeIndex < RUNE_TYPES.length ? RUNE_TYPES[runeIndex] : "Неизвестно"));
-            tooltip.add("§7Эффект: §a+" + RUNE_STATS[runeIndex]);
-            tooltip.add("§7Усиление: §f0");
-            drawCanvasTooltip(tooltip, mouseX, mouseY);
+            if (rune == null || rune.runeIndex < 0 || rune.runeIndex >= VISIBLE_RUNE_SLOTS) return;
+            List<String> tooltip = TechnicalRuneTooltipContent.lines(
+                    activeCollection, rune.runeIndex, rune.layer,
+                    ClientRuneEnhancements.levelOf(rune.runeIndex));
+            if (!tooltip.isEmpty()) drawCanvasTooltip(tooltip, mouseX, mouseY);
             return;
         }
     }
@@ -841,6 +818,7 @@ public class RunesGuiScreen extends GuiScreen {
     }
 
     private int getRankColor(int layer) {
+        if (layer >= RuneInventory.MYTHIC_RANK) return CRYSTAL_COLOR;
         if (layer >= RuneInventory.ADVANCED_RANK) return GOLD_COLOR;
         if (layer >= RuneInventory.IMPROVED_RANK) return TEXT_COLOR;
         return 0;
