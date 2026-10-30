@@ -9,35 +9,34 @@ import java.util.UUID;
 
 /** Server-authoritative Prestige run engine. */
 public final class PrestigeService implements EffectResolver.Source {
-    public interface AppliedResetParticipant {
-        void afterAppliedReset(UUID playerUuid);
-    }
-
+    public interface AppliedResetParticipant { void afterAppliedReset(UUID playerUuid); }
+    public interface FragmentRewardProvider { BigDecimal rewardPerLevel(PrestigeBranch branch); }
     private static final AppliedResetParticipant NO_RESET_PARTICIPANT = playerUuid -> { };
-
+    private static final FragmentRewardProvider DEFAULT_FRAGMENT_REWARDS = branch -> BigDecimal.ONE;
     private final PrestigeRepository repository;
     private final PrestigeBranchRegistry registry;
     private final PrestigeResetService resets;
     private final AppliedResetParticipant appliedResetParticipant;
+    private FragmentRewardProvider fragmentRewards = DEFAULT_FRAGMENT_REWARDS;
 
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry) {
         this(repository, registry, (player, branch) -> registry.get(branch).defaultSaveMultiplier, NO_RESET_PARTICIPANT);
     }
-
-    public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry,
-                           PrestigeResetService.SaveMultiplierProvider saveMultipliers) {
+    public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry, PrestigeResetService.SaveMultiplierProvider saveMultipliers) {
         this(repository, registry, saveMultipliers, NO_RESET_PARTICIPANT);
     }
-
-    public PrestigeService(
-            PrestigeRepository repository,
-            PrestigeBranchRegistry registry,
-            PrestigeResetService.SaveMultiplierProvider saveMultipliers,
-            AppliedResetParticipant appliedResetParticipant) {
+    public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry,
+                           PrestigeResetService.SaveMultiplierProvider saveMultipliers,
+                           AppliedResetParticipant appliedResetParticipant) {
         this.repository = repository;
         this.registry = registry;
         this.resets = new PrestigeResetService(repository, registry, saveMultipliers);
         this.appliedResetParticipant = appliedResetParticipant == null ? NO_RESET_PARTICIPANT : appliedResetParticipant;
+    }
+
+    /** Runtime wiring point; tests and legacy callers retain the established +1 default until configured. */
+    public synchronized void setFragmentRewardProvider(FragmentRewardProvider provider) {
+        fragmentRewards = provider == null ? DEFAULT_FRAGMENT_REWARDS : provider;
     }
 
     public synchronized PrestigeState.RunState startRun(UUID playerUuid, PrestigeBranch branch) {
@@ -63,51 +62,56 @@ public final class PrestigeService implements EffectResolver.Source {
         run.branchProgress = run.branchProgress.add(factualAmount);
         run.branchLevel = definition.levelFor(run.branchProgress);
         if (run.branchLevel > oldLevel) {
-            run.runBranchCurrency = run.runBranchCurrency.add(BigDecimal.valueOf(run.branchLevel - oldLevel));
+            BigDecimal rewardPerLevel = fragmentRewards.rewardPerLevel(sourceBranch);
+            if (rewardPerLevel == null || rewardPerLevel.signum() < 0) {
+                throw new IllegalStateException("Fragment reward must be non-negative for " + sourceBranch);
+            }
+            run.runBranchCurrency = run.runBranchCurrency.add(
+                    rewardPerLevel.multiply(BigDecimal.valueOf(run.branchLevel - oldLevel)));
         }
         for (PrestigeBranchRegistry.RankDefinition rank : definition.ranks) {
-            if (run.branchProgress.compareTo(rank.unlockProgress) >= 0 && !run.reachedRanks.contains(rank.rankId)) {
-                run.reachedRanks.add(rank.rankId);
-            }
+            if (run.branchProgress.compareTo(rank.unlockProgress) >= 0 && !run.reachedRanks.contains(rank.rankId)) run.reachedRanks.add(rank.rankId);
         }
         repository.save(playerUuid, state);
     }
 
-    public synchronized PrestigeResetService.ResetPreview previewReset(UUID playerUuid, String expectedRunId) {
-        return resets.preview(playerUuid, expectedRunId);
+    /** Run-scoped Fragment of Knowledge spending with stale-run rejection. */
+    public synchronized boolean spendRunBranchCurrency(UUID playerUuid, String expectedRunId, BigDecimal amount) {
+        if (playerUuid == null || expectedRunId == null || amount == null || amount.signum() < 0) return false;
+        PrestigeState state = repository.load(playerUuid);
+        PrestigeState.RunState run = state.activeRun;
+        if (run == null || !expectedRunId.equals(run.runId) || run.runBranchCurrency.compareTo(amount) < 0) return false;
+        run.runBranchCurrency = run.runBranchCurrency.subtract(amount);
+        repository.save(playerUuid, state);
+        return true;
     }
 
+    public synchronized PrestigeState.RunState activeRun(UUID playerUuid) {
+        PrestigeState state = repository.load(playerUuid);
+        return state.activeRun == null ? null : state.activeRun.copy();
+    }
+
+    public synchronized PrestigeResetService.ResetPreview previewReset(UUID playerUuid, String expectedRunId) { return resets.preview(playerUuid, expectedRunId); }
     public synchronized PrestigeResetService.ResetResult reset(UUID playerUuid, String expectedRunId) {
         PrestigeResetService.ResetResult result = resets.reset(playerUuid, expectedRunId);
-        if (result == PrestigeResetService.ResetResult.APPLIED) {
-            appliedResetParticipant.afterAppliedReset(playerUuid);
-        }
+        if (result == PrestigeResetService.ResetResult.APPLIED) appliedResetParticipant.afterAppliedReset(playerUuid);
         return result;
     }
-
     public synchronized PrestigeState snapshot(UUID playerUuid) { return repository.load(playerUuid).copy(); }
-
     public List<PrestigeBranch> branches() { return registry.branches(); }
-
     public String progressSource(PrestigeBranch branch) { return registry.get(branch).progressSource.toString(); }
 
-    @Override
-    public synchronized List<EffectResolver.Contribution> contributions(UUID playerUuid, EffectResolver.Stat stat) {
+    @Override public synchronized List<EffectResolver.Contribution> contributions(UUID playerUuid, EffectResolver.Stat stat) {
         PrestigeState state = repository.load(playerUuid);
         List<EffectResolver.Contribution> result = new ArrayList<>();
-
         for (PrestigeBranch branch : registry.branches()) {
             PrestigeState.BranchState permanent = state.branch(branch);
             PrestigeBranchRegistry.BranchDefinition definition = registry.get(branch);
             if (definition.permanentEffectStat != stat || definition.permanentBonusPerLevel.signum() <= 0) continue;
             int permanentLevels = definition.levelFor(permanent.bestSavedProgress);
-            if (permanentLevels > 0) {
-                result.add(new EffectResolver.Contribution(stat,
-                        definition.permanentBonusPerLevel.multiply(BigDecimal.valueOf(permanentLevels)),
-                        "prestige:permanent:" + branch));
-            }
+            if (permanentLevels > 0) result.add(new EffectResolver.Contribution(stat,
+                    definition.permanentBonusPerLevel.multiply(BigDecimal.valueOf(permanentLevels)), "prestige:permanent:" + branch));
         }
-
         PrestigeState.RunState run = state.activeRun;
         if (run == null) return Collections.unmodifiableList(result);
         PrestigeState.BranchState permanent = state.branch(run.activeBranch);

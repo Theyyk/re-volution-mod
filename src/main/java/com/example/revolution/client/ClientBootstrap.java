@@ -37,12 +37,12 @@ public final class ClientBootstrap {
         MinecraftForge.EVENT_BUS.register(new ClientRpgSurvivalGuard());
         MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());
+        MinecraftForge.EVENT_BUS.register(new PetTabUiHandler());
         RuneTexturePreloader.register();
 
         Minecraft minecraft = Minecraft.getMinecraft();
         GuiFontRenderer.get(minecraft);
         GuiFontRenderer.heading(minecraft);
-
         RevolutionMod.logger.info("RE:volution Mod client init done");
     }
 }
