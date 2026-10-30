@@ -60,7 +60,7 @@ public final class MongoSchemaContractTest {
         Document storedRune = new Document("slot", 28).append("cardIndex", 4).append("layer", 2).append("level", 7);
         Document collectionDoc = new Document("name", "Legacy").append("cards", new ArrayList<>(Arrays.asList(storedRune)))
                 .append("runeEnhancements", new Document("4", 12));
-        Document fixedCollectionDeck = new Document("name", "Collection 02")
+        Document fixedCollectionStorage = new Document("name", "Collection 02")
                 .append("cards", new ArrayList<Document>())
                 .append("runeEnhancements", new Document("0", 9));
         Document fixedMythic = new Document("slot", 0).append("cardIndex", 0).append("layer", 4).append("level", 1);
@@ -69,7 +69,7 @@ public final class MongoSchemaContractTest {
                         new Document("slots", new ArrayList<>(Arrays.asList(fixedMythic)))));
         current = new Document("_id", player.toString()).append("balance", 42).append("crystals", 8)
                 .append("activeDeck", 0)
-                .append("decks", new ArrayList<>(Arrays.asList(collectionDoc, fixedCollectionDeck)))
+                .append("decks", new ArrayList<>(Arrays.asList(collectionDoc, fixedCollectionStorage)))
                 .append("runeCollections", runeRoot)
                 .append("resources", new Document("rune_dust", "12345678901234567890.5"));
 
@@ -106,7 +106,7 @@ public final class MongoSchemaContractTest {
         MongoRuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
         check(enhancements.getLevels(player, 0)[4] == 12, "fixed-slot enhancement reads");
         check(enhancements.getLevels(player, 1)[0] == 9,
-                "v2.3 fixed collection enhancement survives restart through compatibility deck storage");
+                "v2.3 fixed collection enhancement survives restart through compatibility storage");
         enhancements.addLevels(player, 0, 4, 3);
         check(update.get("$inc", Document.class).getInteger("decks.0.runeEnhancements.4") == 3, "enhancement dotted update path");
         enhancements.addLevels(player, 1, 0, 2);
