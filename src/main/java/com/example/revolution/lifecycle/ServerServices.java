@@ -45,12 +45,18 @@ import com.example.revolution.persistence.MongoLocationRepository;
 import com.example.revolution.persistence.MongoLocationStageTemplateRepository;
 import com.example.revolution.persistence.MongoMobProgressionRepository;
 import com.example.revolution.persistence.MongoMobRepository;
+import com.example.revolution.persistence.MongoPetRepository;
 import com.example.revolution.persistence.MongoPlayerRepository;
 import com.example.revolution.persistence.MongoPrestigeRepository;
 import com.example.revolution.persistence.MongoResourceRepository;
 import com.example.revolution.persistence.MongoRuneEnhancementRepository;
 import com.example.revolution.persistence.MongoStageTransitionPreferenceRepository;
 import com.example.revolution.persistence.MongoStageTransitionTriggerRepository;
+import com.example.revolution.pet.definition.PetCatalog;
+import com.example.revolution.pet.repository.PetRepository;
+import com.example.revolution.pet.service.PetBalanceService;
+import com.example.revolution.pet.service.PetEffectSource;
+import com.example.revolution.pet.service.PetService;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerCollectionService;
 import com.example.revolution.player.service.PlayerSessionService;
@@ -120,6 +126,8 @@ public final class ServerServices implements AutoCloseable {
     public final PrestigeService prestige;
     public final EffectResolver effects;
     public final GameplayEventSink gameplayEvents;
+    public final PetService pets;
+    public final PetEffectSource petEffects;
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         this.logger = logger;
@@ -134,6 +142,7 @@ public final class ServerServices implements AutoCloseable {
         StageTransitionPreferenceRepository transitionPreferences = new MongoStageTransitionPreferenceRepository(connection, persistentGameplay);
         FastAutoPreferenceRepository fastAutoPreferences = new MongoFastAutoPreferenceRepository(connection, persistentGameplay);
         RuneEnhancementRepository enhancements = new MongoRuneEnhancementRepository(connection);
+        PetRepository petRepository = new MongoPetRepository(connection, persistentGameplay);
 
         balance = BalanceBootstrap.activateBundledDefaults();
         PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
@@ -148,6 +157,11 @@ public final class ServerServices implements AutoCloseable {
         gameplayEvents = new PrestigeProgressRouter(prestige, prestigeBranches);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
         resources.setGameplayEventSink(gameplayEvents);
+        PetCatalog petCatalog = new PetCatalog();
+        PetBalanceService petBalance = new PetBalanceService(balance);
+        pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
+        petEffects = new PetEffectSource(petRepository, petCatalog, petBalance);
+        effects.register(petEffects);
 
         MobRepository storedMobRepository = new MongoMobRepository(connection, persistentGameplay);
         MobRepository mobRepository = new BalanceAwareMobRepository(storedMobRepository, new MobBalanceService(balance));
