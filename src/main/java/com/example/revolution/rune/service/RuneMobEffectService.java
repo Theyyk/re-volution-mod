@@ -1,7 +1,9 @@
 package com.example.revolution.rune.service;
 
+import com.example.revolution.rune.definition.RuneDamageChannel;
 import com.example.revolution.rune.rules.MobRewardBonus;
 import com.example.revolution.rune.rules.RuneCombatMath;
+import com.example.revolution.rune.rules.RuneDamageMath;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -15,7 +17,14 @@ public final class RuneMobEffectService {
         this.rewards = rewards;
     }
 
-    /** Null retains the existing distinction between no active status and zero damage. */
+    /** Null retains the existing distinction between no active rune collection and zero damage. */
+    public Double statusDamage(UUID player, RuneDamageChannel channel, long worldTick) {
+        if (channel == null || channel == RuneDamageChannel.CLICK) return null;
+        RuneDamageMath.Snapshot snapshot = combat.resolveDamage(player, worldTick);
+        return snapshot == null ? null : RuneDamageMath.statusDamage(channel, snapshot);
+    }
+
+    /** Compatibility facade for the existing poison caller while runtime migrates to generic channels. */
     public Double poisonDamage(UUID player, long worldTick) {
         RuneCombatMath.Snapshot snapshot = combat.resolve(player, worldTick);
         return snapshot == null ? null : RuneCombatMath.poisonDamage(snapshot);
