@@ -25,6 +25,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class RuneCombatService {
     private static final class Aggregate {
         final RuneDamageMath.Snapshot damage = new RuneDamageMath.Snapshot();
+        final Map<RuneDamageChannel, Double> temporaryDamageMultipliers =
+                new EnumMap<>(RuneDamageChannel.class);
         double clickProcChancePercent;
         double clickProcDamageMultiplier = 1.0D;
         double temporaryAllDamageMultiplier = 1.0D;
@@ -76,13 +78,18 @@ public final class RuneCombatService {
         return aggregate == null || !aggregate.hasCollection ? null : aggregate.damage;
     }
 
-    /** Generic damage snapshot including the currently active temporary all-damage effect. */
+    /** Generic damage snapshot including currently active global and channel-targeted temporary effects. */
     public RuneDamageMath.Snapshot resolveDamage(UUID uuid, long worldTick) {
         Aggregate aggregate = resolveAggregate(uuid);
         if (aggregate == null || !aggregate.hasCollection) return null;
         if (aggregate.temporaryAllDamageMultiplier > 1.0D && isRageActive(uuid, worldTick)) {
             aggregate.damage.temporaryAllDamageActive = true;
             aggregate.damage.temporaryAllDamageMultiplier = aggregate.temporaryAllDamageMultiplier;
+        }
+        for (Map.Entry<RuneDamageChannel, Double> entry : aggregate.temporaryDamageMultipliers.entrySet()) {
+            if (state.isActive(uuid, entry.getKey(), worldTick)) {
+                aggregate.damage.channel(entry.getKey()).multiplier *= Math.max(0.0D, entry.getValue());
+            }
         }
         return aggregate.damage;
     }
@@ -187,9 +194,13 @@ public final class RuneCombatService {
                         }
                         break;
                     case TEMPORARY_ALL_DAMAGE_MULTIPLIER:
-                    case TEMPORARY_DAMAGE_MULTIPLIER:
                         aggregate.temporaryAllDamageMultiplier = Math.max(
                                 aggregate.temporaryAllDamageMultiplier, primary);
+                        break;
+                    case TEMPORARY_DAMAGE_MULTIPLIER:
+                        if (target != null) {
+                            aggregate.temporaryDamageMultipliers.merge(target, primary, Math::max);
+                        }
                         break;
                     case TARGETED_POWER:
                     case EFFECTIVENESS:
@@ -240,7 +251,6 @@ public final class RuneCombatService {
                 inventory.set(rune.slot, rune.runeIndex, rune.layer);
             }
             int[] enhancementLevels = enhancements.getLevels(uuid, collectionId.legacyIndex());
-            double durationMultiplier = temporaryDurationMultiplier(collectionId, inventory, enhancementLevels);
 
             for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
                 RuneInventory.Entry owned = inventory.getBoost(rune);
@@ -250,11 +260,19 @@ public final class RuneCombatService {
                         collectionId, rune, owned.layer, enhancementLevel)) {
                     if ((effect.type != RuneEffectBalanceService.EffectType.TEMPORARY_ALL_DAMAGE_MULTIPLIER
                             && effect.type != RuneEffectBalanceService.EffectType.TEMPORARY_DAMAGE_MULTIPLIER)
-                            || !"HIT_MOB".equalsIgnoreCase(effect.targetSelector)
+                            || !isHitTriggered(effect)
                             || effect.maxStacks < 1) continue;
-                    long durationTicks = Math.max(1L, Math.round(effect.durationSeconds * durationMultiplier * 20.0D));
-                    state.activate(uuid, worldTick + durationTicks);
-                    return;
+                    RuneDamageChannel target = effect.type == RuneEffectBalanceService.EffectType.TEMPORARY_DAMAGE_MULTIPLIER
+                            ? effectChannel(effect) : null;
+                    if (effect.type == RuneEffectBalanceService.EffectType.TEMPORARY_DAMAGE_MULTIPLIER && target == null) {
+                        continue;
+                    }
+                    double durationMultiplier = temporaryDurationMultiplier(
+                            collectionId, inventory, enhancementLevels, target);
+                    long durationTicks = Math.max(1L,
+                            Math.round(effect.durationSeconds * durationMultiplier * 20.0D));
+                    if (target == null) state.activate(uuid, worldTick + durationTicks);
+                    else state.activate(uuid, target, worldTick + durationTicks);
                 }
             }
         }
@@ -265,7 +283,10 @@ public final class RuneCombatService {
     }
 
     private double temporaryDurationMultiplier(
-            RuneCollectionId collectionId, RuneInventory inventory, int[] enhancementLevels) {
+            RuneCollectionId collectionId,
+            RuneInventory inventory,
+            int[] enhancementLevels,
+            RuneDamageChannel target) {
         double multiplier = 1.0D;
         for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
             RuneInventory.Entry owned = inventory.getBoost(rune);
@@ -273,12 +294,19 @@ public final class RuneCombatService {
             int enhancementLevel = enhancementLevel(enhancementLevels, rune);
             for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
                     collectionId, rune, owned.layer, enhancementLevel)) {
-                if (effect.type == RuneEffectBalanceService.EffectType.TEMPORARY_EFFECT_DURATION) {
-                    multiplier *= Math.max(0.0D, effect.primaryValue);
-                }
+                if (effect.type != RuneEffectBalanceService.EffectType.TEMPORARY_EFFECT_DURATION) continue;
+                RuneDamageChannel durationTarget = effectChannel(effect);
+                if (target != null && durationTarget != target) continue;
+                multiplier *= Math.max(0.0D, effect.primaryValue);
             }
         }
         return multiplier;
+    }
+
+    private boolean isHitTriggered(RuneEffectBalanceService.ResolvedEffect effect) {
+        if (effect == null) return false;
+        if ("HIT_MOB".equalsIgnoreCase(effect.trigger)) return true;
+        return effect.trigger == null && "HIT_MOB".equalsIgnoreCase(effect.targetSelector);
     }
 
     private RuneCollectionId[] availableCollections(UUID uuid) {
