@@ -11,12 +11,14 @@ import static org.junit.jupiter.api.Assertions.*;
 public class MongoPetRepositoryTest {
     @Test public void encodeDecodeRoundTripPreservesPermanentAndRunState() {
         PetPlayerState state = sampleState();
+        state.pets.get("pet_03").appliedLevelXp = new BigDecimal("50");
         PetPlayerState restored = MongoPetRepository.decode(MongoPetRepository.encode(state));
 
         assertEquals(2, restored.premiumPetSlotsUnlocked);
         assertEquals(PetRank.ADVANCED, restored.pets.get("pet_03").rank);
         assertEquals(BigInteger.valueOf(9L), restored.pets.get("pet_03").level);
         assertEquals(0, new BigDecimal("77.25").compareTo(restored.pets.get("pet_03").xp));
+        assertEquals(0, new BigDecimal("50").compareTo(restored.pets.get("pet_03").appliedLevelXp));
         assertEquals("run-1", restored.run.runId);
         assertEquals(5, restored.run.normalSlotsUnlockedThisRun);
         assertEquals(6L, restored.run.totalNormalSlotPurchasesThisRun);
@@ -26,8 +28,20 @@ public class MongoPetRepositoryTest {
         assertEquals(999L, restored.run.lastPetXpAccrualAt);
     }
 
+    @Test public void legacyV240PetXpLoadsWithoutDestructiveRecalculation() {
+        Document legacy = new Document("schemaVersion", 1)
+                .append("premiumPetSlotsUnlocked", 0)
+                .append("pets", new Document("pet_03", new Document("rank", "ADVANCED")
+                        .append("level", "9").append("xp", "77.25")));
+        PetPlayerState restored = MongoPetRepository.decode(legacy);
+        assertEquals(BigInteger.valueOf(9L), restored.pets.get("pet_03").level);
+        assertEquals(0, new BigDecimal("77.25").compareTo(restored.pets.get("pet_03").xp));
+        assertEquals(0, BigDecimal.ZERO.compareTo(restored.pets.get("pet_03").appliedLevelXp));
+    }
+
     @Test public void prestigeWipesLowerRanksAndRunStateWhilePreservingAdvancedPlus() {
         PetPlayerState state = sampleState();
+        state.pets.get("pet_03").appliedLevelXp = new BigDecimal("50");
         Document reset = MongoPetRepository.resetForPrestige(
                 new Document("petSystem", MongoPetRepository.encode(state)));
         PetPlayerState restored = MongoPetRepository.decode(reset);
@@ -38,6 +52,7 @@ public class MongoPetRepositoryTest {
         assertEquals(PetRank.ADVANCED, restored.pets.get("pet_03").rank);
         assertEquals(BigInteger.valueOf(9L), restored.pets.get("pet_03").level);
         assertEquals(0, new BigDecimal("77.25").compareTo(restored.pets.get("pet_03").xp));
+        assertEquals(0, new BigDecimal("50").compareTo(restored.pets.get("pet_03").appliedLevelXp));
         assertEquals(PetRank.MYTHIC, restored.pets.get("pet_04").rank);
 
         assertNotNull(restored.run);
