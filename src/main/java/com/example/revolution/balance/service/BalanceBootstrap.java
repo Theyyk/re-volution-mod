@@ -16,7 +16,10 @@ import java.util.Map;
 /** Creates the runtime BalanceService from the bundled canonical baseline plus version overlays. */
 public final class BalanceBootstrap {
     private static final String DEFAULT_RESOURCE = "/balance/default-balance.json";
-    private static final String V230_RUNE_RESOURCE = "/balance/v2.3.0-rune-collections.json";
+    private static final String[] VERSION_OVERLAYS = {
+            "/balance/v2.3.0-rune-collections.json",
+            "/balance/v2.3.0-rune-status-template.json"
+    };
 
     private BalanceBootstrap() {}
 
@@ -30,9 +33,10 @@ public final class BalanceBootstrap {
                 codec,
                 new BalanceCurveEngine());
 
-        BalanceConfig baseline = parser.parse(readResource(DEFAULT_RESOURCE));
-        BalanceConfig runeOverlay = parser.parse(readResource(V230_RUNE_RESOURCE));
-        BalanceConfig merged = merge(baseline, runeOverlay);
+        BalanceConfig merged = parser.parse(readResource(DEFAULT_RESOURCE));
+        for (String overlayPath : VERSION_OVERLAYS) {
+            merged = merge(merged, parser.parse(readResource(overlayPath)));
+        }
         service.activate(codec.canonicalJson(merged));
         return service;
     }
