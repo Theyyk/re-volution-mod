@@ -2,6 +2,7 @@ package com.example.revolution.rune.service;
 
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.definition.RuneStatType;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,31 +67,51 @@ public final class RuneEffectBalanceService {
         this.balance = balance;
     }
 
+    /** Legacy C1/status facade retained byte-for-byte at the caller boundary. */
     public String group(int statusId, int slot) {
+        return group(legacyNamespace(statusId), slot);
+    }
+
+    /** Stable v2.3.0 collection identity, independent from GUI position and legacy status ids. */
+    public String group(RuneCollectionId collectionId, int slot) {
+        return group(collectionNamespace(collectionId), slot);
+    }
+
+    private String group(String namespace, int slot) {
         if (slot < 0) throw new IllegalArgumentException("slot must be >= 0");
-        return required(statusId, "slot." + slot + ".group");
+        return required(namespace, "slot." + slot + ".group");
     }
 
     public List<ResolvedEffect> effects(int statusId, int slot, int rank, int enhancementLevel) {
+        return effects(legacyNamespace(statusId), slot, rank, enhancementLevel);
+    }
+
+    public List<ResolvedEffect> effects(
+            RuneCollectionId collectionId, int slot, int rank, int enhancementLevel) {
+        return effects(collectionNamespace(collectionId), slot, rank, enhancementLevel);
+    }
+
+    private List<ResolvedEffect> effects(
+            String namespace, int slot, int rank, int enhancementLevel) {
         if (rank <= 0) return Collections.emptyList();
-        String group = group(statusId, slot);
-        int count = positiveInt(required(statusId, "effect." + group + ".count"), "effect count");
+        String group = group(namespace, slot);
+        int count = positiveInt(required(namespace, "effect." + group + ".count"), "effect count");
         List<ResolvedEffect> result = new ArrayList<>(count);
         for (int index = 1; index <= count; index++) {
             String prefix = "effect." + group + "." + index + ".";
-            EffectType type = enumValue(EffectType.class, required(statusId, prefix + "type"), "effect type");
-            String tags = required(statusId, prefix + "tags");
-            String target = required(statusId, prefix + "target_selector");
-            String statTypeRaw = optional(statusId, prefix + "stat_type");
+            EffectType type = enumValue(EffectType.class, required(namespace, prefix + "type"), "effect type");
+            String tags = required(namespace, prefix + "tags");
+            String target = required(namespace, prefix + "target_selector");
+            String statTypeRaw = optional(namespace, prefix + "stat_type");
             RuneStatType statType = statTypeRaw == null ? null
                     : enumValue(RuneStatType.class, statTypeRaw, "stat type");
-            boolean acceptsTargetedPower = booleanValue(optional(statusId, prefix + "accepts_targeted_power"), false);
-            double enhancementStep = nonNegative(optionalDouble(statusId, prefix + "enhancement_step", 0.0D), "enhancement step");
-            String enhancementField = optional(statusId, prefix + "enhancement_field");
+            boolean acceptsTargetedPower = booleanValue(optional(namespace, prefix + "accepts_targeted_power"), false);
+            double enhancementStep = nonNegative(optionalDouble(namespace, prefix + "enhancement_step", 0.0D), "enhancement step");
+            String enhancementField = optional(namespace, prefix + "enhancement_field");
             double enhancementMultiplier = 1.0D + Math.max(0, enhancementLevel) * enhancementStep;
 
-            double rawPrimary = rankDouble(statusId, prefix, rank, "primary", 0.0D);
-            double rawSecondary = rankDouble(statusId, prefix, rank, "secondary", 0.0D);
+            double rawPrimary = rankDouble(namespace, prefix, rank, "primary", 0.0D);
+            double rawSecondary = rankDouble(namespace, prefix, rank, "secondary", 0.0D);
             double primary = rawPrimary;
             double secondary = rawSecondary;
             if ("PRIMARY".equalsIgnoreCase(enhancementField)) primary *= enhancementMultiplier;
@@ -100,51 +121,61 @@ public final class RuneEffectBalanceService {
             }
 
             // TARGETED_POWER already carries its own rank/enhancement value. It is summed by target group
-            // and added once to the target flat value before shared click/poison multipliers.
+            // and added once to the target flat value before shared channel multipliers.
             double targetedPowerScale = 1.0D;
 
-            double baseDuration = nonNegative(optionalDouble(statusId, prefix + "duration_seconds", 0.0D), "duration");
+            double baseDuration = nonNegative(optionalDouble(namespace, prefix + "duration_seconds", 0.0D), "duration");
             double duration = nonNegative(
-                    optionalDouble(statusId, prefix + "rank." + rank + ".duration_seconds", baseDuration),
+                    optionalDouble(namespace, prefix + "rank." + rank + ".duration_seconds", baseDuration),
                     "duration");
-            int maxStacks = nonNegativeInt(optional(statusId, prefix + "max_stacks"), 0, "max stacks");
+            int maxStacks = nonNegativeInt(optional(namespace, prefix + "max_stacks"), 0, "max stacks");
             result.add(new ResolvedEffect(group, index, type, tags, target, statType,
                     acceptsTargetedPower, targetedPowerScale, primary, secondary, duration, maxStacks));
         }
         return Collections.unmodifiableList(result);
     }
 
-    private double rankDouble(int statusId, String prefix, int rank, String field, double fallback) {
-        return nonNegative(optionalDouble(statusId, prefix + "rank." + rank + "." + field, fallback), field);
+    private double rankDouble(String namespace, String prefix, int rank, String field, double fallback) {
+        return nonNegative(optionalDouble(namespace, prefix + "rank." + rank + "." + field, fallback), field);
     }
 
-    private String required(int statusId, String suffix) {
-        String value = optional(statusId, suffix);
+    private String required(String namespace, String suffix) {
+        String value = optional(namespace, suffix);
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalStateException("missing rune effect balance value: " + key(statusId, suffix));
+            throw new IllegalStateException("missing rune effect balance value: " + key(namespace, suffix));
         }
         return value.trim();
     }
 
-    private String optional(int statusId, String suffix) {
-        if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
-        String value = balance.getActiveSnapshot().getConfig().getValue(key(statusId, suffix));
+    private String optional(String namespace, String suffix) {
+        String value = balance.getActiveSnapshot().getConfig().getValue(key(namespace, suffix));
         return value == null ? null : value.trim();
     }
 
-    private String key(int statusId, String suffix) {
-        return "runes." + RuneStatusConfig.statusKey(statusId) + "." + suffix;
+    private String key(String namespace, String suffix) {
+        return "runes." + namespace + "." + suffix;
     }
 
-    private double optionalDouble(int statusId, String suffix, double fallback) {
-        String raw = optional(statusId, suffix);
+    private String legacyNamespace(int statusId) {
+        if (!RuneStatusConfig.isRuneStatus(statusId)) throw new IllegalArgumentException("status id must be positive");
+        return RuneStatusConfig.statusKey(statusId);
+    }
+
+    private String collectionNamespace(RuneCollectionId collectionId) {
+        if (collectionId == null) throw new IllegalArgumentException("collection id is required");
+        // Collection 1 keeps the existing production Balance Core namespace for backward compatibility.
+        return collectionId == RuneCollectionId.COLLECTION_01 ? "poison" : collectionId.id();
+    }
+
+    private double optionalDouble(String namespace, String suffix, double fallback) {
+        String raw = optional(namespace, suffix);
         if (raw == null) return fallback;
         try {
             double value = Double.parseDouble(raw);
             if (!Double.isFinite(value)) throw new NumberFormatException("non-finite");
             return value;
         } catch (NumberFormatException e) {
-            throw new IllegalStateException("invalid numeric rune effect value " + key(statusId, suffix) + "=" + raw, e);
+            throw new IllegalStateException("invalid numeric rune effect value " + key(namespace, suffix) + "=" + raw, e);
         }
     }
 
