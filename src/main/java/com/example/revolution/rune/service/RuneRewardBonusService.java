@@ -2,7 +2,6 @@ package com.example.revolution.rune.service;
 
 import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.player.repository.PlayerRepository;
-import com.example.revolution.rune.config.RuneStatusConfig;
 import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.definition.RuneStatType;
 import com.example.revolution.rune.repository.RuneCollectionStateRepository;
@@ -40,8 +39,8 @@ public final class RuneRewardBonusService {
         if (uuid == null || targetType == null) return 0.0D;
 
         int collectionIndex = players.getActiveCollection(uuid);
-        if (!isCollectionUnlocked(uuid, collectionIndex)) return 0.0D;
-        if (RuneStatusConfig.statusForCollection(collectionIndex) != RuneStatusConfig.STATUS_POISON) return 0.0D;
+        RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (collectionId == null || !isCollectionUnlocked(uuid, collectionId)) return 0.0D;
 
         RuneInventory inventory = new RuneInventory();
         List<RuneRecord> runes = players.getRunesInCollection(uuid, collectionIndex);
@@ -58,7 +57,7 @@ public final class RuneRewardBonusService {
             int enhancementLevel = enhancementLevels != null && rune < enhancementLevels.length
                     ? Math.max(0, enhancementLevels[rune]) : 0;
             for (RuneEffectBalanceService.ResolvedEffect effect : effectBalance.effects(
-                    RuneStatusConfig.STATUS_POISON, rune, owned.layer, enhancementLevel)) {
+                    collectionId, rune, owned.layer, enhancementLevel)) {
                 if (effect.type != RuneEffectBalanceService.EffectType.STAT || effect.statType != targetType) continue;
                 total += effect.primaryValue;
             }
@@ -66,10 +65,9 @@ public final class RuneRewardBonusService {
         return Double.isFinite(total) ? Math.max(0.0D, total) : 0.0D;
     }
 
-    private boolean isCollectionUnlocked(UUID uuid, int collectionIndex) {
-        RuneCollectionId id = RuneCollectionId.fromLegacyIndex(collectionIndex);
-        if (id == null) return false;
+    private boolean isCollectionUnlocked(UUID uuid, RuneCollectionId collectionId) {
+        if (collectionId == null) return false;
         if (!(players instanceof RuneCollectionStateRepository)) return true;
-        return ((RuneCollectionStateRepository) players).getUnlockedCollections(uuid).contains(id);
+        return ((RuneCollectionStateRepository) players).getUnlockedCollections(uuid).contains(collectionId);
     }
 }
