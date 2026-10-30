@@ -13,8 +13,6 @@ import java.util.UUID;
  * v2.4.0 intentionally registers no concrete offers until rates/products receive a separate product decision.
  */
 public final class RunExchangeService {
-    public static final String FRAGMENT_DISPLAY_NAME = "Фрагменты знаний";
-
     public enum Result { APPLIED, UNKNOWN_OFFER, NO_ACTIVE_RUN, STALE_RUN, INSUFFICIENT_FRAGMENTS, INVALID_TARGET }
 
     private final PrestigeService prestige;
