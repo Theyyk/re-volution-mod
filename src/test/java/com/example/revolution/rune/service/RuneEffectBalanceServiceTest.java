@@ -17,7 +17,8 @@ public final class RuneEffectBalanceServiceTest {
         bundledPoisonBaseline();
         activeSnapshotOverride();
         stableCollectionNamespace();
-        System.out.println("Canonical rune effect groups, ranks, selectors and enhancement steps passed");
+        genericEffectContracts();
+        System.out.println("Canonical rune effect groups, ranks, selectors and generic timed contracts passed");
     }
 
     private static void bundledPoisonBaseline() {
@@ -115,6 +116,62 @@ public final class RuneEffectBalanceServiceTest {
                 RuneCollectionId.COLLECTION_02, 0, 4, 0));
         check(effect.statType == RuneStatType.DECAY_DAMAGE_FLAT, "C2 stable namespace stat type");
         check(close(effect.primaryValue, 135.0D), "C2 Mythic value comes from collection namespace");
+    }
+
+    private static void genericEffectContracts() {
+        BalanceService balance = new BalanceService(
+                new BalanceConfigParser(), new BalanceConfigValidator(),
+                new BalanceConfigCodec(), new BalanceCurveEngine());
+        balance.activate("{\"balanceSchemaVersion\":1,\"values\":{"
+                + "\"runes.collection_02.slot.0.group\":\"delayed\","
+                + "\"runes.collection_02.effect.delayed.count\":\"1\","
+                + "\"runes.collection_02.effect.delayed.1.type\":\"DELAYED_DAMAGE_BONUS\","
+                + "\"runes.collection_02.effect.delayed.1.tags\":\"poison,timed\","
+                + "\"runes.collection_02.effect.delayed.1.target_selector\":\"POISON\","
+                + "\"runes.collection_02.effect.delayed.1.trigger\":\"HIT_MOB\","
+                + "\"runes.collection_02.effect.delayed.1.condition\":\"TARGET_ALIVE\","
+                + "\"runes.collection_02.effect.delayed.1.rank.2.primary\":\"1.25\","
+                + "\"runes.collection_02.effect.delayed.1.rank.2.delay_seconds\":\"2.5\","
+                + "\"runes.collection_02.slot.1.group\":\"temporary\","
+                + "\"runes.collection_02.effect.temporary.count\":\"1\","
+                + "\"runes.collection_02.effect.temporary.1.type\":\"TEMPORARY_DAMAGE_MULTIPLIER\","
+                + "\"runes.collection_02.effect.temporary.1.tags\":\"poison,timed\","
+                + "\"runes.collection_02.effect.temporary.1.target_selector\":\"POISON\","
+                + "\"runes.collection_02.effect.temporary.1.trigger\":\"HIT_MOB\","
+                + "\"runes.collection_02.effect.temporary.1.rank.2.primary\":\"1.4\","
+                + "\"runes.collection_02.effect.temporary.1.rank.2.duration_seconds\":\"4\","
+                + "\"runes.collection_02.slot.2.group\":\"duration\","
+                + "\"runes.collection_02.effect.duration.count\":\"1\","
+                + "\"runes.collection_02.effect.duration.1.type\":\"TEMPORARY_EFFECT_DURATION\","
+                + "\"runes.collection_02.effect.duration.1.tags\":\"timed,duration\","
+                + "\"runes.collection_02.effect.duration.1.target_selector\":\"temporary\","
+                + "\"runes.collection_02.effect.duration.1.rank.2.primary\":\"1.3\","
+                + "\"runes.collection_02.slot.3.group\":\"enhancement_effectiveness\","
+                + "\"runes.collection_02.effect.enhancement_effectiveness.count\":\"1\","
+                + "\"runes.collection_02.effect.enhancement_effectiveness.1.type\":\"ENHANCEMENT_EFFECTIVENESS\","
+                + "\"runes.collection_02.effect.enhancement_effectiveness.1.tags\":\"poison,enhancement\","
+                + "\"runes.collection_02.effect.enhancement_effectiveness.1.target_selector\":\"POISON\","
+                + "\"runes.collection_02.effect.enhancement_effectiveness.1.rank.2.primary\":\"1.15\"},"
+                + "\"curves\":{\"test\":{\"mode\":\"FIXED\",\"value\":\"1\"}}}");
+        RuneEffectBalanceService service = new RuneEffectBalanceService(balance);
+
+        RuneEffectBalanceService.ResolvedEffect delayed = only(service.effects(RuneCollectionId.COLLECTION_02, 0, 2, 0));
+        check(delayed.type == RuneEffectBalanceService.EffectType.DELAYED_DAMAGE_BONUS, "delayed effect type");
+        check("HIT_MOB".equals(delayed.trigger), "delayed trigger");
+        check("TARGET_ALIVE".equals(delayed.condition), "delayed condition");
+        check(close(delayed.primaryValue, 1.25D) && close(delayed.delaySeconds, 2.5D), "delayed params");
+
+        RuneEffectBalanceService.ResolvedEffect temporary = only(service.effects(RuneCollectionId.COLLECTION_02, 1, 2, 0));
+        check(temporary.type == RuneEffectBalanceService.EffectType.TEMPORARY_DAMAGE_MULTIPLIER, "temporary effect type");
+        check(close(temporary.primaryValue, 1.4D) && close(temporary.durationSeconds, 4.0D), "temporary params");
+
+        RuneEffectBalanceService.ResolvedEffect duration = only(service.effects(RuneCollectionId.COLLECTION_02, 2, 2, 0));
+        check(duration.type == RuneEffectBalanceService.EffectType.TEMPORARY_EFFECT_DURATION, "duration effect type");
+        check(close(duration.primaryValue, 1.3D), "duration multiplier");
+
+        RuneEffectBalanceService.ResolvedEffect enhancement = only(service.effects(RuneCollectionId.COLLECTION_02, 3, 2, 0));
+        check(enhancement.type == RuneEffectBalanceService.EffectType.ENHANCEMENT_EFFECTIVENESS, "enhancement effectiveness type");
+        check(close(enhancement.primaryValue, 1.15D), "enhancement effectiveness multiplier");
     }
 
     private static RuneEffectBalanceService.ResolvedEffect only(List<RuneEffectBalanceService.ResolvedEffect> values) {
