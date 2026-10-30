@@ -2,8 +2,10 @@ package com.example.revolution.rune.service;
 
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsService;
+import com.example.revolution.rune.definition.RuneDamageChannel;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
+import com.example.revolution.rune.rules.RuneDamageMath;
 import com.example.revolution.rune.state.RuneCombatState;
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
@@ -15,11 +17,13 @@ public final class RuneCombatServiceTest {
     public static void main(String[] args) {
         UUID player = UUID.randomUUID();
         int[] activeCollection = {0};
+        int[] collectionCount = {2};
         List<RuneRecord> first = Arrays.asList(new RuneRecord(0, 0, 1, 1), new RuneRecord(10, 10, 1, 1), new RuneRecord(25, 25, 1, 1));
         List<RuneRecord> second = Arrays.asList(new RuneRecord(0, 0, 2, 1), new RuneRecord(25, 25, 2, 1));
         PlayerRepository players = proxy(PlayerRepository.class, (target, method, values) -> {
             switch (method.getName()) {
-                case "getCollectionNames": return Arrays.asList("First", "Second");
+                case "getCollectionNames": return collectionCount[0] == 1
+                        ? Arrays.asList("First") : Arrays.asList("First", "Second");
                 case "getActiveCollection": return activeCollection[0];
                 case "getRunesInCollection": return (int) values[1] == 0 ? first : second;
                 default: throw new AssertionError(method);
@@ -37,9 +41,35 @@ public final class RuneCombatServiceTest {
             System.setProperty(key, "1");
             RuneCombatState state = new RuneCombatState();
             RuneCombatService combat = new RuneCombatService(players, enhancements, state);
-            check(close(combat.resolveStable(player).clickFlat, 129.6D), "all configured collections contribute to ZBT combat");
+
+            double clickWithBothCollections = combat.resolveStable(player).clickFlat;
+            RuneDamageMath.Snapshot damageWithBothCollections = combat.resolveDamageStable(player);
+            collectionCount[0] = 1;
+            double clickWithFirstCollection = combat.resolveStable(player).clickFlat;
+            RuneDamageMath.Snapshot damageWithFirstCollection = combat.resolveDamageStable(player);
+
+            check(close(clickWithBothCollections, clickWithFirstCollection),
+                    "C2 POISON power does not masquerade as C1 CLICK flat damage");
+            check(close(
+                    damageWithBothCollections.channel(RuneDamageChannel.POISON).flat
+                            - damageWithFirstCollection.channel(RuneDamageChannel.POISON).flat,
+                    10.0D),
+                    "C2 Normal slot 0 contributes its fixed POISON flat value");
+            check(close(
+                    damageWithBothCollections.channel(RuneDamageChannel.POISON).multiplier
+                            / damageWithFirstCollection.channel(RuneDamageChannel.POISON).multiplier,
+                    1.05D),
+                    "C2 Normal capstone contributes its fixed POISON multiplier");
+            check(close(
+                    damageWithBothCollections.allDamageMultiplier
+                            / damageWithFirstCollection.allDamageMultiplier,
+                    1.02D),
+                    "C2 Normal capstone contributes its fixed all-damage multiplier");
+
+            collectionCount[0] = 2;
             activeCollection[0] = 1;
-            check(close(combat.resolveStable(player).clickFlat, 129.6D), "viewed collection does not toggle owned combat power");
+            check(close(combat.resolveStable(player).clickFlat, clickWithBothCollections),
+                    "viewed collection does not toggle owned combat power");
             PlayerStatsService stats = new PlayerStatsService(players, enhancements);
             check(close(stats.getTotalDamageBonusValue(player), 9.2D), "legacy additive player-stat fallback remains separate");
             RuneRewardBonusService rewards = new RuneRewardBonusService(players, enhancements);
@@ -59,7 +89,7 @@ public final class RuneCombatServiceTest {
         } finally {
             if (previous == null) System.clearProperty(key); else System.setProperty(key, previous);
         }
-        System.out.println("Global ZBT rune combat, active-collection rewards and rage lifetime passed");
+        System.out.println("Fixed-channel rune combat, active-collection rewards and rage lifetime passed");
     }
 
     @SuppressWarnings("unchecked")
