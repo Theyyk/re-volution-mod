@@ -77,6 +77,8 @@ public final class GodWorshipModel {
         public long chargeProgress;
         /** Last factual active-time boundary already converted into Offerings for this activation. */
         public long offeringSettledUntilMillis;
+        /** Fractional online passive charge retained between server ticks. */
+        public BigDecimal passiveChargeRemainder = BigDecimal.ZERO;
 
         public State copy() {
             State copy = new State();
@@ -87,6 +89,7 @@ public final class GodWorshipModel {
             copy.cooldownUntilMillis = cooldownUntilMillis;
             copy.chargeProgress = chargeProgress;
             copy.offeringSettledUntilMillis = offeringSettledUntilMillis;
+            copy.passiveChargeRemainder = passiveChargeRemainder == null ? BigDecimal.ZERO : passiveChargeRemainder;
             return copy;
         }
     }
