@@ -1,6 +1,7 @@
 package com.example.revolution.client.input;
 
 import com.example.revolution.client.ClientUiBridge;
+import com.example.revolution.network.GodWorshipActionPacket;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.QuestActionPacket;
 import com.example.revolution.network.StageTravelMenuRequestPacket;
@@ -19,19 +20,23 @@ public class KeyInputHandler {
     public static KeyBinding keyOpenMenu;
     public static KeyBinding keyOpenStageTravel;
     public static KeyBinding keyOpenQuests;
+    public static KeyBinding keyOpenGodWorship;
 
     private boolean menuWasPressed = false;
     private boolean stageTravelWasPressed = false;
     private boolean questsWasPressed = false;
+    private boolean godWorshipWasPressed = false;
     private boolean vanillaBindingsConfigured = false;
 
     public static void register() {
         keyOpenMenu = new KeyBinding("key.revolution.menu", Keyboard.KEY_E, "key.categories.revolution");
         keyOpenStageTravel = new KeyBinding("key.revolution.stage_travel", Keyboard.KEY_L, "key.categories.revolution");
         keyOpenQuests = new KeyBinding("key.revolution.quests", Keyboard.KEY_Q, "key.categories.revolution");
+        keyOpenGodWorship = new KeyBinding("key.revolution.god_worship", Keyboard.KEY_G, "key.categories.revolution");
         ClientRegistry.registerKeyBinding(keyOpenMenu);
         ClientRegistry.registerKeyBinding(keyOpenStageTravel);
         ClientRegistry.registerKeyBinding(keyOpenQuests);
+        ClientRegistry.registerKeyBinding(keyOpenGodWorship);
     }
 
     @SubscribeEvent
@@ -69,6 +74,14 @@ public class KeyInputHandler {
             NetworkHandler.INSTANCE.sendToServer(new QuestActionPacket("sync"));
         }
         questsWasPressed = questsPressed;
+
+        boolean godWorshipPressed = keyOpenGodWorship != null && keyOpenGodWorship.isPressed();
+        if (godWorshipPressed && !godWorshipWasPressed
+                && minecraft.player != null && minecraft.getConnection() != null
+                && minecraft.currentScreen == null) {
+            NetworkHandler.INSTANCE.sendToServer(new GodWorshipActionPacket("sync", "", "", "", 0L));
+        }
+        godWorshipWasPressed = godWorshipPressed;
     }
 
     private void configureVanillaBindings(Minecraft minecraft) {
