@@ -133,8 +133,18 @@ public final class PrestigeService implements EffectResolver.Source {
         return resets.previewMasteryReset(playerUuid, expectedRunId);
     }
     public synchronized PrestigeResetService.MasteryResetResult masteryReset(UUID playerUuid, String expectedRunId) {
-        PrestigeResetService.MasteryResetResult result = resets.masteryReset(playerUuid, expectedRunId);
-        if (result == PrestigeResetService.MasteryResetResult.APPLIED) appliedResetParticipant.afterAppliedReset(playerUuid);
+        return masteryReset(playerUuid, expectedRunId, MasteryResetMode.NORMAL);
+    }
+    public synchronized PrestigeResetService.MasteryResetResult masteryReset(UUID playerUuid, String expectedRunId, MasteryResetMode mode) {
+        boolean preserveRunes = false;
+        if (mode == MasteryResetMode.PREMIUM_PRESERVE) {
+            try {
+                PrestigeResetService.MasteryResetPreview preview = resets.previewMasteryReset(playerUuid, expectedRunId);
+                preserveRunes = preview.premiumPreserveEnabled && preview.premiumPreserveRunes;
+            } catch (RuntimeException ignored) { preserveRunes = false; }
+        }
+        PrestigeResetService.MasteryResetResult result = resets.masteryReset(playerUuid, expectedRunId, mode);
+        if (result == PrestigeResetService.MasteryResetResult.APPLIED && !preserveRunes) appliedResetParticipant.afterAppliedReset(playerUuid);
         return result;
     }
     public synchronized int metaLevelGainPerRun(UUID playerUuid, PrestigeBranch branch) {
