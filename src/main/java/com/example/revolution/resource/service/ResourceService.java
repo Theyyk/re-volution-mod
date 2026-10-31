@@ -10,9 +10,16 @@ import static com.example.revolution.resource.definition.ResourceDefinitions.*;
 
 /** Validates resource actions and preserves the existing read/modify/write economy. */
 public final class ResourceService {
+    public interface LateRewardMultiplier {
+        BigDecimal multiplier(UUID playerUuid, String canonicalResource);
+    }
+
+    public static final LateRewardMultiplier IDENTITY_LATE_REWARD = (playerUuid, canonicalResource) -> BigDecimal.ONE;
+
     private final ResourceRepository repository;
     private final EffectResolver effects;
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
+    private LateRewardMultiplier lateRewardMultiplier = IDENTITY_LATE_REWARD;
 
     public ResourceService(ResourceRepository repository) { this(repository, null); }
 
@@ -23,6 +30,10 @@ public final class ResourceService {
 
     public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
         this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
+    }
+
+    public void setLateRewardMultiplier(LateRewardMultiplier lateRewardMultiplier) {
+        this.lateRewardMultiplier = lateRewardMultiplier == null ? IDENTITY_LATE_REWARD : lateRewardMultiplier;
     }
 
     public int getPlayerResource(UUID uuid, String resource) {
@@ -47,14 +58,17 @@ public final class ResourceService {
     }
 
     /**
-     * Grants an authoritative earned reward. Prestige reward effects are resolved before persistence,
-     * then observers receive exactly the amount that was actually granted.
+     * Grants an authoritative earned reward. Normal effects are resolved first, then the dedicated
+     * late reward layer (Aura in v2.9), then observers receive exactly the persisted amount.
      */
     public synchronized boolean grantEarnedPlayerResource(UUID uuid, String resource, BigDecimal baseAmount) {
         String canonical = findCanonicalName(resource);
         if (canonical == null || uuid == null || baseAmount == null || baseAmount.signum() < 0) return false;
         if (baseAmount.signum() == 0) return true;
-        BigDecimal granted = LargeNumbers.normalize(baseAmount.multiply(rewardMultiplier(uuid, canonical)));
+        BigDecimal normal = rewardMultiplier(uuid, canonical);
+        BigDecimal late = lateRewardMultiplier.multiplier(uuid, canonical);
+        if (late == null || late.signum() < 0) late = BigDecimal.ONE;
+        BigDecimal granted = LargeNumbers.normalize(baseAmount.multiply(normal).multiply(late));
         if (granted.signum() <= 0) return true;
         BigDecimal next = LargeNumbers.normalize(repository.getPlayerResourceValue(uuid, canonical).add(granted));
         repository.writePlayerResource(uuid, canonical, next);
