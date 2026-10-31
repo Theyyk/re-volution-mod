@@ -23,7 +23,9 @@ public final class BalanceAuraPolicy implements AuraPolicy {
             EffectResolver.Stat.VULNERABILITY_MULTIPLIER,
             EffectResolver.Stat.EFFECTIVENESS_MULTIPLIER,
             EffectResolver.Stat.COIN_REWARD_MULTIPLIER,
-            EffectResolver.Stat.RUNE_RESOURCE_REWARD_MULTIPLIER));
+            EffectResolver.Stat.RUNE_DUST_REWARD_MULTIPLIER,
+            EffectResolver.Stat.RUNE_SHARDS_REWARD_MULTIPLIER,
+            EffectResolver.Stat.RUNE_CORES_REWARD_MULTIPLIER));
 
     private final BalanceService balance;
 
