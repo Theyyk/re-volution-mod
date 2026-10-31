@@ -156,6 +156,7 @@ def regressionTests = [
     runeCombatServiceRegression: 'com.example.revolution.rune.service.RuneCombatServiceTest',
     runeEffectBalanceRegression: 'com.example.revolution.rune.service.RuneEffectBalanceServiceTest',
     mobBalanceRegression: 'com.example.revolution.mob.service.MobBalanceServiceTest',
+    achievementRegression: 'com.example.revolution.achievement.AchievementServiceTest',
     adminApiSecurityRegression: 'com.example.revolution.admin.api.auth.AdminApiSecurityTest',
     adminApiInputValidationRegression: 'com.example.revolution.admin.api.AdminApiInputValidationTest'
 ]
