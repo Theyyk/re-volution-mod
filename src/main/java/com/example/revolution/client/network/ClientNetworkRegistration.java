@@ -1,5 +1,7 @@
 package com.example.revolution.client.network;
 
+import com.example.revolution.network.AchievementActionPacket;
+import com.example.revolution.network.AchievementSnapshotPacket;
 import com.example.revolution.network.AuraActionPacket;
 import com.example.revolution.network.AuraSnapshotPacket;
 import com.example.revolution.network.FastAutoTogglePacket;
@@ -48,5 +50,7 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(GodWorshipSnapshotPacketHandler.class, GodWorshipSnapshotPacket.class, 20, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(AuraActionPacketClientHandler.class, AuraActionPacket.class, 21, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(AuraSnapshotPacketHandler.class, AuraSnapshotPacket.class, 22, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(AchievementActionPacketClientHandler.class, AchievementActionPacket.class, 23, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(AchievementSnapshotPacketHandler.class, AchievementSnapshotPacket.class, 24, Side.CLIENT);
     }
 }

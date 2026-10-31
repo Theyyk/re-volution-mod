@@ -28,6 +28,7 @@ public enum GameplayEventType {
     PET_AWAKEN_RANK,
 
     MASTERY_PROGRESS,
+    MASTERY_BRANCH_SELECTED,
     MASTERY_RESET,
     MASTERY_RESET_SPECIFIC_BRANCH,
     FRAGMENTS_COLLECTED_MASTERY,
@@ -42,6 +43,7 @@ public enum GameplayEventType {
     COINS_EARNED,
     RUNE_DUST_EARNED,
     SHARDS_EARNED,
+    RUNE_CORES_EARNED,
     FRAGMENTS_COLLECTED,
 
     STAGE_REACHED,
@@ -74,5 +76,13 @@ public enum GameplayEventType {
     AURA_DISMANTLED,
     AURA_EQUIPPED,
     AURA_UNEQUIPPED,
-    AURA_KEY_GAINED
+    AURA_KEY_GAINED,
+
+    /** v2.10.0 Achievement lifecycle facts. */
+    ACHIEVEMENT_STAGE_COMPLETED,
+    ACHIEVEMENT_STAGE_CLAIMED,
+    ACHIEVEMENT_REVEALED,
+
+    /** Contract only. Forge gameplay is intentionally out of scope for v2.10.0. */
+    FORGE_ITEM_CRAFTED
 }
