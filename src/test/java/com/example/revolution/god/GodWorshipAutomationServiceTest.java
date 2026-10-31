@@ -129,6 +129,7 @@ final class GodWorshipAutomationServiceTest {
         @Override public long buffDurationMillis(GodId god) { return 10_000L; }
         @Override public long cooldownDurationMillis(GodId god) { return 5_000L; }
         @Override public long cooldownReductionPerClickMillis(GodId god) { return 1_000L; }
+        @Override public int clickRateLimitPerSecond(GodId god) { return 25; }
         @Override public long permanentDurationMillis(long permanentDurationLevel) { return permanentDurationLevel * 1_000L; }
         @Override public boolean featureEnabled(FeatureGate gate) { return gates.contains(gate); }
         @Override public BigDecimal offeringGenerationPerSecond() { return offeringRate; }
