@@ -29,6 +29,8 @@ public class NetworkHandler {
         INSTANCE.registerMessage(RuneCollectionMetadataPacketServerHandler.class, RuneCollectionMetadataPacket.class, 14, Side.CLIENT);
         INSTANCE.registerMessage(PetActionPacketHandler.class, PetActionPacket.class, 15, Side.SERVER);
         INSTANCE.registerMessage(PetSnapshotPacketServerHandler.class, PetSnapshotPacket.class, 16, Side.CLIENT);
+        INSTANCE.registerMessage(QuestActionPacketHandler.class, QuestActionPacket.class, 17, Side.SERVER);
+        INSTANCE.registerMessage(QuestSnapshotPacketServerHandler.class, QuestSnapshotPacket.class, 18, Side.CLIENT);
     }
 
     public static boolean clientHasRevolutionMod(EntityPlayerMP player) {
