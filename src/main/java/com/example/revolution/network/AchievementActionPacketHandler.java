@@ -35,11 +35,15 @@ public final class AchievementActionPacketHandler implements IMessageHandler<Ach
             return;
         }
         if ("claim".equals(action)) {
+            if (!AchievementRequestLimiter.acceptAction(player.getUniqueID(), request.getRequestNonce())) return;
             services.achievements.claim(player.getUniqueID(), request.getAchievementId(), request.getExpectedStageIndex());
             sendSnapshot(player, services);
             return;
         }
-        if ("share".equals(action)) share(player, services, request.getAchievementId());
+        if ("share".equals(action)) {
+            if (!AchievementRequestLimiter.acceptAction(player.getUniqueID(), request.getRequestNonce())) return;
+            share(player, services, request.getAchievementId());
+        }
     }
 
     public static void sendSnapshot(EntityPlayerMP player, ServerServices services) {
