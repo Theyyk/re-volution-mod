@@ -90,6 +90,19 @@ public final class PrestigeService implements EffectResolver.Source {
         return true;
     }
 
+    /** Commits exactly one resource-offer purchase against the factual expected counter. */
+    public synchronized boolean recordRunExchangePurchase(UUID playerUuid, String expectedRunId, String offerId, int expectedPurchaseCount) {
+        if (playerUuid == null || expectedRunId == null || offerId == null || offerId.trim().isEmpty() || expectedPurchaseCount < 0) return false;
+        PrestigeState state = repository.load(playerUuid);
+        PrestigeState.RunState run = state.activeRun;
+        if (run == null || !expectedRunId.equals(run.runId)) return false;
+        int current = run.runExchangePurchaseCounts.containsKey(offerId) ? run.runExchangePurchaseCounts.get(offerId) : 0;
+        if (current != expectedPurchaseCount || current == Integer.MAX_VALUE) return false;
+        run.runExchangePurchaseCounts.put(offerId, current + 1);
+        repository.save(playerUuid, state);
+        return true;
+    }
+
     /** Authoritative Pet reward path. Threshold reach alone never calls this method. */
     public synchronized boolean addPetPendingFragments(UUID playerUuid, String expectedRunId, BigDecimal amount) {
         if (playerUuid == null || expectedRunId == null || amount == null || amount.signum() <= 0) return false;
