@@ -63,7 +63,8 @@ public final class MongoGodWorshipRepository implements GodWorshipRepository {
                     .append("buffActiveUntil", Math.max(0L, god.buffActiveUntilMillis))
                     .append("cooldownUntil", Math.max(0L, god.cooldownUntilMillis))
                     .append("chargeProgress", Math.max(0L, god.chargeProgress))
-                    .append("offeringSettledUntil", Math.max(0L, god.offeringSettledUntilMillis)));
+                    .append("offeringSettledUntil", Math.max(0L, god.offeringSettledUntilMillis))
+                    .append("passiveChargeRemainder", exact(god.passiveChargeRemainder)));
         }
         return new Document("schemaVersion", SCHEMA_VERSION).append("gods", gods);
     }
@@ -87,6 +88,7 @@ public final class MongoGodWorshipRepository implements GodWorshipRepository {
                 god.cooldownUntilMillis = Math.max(0L, number(stored.get("cooldownUntil")));
                 god.chargeProgress = Math.max(0L, number(stored.get("chargeProgress")));
                 god.offeringSettledUntilMillis = Math.max(0L, number(stored.get("offeringSettledUntil")));
+                god.passiveChargeRemainder = nonNegative(stored.get("passiveChargeRemainder"));
             } catch (RuntimeException ignored) { }
         }
         return state;
