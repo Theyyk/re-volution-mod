@@ -27,7 +27,8 @@ public final class AchievementService implements GameplayEventSink {
     private GameplayEventSink lifecycleEvents = GameplayEventSink.NONE;
 
     public AchievementService(AchievementRepository repository, AchievementCatalog catalog, AchievementRewardGateway rewards) {
-        this(repository, catalog, rewards, null);
+        this(repository, catalog, rewards,
+                repository instanceof AchievementAtomicClaimStore ? (AchievementAtomicClaimStore) repository : null);
     }
 
     public AchievementService(AchievementRepository repository, AchievementCatalog catalog,
