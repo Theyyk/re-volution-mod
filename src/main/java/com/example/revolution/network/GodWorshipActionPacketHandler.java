@@ -1,6 +1,6 @@
 package com.example.revolution.network;
 
-import com.example.revolution.god.GodWorshipModel;
+import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.god.GodWorshipModel.ActivationMode;
 import com.example.revolution.god.GodWorshipModel.FeatureGate;
 import com.example.revolution.god.GodWorshipModel.GodId;
@@ -79,7 +79,6 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
         for (GodId god : GodId.values()) {
             State state = run.gods.get(god);
             Preference preference = persistent.preferences.get(god);
-            GodWorshipModel.Definition definition = GodWorshipModel.definition(god);
             BigDecimal unlockCost = services.godPolicy.unlockCost(god);
             BigDecimal upgradeCost = state != null && state.unlocked
                     ? services.godPolicy.upgradeCost(god, state.level) : BigDecimal.ZERO;
@@ -87,6 +86,8 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
                     state != null && state.unlocked
                             ? services.godPolicy.buffAdditiveMultiplier(god, state.level)
                             : BigDecimal.ZERO);
+            EffectResolver.Stat primary = services.godPolicy.primaryChannel(god);
+            EffectResolver.Stat secondary = services.godPolicy.secondaryChannel(god);
             entries.add(new GodWorshipSnapshotPacket.Entry(
                     god.name(),
                     state != null && state.unlocked,
@@ -98,9 +99,9 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
                     services.godPolicy.chargeRequired(god),
                     exact(unlockCost),
                     exact(upgradeCost),
-                    definition.resource,
-                    definition.primary.name(),
-                    definition.secondary == null ? "" : definition.secondary.name(),
+                    services.godPolicy.unlockResource(god),
+                    primary == null ? "" : primary.name(),
+                    secondary == null ? "" : secondary.name(),
                     exact(currentMultiplier),
                     preference != null && preference.autoWorshipEnabled,
                     preference == null || preference.activationMode == null ? "MANUAL" : preference.activationMode.name(),
