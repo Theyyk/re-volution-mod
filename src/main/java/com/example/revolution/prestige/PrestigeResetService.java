@@ -77,6 +77,7 @@ public final class PrestigeResetService {
         if (!masteryResetAvailable(run.activeBranch, branch)) throw new IllegalStateException("Mastery Reset is not available");
         MasteryTierPolicy.TierDefinition currentTier = currentTier(branch);
         MasteryTierPolicy.TierDefinition nextTier = nextTier(branch, currentTier);
+        MasteryTierPolicy.PremiumPreservePolicy premium = currentTier.premiumPreserve;
         return new MasteryResetPreview(
                 run.runId,
                 run.activeBranch,
@@ -86,10 +87,18 @@ public final class PrestigeResetService {
                 nextTier.rankMetaLevelCap,
                 currentTier.metaLevelGainPerRun,
                 nextTier.metaLevelGainPerRun,
-                currentTier.premiumPreserveCrystalCost);
+                premium.enabled,
+                premium.crystalCost,
+                premium.preserveRunes,
+                premium.preservePets);
     }
 
     public MasteryResetResult masteryReset(UUID playerUuid, String expectedRunId) {
+        return masteryReset(playerUuid, expectedRunId, MasteryResetMode.NORMAL);
+    }
+
+    public MasteryResetResult masteryReset(UUID playerUuid, String expectedRunId, MasteryResetMode mode) {
+        if (mode == null) return MasteryResetResult.OPTION_UNAVAILABLE;
         PrestigeState current = repository.load(playerUuid);
         if (current.activeRun == null) {
             if (expectedRunId != null && expectedRunId.equals(current.lastResetRunId)) return MasteryResetResult.DUPLICATE;
@@ -109,6 +118,14 @@ public final class PrestigeResetService {
             return MasteryResetResult.POLICY_UNAVAILABLE;
         }
 
+        PrestigeRepository.ResetCommitPolicy commitPolicy = PrestigeRepository.ResetCommitPolicy.normal();
+        if (mode == MasteryResetMode.PREMIUM_PRESERVE) {
+            MasteryTierPolicy.PremiumPreservePolicy premium = currentTier.premiumPreserve;
+            if (!premium.enabled) return MasteryResetResult.OPTION_UNAVAILABLE;
+            commitPolicy = new PrestigeRepository.ResetCommitPolicy(
+                    premium.crystalCost, premium.preserveRunes, premium.preservePets);
+        }
+
         PrestigeState next = current.copy();
         PrestigeState.RunState run = next.activeRun;
         PrestigeState.BranchState branch = next.branch(run.activeBranch);
@@ -118,9 +135,11 @@ public final class PrestigeResetService {
         next.lastResetRunId = run.runId;
         next.activeRun = null;
 
-        PrestigeRepository.ResetCommitResult committed = repository.commitReset(playerUuid, expectedRunId, next);
+        PrestigeRepository.ResetCommitResult committed = repository.commitReset(playerUuid, expectedRunId, next, commitPolicy);
         if (committed == PrestigeRepository.ResetCommitResult.APPLIED) return MasteryResetResult.APPLIED;
         if (committed == PrestigeRepository.ResetCommitResult.DUPLICATE) return MasteryResetResult.DUPLICATE;
+        if (committed == PrestigeRepository.ResetCommitResult.INSUFFICIENT_CRYSTALS) return MasteryResetResult.INSUFFICIENT_CRYSTALS;
+        if (committed == PrestigeRepository.ResetCommitResult.POLICY_UNAVAILABLE) return MasteryResetResult.POLICY_UNAVAILABLE;
         return MasteryResetResult.STALE;
     }
 
@@ -197,7 +216,7 @@ public final class PrestigeResetService {
     }
 
     public enum ResetResult { APPLIED, DUPLICATE, STALE }
-    public enum MasteryResetResult { APPLIED, DUPLICATE, STALE, NOT_ELIGIBLE, POLICY_UNAVAILABLE }
+    public enum MasteryResetResult { APPLIED, DUPLICATE, STALE, NOT_ELIGIBLE, POLICY_UNAVAILABLE, OPTION_UNAVAILABLE, INSUFFICIENT_CRYSTALS }
 
     public static final class ResetPreview {
         public final String runId;
@@ -231,13 +250,17 @@ public final class PrestigeResetService {
         public final int nextRankMetaLevelCap;
         public final int currentMetaLevelGainPerRun;
         public final int nextMetaLevelGainPerRun;
+        public final boolean premiumPreserveEnabled;
         public final int premiumPreserveCrystalCost;
+        public final boolean premiumPreserveRunes;
+        public final boolean premiumPreservePets;
 
         private MasteryResetPreview(String runId, PrestigeBranch branch,
                                     int currentMasteryTier, int nextMasteryTier,
                                     int currentRankMetaLevelCap, int nextRankMetaLevelCap,
                                     int currentMetaLevelGainPerRun, int nextMetaLevelGainPerRun,
-                                    int premiumPreserveCrystalCost) {
+                                    boolean premiumPreserveEnabled, int premiumPreserveCrystalCost,
+                                    boolean premiumPreserveRunes, boolean premiumPreservePets) {
             this.runId = runId;
             this.branch = branch;
             this.currentMasteryTier = currentMasteryTier;
@@ -246,7 +269,10 @@ public final class PrestigeResetService {
             this.nextRankMetaLevelCap = nextRankMetaLevelCap;
             this.currentMetaLevelGainPerRun = currentMetaLevelGainPerRun;
             this.nextMetaLevelGainPerRun = nextMetaLevelGainPerRun;
+            this.premiumPreserveEnabled = premiumPreserveEnabled;
             this.premiumPreserveCrystalCost = premiumPreserveCrystalCost;
+            this.premiumPreserveRunes = premiumPreserveRunes;
+            this.premiumPreservePets = premiumPreservePets;
         }
     }
 }
