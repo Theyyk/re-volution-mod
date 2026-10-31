@@ -1,5 +1,6 @@
 package com.example.revolution.client;
 
+import com.example.revolution.achievement.AchievementStageLabels;
 import com.example.revolution.network.AchievementActionPacket;
 import com.example.revolution.network.AchievementSnapshotPacket;
 import com.example.revolution.network.NetworkHandler;
@@ -96,7 +97,9 @@ public final class AchievementsGuiScreen extends GuiScreen {
             }
             String title = e.name + (e.stageRoman.isEmpty() ? "" : " " + e.stageRoman);
             fontRenderer.drawString(title, 14, y + 6, 0xFFFFFF);
-            fontRenderer.drawString(e.progress + " / " + e.target + "   [" + e.category + "]", 14, y + 18, e.completed ? 0x8FE3A5 : 0xC7CDD5);
+            String history = "Done " + stageHistory(e.highestCompletedStage) + " | Claimed " + stageHistory(e.highestClaimedStage);
+            fontRenderer.drawString(e.progress + " / " + e.target + "   [" + e.category + "]   " + history,
+                    14, y + 18, e.completed ? 0x8FE3A5 : 0xC7CDD5);
             String reward = "Rewards: " + e.crystals + " Crystals, " + e.offerings + " Offerings, " + e.auraKeys
                     + " Aura Keys, " + e.achievementPoints + " AP";
             fontRenderer.drawString(reward, 14, y + 30, 0xAEB7C2);
@@ -108,6 +111,10 @@ public final class AchievementsGuiScreen extends GuiScreen {
         }
         drawCenteredString(fontRenderer, "Page " + (page + 1) + "/" + (maxPage + 1), width / 2, height - 39, 0xAEB7C2);
         super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    private static String stageHistory(int stage) {
+        return stage <= 0 ? "-" : AchievementStageLabels.roman(stage);
     }
 
     private List<AchievementSnapshotPacket.Entry> filtered() {
