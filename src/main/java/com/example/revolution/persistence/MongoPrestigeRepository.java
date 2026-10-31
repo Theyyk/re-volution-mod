@@ -15,7 +15,7 @@ import org.bson.Document;
 
 /** Backward-compatible embedded Mastery persistence in the existing players document. */
 public final class MongoPrestigeRepository implements PrestigeRepository {
-    private static final int SCHEMA_VERSION = 2;
+    private static final int SCHEMA_VERSION = 3;
     private final MongoConnection connection;
     private final boolean enabled;
 
@@ -33,22 +33,37 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
     }
 
     @Override public ResetCommitResult commitReset(UUID playerUuid, String expectedRunId, PrestigeState nextState) {
+        return commitReset(playerUuid, expectedRunId, nextState, PrestigeRepository.ResetCommitPolicy.normal());
+    }
+
+    @Override public ResetCommitResult commitReset(UUID playerUuid, String expectedRunId, PrestigeState nextState,
+                                                    PrestigeRepository.ResetCommitPolicy policy) {
         if (!enabled || !connection.isConnected()) return ResetCommitResult.STALE;
+        if (policy == null) return ResetCommitResult.POLICY_UNAVAILABLE;
         Document player = connection.collection("players").find(new Document("_id", playerUuid.toString())).first();
         if (player == null) return ResetCommitResult.STALE;
         PrestigeState current = decode(player.get("prestige", Document.class));
         if (current.activeRun == null) return expectedRunId != null && expectedRunId.equals(current.lastResetRunId) ? ResetCommitResult.DUPLICATE : ResetCommitResult.STALE;
         if (expectedRunId == null || !expectedRunId.equals(current.activeRun.runId)) return ResetCommitResult.STALE;
-        List<Document> resetCollections = resetRuneRanks(player);
-        Document resetPets = MongoPetRepository.resetForPrestige(player);
+        if (crystals(player) < policy.crystalCost) return ResetCommitResult.INSUFFICIENT_CRYSTALS;
+
+        List<Document> resetCollections = policy.preserveRunes ? null : resetRuneRanks(player);
+        Document resetPets = policy.preservePets ? null : MongoPetRepository.resetForPrestige(player);
         Document set = new Document("prestige", encode(nextState));
         if (resetCollections != null) set.append("decks", resetCollections);
         if (resetPets != null) set.append("petSystem", resetPets);
         Document filter = new Document("_id", playerUuid.toString()).append("prestige.activeRun.runId", expectedRunId);
-        UpdateResult result = connection.collection("players").updateOne(filter, new Document("$set", set));
+        if (policy.crystalCost > 0) filter.append("crystals", new Document("$gte", policy.crystalCost));
+        Document update = new Document("$set", set);
+        if (policy.crystalCost > 0) update.append("$inc", new Document("crystals", -policy.crystalCost));
+        UpdateResult result = connection.collection("players").updateOne(filter, update);
         if (result != null && result.getMatchedCount() > 0) return ResetCommitResult.APPLIED;
-        PrestigeState latest = load(playerUuid);
-        if (expectedRunId.equals(latest.lastResetRunId) && latest.activeRun == null) return ResetCommitResult.DUPLICATE;
+
+        Document latestPlayer = connection.collection("players").find(new Document("_id", playerUuid.toString())).first();
+        PrestigeState latest = latestPlayer == null ? new PrestigeState() : decode(latestPlayer.get("prestige", Document.class));
+        if (expectedRunId != null && expectedRunId.equals(latest.lastResetRunId) && latest.activeRun == null) return ResetCommitResult.DUPLICATE;
+        if (latest.activeRun != null && expectedRunId != null && expectedRunId.equals(latest.activeRun.runId)
+                && latestPlayer != null && crystals(latestPlayer) < policy.crystalCost) return ResetCommitResult.INSUFFICIENT_CRYSTALS;
         return ResetCommitResult.STALE;
     }
 
@@ -100,7 +115,7 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         Document meta = new Document();
         for (Map.Entry<String, Integer> entry : state.rankMetaLevels.entrySet()) meta.append(entry.getKey(), entry.getValue());
         return new Document("bestSavedProgress", exact(state.bestSavedProgress)).append("rankMetaLevels", meta).append("rankMetaLevelCap", state.rankMetaLevelCap)
-                .append("masteryTier", state.masteryTier).append("masteryQuestState", state.masteryQuestState);
+                .append("masteryTier", state.masteryTier);
     }
 
     @SuppressWarnings("unchecked") private PrestigeState decode(Document root) {
@@ -127,11 +142,21 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
             PrestigeState.BranchState target = state.branch(branch); target.bestSavedProgress = decimal(stored.get("bestSavedProgress"));
             target.rankMetaLevelCap = Math.max(0, stored.getInteger("rankMetaLevelCap", target.rankMetaLevelCap));
             target.masteryTier = Math.max(0, stored.getInteger("masteryTier", 0));
-            String quest = stored.getString("masteryQuestState"); if (quest != null) target.masteryQuestState = quest;
             Document meta = stored.get("rankMetaLevels", Document.class);
             if (meta != null) for (String key : meta.keySet()) { Object value = meta.get(key); if (value instanceof Number) target.rankMetaLevels.put(key, Math.max(0, ((Number) value).intValue())); }
         }
         return state;
+    }
+
+    private static int crystals(Document player) {
+        Object raw = player == null ? null : player.get("crystals");
+        if (raw == null) return 0;
+        try {
+            BigDecimal value = new BigDecimal(String.valueOf(raw));
+            if (value.signum() <= 0) return 0;
+            if (value.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) >= 0) return Integer.MAX_VALUE;
+            return value.intValue();
+        } catch (RuntimeException ignored) { return 0; }
     }
 
     private static String exact(BigDecimal value) { return value == null || value.signum() == 0 ? "0" : value.stripTrailingZeros().toPlainString(); }

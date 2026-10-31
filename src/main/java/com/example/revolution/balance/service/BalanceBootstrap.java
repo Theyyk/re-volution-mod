@@ -20,7 +20,8 @@ public final class BalanceBootstrap {
             "/balance/v2.3.0-rune-collections.json",
             "/balance/v2.3.0-rune-status-template.json",
             "/balance/v2.3.0-rune-generic-effects.json",
-            "/balance/v2.4.0-pets.json"
+            "/balance/v2.4.0-pets.json",
+            "/balance/v2.5.0-mastery-reset.json"
     };
 
     private BalanceBootstrap() {}
