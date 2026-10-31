@@ -144,7 +144,7 @@ public class RunExchangeServiceTest {
         final ResourceService resources = new ResourceService(resourcesRepo);
         final PetService pets = new PetService(petRepo, new PetCatalog(), new PetBalanceService(balance), resources, prestige);
         final PrestigeState.RunState run = prestige.startRun(id, PrestigeBranch.CLICK);
-        final RunExchangeService exchange = new RunExchangeService(prestige, resources, pets, balance, RunExchangeCatalog.fromBalance(balance));
+        final RunExchangeService exchange = new RunExchangeService(prestige, resources, pets, balance, RunExchangeCatalogFactory.fromBalance(balance));
 
         void setFragments(String amount) {
             PrestigeState state = prestigeRepo.load(id);
