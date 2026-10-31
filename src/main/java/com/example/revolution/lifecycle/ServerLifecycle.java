@@ -12,6 +12,7 @@ import com.example.revolution.commands.LocationCommand;
 import com.example.revolution.commands.PrestigeCommand;
 import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.commands.StageCommand;
+import com.example.revolution.god.event.GodWorshipRuntimeHandler;
 import com.example.revolution.location.event.FastAutoHandler;
 import com.example.revolution.location.event.StageTransitionTriggerHandler;
 import com.example.revolution.mob.event.ManagedMobAppearanceEvents;
@@ -70,6 +71,7 @@ public final class ServerLifecycle {
         current.connect();
         current.adminAccess.init(configDirectory);
         listeners.add(new PlayerJoinHandler(current.sessions));
+        listeners.add(new GodWorshipRuntimeHandler(current.godAutomation));
         listeners.add(new RpgSurvivalGuard());
         listeners.add(new RealmLoginHandler(current.realms));
         listeners.add(new RealmEntityLoadHandler());
