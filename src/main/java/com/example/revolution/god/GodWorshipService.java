@@ -61,6 +61,7 @@ public final class GodWorshipService {
             state.buffActiveUntilMillis = 0L;
             state.cooldownUntilMillis = 0L;
             state.offeringSettledUntilMillis = 0L;
+            state.passiveChargeRemainder = BigDecimal.ZERO;
             repository.saveRunState(playerUuid, run);
         } catch (RuntimeException failure) {
             resources.grantPlayerResource(playerUuid, resource, cost);
@@ -108,6 +109,7 @@ public final class GodWorshipService {
                 GodWorshipRules.activate(state, nowMillis, policy.buffDurationMillis(god),
                         policy.permanentDurationMillis(persistent.permanentDurationLevel));
                 state.offeringSettledUntilMillis = nowMillis;
+                state.passiveChargeRemainder = BigDecimal.ZERO;
                 emit(playerUuid, GameplayEventType.GOD_BUFF_ACTIVATE, god, BigDecimal.ONE);
             } else if (state.chargeProgress != before) {
                 emit(playerUuid, GameplayEventType.GOD_CHARGE_CLICK, god,
