@@ -31,7 +31,13 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
         ServerServices services = ServerLifecycle.services();
         String action = request.getAction();
         if ("sync".equals(action)) {
-            sendSnapshot(player, services);
+            long now = System.currentTimeMillis();
+            services.godAutomation.setMenuOpen(player.getUniqueID(), true, now);
+            sendSnapshot(player, services, now);
+            return;
+        }
+        if ("menu_closed".equals(action)) {
+            services.godAutomation.setMenuOpen(player.getUniqueID(), false, System.currentTimeMillis());
             return;
         }
         if (!GodWorshipRequestLimiter.acceptMutation(player.getUniqueID(), request.getRequestNonce())) return;
@@ -58,11 +64,14 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
             GodId linked = parseGod(request.getLinkedGodId());
             services.godAutomation.setActivationMode(player.getUniqueID(), god, mode, linked);
         } else return;
-        sendSnapshot(player, services);
+        sendSnapshot(player, services, System.currentTimeMillis());
     }
 
     public static void sendSnapshot(EntityPlayerMP player, ServerServices services) {
-        long now = System.currentTimeMillis();
+        sendSnapshot(player, services, System.currentTimeMillis());
+    }
+
+    private static void sendSnapshot(EntityPlayerMP player, ServerServices services, long now) {
         services.godAutomation.tick(player.getUniqueID(), now);
         RunState run = services.gods.runState(player.getUniqueID());
         PersistentState persistent = services.gods.persistentState(player.getUniqueID());
