@@ -15,4 +15,7 @@ public interface GameplayEventSink {
 
     void confirmedDamage(UUID playerUuid, GameplayDamageSource source, BigDecimal amount);
     void earnedResource(UUID playerUuid, String resource, BigDecimal amount);
+
+    /** Generic extension point for factual actions that are not damage/resource earnings. */
+    default void factualEvent(GameplayEvent event) { }
 }
