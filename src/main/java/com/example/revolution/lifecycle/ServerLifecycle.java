@@ -12,6 +12,7 @@ import com.example.revolution.commands.LocationCommand;
 import com.example.revolution.commands.PrestigeCommand;
 import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.commands.StageCommand;
+import com.example.revolution.god.event.GodWorshipDamageHandler;
 import com.example.revolution.god.event.GodWorshipRuntimeHandler;
 import com.example.revolution.location.event.FastAutoHandler;
 import com.example.revolution.location.event.StageTransitionTriggerHandler;
@@ -80,6 +81,7 @@ public final class ServerLifecycle {
         listeners.add(new LegacyAttackCooldownHandler(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new PrestigeDamageEffectHandler(current.mobs, current.effects));
+        listeners.add(new GodWorshipDamageHandler(current.mobs, current.godModifiers));
         listeners.add(new PoisonMobPauseHandler(current.mobs));
         listeners.add(new RuneStatusTickHandler(current.mobs, current.combat));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
