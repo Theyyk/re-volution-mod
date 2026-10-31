@@ -28,7 +28,7 @@ public final class QuestGenerator {
         List<QuestTemplate> eligible = new ArrayList<>();
         for (QuestTemplate template : catalog.templates()) {
             if (!template.eligible(difficultyTier)) continue;
-            if (!occupied.contains(template.id + "|{}")) eligible.add(template);
+            if (!occupied.contains(variantKey(template))) eligible.add(template);
         }
         if (eligible.isEmpty()) throw new IllegalStateException("no eligible unique Quest template for difficulty " + difficultyTier);
 
@@ -49,5 +49,9 @@ public final class QuestGenerator {
         entry.crystalReward = selected.crystalReward;
         entry.difficultyTier = difficultyTier;
         return entry;
+    }
+
+    private static String variantKey(QuestTemplate template) {
+        return template.id + "|" + template.filters.toString();
     }
 }
