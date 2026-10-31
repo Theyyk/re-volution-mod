@@ -19,6 +19,7 @@ import com.example.revolution.location.event.FastAutoHandler;
 import com.example.revolution.location.event.StageTransitionTriggerHandler;
 import com.example.revolution.mob.event.ManagedMobAppearanceEvents;
 import com.example.revolution.mob.event.ManagedMobEvents;
+import com.example.revolution.network.AuraRequestLimiter;
 import com.example.revolution.network.GodWorshipRequestLimiter;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
@@ -154,6 +155,7 @@ public final class ServerLifecycle {
         current = null;
         RateLimitedPingPacketHandler.reset();
         GodWorshipRequestLimiter.reset();
+        AuraRequestLimiter.reset();
         try {
             if (stopping != null) stopping.close();
         } finally {
