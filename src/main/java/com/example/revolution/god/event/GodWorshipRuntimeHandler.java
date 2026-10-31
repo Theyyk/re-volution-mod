@@ -1,6 +1,7 @@
 package com.example.revolution.god.event;
 
 import com.example.revolution.god.GodWorshipAutomationService;
+import com.example.revolution.network.GodWorshipRequestLimiter;
 import java.util.UUID;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
@@ -24,6 +25,14 @@ public final class GodWorshipRuntimeHandler {
         if (!(event.player instanceof EntityPlayerMP)) return;
         EntityPlayerMP player = (EntityPlayerMP) event.player;
         automation.tick(player.getUniqueID(), System.currentTimeMillis());
+    }
+
+    @SubscribeEvent
+    public void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.player == null) return;
+        UUID uuid = event.player.getUniqueID();
+        automation.playerDisconnected(uuid);
+        GodWorshipRequestLimiter.forget(uuid);
     }
 
     @SubscribeEvent
