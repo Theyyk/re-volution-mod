@@ -7,6 +7,8 @@ import java.util.UUID;
  * the claimed stage, Achievement Points and all configured stage rewards, or persist nothing.
  */
 public interface AchievementAtomicClaimStore {
+    default boolean available() { return true; }
+
     boolean commit(UUID playerUuid, String achievementId, int expectedPriorClaimedStage,
                    AchievementStage stage, AchievementPlayerState nextState);
 }
