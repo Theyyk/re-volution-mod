@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v2.5.0`.**
+**Стабильная версия: `v2.6.0`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.5.0](docs/releases/v2.5.0.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.6.0](docs/releases/v2.6.0.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -109,7 +109,7 @@ Gameplay-мод не должен содержать приватные signing 
 - Pet System содержит 8 run-scoped normal slots и 2 permanent premium slots, server-authoritative покупку/выбор, Awakening, cooldown и Rank Revert.
 - Обычные и улучшенные Pets сбрасываются при Prestige, а Advanced+ сохраняют ownership, rank, level, XP и выбранное состояние; premium entitlement сохраняется отдельно.
 - Все активные Pets получают online-only time-based XP без hard cap уровня; Pet XP bonus участвует в том же shared Effect Resolver.
-- `Фрагменты знаний` используют существующий `runBranchCurrency`: покупают normal Pet slots и имеют server-authoritative Run Exchange foundation; конкретные exchange offers/rates в v2.4.0 не заданы.
+- `Фрагменты знаний` используют существующий `runBranchCurrency`: покупают normal Pet slots и участвуют в server-authoritative Run Exchange с 7 baseline offers - Pet Slot за Fragments и Coins/Rune Dust/Shards за Fragments или Crystals; resource rewards считаются как процент от фактического текущего баланса, а числовые ZBT-параметры остаются data-driven.
 - Damage/status foundation поддерживает `CLICK`, `POISON`, `BURNING`, `BLEEDING`, `CURSE`, `WITHER` и `DECAY` через общий server-authoritative damage boundary.
 - Ранги рун: **Обычная → Улучшенная → Продвинутая → Мифическая**; `ANCIENT` зарезервирована и не участвует в текущем gameplay.
 - Покупка рун `x1`, `x5`, `x10`, `x100` с серверной проверкой экономики и блокировкой кнопки при нехватке полной стоимости выбранного количества.
