@@ -61,7 +61,18 @@ public final class AuraActionPacketHandler implements IMessageHandler<AuraAction
                 services.resources.getPlayerResource(player.getUniqueID(), "aura_key"),
                 services.resources.getPlayerResource(player.getUniqueID(), "crystals"),
                 services.auraPolicy.keyCrystalPrice(), state.totalChestOpens, state.totalChestAuraDrops,
-                state.skipOpeningAnimation, services.auraPolicy.featureEnabled()), player);
+                state.skipOpeningAnimation, services.auraPolicy.featureEnabled(), rarityRules(services)), player);
+    }
+
+    private static String rarityRules(ServerServices services) {
+        StringBuilder out = new StringBuilder();
+        for (AuraModel.Rarity rarity : AuraModel.Rarity.values()) {
+            if (out.length() > 0) out.append('|');
+            out.append(rarity.name()).append(':')
+                    .append(services.auraPolicy.craftToNextCost(rarity)).append(':')
+                    .append(services.auraPolicy.dismantleToPreviousCount(rarity));
+        }
+        return out.toString();
     }
 
     private static List<UUID> parseIds(String raw) {
