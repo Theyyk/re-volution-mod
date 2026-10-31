@@ -8,7 +8,8 @@ import java.math.BigDecimal;
 import java.util.Locale;
 
 /** Reads every gameplay balance number from the active Balance Core snapshot. */
-public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, GodWorshipAutomationService.Policy {
+public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy,
+        GodWorshipAutomationService.Policy, GodWorshipModifierService.Policy {
     private final BalanceService balance;
 
     public BalanceGodWorshipPolicy(BalanceService balance) {
@@ -47,7 +48,7 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, 
         return bool("god.feature." + gate.name().toLowerCase(Locale.ROOT));
     }
 
-    public BigDecimal buffAdditiveMultiplier(GodId god, long level) {
+    @Override public BigDecimal buffAdditiveMultiplier(GodId god, long level) {
         if (level <= 0L) return BigDecimal.ZERO;
         return balance.evaluateActiveCurve("god." + id(god) + ".buff_multiplier", curveIndex(level - 1L));
     }
