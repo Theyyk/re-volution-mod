@@ -11,7 +11,9 @@ import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.gameplay.CompositeGameplayEventSink;
+import com.example.revolution.gameplay.GameplayEvent;
 import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
 import com.example.revolution.location.world.REBuilderAdapter;
@@ -229,7 +231,10 @@ public final class ServerServices implements AutoCloseable {
         stageTransitionTriggers = new StageTransitionTriggerService(
                 triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
         fastAuto = new FastAutoService(fastAutoPreferences, mobProgression);
-        mobProgression.setUnlockListener(fastAuto);
+        mobProgression.setUnlockListener((playerUuid, result) -> {
+            fastAuto.onUnlocked(playerUuid, result);
+            gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.STAGES_COMPLETED));
+        });
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         if (persistentGameplay) mobs.setConfigurationGuard(adminStageStore::recover);
