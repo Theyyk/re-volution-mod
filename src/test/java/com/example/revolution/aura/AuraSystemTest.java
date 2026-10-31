@@ -7,7 +7,6 @@ import com.example.revolution.resource.service.ResourceService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +81,8 @@ final class AuraSystemTest {
         assertEquals(AuraModel.Rarity.RARE, rare.rarity); assertEquals(AuraModel.Origin.CRAFT, rare.origin);
         List<AuraModel.AuraInstance> returned = service.dismantle(player, rare.instanceId, 20L);
         assertEquals(1, returned.size()); assertEquals(AuraModel.Rarity.COMMON, returned.get(0).rarity); assertEquals(AuraModel.Origin.DISMANTLE, returned.get(0).origin);
-        assertEquals(3, service.state(player).totalChestAuraDrops == 0 ? 3 : 3); // craft/dismantle never increment chest counters
+        assertEquals(0L, service.state(player).totalChestOpens);
+        assertEquals(0L, service.state(player).totalChestAuraDrops);
     }
 
     @Test void auraLayerStacksAllDamageAndChannelAfterPreviousLayer() {
