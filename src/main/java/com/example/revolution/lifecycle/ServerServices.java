@@ -182,6 +182,7 @@ public final class ServerServices implements AutoCloseable {
         gameplayEvents = new CompositeGameplayEventSink(
                 new PrestigeProgressRouter(prestige, prestigeBranches),
                 quests);
+        prestige.setGameplayEventSink(gameplayEvents);
         resources.setGameplayEventSink(gameplayEvents);
         PetCatalog petCatalog = new PetCatalog();
         PetBalanceService petBalance = new PetBalanceService(balance);
