@@ -1,7 +1,9 @@
 package com.example.revolution.persistence;
 
+import com.example.revolution.achievement.AchievementAtomicClaimStore;
 import com.example.revolution.achievement.AchievementPlayerState;
 import com.example.revolution.achievement.AchievementRepository;
+import com.example.revolution.achievement.AchievementStage;
 import com.mongodb.client.model.UpdateOptions;
 import java.math.BigDecimal;
 import java.util.List;
@@ -11,14 +13,16 @@ import java.util.UUID;
 import org.bson.Document;
 
 /** Backward-compatible v2.10.0 state embedded in the existing player document. */
-public final class MongoAchievementRepository implements AchievementRepository {
+public final class MongoAchievementRepository implements AchievementRepository, AchievementAtomicClaimStore {
     private static final int SCHEMA_VERSION = 1;
     private final MongoConnection connection;
     private final boolean enabled;
+    private final MongoAchievementAtomicClaimStore atomicClaims;
 
     public MongoAchievementRepository(MongoConnection connection, boolean enabled) {
         this.connection = connection;
         this.enabled = enabled;
+        this.atomicClaims = new MongoAchievementAtomicClaimStore(connection, enabled);
     }
 
     @Override
@@ -33,6 +37,12 @@ public final class MongoAchievementRepository implements AchievementRepository {
         if (playerUuid == null || state == null || !enabled || !connection.isConnected()) return;
         connection.collection("players").updateOne(new Document("_id", playerUuid.toString()),
                 new Document("$set", new Document("achievementState", encode(state))), new UpdateOptions().upsert(true));
+    }
+
+    @Override
+    public boolean commit(UUID playerUuid, String achievementId, int expectedPriorClaimedStage,
+                          AchievementStage stage, AchievementPlayerState nextState) {
+        return atomicClaims.commit(playerUuid, achievementId, expectedPriorClaimedStage, stage, nextState);
     }
 
     static Document encode(AchievementPlayerState state) {
