@@ -9,7 +9,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-/** Reads every Aura numeric/toggle value from Balance Core. */
+/** Reads Aura values from Balance Core. Per-rarity+effect overrides fall back to rarity/effect defaults. */
 public final class BalanceAuraPolicy implements AuraPolicy {
     public static final List<EffectResolver.Stat> SUPPORTED_EFFECTS = Collections.unmodifiableList(Arrays.asList(
             EffectResolver.Stat.CLICK_DAMAGE_MULTIPLIER,
@@ -39,10 +39,23 @@ public final class BalanceAuraPolicy implements AuraPolicy {
     @Override public int maxRolls(AuraModel.Rarity rarity) { return integer(rarityKey(rarity, "max_rolls")); }
     @Override public int craftToNextCost(AuraModel.Rarity rarity) { return integer(rarityKey(rarity, "craft_to_next_cost")); }
     @Override public int dismantleToPreviousCount(AuraModel.Rarity rarity) { return integer(rarityKey(rarity, "dismantle_to_previous_count")); }
-    @Override public boolean effectEnabled(AuraModel.Rarity rarity, EffectResolver.Stat stat) { return bool(effectKey(rarity, stat, "enabled")); }
-    @Override public BigDecimal effectWeight(AuraModel.Rarity rarity, EffectResolver.Stat stat) { return decimal(effectKey(rarity, stat, "weight")); }
-    @Override public BigDecimal minEffect(AuraModel.Rarity rarity, EffectResolver.Stat stat) { return decimal(effectKey(rarity, stat, "min_percent")).movePointLeft(2); }
-    @Override public BigDecimal maxEffect(AuraModel.Rarity rarity, EffectResolver.Stat stat) { return decimal(effectKey(rarity, stat, "max_percent")).movePointLeft(2); }
+
+    @Override public boolean effectEnabled(AuraModel.Rarity rarity, EffectResolver.Stat stat) {
+        return Boolean.parseBoolean(optional(effectKey(rarity, stat, "enabled"), optional(effectDefaultKey(stat, "enabled"), "true")));
+    }
+
+    @Override public BigDecimal effectWeight(AuraModel.Rarity rarity, EffectResolver.Stat stat) {
+        return new BigDecimal(optional(effectKey(rarity, stat, "weight"), balance.getActiveValue(effectDefaultKey(stat, "weight"))));
+    }
+
+    @Override public BigDecimal minEffect(AuraModel.Rarity rarity, EffectResolver.Stat stat) {
+        return new BigDecimal(optional(effectKey(rarity, stat, "min_percent"), balance.getActiveValue(rarityKey(rarity, "effect_min_percent")))).movePointLeft(2);
+    }
+
+    @Override public BigDecimal maxEffect(AuraModel.Rarity rarity, EffectResolver.Stat stat) {
+        return new BigDecimal(optional(effectKey(rarity, stat, "max_percent"), balance.getActiveValue(rarityKey(rarity, "effect_max_percent")))).movePointLeft(2);
+    }
+
     @Override public int keyCrystalPrice() { return integer("aura.key.crystal_price"); }
 
     @Override public List<Integer> allowedOpenQuantities() {
@@ -61,8 +74,17 @@ public final class BalanceAuraPolicy implements AuraPolicy {
         return "aura.rarity." + rarity.name().toLowerCase(Locale.ROOT) + "." + suffix;
     }
 
+    private String effectDefaultKey(EffectResolver.Stat stat, String suffix) {
+        return "aura.effect.default." + stat.name().toLowerCase(Locale.ROOT) + "." + suffix;
+    }
+
     private String effectKey(AuraModel.Rarity rarity, EffectResolver.Stat stat, String suffix) {
         return "aura.effect." + rarity.name().toLowerCase(Locale.ROOT) + "." + stat.name().toLowerCase(Locale.ROOT) + "." + suffix;
+    }
+
+    private String optional(String id, String fallback) {
+        String value = balance.getActiveSnapshot().getConfig().getValue(id);
+        return value == null ? fallback : value;
     }
 
     private boolean bool(String id) { return Boolean.parseBoolean(balance.getActiveValue(id)); }
