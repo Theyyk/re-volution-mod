@@ -13,37 +13,51 @@ import java.util.UUID;
 /** Server-authoritative Mastery run engine. Legacy Prestige names remain for compatibility. */
 public final class PrestigeService implements EffectResolver.Source {
     public interface AppliedResetParticipant { void afterAppliedReset(UUID playerUuid); }
+    public interface AppliedMasteryResetObserver { void afterAppliedMasteryReset(UUID playerUuid, MasteryResetMode mode); }
     public interface FragmentRewardProvider { BigDecimal rewardPerLevel(PrestigeBranch branch); }
     public enum FragmentSource { MASTERY, PET }
     private static final AppliedResetParticipant NO_RESET_PARTICIPANT = playerUuid -> { };
+    private static final AppliedMasteryResetObserver NO_MASTERY_RESET_OBSERVER = (playerUuid, mode) -> { };
     private static final FragmentRewardProvider DEFAULT_FRAGMENT_REWARDS = branch -> BigDecimal.ONE;
     private final PrestigeRepository repository;
     private final PrestigeBranchRegistry registry;
     private final PrestigeResetService resets;
     private final AppliedResetParticipant appliedResetParticipant;
+    private final AppliedMasteryResetObserver appliedMasteryResetObserver;
     private FragmentRewardProvider fragmentRewards = DEFAULT_FRAGMENT_REWARDS;
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry) {
         this(repository, registry, (player, branch) -> registry.get(branch).defaultSaveMultiplier,
-                NO_RESET_PARTICIPANT, MasteryTierPolicy.compatibility());
+                NO_RESET_PARTICIPANT, MasteryTierPolicy.compatibility(), NO_MASTERY_RESET_OBSERVER);
     }
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry, PrestigeResetService.SaveMultiplierProvider saveMultipliers) {
-        this(repository, registry, saveMultipliers, NO_RESET_PARTICIPANT, MasteryTierPolicy.compatibility());
+        this(repository, registry, saveMultipliers, NO_RESET_PARTICIPANT,
+                MasteryTierPolicy.compatibility(), NO_MASTERY_RESET_OBSERVER);
     }
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry,
                            PrestigeResetService.SaveMultiplierProvider saveMultipliers,
                            AppliedResetParticipant appliedResetParticipant) {
-        this(repository, registry, saveMultipliers, appliedResetParticipant, MasteryTierPolicy.compatibility());
+        this(repository, registry, saveMultipliers, appliedResetParticipant,
+                MasteryTierPolicy.compatibility(), NO_MASTERY_RESET_OBSERVER);
     }
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry,
                            PrestigeResetService.SaveMultiplierProvider saveMultipliers,
                            AppliedResetParticipant appliedResetParticipant,
                            MasteryTierPolicy tierPolicy) {
+        this(repository, registry, saveMultipliers, appliedResetParticipant, tierPolicy, NO_MASTERY_RESET_OBSERVER);
+    }
+    public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry,
+                           PrestigeResetService.SaveMultiplierProvider saveMultipliers,
+                           AppliedResetParticipant appliedResetParticipant,
+                           MasteryTierPolicy tierPolicy,
+                           AppliedMasteryResetObserver appliedMasteryResetObserver) {
         this.repository = repository;
         this.registry = registry;
         this.resets = new PrestigeResetService(repository, registry, saveMultipliers, tierPolicy);
         this.appliedResetParticipant = appliedResetParticipant == null ? NO_RESET_PARTICIPANT : appliedResetParticipant;
+        this.appliedMasteryResetObserver = appliedMasteryResetObserver == null
+                ? NO_MASTERY_RESET_OBSERVER : appliedMasteryResetObserver;
     }
 
     public synchronized void setFragmentRewardProvider(FragmentRewardProvider provider) {
@@ -183,6 +197,7 @@ public final class PrestigeService implements EffectResolver.Source {
         PrestigeResetService.MasteryResetResult result = resets.masteryReset(playerUuid, expectedRunId, mode);
         if (result == PrestigeResetService.MasteryResetResult.APPLIED) {
             if (!preserveRunes) appliedResetParticipant.afterAppliedReset(playerUuid);
+            appliedMasteryResetObserver.afterAppliedMasteryReset(playerUuid, mode);
             emitMasteryReset(playerUuid, before);
         }
         return result;
