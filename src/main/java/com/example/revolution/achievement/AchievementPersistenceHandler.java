@@ -1,5 +1,6 @@
 package com.example.revolution.achievement;
 
+import com.example.revolution.network.AchievementRequestLimiter;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -16,7 +17,9 @@ public final class AchievementPersistenceHandler {
     }
 
     @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (event.player != null) achievements.unload(event.player.getUniqueID());
+        if (event.player == null) return;
+        achievements.unload(event.player.getUniqueID());
+        AchievementRequestLimiter.forget(event.player.getUniqueID());
     }
 
     @SubscribeEvent public void onServerTick(TickEvent.ServerTickEvent event) {
