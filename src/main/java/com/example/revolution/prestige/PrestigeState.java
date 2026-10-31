@@ -69,7 +69,6 @@ public final class PrestigeState {
         public final Map<String, Integer> rankMetaLevels = new LinkedHashMap<>();
         public int rankMetaLevelCap = 5;
         public int masteryTier;
-        public String masteryQuestState = "LOCKED";
 
         public BranchState copy() {
             BranchState copy = new BranchState();
@@ -77,7 +76,6 @@ public final class PrestigeState {
             copy.rankMetaLevels.putAll(rankMetaLevels);
             copy.rankMetaLevelCap = rankMetaLevelCap;
             copy.masteryTier = masteryTier;
-            copy.masteryQuestState = masteryQuestState;
             return copy;
         }
     }
