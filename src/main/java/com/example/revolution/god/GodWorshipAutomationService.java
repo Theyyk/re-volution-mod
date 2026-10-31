@@ -63,9 +63,12 @@ public final class GodWorshipAutomationService {
     /** Passive charge starts at the factual moment the God Worship panel opens. */
     public synchronized void setMenuOpen(UUID playerUuid, boolean open, long nowMillis) {
         if (playerUuid == null) return;
-        lastRuntimeTickAt.put(playerUuid, nowMillis);
-        if (open) openMenus.add(playerUuid);
-        else openMenus.remove(playerUuid);
+        if (open) {
+            if (openMenus.add(playerUuid)) lastRuntimeTickAt.put(playerUuid, nowMillis);
+        } else {
+            openMenus.remove(playerUuid);
+            lastRuntimeTickAt.put(playerUuid, nowMillis);
+        }
     }
 
     public synchronized void playerDisconnected(UUID playerUuid) {
