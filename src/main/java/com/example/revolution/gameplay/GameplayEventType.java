@@ -48,9 +48,22 @@ public enum GameplayEventType {
     STAGES_COMPLETED,
     LOCATION_REACHED,
 
+    /** Legacy/general God identifiers retained for compatibility with existing quest content. */
     GOD_WORSHIP_STARTED,
     GOD_WORSHIP_COMPLETED,
     GOD_BUFF_ACTIVATED,
     GOD_BUFF_COMPLETED,
-    GOD_OFFERING_MADE
+    GOD_OFFERING_MADE,
+
+    /** v2.8.0 factual God Worship contract. */
+    GOD_UNLOCK,
+    GOD_UPGRADE,
+    GOD_CHARGE_CLICK,
+    GOD_COOLDOWN_REDUCTION_CLICK,
+    GOD_BUFF_ACTIVATE,
+    GOD_BUFF_EXPIRE,
+    GOD_AUTO_WORSHIP_SPEND,
+    OFFERINGS_EARNED,
+    OFFERINGS_SPENT,
+    GOD_LINKED_ACTIVATION
 }
