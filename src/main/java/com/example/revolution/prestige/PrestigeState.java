@@ -46,6 +46,8 @@ public final class PrestigeState {
         public BigDecimal runBranchCurrency = BigDecimal.ZERO;
         public BigDecimal masteryPendingFragments = BigDecimal.ZERO;
         public BigDecimal petPendingFragments = BigDecimal.ZERO;
+        /** Resource-offer purchase counts only. Pet Slot keeps its canonical counter in Pet state. */
+        public final Map<String, Integer> runExchangePurchaseCounts = new LinkedHashMap<>();
         public final Map<String, BigDecimal> runModifiers = new LinkedHashMap<>();
 
         public RunState copy() {
@@ -59,6 +61,7 @@ public final class PrestigeState {
             copy.runBranchCurrency = runBranchCurrency;
             copy.masteryPendingFragments = masteryPendingFragments;
             copy.petPendingFragments = petPendingFragments;
+            copy.runExchangePurchaseCounts.putAll(runExchangePurchaseCounts);
             copy.runModifiers.putAll(runModifiers);
             return copy;
         }

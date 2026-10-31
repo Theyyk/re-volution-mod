@@ -66,7 +66,7 @@ import com.example.revolution.prestige.BalanceMasteryTierPolicy;
 import com.example.revolution.prestige.PrestigeBranchRegistry;
 import com.example.revolution.prestige.PrestigeProgressRouter;
 import com.example.revolution.prestige.PrestigeService;
-import com.example.revolution.prestige.exchange.definition.RunExchangeCatalog;
+import com.example.revolution.prestige.exchange.service.RunExchangeCatalogFactory;
 import com.example.revolution.prestige.exchange.service.RunExchangeService;
 import com.example.revolution.realm.service.RealmService;
 import com.example.revolution.resource.service.ResourceService;
@@ -166,10 +166,10 @@ public final class ServerServices implements AutoCloseable {
         gameplayEvents = new PrestigeProgressRouter(prestige, prestigeBranches);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
         resources.setGameplayEventSink(gameplayEvents);
-        runExchange = new RunExchangeService(prestige, resources, RunExchangeCatalog.empty());
         PetCatalog petCatalog = new PetCatalog();
         PetBalanceService petBalance = new PetBalanceService(balance);
         pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
+        runExchange = new RunExchangeService(prestige, resources, pets, balance, RunExchangeCatalogFactory.fromBalance(balance));
         petEffects = new PetEffectSource(petRepository, petCatalog, petBalance);
         effects.register(petEffects);
 

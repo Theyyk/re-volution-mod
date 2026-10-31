@@ -103,12 +103,18 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
     private Document encodeRun(PrestigeState.RunState run) {
         Document modifiers = new Document();
         for (Map.Entry<String, BigDecimal> entry : run.runModifiers.entrySet()) modifiers.append(entry.getKey(), exact(entry.getValue()));
+        Document purchases = new Document();
+        for (Map.Entry<String, Integer> entry : run.runExchangePurchaseCounts.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null && entry.getValue() > 0) purchases.append(entry.getKey(), entry.getValue());
+        }
         return new Document("runId", run.runId).append("branch", run.activeBranch.name()).append("startedAt", run.startedAt)
                 .append("progress", exact(run.branchProgress)).append("level", run.branchLevel)
                 .append("reachedRanks", new ArrayList<>(run.reachedRanks))
                 .append("runBranchCurrency", exact(run.runBranchCurrency))
                 .append("masteryPendingFragments", exact(run.masteryPendingFragments))
-                .append("petPendingFragments", exact(run.petPendingFragments)).append("runModifiers", modifiers);
+                .append("petPendingFragments", exact(run.petPendingFragments))
+                .append("runExchange", new Document("purchases", purchases))
+                .append("runModifiers", modifiers);
     }
 
     private Document encodeBranch(PrestigeState.BranchState state) {
@@ -132,6 +138,12 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
             active.runBranchCurrency = decimal(run.get("runBranchCurrency"));
             active.masteryPendingFragments = decimal(run.get("masteryPendingFragments"));
             active.petPendingFragments = decimal(run.get("petPendingFragments"));
+            Document exchange = run.get("runExchange", Document.class);
+            Document purchases = exchange == null ? null : exchange.get("purchases", Document.class);
+            if (purchases != null) for (String key : purchases.keySet()) {
+                Object value = purchases.get(key);
+                if (value instanceof Number) active.runExchangePurchaseCounts.put(key, Math.max(0, ((Number) value).intValue()));
+            }
             Document modifiers = run.get("runModifiers", Document.class);
             if (modifiers != null) for (String key : modifiers.keySet()) active.runModifiers.put(key, decimal(modifiers.get(key)));
             if (active.runId != null) state.activeRun = active;
