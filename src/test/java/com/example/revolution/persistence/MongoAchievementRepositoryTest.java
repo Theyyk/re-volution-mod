@@ -7,13 +7,21 @@ import org.bson.Document;
 /** Pure codec regression for v2.9 compatibility and permanent v2.10 Achievement state. */
 public final class MongoAchievementRepositoryTest {
     public static void main(String[] args) {
-        AchievementPlayerState migrated = MongoAchievementRepository.decode(null);
+        AchievementPlayerState migrated = MongoAchievementRepository.migrateFromV29(new Document());
         check(migrated.achievementPoints == 0L, "v2.9 missing state starts with zero points");
-        check(migrated.achievementProgress.isEmpty(), "v2.9 missing state does not invent progress");
+        check(migrated.achievementProgress.isEmpty(), "v2.9 without recoverable facts does not invent progress");
         check(migrated.highestClaimedStage.isEmpty(), "v2.9 missing state does not invent claims");
         check(migrated.everSelectedMasteryIds.isEmpty(), "v2.9 missing state does not invent mastery history");
         check(migrated.everObtainedPetIds.isEmpty(), "v2.9 missing state does not invent pet history");
         check(migrated.visitedLocationIds.isEmpty(), "v2.9 missing state does not invent location history");
+
+        Document v29WithAuraHistory = new Document("auraState",
+                new Document("totalChestAuraDrops", 137L).append("totalChestOpens", 137L));
+        AchievementPlayerState auraMigrated = MongoAchievementRepository.migrateFromV29(v29WithAuraHistory);
+        check(auraMigrated.progress("aura_drops").compareTo(new BigDecimal("137")) == 0,
+                "exact v2.9 Aura chest-drop statistic is bootstrapped");
+        check(auraMigrated.achievementProgress.size() == 1,
+                "migration does not infer unrelated historic gameplay");
 
         AchievementPlayerState source = new AchievementPlayerState();
         source.achievementProgress.put("damage_total", new BigDecimal("12345678901234567890.25"));
@@ -35,7 +43,7 @@ public final class MongoAchievementRepositoryTest {
         check(restored.revealedHiddenAchievements.contains("aura_mythic"), "hidden reveal survives codec");
         check(restored.achievementPoints == 987654321L, "Achievement Points survive codec");
         check(encoded.getInteger("schemaVersion") == 1, "explicit Achievement schema version is persisted");
-        System.out.println("Achievement Mongo codec and v2.9 empty migration regressions passed");
+        System.out.println("Achievement Mongo codec and v2.9 factual migration regressions passed");
     }
 
     private static void check(boolean value, String message) {
