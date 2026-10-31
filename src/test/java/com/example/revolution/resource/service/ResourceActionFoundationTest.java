@@ -24,11 +24,13 @@ public final class ResourceActionFoundationTest {
                 "coins", "crystals",
                 ResourceDefinitions.RUNE_DUST,
                 ResourceDefinitions.RUNE_SHARDS,
-                ResourceDefinitions.RUNE_CORES
+                ResourceDefinitions.RUNE_CORES,
+                ResourceDefinitions.AURA_KEY
         );
         assertEquals(expected, ResourceDefinitions.getResourceNames(), "fixed resource catalog");
         assertEquals("coins", ResourceDefinitions.findCanonicalName("COINS"), "currency lookup must remain case-insensitive");
         assertEquals(ResourceDefinitions.RUNE_DUST, ResourceDefinitions.findCanonicalName("RUNE_DUST"), "rune resource lookup must remain case-insensitive");
+        assertEquals(ResourceDefinitions.AURA_KEY, ResourceDefinitions.findCanonicalName("AURA_KEY"), "Aura Key lookup must remain case-insensitive");
         assertEquals(null, ResourceDefinitions.findCanonicalName("custom_resource"), "unknown custom resources must be rejected");
     }
 
@@ -36,10 +38,12 @@ public final class ResourceActionFoundationTest {
         assertTrue(ResourceDefinitions.isRetiredResource("lightnings"), "lightnings must be retired");
         assertTrue(ResourceDefinitions.isRetiredResource("LIGHTNINGS"), "retired resource check must be case-insensitive");
         assertFalse(ResourceDefinitions.isRetiredResource("rune_dust"), "rune_dust must remain active");
+        assertFalse(ResourceDefinitions.isRetiredResource("aura_key"), "Aura Key must remain active");
         assertEquals(null, ResourceDefinitions.findCanonicalName("lightnings"), "lightnings must not resolve as a resource");
         assertEquals("Пыль рун", ResourceDefinitions.getDisplayName(ResourceDefinitions.RUNE_DUST), "rune dust display name");
         assertEquals("Осколки рун", ResourceDefinitions.getDisplayName(ResourceDefinitions.RUNE_SHARDS), "rune shards display name");
         assertEquals("Ядра рун", ResourceDefinitions.getDisplayName(ResourceDefinitions.RUNE_CORES), "rune cores display name");
+        assertEquals("Ключ Ауры", ResourceDefinitions.getDisplayName(ResourceDefinitions.AURA_KEY), "Aura Key display name");
     }
 
     private static void sharedResourceActionApiExists() throws Exception {
