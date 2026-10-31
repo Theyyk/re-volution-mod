@@ -237,6 +237,7 @@ public final class ServerServices implements AutoCloseable {
             gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.STAGES_COMPLETED));
         });
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
+        mobRewards.setGameplayEventSink(gameplayEvents);
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         if (persistentGameplay) mobs.setConfigurationGuard(adminStageStore::recover);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
