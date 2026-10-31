@@ -1,9 +1,14 @@
 package com.example.revolution.location.service;
 
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.repository.LocationRepository;
 import com.example.revolution.mob.service.MobProgressionService;
+import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -45,12 +50,17 @@ public final class StageTransitionService {
     private final LocationRepository locations;
     private final MobProgressionService progression;
     private final Map<UUID, Integer> lastStageByPlayer = new ConcurrentHashMap<>();
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public StageTransitionService(LocationRepository locations, MobProgressionService progression) {
         if (locations == null) throw new IllegalArgumentException("locations is required");
         if (progression == null) throw new IllegalArgumentException("progression is required");
         this.locations = locations;
         this.progression = progression;
+    }
+
+    public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
     public LocationDefinition configureTransitionPoint(
@@ -134,6 +144,8 @@ public final class StageTransitionService {
         player.motionZ = 0.0D;
         player.fallDistance = 0.0F;
         lastStageByPlayer.put(player.getUniqueID(), target.getLocationId());
+        gameplayEvents.factualEvent(new GameplayEvent(player.getUniqueID(), GameplayEventType.LOCATION_REACHED,
+                BigDecimal.ONE, Collections.singletonMap("locationId", String.valueOf(target.getLocationId())), "stage_transition"));
         return new TransitionResult(fromInternalLocationId, target.getLocationId(),
                 target.getTransitionX(), target.getTransitionY(), target.getTransitionZ());
     }
