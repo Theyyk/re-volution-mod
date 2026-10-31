@@ -75,6 +75,8 @@ public final class GodWorshipModel {
         public long buffActiveUntilMillis;
         public long cooldownUntilMillis;
         public long chargeProgress;
+        /** Last factual active-time boundary already converted into Offerings for this activation. */
+        public long offeringSettledUntilMillis;
 
         public State copy() {
             State copy = new State();
@@ -84,6 +86,7 @@ public final class GodWorshipModel {
             copy.buffActiveUntilMillis = buffActiveUntilMillis;
             copy.cooldownUntilMillis = cooldownUntilMillis;
             copy.chargeProgress = chargeProgress;
+            copy.offeringSettledUntilMillis = offeringSettledUntilMillis;
             return copy;
         }
     }
