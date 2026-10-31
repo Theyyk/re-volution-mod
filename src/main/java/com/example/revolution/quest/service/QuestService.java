@@ -48,6 +48,9 @@ public final class QuestService implements GameplayEventSink {
         metadata.put("channel", source.name());
         apply(new GameplayEvent(playerUuid, GameplayEventType.TOTAL_DAMAGE, amount, metadata, "combat"));
         apply(new GameplayEvent(playerUuid, GameplayEventType.DAMAGE_BY_CHANNEL, amount, metadata, "combat"));
+        if (source == GameplayDamageSource.CLICK) {
+            apply(new GameplayEvent(playerUuid, GameplayEventType.CLICK_COUNT, BigDecimal.ONE, metadata, "combat_click"));
+        }
     }
 
     @Override public synchronized void earnedResource(UUID playerUuid, String resource, BigDecimal amount) {
