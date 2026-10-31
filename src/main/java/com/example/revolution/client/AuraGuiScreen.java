@@ -20,6 +20,7 @@ public final class AuraGuiScreen extends GuiScreen {
     private String pendingRarity = "";
     private String pendingIds = "";
     private String pendingInstanceId = "";
+    private int pendingOpenQuantity;
 
     @Override public void initGui() {
         buttonList.clear();
@@ -43,7 +44,7 @@ public final class AuraGuiScreen extends GuiScreen {
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
         if (button.id >= 1 && button.id <= 4) {
-            int[] amounts = {1, 3, 5, 10}; clearPending(); send("open", String.valueOf(amounts[button.id - 1]), ""); return;
+            int[] amounts = {1, 3, 5, 10}; previewOrConfirmOpen(amounts[button.id - 1]); return;
         }
         if (button.id == 5) { clearPending(); send("skip_animation", String.valueOf(!AuraClientState.skipAnimation()), ""); return; }
         if (button.id == 10) { clearPending(); cycleFilter(); initGui(); return; }
@@ -56,6 +57,16 @@ public final class AuraGuiScreen extends GuiScreen {
         else if (button.id == 21 && selected != null && !"COMMON".equals(selected.rarity)) previewOrConfirmDismantle(selected);
         else if (button.id == 22) { clearPending(); send("sync", "", ""); }
         else if (button.id == 23) mc.displayGuiScreen(null);
+    }
+
+    /** Keys already owned open immediately; only the missing-key Crystal purchase requires confirmation. */
+    private void previewOrConfirmOpen(int quantity) {
+        int missing = Math.max(0, quantity - AuraClientState.auraKeys());
+        if (missing == 0) { clearPending(); send("open", String.valueOf(quantity), ""); return; }
+        if ("open".equals(pendingAction) && pendingOpenQuantity == quantity) {
+            clearPending(); send("open", String.valueOf(quantity), ""); return;
+        }
+        clearPending(); pendingAction = "open"; pendingOpenQuantity = quantity;
     }
 
     /** First click only prepares Auto Fill selection; second click explicitly confirms the craft mutation. */
@@ -73,7 +84,7 @@ public final class AuraGuiScreen extends GuiScreen {
         if (ids.size() != required) { clearPending(); return; }
         StringBuilder joined = new StringBuilder();
         for (String id : ids) { if (joined.length() > 0) joined.append(','); joined.append(id); }
-        pendingAction = "craft"; pendingRarity = rarity; pendingIds = joined.toString(); pendingInstanceId = "";
+        clearPending(); pendingAction = "craft"; pendingRarity = rarity; pendingIds = joined.toString();
     }
 
     /** First click is preview only; second click confirms consumption and configured return count. */
@@ -82,10 +93,12 @@ public final class AuraGuiScreen extends GuiScreen {
         if ("dismantle".equals(pendingAction) && selected.instanceId.equals(pendingInstanceId)) {
             String id = pendingInstanceId; clearPending(); send("dismantle", id, ""); return;
         }
-        pendingAction = "dismantle"; pendingRarity = selected.rarity; pendingInstanceId = selected.instanceId; pendingIds = "";
+        clearPending(); pendingAction = "dismantle"; pendingRarity = selected.rarity; pendingInstanceId = selected.instanceId;
     }
 
-    private void clearPending() { pendingAction = ""; pendingRarity = ""; pendingIds = ""; pendingInstanceId = ""; }
+    private void clearPending() {
+        pendingAction = ""; pendingRarity = ""; pendingIds = ""; pendingInstanceId = ""; pendingOpenQuantity = 0;
+    }
 
     private void send(String action, String value, String ids) {
         NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket(action, value, ids, ++nonce));
@@ -132,7 +145,11 @@ public final class AuraGuiScreen extends GuiScreen {
         }
         AuraSnapshotPacket.Entry selected = selected();
         if (selected != null) drawString(fontRenderer, "Raw: " + selected.rawRolls, left, top + 166, 0xAAAAAA);
-        if ("craft".equals(pendingAction)) {
+        if ("open".equals(pendingAction)) {
+            int missing = Math.max(0, pendingOpenQuantity - AuraClientState.auraKeys());
+            int cost = missing * AuraClientState.keyCrystalPrice();
+            drawString(fontRenderer, "Preview: buy " + missing + " missing key(s) for " + cost + " Crystals, then open x" + pendingOpenQuantity + ". Click Open again to confirm.", left, top + 174, 0xFFFFAA);
+        } else if ("craft".equals(pendingAction)) {
             drawString(fontRenderer, "Preview: consume " + AuraClientState.craftCost(pendingRarity) + " " + pendingRarity + " -> next rarity. Click Auto Fill again to confirm.", left, top + 174, 0xFFFFAA);
         } else if ("dismantle".equals(pendingAction)) {
             drawString(fontRenderer, "Preview: consume 1 " + pendingRarity + " -> " + AuraClientState.dismantleReturn(pendingRarity) + " new lower Aura. Click again to confirm.", left, top + 174, 0xFFFFAA);
