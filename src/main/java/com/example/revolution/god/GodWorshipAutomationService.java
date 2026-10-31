@@ -23,7 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Deterministic server-side Offering settlement, online passive charge and God automation.
+ * Deterministic server-side Offering settlement, menu-scoped passive charge and God automation.
  * One tick performs at most one Auto Worship spend per God, preventing reconnect/tick catch-up bursts.
  */
 public final class GodWorshipAutomationService {
@@ -43,7 +43,8 @@ public final class GodWorshipAutomationService {
     private static final BigDecimal THOUSAND = BigDecimal.valueOf(1000L);
     private final GodWorshipRepository repository;
     private final Policy policy;
-    private final Map<UUID, Long> lastOnlineTickAt = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastRuntimeTickAt = new ConcurrentHashMap<>();
+    private final Set<UUID> openMenus = Collections.newSetFromMap(new ConcurrentHashMap<UUID, Boolean>());
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public GodWorshipAutomationService(GodWorshipRepository repository, Policy policy) {
@@ -58,21 +59,37 @@ public final class GodWorshipAutomationService {
 
     public long processingIntervalMillis() { return policy.autoWorshipIntervalMillis(); }
     public int clickRateLimitPerSecond(GodId god) { return policy.clickRateLimitPerSecond(god); }
-    public void playerDisconnected(UUID playerUuid) { if (playerUuid != null) lastOnlineTickAt.remove(playerUuid); }
-    public void clearRuntimeState() { lastOnlineTickAt.clear(); }
 
-    /** Used on login and regular server cadence. Offline time never contributes passive charge. */
+    /** Passive charge starts at the factual moment the God Worship panel opens. */
+    public synchronized void setMenuOpen(UUID playerUuid, boolean open, long nowMillis) {
+        if (playerUuid == null) return;
+        lastRuntimeTickAt.put(playerUuid, nowMillis);
+        if (open) openMenus.add(playerUuid);
+        else openMenus.remove(playerUuid);
+    }
+
+    public synchronized void playerDisconnected(UUID playerUuid) {
+        if (playerUuid == null) return;
+        lastRuntimeTickAt.remove(playerUuid);
+        openMenus.remove(playerUuid);
+    }
+
+    public synchronized void clearRuntimeState() {
+        lastRuntimeTickAt.clear();
+        openMenus.clear();
+    }
+
+    /** Used on login and regular server cadence. Offline/closed-menu time never contributes passive charge. */
     public synchronized TickResult tick(UUID playerUuid, long nowMillis) {
         if (playerUuid == null) return TickResult.EMPTY;
-        Long previousOnlineTick = lastOnlineTickAt.put(playerUuid, nowMillis);
-        long onlineElapsed = previousOnlineTick == null || nowMillis <= previousOnlineTick
-                ? 0L : nowMillis - previousOnlineTick;
+        Long previousTick = lastRuntimeTickAt.put(playerUuid, nowMillis);
+        long elapsed = previousTick == null || nowMillis <= previousTick ? 0L : nowMillis - previousTick;
         RunState run = repository.loadRunState(playerUuid);
         PersistentState persistent = repository.loadPersistentState(playerUuid);
 
         BigDecimal earned = settleOfferings(playerUuid, run, persistent, nowMillis);
-        normalize(run, nowMillis);
-        settlePassiveCharge(run, persistent, onlineElapsed);
+        normalize(playerUuid, run, nowMillis);
+        if (openMenus.contains(playerUuid)) settlePassiveCharge(run, persistent, elapsed);
 
         BigDecimal spent = BigDecimal.ZERO;
         int activations = 0;
@@ -130,6 +147,7 @@ public final class GodWorshipAutomationService {
 
     public synchronized boolean setActivationMode(UUID playerUuid, GodId god, ActivationMode mode, GodId linkedGod) {
         if (playerUuid == null || god == null || mode == null) return false;
+        if (mode != ActivationMode.MANUAL && !policy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION)) return false;
         PersistentState persistent = repository.loadPersistentState(playerUuid);
         Preference preference = persistent.preferences.get(god);
         ActivationMode oldMode = preference.activationMode;
@@ -184,8 +202,8 @@ public final class GodWorshipAutomationService {
         return earned;
     }
 
-    private void settlePassiveCharge(RunState run, PersistentState persistent, long onlineElapsedMillis) {
-        if (onlineElapsedMillis <= 0L) return;
+    private void settlePassiveCharge(RunState run, PersistentState persistent, long menuOpenElapsedMillis) {
+        if (menuOpenElapsedMillis <= 0L) return;
         boolean autoActivation = policy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION);
         for (GodId god : GodId.values()) {
             State state = run.gods.get(god);
@@ -194,7 +212,7 @@ public final class GodWorshipAutomationService {
             BigDecimal rate = policy.passiveChargePerSecond(god);
             if (rate == null || rate.signum() <= 0) continue;
             BigDecimal remainder = state.passiveChargeRemainder == null ? BigDecimal.ZERO : state.passiveChargeRemainder.max(BigDecimal.ZERO);
-            BigDecimal total = remainder.add(rate.multiply(BigDecimal.valueOf(onlineElapsedMillis)).divide(THOUSAND, 12, RoundingMode.DOWN));
+            BigDecimal total = remainder.add(rate.multiply(BigDecimal.valueOf(menuOpenElapsedMillis)).divide(THOUSAND, 12, RoundingMode.DOWN));
             long gain = total.min(BigDecimal.valueOf(Long.MAX_VALUE)).longValue();
             state.passiveChargeRemainder = total.subtract(BigDecimal.valueOf(gain)).max(BigDecimal.ZERO);
             if (gain <= 0L) continue;
@@ -208,12 +226,15 @@ public final class GodWorshipAutomationService {
         }
     }
 
-    private void normalize(RunState run, long nowMillis) {
+    private void normalize(UUID playerUuid, RunState run, long nowMillis) {
         for (GodId god : GodId.values()) {
             State state = run.gods.get(god);
             Phase before = state.phase;
             GodWorshipRules.normalize(state, nowMillis, policy.cooldownDurationMillis(god));
-            if (before == Phase.BUFF_ACTIVE && state.phase != Phase.BUFF_ACTIVE) state.offeringSettledUntilMillis = 0L;
+            if (before == Phase.BUFF_ACTIVE && state.phase != Phase.BUFF_ACTIVE) {
+                state.offeringSettledUntilMillis = 0L;
+                emit(playerUuid, GameplayEventType.GOD_BUFF_EXPIRE, god, BigDecimal.ONE);
+            }
         }
     }
 
