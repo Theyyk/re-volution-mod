@@ -5,6 +5,7 @@ import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.god.GodWorshipModel.GodId;
 
 import java.math.BigDecimal;
+import java.util.Locale;
 
 /** Reads every gameplay balance number from the active Balance Core snapshot. */
 public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, GodWorshipAutomationService.Policy {
@@ -22,7 +23,7 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, 
     @Override public EffectResolver.Stat secondaryChannel(GodId god) { return stat(key(god, "buff.secondary"), true); }
     @Override public BigDecimal unlockCost(GodId god) { return decimal(key(god, "unlock_cost")); }
     @Override public BigDecimal upgradeCost(GodId god, long currentLevel) {
-        return balance.evaluateActiveCurve("god." + god.name() + ".upgrade_cost", curveIndex(currentLevel));
+        return balance.evaluateActiveCurve("god." + id(god) + ".upgrade_cost", curveIndex(currentLevel));
     }
     @Override public long chargeRequired(GodId god) { return positiveLong(key(god, "charge_required")); }
     @Override public long chargePerClick(GodId god) { return positiveLong(key(god, "charge_per_click")); }
@@ -43,12 +44,12 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, 
     }
 
     @Override public boolean featureEnabled(GodWorshipModel.FeatureGate gate) {
-        return bool("god.feature." + gate.name());
+        return bool("god.feature." + gate.name().toLowerCase(Locale.ROOT));
     }
 
     public BigDecimal buffAdditiveMultiplier(GodId god, long level) {
         if (level <= 0L) return BigDecimal.ZERO;
-        return balance.evaluateActiveCurve("god." + god.name() + ".buff_multiplier", curveIndex(level - 1L));
+        return balance.evaluateActiveCurve("god." + id(god) + ".buff_multiplier", curveIndex(level - 1L));
     }
 
     @Override public BigDecimal offeringGenerationPerSecond() { return decimal("god.offering.generation_per_second"); }
@@ -61,20 +62,26 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, 
         return balance.evaluateActiveCurve("god.duration.upgrade_cost", curveIndex(currentLevel));
     }
 
-    private String key(GodId god, String suffix) { return "god." + god.name() + "." + suffix; }
+    private String id(GodId god) { return god.name().toLowerCase(Locale.ROOT); }
+    private String key(GodId god, String suffix) { return "god." + id(god) + "." + suffix; }
     private boolean bool(String id) { return Boolean.parseBoolean(balance.getActiveValue(id)); }
     private String requiredText(String id) {
         String value = balance.getActiveValue(id);
         if (value == null || value.trim().isEmpty()) throw new IllegalStateException("missing God balance value: " + id);
         return value.trim();
     }
+    private String optionalText(String id) {
+        if (balance.getActiveSnapshot() == null) throw new IllegalStateException("no active balance config");
+        String value = balance.getActiveSnapshot().getConfig().getValue(id);
+        return value == null ? null : value.trim();
+    }
     private EffectResolver.Stat stat(String id, boolean optional) {
-        String value = balance.getActiveValue(id);
-        if (value == null || value.trim().isEmpty()) {
+        String value = optional ? optionalText(id) : requiredText(id);
+        if (value == null || value.isEmpty()) {
             if (optional) return null;
             throw new IllegalStateException("missing God effect channel: " + id);
         }
-        try { return EffectResolver.Stat.valueOf(value.trim()); }
+        try { return EffectResolver.Stat.valueOf(value); }
         catch (IllegalArgumentException invalid) { throw new IllegalStateException("invalid God effect channel: " + id, invalid); }
     }
     private BigDecimal decimal(String id) {
