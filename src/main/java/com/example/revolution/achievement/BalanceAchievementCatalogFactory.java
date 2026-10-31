@@ -26,6 +26,7 @@ public final class BalanceAchievementCatalogFactory {
             GameplayEventType eventType = GameplayEventType.valueOf(required(values, prefix + "event").trim().toUpperCase(java.util.Locale.ROOT));
             boolean hidden = Boolean.parseBoolean(values.get(prefix + "hidden"));
             Map<String, String> filters = filters(values.get(prefix + "filters"));
+            resolveFilterAliases(filters, values);
             List<AchievementStage> stages = stages(required(values, prefix + "stages"));
             definitions.add(new AchievementDefinition(id, name, category, eventType, filters, hidden, stages));
         }
@@ -56,6 +57,15 @@ public final class BalanceAchievementCatalogFactory {
             result.put(entry.substring(0, split).trim(), entry.substring(split + 1).trim());
         }
         return result;
+    }
+
+    private static void resolveFilterAliases(Map<String, String> filters, Map<String, String> values) {
+        for (Map.Entry<String, String> filter : filters.entrySet()) {
+            if ("@boss_ids".equals(filter.getValue())) {
+                String bossIds = values.get("achievement.boss.ids");
+                filter.setValue("oneof:" + (bossIds == null ? "" : bossIds.trim()));
+            }
+        }
     }
 
     private static String required(Map<String, String> values, String key) {
