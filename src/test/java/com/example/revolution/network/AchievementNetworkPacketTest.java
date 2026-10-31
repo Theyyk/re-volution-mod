@@ -7,10 +7,11 @@ import java.util.Collections;
 /** Wire round-trip regression for v2.10.0 Achievement C2S intent and S2C factual snapshot. */
 public final class AchievementNetworkPacketTest {
     public static void main(String[] args) {
-        AchievementActionPacket action = roundTripAction(new AchievementActionPacket("claim", "damage_total", 3));
+        AchievementActionPacket action = roundTripAction(new AchievementActionPacket("claim", "damage_total", 3, 123456789L));
         check("claim".equals(action.getAction()), "action survives wire");
         check("damage_total".equals(action.getAchievementId()), "achievement id survives wire");
         check(action.getExpectedStageIndex() == 3, "expected stage survives wire");
+        check(action.getRequestNonce() == 123456789L, "request nonce survives wire");
 
         AchievementSnapshotPacket.Entry entry = new AchievementSnapshotPacket.Entry();
         entry.achievementId = "damage_total";
