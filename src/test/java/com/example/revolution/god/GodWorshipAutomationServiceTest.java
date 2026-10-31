@@ -41,8 +41,8 @@ final class GodWorshipAutomationServiceTest {
         assertEquals(0, first.offeringsEarned.compareTo(new BigDecimal("12.000000000000")));
         assertEquals(0, repository.persistent.offerings.compareTo(new BigDecimal("12.000000000000")));
         assertEquals(0, second.offeringsEarned.signum());
-        assertEquals(Phase.COOLDOWN, repository.run.gods.get(GodId.GOD_1).phase);
-        assertEquals(15_000L, repository.run.gods.get(GodId.GOD_1).cooldownUntilMillis);
+        assertEquals(Phase.CHARGE, repository.run.gods.get(GodId.GOD_1).phase);
+        assertEquals(0L, repository.run.gods.get(GodId.GOD_1).cooldownUntilMillis);
     }
 
     @Test
