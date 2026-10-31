@@ -24,6 +24,10 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, 
     @Override public long buffDurationMillis(GodId god) { return nonNegativeLong(key(god, "buff.duration_ms")); }
     @Override public long cooldownDurationMillis(GodId god) { return nonNegativeLong(key(god, "cooldown_ms")); }
     @Override public long cooldownReductionPerClickMillis(GodId god) { return positiveLong(key(god, "cooldown_reduction_per_click_ms")); }
+    @Override public int clickRateLimitPerSecond(GodId god) {
+        long value = positiveLong(key(god, "click_rate_limit_per_second"));
+        return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
+    }
     @Override public long permanentDurationMillis(long permanentDurationLevel) {
         if (permanentDurationLevel <= 0L) return 0L;
         long secondsPerLevel = nonNegativeLong("god.duration.seconds_per_level");
