@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v2.8.0`.**
+**Стабильная версия: `v2.9.0`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.8.0](docs/releases/v2.8.0.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.9.0](docs/releases/v2.9.0.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -103,12 +103,16 @@ Gameplay-мод не должен содержать приватные signing 
 
 ## Игровые системы
 
-- Адаптивный GUI со статистикой, ресурсами, персонажем, рунами, питомцами и навигацией.
+- Адаптивный GUI со статистикой, ресурсами, персонажем, рунами, питомцами, Aura System и навигацией.
 - Rune System содержит семь фиксированных коллекций по 26 persistent slots каждая; Collection 1 сохраняет существующий CLICK + POISON контракт.
 - Следующая коллекция permanently открывается после первого достижения `13/13` factual рун ранга `IMPROVED` или выше в предыдущей коллекции и после этого не закрывается.
 - Pet System содержит 8 run-scoped normal slots и 2 permanent premium slots, server-authoritative покупку/выбор, Awakening, cooldown и Rank Revert.
 - Обычные и улучшенные Pets сбрасываются при Prestige, а Advanced+ сохраняют ownership, rank, level, XP и выбранное состояние; premium entitlement сохраняется отдельно.
 - Все активные Pets получают online-only time-based XP без hard cap уровня; Pet XP bonus участвует в том же shared Effect Resolver.
+- Aura System хранит постоянную коллекцию Aura без уровней и XP. Одна Aura может быть активна одновременно; active/pinned Aura защищены от craft/dismantle, а Mastery Reset не затрагивает коллекцию.
+- Aura Chest расходует `aura_key`, поддерживает открытия `x1/x3/x5/x10` и при нехватке ключей может после явного подтверждения купить ровно недостающее количество за Crystals по Balance Core.
+- Aura instances сохраняют rarity, origin, generation seed, raw rolls и aggregated effects. Дубликаты эффектов внутри одной Aura разрешены и аддитивно агрегируются.
+- Craft создаёт новую Aura следующей rarity из настраиваемого числа Aura текущей rarity; dismantle создаёт настраиваемое число новых Aura предыдущей rarity. Результаты всегда генерируются заново.
 - `Фрагменты знаний` используют существующий `runBranchCurrency`: покупают normal Pet slots и участвуют в server-authoritative Run Exchange с 7 baseline offers - Pet Slot за Fragments и Coins/Rune Dust/Shards за Fragments или Crystals; resource rewards считаются как процент от фактического текущего баланса, а числовые ZBT-параметры остаются data-driven.
 - Damage/status foundation поддерживает `CLICK`, `POISON`, `BURNING`, `BLEEDING`, `CURSE`, `WITHER` и `DECAY` через общий server-authoritative damage boundary.
 - Ранги рун: **Обычная → Улучшенная → Продвинутая → Мифическая**; `ANCIENT` зарезервирована и не участвует в текущем gameplay.
@@ -121,11 +125,11 @@ Gameplay-мод не должен содержать приватные signing 
 - Vanilla survival HUD, голод, player damage и разрушение блоков отключены для RPG Survival runtime; Creative-администраторы сохраняют строительные возможности.
 - Кастомный RPG HUD показывает ресурсы снизу по центру и финальные click/poison значения слева сверху.
 - Поддерживаются упрощённый, полный и инженерный форматы больших чисел.
-- Основные ресурсы: `coins`, `crystals`, `rune_dust`, `rune_shards`, `rune_cores`.
+- Основные ресурсы: `coins`, `crystals`, `rune_dust`, `rune_shards`, `rune_cores`, `aura_key`.
 - Серверный контракт ресурсов не допускает отрицательных балансов.
 - Данные игроков и progression сохраняются в MongoDB.
 
-Основной gameplay GUI открывается клавишей `E`, меню быстрого перехода - клавишей `L`, настройки формата больших чисел - клавишей `P`.
+Основной gameplay GUI открывается клавишей `E`, меню быстрого перехода - клавишей `L`, настройки формата больших чисел - клавишей `P`. Функциональное Aura menu открывается клавишей `U`.
 
 ## DEV / PROD
 
