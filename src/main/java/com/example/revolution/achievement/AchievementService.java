@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -22,6 +23,7 @@ public final class AchievementService implements GameplayEventSink {
     private final AchievementRewardGateway rewards;
     private final Map<UUID, AchievementPlayerState> cache = new HashMap<>();
     private final Set<UUID> dirty = new HashSet<>();
+    private GameplayEventSink lifecycleEvents = GameplayEventSink.NONE;
 
     public AchievementService(AchievementRepository repository, AchievementCatalog catalog, AchievementRewardGateway rewards) {
         if (repository == null || catalog == null || rewards == null) throw new IllegalArgumentException("Achievement dependencies are required");
@@ -29,6 +31,12 @@ public final class AchievementService implements GameplayEventSink {
         this.catalog = catalog;
         this.rewards = rewards;
     }
+
+    public synchronized void setLifecycleEventSink(GameplayEventSink lifecycleEvents) {
+        this.lifecycleEvents = lifecycleEvents == null ? GameplayEventSink.NONE : lifecycleEvents;
+    }
+
+    public AchievementCatalog catalog() { return catalog; }
 
     @Override
     public synchronized void confirmedDamage(UUID playerUuid, GameplayDamageSource source, BigDecimal amount) {
@@ -92,6 +100,12 @@ public final class AchievementService implements GameplayEventSink {
         state.achievementPoints = safeAdd(state.achievementPoints, stage.achievementPoints);
         repository.save(playerUuid, state.copy());
         dirty.remove(playerUuid);
+        Map<String, String> metadata = new LinkedHashMap<>();
+        metadata.put("achievementId", achievementId);
+        metadata.put("stage", String.valueOf(nextStage));
+        metadata.put("pointsGranted", String.valueOf(stage.achievementPoints));
+        lifecycleEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.ACHIEVEMENT_STAGE_CLAIMED,
+                BigDecimal.ONE, metadata, "achievement_claim"));
         return ClaimResult.APPLIED;
     }
 
@@ -134,9 +148,20 @@ public final class AchievementService implements GameplayEventSink {
             BigDecimal after = before.add(amount);
             state.achievementProgress.put(definition.achievementId, after);
             changed = true;
+            for (AchievementStage stage : definition.stages) {
+                if (before.compareTo(stage.target) < 0 && after.compareTo(stage.target) >= 0) {
+                    Map<String, String> completed = new LinkedHashMap<>();
+                    completed.put("achievementId", definition.achievementId);
+                    completed.put("stage", String.valueOf(stage.stageIndex));
+                    lifecycleEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.ACHIEVEMENT_STAGE_COMPLETED,
+                            BigDecimal.ONE, completed, "achievement_progress"));
+                }
+            }
             if (definition.hidden && !state.revealedHiddenAchievements.contains(definition.achievementId)
                     && crossedAnyStage(definition, before, after)) {
                 state.revealedHiddenAchievements.add(definition.achievementId);
+                lifecycleEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.ACHIEVEMENT_REVEALED,
+                        BigDecimal.ONE, Collections.singletonMap("achievementId", definition.achievementId), "achievement_progress"));
             }
         }
         if (changed) dirty.add(playerUuid);
