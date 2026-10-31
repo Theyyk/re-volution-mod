@@ -22,7 +22,8 @@ public final class BalanceBootstrap {
             "/balance/v2.3.0-rune-generic-effects.json",
             "/balance/v2.4.0-pets.json",
             "/balance/v2.5.0-mastery-reset.json",
-            "/balance/v2.6.0-run-exchange.json"
+            "/balance/v2.6.0-run-exchange.json",
+            "/balance/v2.7.0-quests.json"
     };
 
     private BalanceBootstrap() {}

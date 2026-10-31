@@ -1,5 +1,8 @@
 package com.example.revolution.rune.service;
 
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PongPacket;
 import com.example.revolution.network.RuneSlotPacket;
@@ -13,6 +16,7 @@ import com.example.revolution.rune.rules.RuneCollectionProgression;
 import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.rules.RuneStorageRules;
 import com.example.revolution.rune.state.RuneInventory;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +30,7 @@ public final class RunePurchaseService {
     private final ResourceService resources;
     private final PlayerStatsSyncService stats;
     private final RunePurchaseBalanceService purchaseBalance;
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public RunePurchaseService(
             PlayerRepository players,
@@ -37,6 +42,10 @@ public final class RunePurchaseService {
         this.stats = stats;
         this.purchaseBalance = purchaseBalance;
         this.stats.bindPurchaseBalance(purchaseBalance);
+    }
+
+    public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
     RuneRankRevertBalanceService revertBalanceRules() {
@@ -197,6 +206,9 @@ public final class RunePurchaseService {
                 newRunes,
                 duplicates,
                 spent);
+        gameplayEvents.factualEvent(new GameplayEvent(
+                player.getUniqueID(), GameplayEventType.RUNE_PURCHASE_ANY, BigDecimal.valueOf(attempts),
+                Collections.singletonMap("collection", collectionId.name()), "rune_purchase"));
 
         if (duplicateCompensation > 0) {
             player.sendMessage(new TextComponentString("§aКомпенсация за дубликаты: §e+" + duplicateCompensation + " §f"

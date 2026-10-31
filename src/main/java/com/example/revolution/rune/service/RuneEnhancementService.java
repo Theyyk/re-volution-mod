@@ -1,5 +1,8 @@
 package com.example.revolution.rune.service;
 
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
@@ -10,6 +13,7 @@ import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.state.RuneInventory;
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.Random;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
@@ -22,6 +26,7 @@ public final class RuneEnhancementService {
     private final RuneSyncService sync;
     private final RuneEnhancementPlanningService planning;
     private final Random random = new Random();
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public RuneEnhancementService(
             PlayerRepository players,
@@ -36,6 +41,10 @@ public final class RuneEnhancementService {
         this.enhancements = enhancements;
         this.sync = sync;
         this.planning = planning;
+    }
+
+    public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
     public void enhanceRune(EntityPlayerMP player, int collectionIndex, int ignoredRuneIndex, int requestedAmount) {
@@ -77,13 +86,20 @@ public final class RuneEnhancementService {
         }
 
         int[] increments = plan.getIncrements();
+        int applied = 0;
         for (int slot = 0; slot < increments.length; slot++) {
             if (increments[slot] <= 0) continue;
             enhancements.addLevels(player.getUniqueID(), collectionIndex, slot, increments[slot]);
+            applied += increments[slot];
         }
 
         sync.sendEnhancements(player, collectionIndex);
         stats.sendTo(player);
+        if (applied > 0) {
+            gameplayEvents.factualEvent(new GameplayEvent(
+                    player.getUniqueID(), GameplayEventType.RUNE_ENHANCE_ANY, BigDecimal.valueOf(applied),
+                    Collections.singletonMap("collection", collectionId.name()), "rune_enhancement"));
+        }
         player.sendMessage(new TextComponentString("§aСлучайных усилений: §f" + requestedAmount
                 + "§a. Затронуто слотов: §f" + plan.getAffectedSlots()
                 + "§a. Потрачено: §e" + LargeNumbers.format(cost) + " §f"

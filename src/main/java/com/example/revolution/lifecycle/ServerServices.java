@@ -10,7 +10,10 @@ import com.example.revolution.admin.service.AdminStageBatchService;
 import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.effect.EffectResolver;
+import com.example.revolution.gameplay.CompositeGameplayEventSink;
+import com.example.revolution.gameplay.GameplayEvent;
 import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
 import com.example.revolution.location.world.REBuilderAdapter;
@@ -48,6 +51,7 @@ import com.example.revolution.persistence.MongoMobRepository;
 import com.example.revolution.persistence.MongoPetRepository;
 import com.example.revolution.persistence.MongoPlayerRepository;
 import com.example.revolution.persistence.MongoPrestigeRepository;
+import com.example.revolution.persistence.MongoQuestRepository;
 import com.example.revolution.persistence.MongoResourceRepository;
 import com.example.revolution.persistence.MongoRuneEnhancementRepository;
 import com.example.revolution.persistence.MongoStageTransitionPreferenceRepository;
@@ -68,6 +72,10 @@ import com.example.revolution.prestige.PrestigeProgressRouter;
 import com.example.revolution.prestige.PrestigeService;
 import com.example.revolution.prestige.exchange.service.RunExchangeCatalogFactory;
 import com.example.revolution.prestige.exchange.service.RunExchangeService;
+import com.example.revolution.quest.service.QuestBalanceService;
+import com.example.revolution.quest.service.QuestCatalog;
+import com.example.revolution.quest.service.QuestGenerator;
+import com.example.revolution.quest.service.QuestService;
 import com.example.revolution.realm.service.RealmService;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
@@ -132,6 +140,7 @@ public final class ServerServices implements AutoCloseable {
     public final RunExchangeService runExchange;
     public final EffectResolver effects;
     public final GameplayEventSink gameplayEvents;
+    public final QuestService quests;
     public final PetService pets;
     public final PetEffectSource petEffects;
 
@@ -163,13 +172,23 @@ public final class ServerServices implements AutoCloseable {
                 "prestige.fragment_reward." + branch.name().toLowerCase(Locale.ROOT) + ".per_level")));
         effects = new EffectResolver();
         effects.register(prestige);
-        gameplayEvents = new PrestigeProgressRouter(prestige, prestigeBranches);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
+        QuestBalanceService questBalance = new QuestBalanceService(balance);
+        quests = new QuestService(
+                new MongoQuestRepository(connection, persistentGameplay),
+                resources,
+                new QuestGenerator(new QuestCatalog(questBalance)),
+                questBalance);
+        gameplayEvents = new CompositeGameplayEventSink(
+                new PrestigeProgressRouter(prestige, prestigeBranches),
+                quests);
+        prestige.setGameplayEventSink(gameplayEvents);
         resources.setGameplayEventSink(gameplayEvents);
         PetCatalog petCatalog = new PetCatalog();
         PetBalanceService petBalance = new PetBalanceService(balance);
         pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
         runExchange = new RunExchangeService(prestige, resources, pets, balance, RunExchangeCatalogFactory.fromBalance(balance));
+        runExchange.setGameplayEventSink(gameplayEvents);
         petEffects = new PetEffectSource(petRepository, petCatalog, petBalance);
         effects.register(petEffects);
 
@@ -187,10 +206,13 @@ public final class ServerServices implements AutoCloseable {
         RuneEnhancementPlanningService enhancementPlanning = new RuneEnhancementPlanningService(enhancementBalance);
         RuneRankUpBalanceService rankUpBalance = new RuneRankUpBalanceService(balance);
         RuneSyncService sync = new RuneSyncService(players, enhancements, enhancementBalance);
-        runeActions = new RuneActionService(players, stats,
-                new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance)),
-                new RuneEnhancementService(players, resources, stats, enhancements, sync, enhancementPlanning),
-                new RuneAwakeningService(players, stats, rankUpBalance, new RuneAwakeningPaymentService(resources), sync), sync);
+        RunePurchaseService runePurchase = new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance));
+        RuneEnhancementService runeEnhancement = new RuneEnhancementService(players, resources, stats, enhancements, sync, enhancementPlanning);
+        RuneAwakeningService runeAwakening = new RuneAwakeningService(players, stats, rankUpBalance, new RuneAwakeningPaymentService(resources), sync);
+        runePurchase.setGameplayEventSink(gameplayEvents);
+        runeEnhancement.setGameplayEventSink(gameplayEvents);
+        runeAwakening.setGameplayEventSink(gameplayEvents);
+        runeActions = new RuneActionService(players, stats, runePurchase, runeEnhancement, runeAwakening, sync);
         mobProgression = new MobProgressionService(progressionRepository);
         physicalBuilds = new REBuilderAdapter(configDirectory.toPath());
         LocationGenerationRepository storedGenerations = new MongoLocationGenerationRepository(connection, persistentGameplay);
@@ -210,8 +232,12 @@ public final class ServerServices implements AutoCloseable {
         stageTransitionTriggers = new StageTransitionTriggerService(
                 triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
         fastAuto = new FastAutoService(fastAutoPreferences, mobProgression);
-        mobProgression.setUnlockListener(fastAuto);
+        mobProgression.setUnlockListener((playerUuid, result) -> {
+            fastAuto.onUnlocked(playerUuid, result);
+            gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.STAGES_COMPLETED));
+        });
         mobRewards = new MobRewardService(resources, runeEffects, stats, players);
+        mobRewards.setGameplayEventSink(gameplayEvents);
         mobs = new ManagedMobService(mobRepository, locationRepository, runeEffects, mobRewards, mobProgression);
         if (persistentGameplay) mobs.setConfigurationGuard(adminStageStore::recover);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
