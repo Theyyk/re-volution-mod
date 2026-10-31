@@ -7,6 +7,9 @@ import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.admin.service.AdminToolsService;
 import com.example.revolution.admin.service.AdminStageBatchService;
+import com.example.revolution.aura.AuraModifierService;
+import com.example.revolution.aura.AuraService;
+import com.example.revolution.aura.BalanceAuraPolicy;
 import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.effect.EffectResolver;
@@ -47,6 +50,7 @@ import com.example.revolution.mob.service.MobBalanceService;
 import com.example.revolution.mob.service.MobProgressionService;
 import com.example.revolution.mob.service.MobRewardService;
 import com.example.revolution.persistence.FileAdminWhitelistRepository;
+import com.example.revolution.persistence.MongoAuraRepository;
 import com.example.revolution.persistence.MongoConnection;
 import com.example.revolution.persistence.MongoFastAutoPreferenceRepository;
 import com.example.revolution.persistence.MongoGodWorshipRepository;
@@ -153,6 +157,9 @@ public final class ServerServices implements AutoCloseable {
     public final GodWorshipService gods;
     public final GodWorshipAutomationService godAutomation;
     public final GodWorshipModifierService godModifiers;
+    public final BalanceAuraPolicy auraPolicy;
+    public final AuraService auras;
+    public final AuraModifierService auraModifiers;
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         this.logger = logger;
@@ -171,7 +178,9 @@ public final class ServerServices implements AutoCloseable {
 
         balance = BalanceBootstrap.activateBundledDefaults();
         MongoGodWorshipRepository godRepository = new MongoGodWorshipRepository(connection, persistentGameplay);
+        MongoAuraRepository auraRepository = new MongoAuraRepository(connection, persistentGameplay);
         godPolicy = new BalanceGodWorshipPolicy(balance);
+        auraPolicy = new BalanceAuraPolicy(balance);
         PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
         RunePrestigeResetService runePrestigeReset = new RunePrestigeResetService(players, enhancements);
         prestige = new PrestigeService(
@@ -190,6 +199,9 @@ public final class ServerServices implements AutoCloseable {
         effects = new EffectResolver();
         effects.register(prestige);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
+        auras = new AuraService(auraRepository, resources, auraPolicy);
+        auraModifiers = new AuraModifierService(auraRepository);
+        resources.setLateRewardMultiplier(auraModifiers::resourceMultiplier);
         gods = new GodWorshipService(godRepository, resources, godPolicy);
         godAutomation = new GodWorshipAutomationService(godRepository, godPolicy);
         godModifiers = new GodWorshipModifierService(godRepository, godPolicy);
@@ -204,6 +216,7 @@ public final class ServerServices implements AutoCloseable {
                 quests);
         prestige.setGameplayEventSink(gameplayEvents);
         resources.setGameplayEventSink(gameplayEvents);
+        auras.setGameplayEventSink(gameplayEvents);
         gods.setGameplayEventSink(gameplayEvents);
         godAutomation.setGameplayEventSink(gameplayEvents);
         PetCatalog petCatalog = new PetCatalog();

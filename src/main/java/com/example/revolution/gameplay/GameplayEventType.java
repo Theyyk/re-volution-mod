@@ -65,5 +65,14 @@ public enum GameplayEventType {
     GOD_AUTO_WORSHIP_SPEND,
     OFFERINGS_EARNED,
     OFFERINGS_SPENT,
-    GOD_LINKED_ACTIVATION
+    GOD_LINKED_ACTIVATION,
+
+    /** v2.9.0 factual Aura contract, intentionally generic for future Achievements. */
+    AURA_CHEST_OPENED,
+    AURA_DROPPED_FROM_CHEST,
+    AURA_CRAFTED,
+    AURA_DISMANTLED,
+    AURA_EQUIPPED,
+    AURA_UNEQUIPPED,
+    AURA_KEY_GAINED
 }
