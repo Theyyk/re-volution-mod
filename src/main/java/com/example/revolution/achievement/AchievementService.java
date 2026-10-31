@@ -27,8 +27,7 @@ public final class AchievementService implements GameplayEventSink {
     private GameplayEventSink lifecycleEvents = GameplayEventSink.NONE;
 
     public AchievementService(AchievementRepository repository, AchievementCatalog catalog, AchievementRewardGateway rewards) {
-        this(repository, catalog, rewards,
-                repository instanceof AchievementAtomicClaimStore ? (AchievementAtomicClaimStore) repository : null);
+        this(repository, catalog, rewards, atomicStore(repository));
     }
 
     public AchievementService(AchievementRepository repository, AchievementCatalog catalog,
@@ -37,7 +36,13 @@ public final class AchievementService implements GameplayEventSink {
         this.repository = repository;
         this.catalog = catalog;
         this.rewards = rewards;
-        this.atomicClaims = atomicClaims;
+        this.atomicClaims = atomicClaims != null && atomicClaims.available() ? atomicClaims : null;
+    }
+
+    private static AchievementAtomicClaimStore atomicStore(AchievementRepository repository) {
+        if (!(repository instanceof AchievementAtomicClaimStore)) return null;
+        AchievementAtomicClaimStore store = (AchievementAtomicClaimStore) repository;
+        return store.available() ? store : null;
     }
 
     public synchronized void setLifecycleEventSink(GameplayEventSink lifecycleEvents) {
