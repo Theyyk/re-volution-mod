@@ -36,9 +36,9 @@ final class BalanceAuraPolicyTest {
         assertTrue(allDamage.compareTo(click) < 0);
     }
 
-    @Test void godPetAndOfferingStatsAreNotInAuraPool() {
-        assertFalse(BalanceAuraPolicy.SUPPORTED_EFFECTS.contains(EffectResolver.Stat.GOD_BUFF_EFFECTIVENESS));
-        assertFalse(BalanceAuraPolicy.SUPPORTED_EFFECTS.contains(EffectResolver.Stat.PET_EFFECTIVENESS));
-        assertFalse(BalanceAuraPolicy.SUPPORTED_EFFECTS.contains(EffectResolver.Stat.OFFERINGS_GENERATION_MULTIPLIER));
+    @Test void petAndUnrelatedProgressionStatsAreNotInAuraPool() {
+        assertFalse(BalanceAuraPolicy.SUPPORTED_EFFECTS.contains(EffectResolver.Stat.PET_XP_MULTIPLIER));
+        assertFalse(BalanceAuraPolicy.SUPPORTED_EFFECTS.contains(EffectResolver.Stat.FORGE_RESOURCE_MULTIPLIER));
+        assertFalse(BalanceAuraPolicy.SUPPORTED_EFFECTS.contains(EffectResolver.Stat.FORGE_SPEED_MULTIPLIER));
     }
 }
