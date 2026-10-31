@@ -1,0 +1,21 @@
+{
+  "balanceSchemaVersion": 1,
+  "values": {},
+  "curves": {
+    "mastery.rank_meta_level_cap": {
+      "mode": "TABLE",
+      "values": ["5", "10", "15", "20", "25", "30", "35", "40", "45", "50"],
+      "tail_growth": "2"
+    },
+    "mastery.meta_level_gain_per_run": {
+      "mode": "TABLE",
+      "values": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+      "tail_growth": "2"
+    },
+    "mastery.premium_preserve_crystal_cost": {
+      "mode": "TABLE",
+      "values": ["100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"],
+      "tail_growth": "2"
+    }
+  }
+}
