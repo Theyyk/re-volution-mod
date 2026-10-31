@@ -67,7 +67,7 @@ final class GodWorshipAutomationServiceTest {
     }
 
     @Test
-    void passiveChargeCountsOnlineTimeOnlyAndRetainsFraction() {
+    void passiveChargeExistsOnlyWhileGodPanelIsOpenAndRetainsFraction() {
         FakeRepository repository = new FakeRepository();
         FakePolicy policy = new FakePolicy();
         policy.passiveRate = new BigDecimal("0.5");
@@ -78,16 +78,21 @@ final class GodWorshipAutomationServiceTest {
         repository.persistent.preferences.get(GodId.GOD_1).activationMode = ActivationMode.MANUAL;
         GodWorshipAutomationService service = new GodWorshipAutomationService(repository, policy);
 
-        service.tick(PLAYER, 1_000L); // login boundary, no offline passive progress
-        service.tick(PLAYER, 2_000L); // +0.5 remainder
+        service.tick(PLAYER, 1_000L);
+        service.tick(PLAYER, 2_000L); // online, panel closed: no passive charge
+        assertEquals(0L, state.chargeProgress);
+        assertEquals(0, state.passiveChargeRemainder.signum());
+
+        service.setMenuOpen(PLAYER, true, 2_000L);
+        service.tick(PLAYER, 3_000L); // +0.5 remainder while panel is open
         assertEquals(0L, state.chargeProgress);
         assertEquals(0, state.passiveChargeRemainder.compareTo(new BigDecimal("0.500000000000")));
-        service.tick(PLAYER, 3_000L); // accumulated +1 whole charge
+        service.tick(PLAYER, 4_000L); // accumulated +1 whole charge
         assertEquals(1L, state.chargeProgress);
         assertEquals(0, state.passiveChargeRemainder.signum());
 
-        service.playerDisconnected(PLAYER);
-        service.tick(PLAYER, 100_000L); // reconnect: offline gap must not count
+        service.setMenuOpen(PLAYER, false, 4_000L);
+        service.tick(PLAYER, 100_000L); // closed/offline-style gap must not count
         assertEquals(1L, state.chargeProgress);
     }
 
@@ -123,6 +128,7 @@ final class GodWorshipAutomationServiceTest {
     void invalidSelfLinkDoesNotOverwriteExistingPreference() {
         FakeRepository repository = new FakeRepository();
         FakePolicy policy = new FakePolicy();
+        policy.gates.add(FeatureGate.GOD_AUTO_ACTIVATION);
         GodWorshipAutomationService service = new GodWorshipAutomationService(repository, policy);
 
         assertFalse(service.setActivationMode(PLAYER, GodId.GOD_1, ActivationMode.LINKED_TO_GOD, GodId.GOD_1));
