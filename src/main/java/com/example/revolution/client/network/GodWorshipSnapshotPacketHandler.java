@@ -17,6 +17,7 @@ public final class GodWorshipSnapshotPacketHandler implements IMessageHandler<Go
                     message.getEntries(),
                     message.getOfferings(),
                     message.getPermanentDurationLevel(),
+                    message.getPermanentDurationBonusSeconds(),
                     message.getDurationUpgradeCost(),
                     message.isAutoActivationEnabled(),
                     message.isDurationUpgradeEnabled(),
