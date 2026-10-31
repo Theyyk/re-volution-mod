@@ -2,7 +2,8 @@
   "balanceSchemaVersion": 1,
   "values": {
     "achievement.zbt_status": "draft",
-    "achievement.ids": "damage_click,damage_poison,damage_burning,damage_bleeding,damage_curse,damage_wither,damage_decay,damage_total,earn_coins,earn_dust,earn_shards,earn_cores,mastery_branches,pets_obtained,rune_awakenings,kills_total,locations_reached,aura_drops,aura_rare,aura_legendary,aura_mythic",
+    "achievement.boss.ids": "__none__",
+    "achievement.ids": "damage_click,damage_poison,damage_burning,damage_bleeding,damage_curse,damage_wither,damage_decay,damage_total,earn_coins,earn_dust,earn_shards,earn_cores,mastery_branches,pets_obtained,rune_awakenings,kills_total,boss_kills,locations_reached,aura_drops,aura_rare,aura_legendary,aura_mythic",
 
     "achievement.damage_click.name": "Click Damage",
     "achievement.damage_click.category": "DAMAGE",
@@ -93,7 +94,7 @@
     "achievement.pets_obtained.category": "PETS",
     "achievement.pets_obtained.event": "PET_PURCHASE_SPECIFIC",
     "achievement.pets_obtained.hidden": "false",
-    "achievement.pets_obtained.stages": "1|10|1|0|10;3|20|2|0|20;5|35|3|0|35;8|60|6|1|60;10|100|10|1|100",
+    "achievement.pets_obtained.stages": "1|10|1|0|10;3|20|2|0|20;5|35|3|0|35;10|60|6|1|60;18|100|10|1|100",
 
     "achievement.rune_awakenings.name": "Rune Awakenings",
     "achievement.rune_awakenings.category": "RUNES",
@@ -106,6 +107,13 @@
     "achievement.kills_total.event": "MOB_KILL_ANY",
     "achievement.kills_total.hidden": "false",
     "achievement.kills_total.stages": "10|5|0|0|5;100|10|1|0|10;1000|20|2|0|20;10000|40|4|0|40;100000|75|8|1|80",
+
+    "achievement.boss_kills.name": "Boss Kills",
+    "achievement.boss_kills.category": "KILLS",
+    "achievement.boss_kills.event": "MOB_KILL_SPECIFIC",
+    "achievement.boss_kills.filters": "mobId=@boss_ids",
+    "achievement.boss_kills.hidden": "false",
+    "achievement.boss_kills.stages": "1|10|1|0|10;5|20|2|0|20;25|40|4|0|40;100|75|8|1|80;500|125|12|2|125",
 
     "achievement.locations_reached.name": "Locations Reached",
     "achievement.locations_reached.category": "LOCATIONS",
