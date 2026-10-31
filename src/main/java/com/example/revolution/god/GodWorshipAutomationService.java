@@ -20,15 +20,17 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Deterministic server-side Offering settlement and God automation.
+ * Deterministic server-side Offering settlement, online passive charge and God automation.
  * One tick performs at most one Auto Worship spend per God, preventing reconnect/tick catch-up bursts.
  */
 public final class GodWorshipAutomationService {
     public interface Policy extends GodWorshipService.Policy {
         boolean featureEnabled(FeatureGate gate);
         BigDecimal offeringGenerationPerSecond();
+        BigDecimal passiveChargePerSecond(GodId god);
         long autoWorshipIntervalMillis();
         BigDecimal autoWorshipCooldownCost();
         long autoWorshipCooldownReductionMillis();
@@ -41,6 +43,7 @@ public final class GodWorshipAutomationService {
     private static final BigDecimal THOUSAND = BigDecimal.valueOf(1000L);
     private final GodWorshipRepository repository;
     private final Policy policy;
+    private final Map<UUID, Long> lastOnlineTickAt = new ConcurrentHashMap<>();
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public GodWorshipAutomationService(GodWorshipRepository repository, Policy policy) {
@@ -55,15 +58,21 @@ public final class GodWorshipAutomationService {
 
     public long processingIntervalMillis() { return policy.autoWorshipIntervalMillis(); }
     public int clickRateLimitPerSecond(GodId god) { return policy.clickRateLimitPerSecond(god); }
+    public void playerDisconnected(UUID playerUuid) { if (playerUuid != null) lastOnlineTickAt.remove(playerUuid); }
+    public void clearRuntimeState() { lastOnlineTickAt.clear(); }
 
-    /** Used on login and regular server cadence. Settles active time before phase normalization. */
+    /** Used on login and regular server cadence. Offline time never contributes passive charge. */
     public synchronized TickResult tick(UUID playerUuid, long nowMillis) {
         if (playerUuid == null) return TickResult.EMPTY;
+        Long previousOnlineTick = lastOnlineTickAt.put(playerUuid, nowMillis);
+        long onlineElapsed = previousOnlineTick == null || nowMillis <= previousOnlineTick
+                ? 0L : nowMillis - previousOnlineTick;
         RunState run = repository.loadRunState(playerUuid);
         PersistentState persistent = repository.loadPersistentState(playerUuid);
 
         BigDecimal earned = settleOfferings(playerUuid, run, persistent, nowMillis);
         normalize(run, nowMillis);
+        settlePassiveCharge(run, persistent, onlineElapsed);
 
         BigDecimal spent = BigDecimal.ZERO;
         int activations = 0;
@@ -175,6 +184,30 @@ public final class GodWorshipAutomationService {
         return earned;
     }
 
+    private void settlePassiveCharge(RunState run, PersistentState persistent, long onlineElapsedMillis) {
+        if (onlineElapsedMillis <= 0L) return;
+        boolean autoActivation = policy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION);
+        for (GodId god : GodId.values()) {
+            State state = run.gods.get(god);
+            Preference preference = persistent.preferences.get(god);
+            if (state == null || preference == null || !state.unlocked || state.phase != Phase.CHARGE) continue;
+            BigDecimal rate = policy.passiveChargePerSecond(god);
+            if (rate == null || rate.signum() <= 0) continue;
+            BigDecimal remainder = state.passiveChargeRemainder == null ? BigDecimal.ZERO : state.passiveChargeRemainder.max(BigDecimal.ZERO);
+            BigDecimal total = remainder.add(rate.multiply(BigDecimal.valueOf(onlineElapsedMillis)).divide(THOUSAND, 12, RoundingMode.DOWN));
+            long gain = total.min(BigDecimal.valueOf(Long.MAX_VALUE)).longValue();
+            state.passiveChargeRemainder = total.subtract(BigDecimal.valueOf(gain)).max(BigDecimal.ZERO);
+            if (gain <= 0L) continue;
+            state.chargeProgress = GodWorshipRules.automatedChargeTarget(
+                    state.chargeProgress,
+                    gain,
+                    policy.chargeRequired(god),
+                    policy.chargePerClick(god),
+                    preference.activationMode,
+                    autoActivation);
+        }
+    }
+
     private void normalize(RunState run, long nowMillis) {
         for (GodId god : GodId.values()) {
             State state = run.gods.get(god);
@@ -210,6 +243,7 @@ public final class GodWorshipAutomationService {
         GodWorshipRules.activate(state, nowMillis, policy.buffDurationMillis(god),
                 policy.permanentDurationMillis(persistent.permanentDurationLevel));
         state.offeringSettledUntilMillis = nowMillis;
+        state.passiveChargeRemainder = BigDecimal.ZERO;
         emit(playerUuid, GameplayEventType.GOD_BUFF_ACTIVATE, god, BigDecimal.ONE);
         if (linkedTrigger) emit(playerUuid, GameplayEventType.GOD_LINKED_ACTIVATION, god, BigDecimal.ONE);
         int count = 1;
