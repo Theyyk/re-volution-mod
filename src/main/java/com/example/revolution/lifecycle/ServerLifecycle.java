@@ -1,5 +1,6 @@
 package com.example.revolution.lifecycle;
 
+import com.example.revolution.aura.event.AuraDamageHandler;
 import com.example.revolution.combat.DamageBonusHandler;
 import com.example.revolution.combat.LegacyAttackCooldownHandler;
 import com.example.revolution.combat.PoisonMobPauseHandler;
@@ -18,6 +19,7 @@ import com.example.revolution.location.event.FastAutoHandler;
 import com.example.revolution.location.event.StageTransitionTriggerHandler;
 import com.example.revolution.mob.event.ManagedMobAppearanceEvents;
 import com.example.revolution.mob.event.ManagedMobEvents;
+import com.example.revolution.network.AuraRequestLimiter;
 import com.example.revolution.network.GodWorshipRequestLimiter;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
@@ -83,6 +85,7 @@ public final class ServerLifecycle {
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new PrestigeDamageEffectHandler(current.mobs, current.effects));
         listeners.add(new GodWorshipDamageHandler(current.mobs, current.godModifiers));
+        listeners.add(new AuraDamageHandler(current.mobs, current.auraModifiers));
         listeners.add(new PoisonMobPauseHandler(current.mobs));
         listeners.add(new RuneStatusTickHandler(current.mobs, current.combat));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
@@ -152,6 +155,7 @@ public final class ServerLifecycle {
         current = null;
         RateLimitedPingPacketHandler.reset();
         GodWorshipRequestLimiter.reset();
+        AuraRequestLimiter.reset();
         try {
             if (stopping != null) stopping.close();
         } finally {
