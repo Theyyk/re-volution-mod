@@ -2,7 +2,9 @@ package com.example.revolution.mob.event;
 
 import com.example.revolution.gameplay.GameplayDamageContext;
 import com.example.revolution.gameplay.GameplayDamageSource;
+import com.example.revolution.gameplay.GameplayEvent;
 import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.mob.service.ManagedMobService;
 import com.example.revolution.rune.service.RuneTransientEffectRuntime;
 import java.math.BigDecimal;
@@ -97,7 +99,15 @@ public final class ManagedMobEvents {
         catch (NumberFormatException ignored) { return null; }
     }
 
-    @SubscribeEvent public void onMobDeath(LivingDeathEvent event) { mobs.died(event.getEntityLiving(), event.getSource()); }
+    @SubscribeEvent public void onMobDeath(LivingDeathEvent event) {
+        boolean managed = mobs.manages(event.getEntityLiving());
+        EntityPlayerMP player = event.getSource().getTrueSource() instanceof EntityPlayerMP
+                ? (EntityPlayerMP) event.getSource().getTrueSource() : null;
+        mobs.died(event.getEntityLiving(), event.getSource());
+        if (managed && player != null) {
+            gameplayEvents.factualEvent(new GameplayEvent(player.getUniqueID(), GameplayEventType.MOB_KILL_ANY));
+        }
+    }
     @SubscribeEvent public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         mobs.tick();
