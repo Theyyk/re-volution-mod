@@ -28,7 +28,7 @@ public final class GodWorshipModifierService {
         if (playerUuid == null || preGodDamage == null || preGodDamage.signum() <= 0) return preGodDamage == null ? BigDecimal.ZERO : preGodDamage;
         EffectResolver.Stat channel = statFor(source);
         RunState run = repository.loadRunState(playerUuid);
-        boolean secondary = policy.featureEnabled(FeatureGate.GOD_SECONDARY_BUFFS);
+        boolean secondaryEnabled = policy.featureEnabled(FeatureGate.GOD_SECONDARY_BUFFS);
         List<BigDecimal> channelDeltas = new ArrayList<>();
         List<BigDecimal> allDeltas = new ArrayList<>();
 
@@ -38,8 +38,15 @@ public final class GodWorshipModifierService {
                     || nowMillis >= state.buffActiveUntilMillis || !policy.enabled(god)) continue;
             BigDecimal delta = policy.buffAdditiveMultiplier(god, state.level);
             if (delta.signum() <= 0) continue;
-            if (GodWorshipRules.affects(god, EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER, secondary)) allDeltas.add(delta);
-            if (channel != null && GodWorshipRules.affects(god, channel, secondary)) channelDeltas.add(delta);
+
+            EffectResolver.Stat primary = policy.primaryChannel(god);
+            EffectResolver.Stat secondary = secondaryEnabled ? policy.secondaryChannel(god) : null;
+            if (primary == EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER || secondary == EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER) {
+                allDeltas.add(delta);
+            }
+            if (channel != null && (primary == channel || secondary == channel)) {
+                channelDeltas.add(delta);
+            }
         }
 
         return GodWorshipRules.applyGodLayer(
