@@ -26,13 +26,23 @@ import java.util.UUID;
  * One tick performs at most one Auto Worship spend per God, preventing reconnect/tick catch-up bursts.
  */
 public final class GodWorshipAutomationService {
-    private static final BigDecimal THOUSAND = BigDecimal.valueOf(1000L);
+    public interface Policy extends GodWorshipService.Policy {
+        boolean featureEnabled(FeatureGate gate);
+        BigDecimal offeringGenerationPerSecond();
+        long autoWorshipIntervalMillis();
+        BigDecimal autoWorshipCooldownCost();
+        long autoWorshipCooldownReductionMillis();
+        BigDecimal autoWorshipChargeCost();
+        long autoWorshipChargeGain();
+        BigDecimal durationUpgradeCost(long currentLevel);
+    }
 
+    private static final BigDecimal THOUSAND = BigDecimal.valueOf(1000L);
     private final GodWorshipRepository repository;
-    private final BalanceGodWorshipPolicy policy;
+    private final Policy policy;
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
-    public GodWorshipAutomationService(GodWorshipRepository repository, BalanceGodWorshipPolicy policy) {
+    public GodWorshipAutomationService(GodWorshipRepository repository, Policy policy) {
         if (repository == null || policy == null) throw new IllegalArgumentException("God automation dependencies are required");
         this.repository = repository;
         this.policy = policy;
@@ -41,6 +51,8 @@ public final class GodWorshipAutomationService {
     public void setGameplayEventSink(GameplayEventSink sink) {
         this.gameplayEvents = sink == null ? GameplayEventSink.NONE : sink;
     }
+
+    public long processingIntervalMillis() { return policy.autoWorshipIntervalMillis(); }
 
     /** Used on login and regular server cadence. Settles active time before phase normalization. */
     public synchronized TickResult tick(UUID playerUuid, long nowMillis) {
@@ -109,11 +121,15 @@ public final class GodWorshipAutomationService {
         if (playerUuid == null || god == null || mode == null) return false;
         PersistentState persistent = repository.loadPersistentState(playerUuid);
         Preference preference = persistent.preferences.get(god);
+        ActivationMode oldMode = preference.activationMode;
+        GodId oldLinked = preference.linkedGodId;
         preference.activationMode = mode;
         preference.linkedGodId = mode == ActivationMode.LINKED_TO_GOD ? linkedGod : null;
         try {
             preference.validateFor(god);
         } catch (RuntimeException invalid) {
+            preference.activationMode = oldMode;
+            preference.linkedGodId = oldLinked;
             return false;
         }
         repository.savePersistentState(playerUuid, persistent);
@@ -162,19 +178,17 @@ public final class GodWorshipAutomationService {
             State state = run.gods.get(god);
             Phase before = state.phase;
             GodWorshipRules.normalize(state, nowMillis, policy.cooldownDurationMillis(god));
-            if (before == Phase.BUFF_ACTIVE && state.phase != Phase.BUFF_ACTIVE) {
-                state.offeringSettledUntilMillis = 0L;
-            }
+            if (before == Phase.BUFF_ACTIVE && state.phase != Phase.BUFF_ACTIVE) state.offeringSettledUntilMillis = 0L;
         }
     }
 
     private int activateReady(UUID playerUuid, RunState run, PersistentState persistent, long nowMillis) {
         int activations = 0;
-        Set<GodId> visited = EnumSet.noneOf(GodId.class);
         for (GodId god : GodId.values()) {
             Preference preference = persistent.preferences.get(god);
             if (preference != null && preference.activationMode == ActivationMode.AUTO_WHEN_READY) {
-                activations += activateCascade(playerUuid, god, run, persistent, nowMillis, visited, false);
+                activations += activateCascade(playerUuid, god, run, persistent, nowMillis,
+                        EnumSet.noneOf(GodId.class), false);
             }
         }
         return activations;
