@@ -1,6 +1,7 @@
 package com.example.revolution.god;
 
 import com.example.revolution.balance.service.BalanceService;
+import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.god.GodWorshipModel.GodId;
 
 import java.math.BigDecimal;
@@ -15,6 +16,10 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, 
     }
 
     @Override public boolean enabled(GodId god) { return bool(key(god, "enabled")); }
+    @Override public String unlockResource(GodId god) { return requiredText(key(god, "unlock_resource")); }
+    @Override public String upgradeResource(GodId god) { return requiredText(key(god, "upgrade_resource")); }
+    @Override public EffectResolver.Stat primaryChannel(GodId god) { return stat(key(god, "buff.primary"), false); }
+    @Override public EffectResolver.Stat secondaryChannel(GodId god) { return stat(key(god, "buff.secondary"), true); }
     @Override public BigDecimal unlockCost(GodId god) { return decimal(key(god, "unlock_cost")); }
     @Override public BigDecimal upgradeCost(GodId god, long currentLevel) {
         return balance.evaluateActiveCurve("god." + god.name() + ".upgrade_cost", curveIndex(currentLevel));
@@ -58,6 +63,20 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, 
 
     private String key(GodId god, String suffix) { return "god." + god.name() + "." + suffix; }
     private boolean bool(String id) { return Boolean.parseBoolean(balance.getActiveValue(id)); }
+    private String requiredText(String id) {
+        String value = balance.getActiveValue(id);
+        if (value == null || value.trim().isEmpty()) throw new IllegalStateException("missing God balance value: " + id);
+        return value.trim();
+    }
+    private EffectResolver.Stat stat(String id, boolean optional) {
+        String value = balance.getActiveValue(id);
+        if (value == null || value.trim().isEmpty()) {
+            if (optional) return null;
+            throw new IllegalStateException("missing God effect channel: " + id);
+        }
+        try { return EffectResolver.Stat.valueOf(value.trim()); }
+        catch (IllegalArgumentException invalid) { throw new IllegalStateException("invalid God effect channel: " + id, invalid); }
+    }
     private BigDecimal decimal(String id) {
         BigDecimal value = new BigDecimal(balance.getActiveValue(id));
         if (value.signum() < 0) throw new IllegalStateException("negative God balance value: " + id);
