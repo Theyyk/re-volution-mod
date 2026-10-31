@@ -102,7 +102,8 @@ public final class GodWorshipAutomationService {
         for (GodId god : GodId.values()) {
             Preference preference = persistent.preferences.get(god);
             State state = run.gods.get(god);
-            if (preference == null || state == null || !state.unlocked || !preference.autoWorshipEnabled) continue;
+            if (preference == null || state == null || !state.unlocked || !policy.enabled(god)
+                    || !preference.autoWorshipEnabled) continue;
             BigDecimal cost = state.phase == Phase.COOLDOWN
                     ? policy.autoWorshipCooldownCost()
                     : state.phase == Phase.CHARGE ? policy.autoWorshipChargeCost() : BigDecimal.ZERO;
@@ -187,7 +188,8 @@ public final class GodWorshipAutomationService {
         BigDecimal earned = BigDecimal.ZERO;
         for (GodId god : GodId.values()) {
             State state = run.gods.get(god);
-            if (state == null || state.phase != Phase.BUFF_ACTIVE || state.buffActiveUntilMillis <= 0L) continue;
+            if (state == null || !policy.enabled(god) || state.phase != Phase.BUFF_ACTIVE
+                    || state.buffActiveUntilMillis <= 0L) continue;
             long duration = safeAdd(policy.buffDurationMillis(god), policy.permanentDurationMillis(persistent.permanentDurationLevel));
             long inferredStart = Math.max(0L, state.buffActiveUntilMillis - duration);
             long from = state.offeringSettledUntilMillis > 0L ? state.offeringSettledUntilMillis : inferredStart;
@@ -211,7 +213,8 @@ public final class GodWorshipAutomationService {
         for (GodId god : GodId.values()) {
             State state = run.gods.get(god);
             Preference preference = persistent.preferences.get(god);
-            if (state == null || preference == null || !state.unlocked || state.phase != Phase.CHARGE) continue;
+            if (state == null || preference == null || !state.unlocked || !policy.enabled(god)
+                    || state.phase != Phase.CHARGE) continue;
             BigDecimal rate = policy.passiveChargePerSecond(god);
             if (rate == null || rate.signum() <= 0) continue;
             BigDecimal remainder = state.passiveChargeRemainder == null ? BigDecimal.ZERO : state.passiveChargeRemainder.max(BigDecimal.ZERO);
