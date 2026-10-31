@@ -20,6 +20,7 @@ final class MongoGodWorshipRepositoryTest {
             assertFalse(run.gods.get(god).unlocked);
             assertEquals(0L, run.gods.get(god).level);
             assertEquals(GodWorshipModel.Phase.LOCKED, run.gods.get(god).phase);
+            assertEquals(0, run.gods.get(god).passiveChargeRemainder.signum());
             assertEquals(GodWorshipModel.ActivationMode.MANUAL, persistent.preferences.get(god).activationMode);
             assertNull(persistent.preferences.get(god).linkedGodId);
         }
@@ -37,6 +38,7 @@ final class MongoGodWorshipRepositoryTest {
         god.buffActiveUntilMillis = 123_456L;
         god.chargeProgress = 7L;
         god.offeringSettledUntilMillis = 120_000L;
+        god.passiveChargeRemainder = new BigDecimal("0.75");
 
         GodWorshipModel.PersistentState persistent = new GodWorshipModel.PersistentState();
         persistent.offerings = new BigDecimal("42.125");
@@ -56,6 +58,7 @@ final class MongoGodWorshipRepositoryTest {
         assertEquals(GodWorshipModel.Phase.BUFF_ACTIVE, decodedGod.phase);
         assertEquals(123_456L, decodedGod.buffActiveUntilMillis);
         assertEquals(120_000L, decodedGod.offeringSettledUntilMillis);
+        assertEquals(0, decodedGod.passiveChargeRemainder.compareTo(new BigDecimal("0.75")));
         assertEquals(0, decodedPersistent.offerings.compareTo(new BigDecimal("42.125")));
         assertEquals(9L, decodedPersistent.permanentDurationLevel);
         assertEquals(GodWorshipModel.ActivationMode.LINKED_TO_GOD,
