@@ -21,6 +21,7 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, 
     }
     @Override public long chargeRequired(GodId god) { return positiveLong(key(god, "charge_required")); }
     @Override public long chargePerClick(GodId god) { return positiveLong(key(god, "charge_per_click")); }
+    @Override public BigDecimal passiveChargePerSecond(GodId god) { return decimal(key(god, "passive_charge_per_second")); }
     @Override public long buffDurationMillis(GodId god) { return nonNegativeLong(key(god, "buff.duration_ms")); }
     @Override public long cooldownDurationMillis(GodId god) { return nonNegativeLong(key(god, "cooldown_ms")); }
     @Override public long cooldownReductionPerClickMillis(GodId god) { return positiveLong(key(god, "cooldown_reduction_per_click_ms")); }
