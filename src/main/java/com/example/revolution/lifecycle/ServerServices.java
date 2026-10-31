@@ -216,6 +216,7 @@ public final class ServerServices implements AutoCloseable {
                 quests);
         prestige.setGameplayEventSink(gameplayEvents);
         resources.setGameplayEventSink(gameplayEvents);
+        auras.setGameplayEventSink(gameplayEvents);
         gods.setGameplayEventSink(gameplayEvents);
         godAutomation.setGameplayEventSink(gameplayEvents);
         PetCatalog petCatalog = new PetCatalog();
