@@ -2,8 +2,10 @@ package com.example.revolution.quest.service;
 
 import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.balance.service.BalanceService;
+import com.example.revolution.gameplay.GameplayDamageSource;
 import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.quest.definition.QuestState;
+import com.example.revolution.quest.definition.QuestTemplate;
 import com.example.revolution.quest.repository.QuestRepository;
 import com.example.revolution.quest.state.QuestEntry;
 import com.example.revolution.quest.state.QuestPlayerState;
@@ -31,6 +33,36 @@ public class QuestServiceTest {
         }
         assertEquals(0L, state.completedQuestCount);
         assertEquals(0L, state.batchCooldownUntil);
+    }
+
+    @Test public void disabledTemplateIsNeverEligibleForGeneration() {
+        Fixture f = new Fixture();
+        boolean foundBoss = false;
+        for (QuestTemplate template : new QuestCatalog(f.questBalance).templates()) {
+            if (!"boss_kill".equals(template.id)) continue;
+            foundBoss = true;
+            assertFalse(template.enabled);
+            assertFalse(template.eligible(8));
+        }
+        assertTrue(foundBoss);
+    }
+
+    @Test public void clickDamageCountsOneClickInsteadOfDamageAmount() {
+        Fixture f = new Fixture();
+        QuestEntry clicks = active("clicks");
+        clicks.target = BigDecimal.valueOf(2);
+        QuestEntry unrelated = active("other");
+        unrelated.eventType = GameplayEventType.RUNE_PURCHASE_ANY;
+        f.questRepo.state = board(clicks, unrelated, completed("completed"));
+
+        f.quests.confirmedDamage(f.id, GameplayDamageSource.CLICK, new BigDecimal("999999"));
+        assertDecimal("1", find(f.questRepo.state, "clicks").progress);
+        f.quests.confirmedDamage(f.id, GameplayDamageSource.POISON, new BigDecimal("500"));
+        assertDecimal("1", find(f.questRepo.state, "clicks").progress);
+        f.quests.confirmedDamage(f.id, GameplayDamageSource.CLICK, BigDecimal.ONE);
+        QuestEntry completedClick = find(f.questRepo.state, "clicks");
+        assertDecimal("2", completedClick.progress);
+        assertEquals(QuestState.COMPLETED, completedClick.state);
     }
 
     @Test public void claimIsManualOneShotAndStartsSharedBatch() {
