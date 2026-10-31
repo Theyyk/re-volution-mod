@@ -17,6 +17,7 @@ import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.god.BalanceGodWorshipPolicy;
 import com.example.revolution.god.GodWorshipAutomationService;
 import com.example.revolution.god.GodWorshipModel;
+import com.example.revolution.god.GodWorshipModifierService;
 import com.example.revolution.god.GodWorshipService;
 import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
@@ -151,6 +152,7 @@ public final class ServerServices implements AutoCloseable {
     public final BalanceGodWorshipPolicy godPolicy;
     public final GodWorshipService gods;
     public final GodWorshipAutomationService godAutomation;
+    public final GodWorshipModifierService godModifiers;
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         this.logger = logger;
@@ -190,6 +192,7 @@ public final class ServerServices implements AutoCloseable {
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
         gods = new GodWorshipService(godRepository, resources, godPolicy);
         godAutomation = new GodWorshipAutomationService(godRepository, godPolicy);
+        godModifiers = new GodWorshipModifierService(godRepository, godPolicy);
         QuestBalanceService questBalance = new QuestBalanceService(balance);
         quests = new QuestService(
                 new MongoQuestRepository(connection, persistentGameplay),
