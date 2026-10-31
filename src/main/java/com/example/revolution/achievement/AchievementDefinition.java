@@ -19,7 +19,7 @@ public final class AchievementDefinition {
     public AchievementDefinition(String achievementId, String name, AchievementCategory category,
                                  GameplayEventType eventType, Map<String, String> filters,
                                  boolean hidden, List<AchievementStage> stages) {
-        if (achievementId == null || achievementId.trim().isEmpty()) throw new IllegalArgumentException("achievementId is required");
+        if (achievementId == null || !achievementId.matches("[A-Za-z0-9_-]+")) throw new IllegalArgumentException("achievementId must be a stable path-safe id");
         if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("achievement name is required");
         if (category == null || eventType == null) throw new IllegalArgumentException("category and eventType are required");
         if (stages == null || stages.isEmpty()) throw new IllegalArgumentException("at least one stage is required");
@@ -47,7 +47,18 @@ public final class AchievementDefinition {
         if (filters.isEmpty()) return true;
         if (metadata == null) return false;
         for (Map.Entry<String, String> filter : filters.entrySet()) {
-            if (!filter.getValue().equals(metadata.get(filter.getKey()))) return false;
+            String actual = metadata.get(filter.getKey());
+            String expected = filter.getValue();
+            if (expected.startsWith("oneof:")) {
+                boolean matched = false;
+                String encoded = expected.substring("oneof:".length());
+                if (!encoded.isEmpty() && actual != null) {
+                    for (String candidate : encoded.split(";")) {
+                        if (actual.equals(candidate)) { matched = true; break; }
+                    }
+                }
+                if (!matched) return false;
+            } else if (!expected.equals(actual)) return false;
         }
         return true;
     }
