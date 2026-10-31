@@ -60,6 +60,7 @@ public final class GodWorshipService {
             state.chargeProgress = 0L;
             state.buffActiveUntilMillis = 0L;
             state.cooldownUntilMillis = 0L;
+            state.offeringSettledUntilMillis = 0L;
             repository.saveRunState(playerUuid, run);
         } catch (RuntimeException failure) {
             resources.grantPlayerResource(playerUuid, resource, cost);
@@ -106,6 +107,7 @@ public final class GodWorshipService {
             if (state.chargeProgress >= required) {
                 GodWorshipRules.activate(state, nowMillis, policy.buffDurationMillis(god),
                         policy.permanentDurationMillis(persistent.permanentDurationLevel));
+                state.offeringSettledUntilMillis = nowMillis;
                 emit(playerUuid, GameplayEventType.GOD_BUFF_ACTIVATE, god, BigDecimal.ONE);
             } else if (state.chargeProgress != before) {
                 emit(playerUuid, GameplayEventType.GOD_CHARGE_CLICK, god,
@@ -140,6 +142,14 @@ public final class GodWorshipService {
         }
         if (changed) repository.saveRunState(playerUuid, run);
         return run;
+    }
+
+    public synchronized GodWorshipModel.RunState runState(UUID playerUuid) {
+        return repository.loadRunState(playerUuid);
+    }
+
+    public synchronized GodWorshipModel.PersistentState persistentState(UUID playerUuid) {
+        return repository.loadPersistentState(playerUuid);
     }
 
     /** Centralized Mastery Reset hook. Preferences/meta/Offerings live in persistent state and remain untouched. */
