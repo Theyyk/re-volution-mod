@@ -15,17 +15,42 @@ import java.util.UUID;
 
 /** Resolves the isolated late God layer without registering it as a normal EffectResolver source. */
 public final class GodWorshipModifierService {
-    private final GodWorshipRepository repository;
-    private final BalanceGodWorshipPolicy policy;
+    /** Balance-facing policy kept independent from the normal EffectResolver source list. */
+    public interface Policy {
+        boolean enabled(GodId god);
+        boolean featureEnabled(FeatureGate gate);
+        EffectResolver.Stat primaryChannel(GodId god);
+        EffectResolver.Stat secondaryChannel(GodId god);
+        BigDecimal buffAdditiveMultiplier(GodId god, long level);
+    }
 
-    public GodWorshipModifierService(GodWorshipRepository repository, BalanceGodWorshipPolicy policy) {
-        if (repository == null || policy == null) throw new IllegalArgumentException("God modifier dependencies are required");
+    /** Future Pet/season hook. v2.8 ships with identity effectiveness and no Pet content. */
+    public interface EffectivenessProvider {
+        BigDecimal multiplier(UUID playerUuid, GodId god, EffectResolver.Stat channel);
+    }
+
+    public static final EffectivenessProvider IDENTITY_EFFECTIVENESS =
+            (playerUuid, god, channel) -> BigDecimal.ONE;
+
+    private final GodWorshipRepository repository;
+    private final Policy policy;
+    private final EffectivenessProvider effectiveness;
+
+    public GodWorshipModifierService(GodWorshipRepository repository, Policy policy) {
+        this(repository, policy, IDENTITY_EFFECTIVENESS);
+    }
+
+    public GodWorshipModifierService(GodWorshipRepository repository, Policy policy, EffectivenessProvider effectiveness) {
+        if (repository == null || policy == null || effectiveness == null)
+            throw new IllegalArgumentException("God modifier dependencies are required");
         this.repository = repository;
         this.policy = policy;
+        this.effectiveness = effectiveness;
     }
 
     public BigDecimal apply(UUID playerUuid, GameplayDamageSource source, BigDecimal preGodDamage, long nowMillis) {
-        if (playerUuid == null || preGodDamage == null || preGodDamage.signum() <= 0) return preGodDamage == null ? BigDecimal.ZERO : preGodDamage;
+        if (playerUuid == null || preGodDamage == null || preGodDamage.signum() <= 0)
+            return preGodDamage == null ? BigDecimal.ZERO : preGodDamage;
         EffectResolver.Stat channel = statFor(source);
         RunState run = repository.loadRunState(playerUuid);
         boolean secondaryEnabled = policy.featureEnabled(FeatureGate.GOD_SECONDARY_BUFFS);
@@ -36,16 +61,22 @@ public final class GodWorshipModifierService {
             State state = run.gods.get(god);
             if (state == null || !state.unlocked || state.level <= 0L || state.phase != Phase.BUFF_ACTIVE
                     || nowMillis >= state.buffActiveUntilMillis || !policy.enabled(god)) continue;
-            BigDecimal delta = policy.buffAdditiveMultiplier(god, state.level);
-            if (delta.signum() <= 0) continue;
+            BigDecimal baseDelta = policy.buffAdditiveMultiplier(god, state.level);
+            if (baseDelta == null || baseDelta.signum() <= 0) continue;
 
             EffectResolver.Stat primary = policy.primaryChannel(god);
             EffectResolver.Stat secondary = secondaryEnabled ? policy.secondaryChannel(god) : null;
-            if (primary == EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER || secondary == EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER) {
-                allDeltas.add(delta);
+            if (primary == EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER) {
+                allDeltas.add(effectiveDelta(playerUuid, god, primary, baseDelta));
             }
-            if (channel != null && (primary == channel || secondary == channel)) {
-                channelDeltas.add(delta);
+            if (secondary == EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER) {
+                allDeltas.add(effectiveDelta(playerUuid, god, secondary, baseDelta));
+            }
+            if (channel != null && primary == channel) {
+                channelDeltas.add(effectiveDelta(playerUuid, god, primary, baseDelta));
+            }
+            if (channel != null && secondary == channel) {
+                channelDeltas.add(effectiveDelta(playerUuid, god, secondary, baseDelta));
             }
         }
 
@@ -53,6 +84,12 @@ public final class GodWorshipModifierService {
                 preGodDamage,
                 GodWorshipRules.godLayerMultiplier(channelDeltas),
                 GodWorshipRules.godLayerMultiplier(allDeltas));
+    }
+
+    private BigDecimal effectiveDelta(UUID playerUuid, GodId god, EffectResolver.Stat channel, BigDecimal baseDelta) {
+        BigDecimal multiplier = effectiveness.multiplier(playerUuid, god, channel);
+        if (multiplier == null || multiplier.signum() < 0) multiplier = BigDecimal.ONE;
+        return baseDelta.multiply(multiplier);
     }
 
     public static EffectResolver.Stat statFor(GameplayDamageSource source) {
