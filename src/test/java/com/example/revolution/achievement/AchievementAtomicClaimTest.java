@@ -48,6 +48,7 @@ public final class AchievementAtomicClaimTest {
         check(boss.matches(Collections.singletonMap("mobId", "boss_beta")), "second stable boss id matches");
         check(!boss.matches(Collections.singletonMap("mobId", "ordinary_mob")), "ordinary stable mob id does not match boss filter");
 
+        com.example.revolution.persistence.MongoAchievementRepositoryTest.main(new String[0]);
         System.out.println("Achievement atomic claim and stable boss-id filter regressions passed");
     }
 
