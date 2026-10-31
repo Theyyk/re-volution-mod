@@ -14,6 +14,9 @@ public final class ResourceService {
         BigDecimal multiplier(UUID playerUuid, String canonicalResource);
     }
 
+    /** v2.9.0 public type retained so existing Aura/tests remain source-compatible. */
+    public interface LateRewardMultiplier extends RewardMultiplier {}
+
     public static final RewardMultiplier IDENTITY_REWARD = (playerUuid, canonicalResource) -> BigDecimal.ONE;
 
     private final ResourceRepository repository;
