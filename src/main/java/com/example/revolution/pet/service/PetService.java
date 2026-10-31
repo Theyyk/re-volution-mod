@@ -1,5 +1,8 @@
 package com.example.revolution.pet.service;
 
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.pet.definition.PetCatalog;
 import com.example.revolution.pet.definition.PetDefinition;
 import com.example.revolution.pet.definition.PetRank;
@@ -34,10 +37,15 @@ public final class PetService {
     private final PetBalanceService balance;
     private final ResourceService resources;
     private final PrestigeService prestige;
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public PetService(PetRepository repository, PetCatalog catalog, PetBalanceService balance,
                       ResourceService resources, PrestigeService prestige) {
         this.repository = repository; this.catalog = catalog; this.balance = balance; this.resources = resources; this.prestige = prestige;
+    }
+
+    public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
     public synchronized PetPlayerState snapshot(UUID playerUuid) {
@@ -53,7 +61,11 @@ public final class PetService {
         PetPlayerState.PetProgress progress = ctx.state.pets.get(petId);
         if ((progress != null && progress.rank.isPersistentAcrossPrestige()) || ctx.run.purchasedPetIds.contains(petId)) return Result.ALREADY_OWNED;
         if (!resources.spendPlayerResource(playerUuid, "coins", balance.purchaseCost(pet))) return Result.INSUFFICIENT_RESOURCE;
-        ctx.run.purchasedPetIds.add(petId); ctx.state.pet(petId); repository.save(playerUuid, ctx.state); return Result.APPLIED;
+        ctx.run.purchasedPetIds.add(petId); ctx.state.pet(petId); repository.save(playerUuid, ctx.state);
+        gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.PET_PURCHASE_ANY));
+        gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.PET_PURCHASE_SPECIFIC, BigDecimal.ONE,
+                Collections.singletonMap("petId", petId), "pet_purchase"));
+        return Result.APPLIED;
     }
 
     public synchronized Result purchaseNormalSlot(UUID playerUuid) {
@@ -99,7 +111,6 @@ public final class PetService {
         if (reward.signum() > 0 && !prestige.addPetPendingFragments(playerUuid, expectedRunId, reward)) return Result.STALE_RUN;
         progress.appliedLevelXp = threshold;
         progress.level = progress.level.add(BigInteger.ONE);
-        // XP intentionally remains unchanged: accumulated XP may satisfy several future manual level-ups.
         repository.save(playerUuid, ctx.state);
         return Result.APPLIED;
     }
@@ -120,9 +131,9 @@ public final class PetService {
         PetRank sourceRank = targetProgress.rank; targetProgress.rank = sourceRank.nextGameplayRank(); target.order = nextOrder(ctx.run);
         long now = System.currentTimeMillis(); long cooldownMillis = balance.cooldownMillis(); List<PetPlayerState.SelectedPet> preserved = new ArrayList<>();
         for (PetPlayerState.SelectedPet selected : ctx.run.selectedPets) {
-            PetPlayerState.PetProgress progress = ctx.state.pets.get(selected.petId);
-            if (selected.petId.equals(petId) || (progress != null && progress.rank.progressionOrder() > sourceRank.progressionOrder())) { preserved.add(selected); continue; }
-            if (progress != null) { progress.level = BigInteger.ONE; progress.xp = BigDecimal.ZERO; progress.appliedLevelXp = BigDecimal.ZERO; }
+            PetPlayerState.PetProgress selectedProgress = ctx.state.pets.get(selected.petId);
+            if (selected.petId.equals(petId) || (selectedProgress != null && selectedProgress.rank.progressionOrder() > sourceRank.progressionOrder())) { preserved.add(selected); continue; }
+            if (selectedProgress != null) { selectedProgress.level = BigInteger.ONE; selectedProgress.xp = BigDecimal.ZERO; selectedProgress.appliedLevelXp = BigDecimal.ZERO; }
             if (!selected.premiumSlot) ctx.run.cooldownUntil.put(selected.petId, now + cooldownMillis); else ctx.run.cooldownUntil.remove(selected.petId);
         }
         ctx.run.selectedPets.clear(); ctx.run.selectedPets.addAll(preserved); normalize(ctx.state, ctx.run); repository.save(playerUuid, ctx.state); return Result.APPLIED;
