@@ -36,16 +36,18 @@ public final class AuraSnapshotPacket implements IMessage {
     private long totalChestAuraDrops;
     private boolean skipOpeningAnimation;
     private boolean featureEnabled;
+    private String rarityRules = "";
 
     public AuraSnapshotPacket() {}
     public AuraSnapshotPacket(List<Entry> entries, int auraKeys, int crystals, int keyCrystalPrice,
                               long totalChestOpens, long totalChestAuraDrops,
-                              boolean skipOpeningAnimation, boolean featureEnabled) {
+                              boolean skipOpeningAnimation, boolean featureEnabled, String rarityRules) {
         if (entries != null) this.entries.addAll(entries);
         this.auraKeys = Math.max(0, auraKeys); this.crystals = Math.max(0, crystals);
         this.keyCrystalPrice = Math.max(0, keyCrystalPrice); this.totalChestOpens = Math.max(0L, totalChestOpens);
         this.totalChestAuraDrops = Math.max(0L, totalChestAuraDrops);
         this.skipOpeningAnimation = skipOpeningAnimation; this.featureEnabled = featureEnabled;
+        this.rarityRules = safe(rarityRules);
     }
 
     public List<Entry> getEntries() { return Collections.unmodifiableList(entries); }
@@ -56,6 +58,7 @@ public final class AuraSnapshotPacket implements IMessage {
     public long getTotalChestAuraDrops() { return totalChestAuraDrops; }
     public boolean isSkipOpeningAnimation() { return skipOpeningAnimation; }
     public boolean isFeatureEnabled() { return featureEnabled; }
+    public String getRarityRules() { return rarityRules; }
 
     @Override public void fromBytes(ByteBuf buf) {
         entries.clear(); int count = Math.max(0, Math.min(10000, buf.readInt()));
@@ -67,7 +70,7 @@ public final class AuraSnapshotPacket implements IMessage {
         }
         auraKeys = Math.max(0, buf.readInt()); crystals = Math.max(0, buf.readInt()); keyCrystalPrice = Math.max(0, buf.readInt());
         totalChestOpens = Math.max(0L, buf.readLong()); totalChestAuraDrops = Math.max(0L, buf.readLong());
-        skipOpeningAnimation = buf.readBoolean(); featureEnabled = buf.readBoolean();
+        skipOpeningAnimation = buf.readBoolean(); featureEnabled = buf.readBoolean(); rarityRules = ByteBufUtils.readUTF8String(buf);
     }
 
     @Override public void toBytes(ByteBuf buf) {
@@ -80,6 +83,7 @@ public final class AuraSnapshotPacket implements IMessage {
         }
         buf.writeInt(auraKeys); buf.writeInt(crystals); buf.writeInt(keyCrystalPrice);
         buf.writeLong(totalChestOpens); buf.writeLong(totalChestAuraDrops); buf.writeBoolean(skipOpeningAnimation); buf.writeBoolean(featureEnabled);
+        ByteBufUtils.writeUTF8String(buf, rarityRules);
     }
 
     private static String safe(String value) { return value == null ? "" : value; }
