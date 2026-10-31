@@ -25,6 +25,8 @@ public final class MongoAchievementRepository implements AchievementRepository, 
         this.atomicClaims = new MongoAchievementAtomicClaimStore(connection, enabled);
     }
 
+    @Override public boolean available() { return atomicClaims.available(); }
+
     @Override
     public AchievementPlayerState load(UUID playerUuid) {
         if (playerUuid == null || !enabled || !connection.isConnected()) return new AchievementPlayerState();
