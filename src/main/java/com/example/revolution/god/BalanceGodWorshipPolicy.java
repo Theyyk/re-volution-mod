@@ -6,7 +6,7 @@ import com.example.revolution.god.GodWorshipModel.GodId;
 import java.math.BigDecimal;
 
 /** Reads every gameplay balance number from the active Balance Core snapshot. */
-public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy {
+public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy, GodWorshipAutomationService.Policy {
     private final BalanceService balance;
 
     public BalanceGodWorshipPolicy(BalanceService balance) {
@@ -32,7 +32,7 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy {
         return permanentDurationLevel * secondsPerLevel * 1000L;
     }
 
-    public boolean featureEnabled(GodWorshipModel.FeatureGate gate) {
+    @Override public boolean featureEnabled(GodWorshipModel.FeatureGate gate) {
         return bool("god.feature." + gate.name());
     }
 
@@ -41,13 +41,13 @@ public final class BalanceGodWorshipPolicy implements GodWorshipService.Policy {
         return balance.evaluateActiveCurve("god." + god.name() + ".buff_multiplier", curveIndex(level - 1L));
     }
 
-    public BigDecimal offeringGenerationPerSecond() { return decimal("god.offering.generation_per_second"); }
-    public long autoWorshipIntervalMillis() { return positiveLong("god.auto_worship.processing_interval_ms"); }
-    public BigDecimal autoWorshipCooldownCost() { return decimal("god.auto_worship.cooldown.offering_cost"); }
-    public long autoWorshipCooldownReductionMillis() { return positiveLong("god.auto_worship.cooldown.reduction_ms"); }
-    public BigDecimal autoWorshipChargeCost() { return decimal("god.auto_worship.charge.offering_cost"); }
-    public long autoWorshipChargeGain() { return positiveLong("god.auto_worship.charge.gain"); }
-    public BigDecimal durationUpgradeCost(long currentLevel) {
+    @Override public BigDecimal offeringGenerationPerSecond() { return decimal("god.offering.generation_per_second"); }
+    @Override public long autoWorshipIntervalMillis() { return positiveLong("god.auto_worship.processing_interval_ms"); }
+    @Override public BigDecimal autoWorshipCooldownCost() { return decimal("god.auto_worship.cooldown.offering_cost"); }
+    @Override public long autoWorshipCooldownReductionMillis() { return positiveLong("god.auto_worship.cooldown.reduction_ms"); }
+    @Override public BigDecimal autoWorshipChargeCost() { return decimal("god.auto_worship.charge.offering_cost"); }
+    @Override public long autoWorshipChargeGain() { return positiveLong("god.auto_worship.charge.gain"); }
+    @Override public BigDecimal durationUpgradeCost(long currentLevel) {
         return balance.evaluateActiveCurve("god.duration.upgrade_cost", curveIndex(currentLevel));
     }
 
