@@ -1,11 +1,16 @@
 package com.example.revolution.aura;
 
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.resource.service.ResourceService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -30,6 +35,7 @@ public final class AuraService {
     private final AuraPolicy policy;
     private final AuraGenerator generator;
     private final Random secureSeedSource = new Random();
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public AuraService(AuraRepository repository, ResourceService resources, AuraPolicy policy) {
         if (repository == null || resources == null || policy == null) throw new IllegalArgumentException("Aura dependencies are required");
@@ -37,6 +43,10 @@ public final class AuraService {
         this.resources = resources;
         this.policy = policy;
         this.generator = new AuraGenerator(policy);
+    }
+
+    public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
     public synchronized AuraModel.PlayerState state(UUID playerUuid) {
@@ -50,7 +60,9 @@ public final class AuraService {
     }
 
     public synchronized boolean grantKeys(UUID playerUuid, int amount) {
-        return amount >= 0 && resources.grantPlayerResource(playerUuid, AURA_KEY, amount);
+        boolean granted = amount >= 0 && resources.grantPlayerResource(playerUuid, AURA_KEY, amount);
+        if (granted && amount > 0) gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.AURA_KEY_GAINED, BigDecimal.valueOf(amount), null, "aura"));
+        return granted;
     }
 
     /** Buys exactly the missing keys with Crystals and opens all requested rolls as one validated mutation. */
@@ -62,7 +74,6 @@ public final class AuraService {
         int crystalCost = Math.multiplyExact(missing, policy.keyCrystalPrice());
         if (crystalCost > 0 && !resources.canAfford(playerUuid, "crystals", crystalCost)) throw new IllegalStateException("insufficient crystals");
 
-        // Validate all economics before any mutation.
         if (crystalCost > 0 && !resources.spendPlayerResource(playerUuid, "crystals", crystalCost)) throw new IllegalStateException("crystal spend failed");
         if (missing > 0 && !resources.grantPlayerResource(playerUuid, AURA_KEY, missing)) {
             if (crystalCost > 0) resources.grantPlayerResource(playerUuid, "crystals", crystalCost);
@@ -82,6 +93,8 @@ public final class AuraService {
         }
         state.totalChestOpens += quantity;
         repository.save(playerUuid, state);
+        gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.AURA_CHEST_OPENED, BigDecimal.valueOf(quantity), null, "aura"));
+        for (AuraModel.AuraInstance aura : generated) gameplayEvents.factualEvent(dropEvent(playerUuid, aura));
         return new OpenResult(generated, missing, crystalCost);
     }
 
@@ -90,10 +103,13 @@ public final class AuraService {
         if (state.activeAuraId != null) throw new IllegalStateException("unequip current Aura first");
         if (state.find(instanceId) == null) throw new IllegalArgumentException("Aura is not owned");
         state.activeAuraId = instanceId; repository.save(playerUuid, state);
+        gameplayEvents.factualEvent(simpleInstanceEvent(playerUuid, GameplayEventType.AURA_EQUIPPED, state.find(instanceId)));
     }
 
     public synchronized void unequip(UUID playerUuid) {
-        requireFeature(); AuraModel.PlayerState state = state(playerUuid); state.activeAuraId = null; repository.save(playerUuid, state);
+        requireFeature(); AuraModel.PlayerState state = state(playerUuid); AuraModel.AuraInstance previous = state.active();
+        state.activeAuraId = null; repository.save(playerUuid, state);
+        if (previous != null) gameplayEvents.factualEvent(simpleInstanceEvent(playerUuid, GameplayEventType.AURA_UNEQUIPPED, previous));
     }
 
     public synchronized void setPinned(UUID playerUuid, UUID instanceId, boolean pinned) {
@@ -111,7 +127,9 @@ public final class AuraService {
         List<AuraModel.AuraInstance> selected = validatedConsumables(state, rarity, selectedIds);
         state.ownedAuras.removeAll(selected);
         AuraModel.AuraInstance result = generator.generate(next, AuraModel.Origin.CRAFT, nextSeed(), nowMillis);
-        state.ownedAuras.add(result); repository.save(playerUuid, state); return result;
+        state.ownedAuras.add(result); repository.save(playerUuid, state);
+        gameplayEvents.factualEvent(simpleInstanceEvent(playerUuid, GameplayEventType.AURA_CRAFTED, result));
+        return result;
     }
 
     public synchronized List<AuraModel.AuraInstance> dismantle(UUID playerUuid, UUID instanceId, long nowMillis) {
@@ -127,7 +145,9 @@ public final class AuraService {
             AuraModel.AuraInstance result = generator.generate(previous, AuraModel.Origin.DISMANTLE, nextSeed(), nowMillis);
             state.ownedAuras.add(result); results.add(result);
         }
-        repository.save(playerUuid, state); return Collections.unmodifiableList(results);
+        repository.save(playerUuid, state);
+        gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.AURA_DISMANTLED, BigDecimal.valueOf(count), metadata(source), "aura"));
+        return Collections.unmodifiableList(results);
     }
 
     /** Selection-only helper. Never mutates or executes craft. */
@@ -138,6 +158,31 @@ public final class AuraService {
             if (result.size() == required) break;
         }
         return Collections.unmodifiableList(result);
+    }
+
+    private GameplayEvent dropEvent(UUID playerUuid, AuraModel.AuraInstance aura) {
+        Map<String, String> metadata = metadata(aura);
+        metadata.put("rawRollCount", String.valueOf(aura.rawRolls.size()));
+        metadata.put("aggregatedEffects", aggregateSummary(aura));
+        return new GameplayEvent(playerUuid, GameplayEventType.AURA_DROPPED_FROM_CHEST, BigDecimal.ONE, metadata, "aura_chest");
+    }
+
+    private static GameplayEvent simpleInstanceEvent(UUID playerUuid, GameplayEventType type, AuraModel.AuraInstance aura) {
+        return new GameplayEvent(playerUuid, type, BigDecimal.ONE, metadata(aura), "aura");
+    }
+
+    private static Map<String, String> metadata(AuraModel.AuraInstance aura) {
+        Map<String, String> metadata = new LinkedHashMap<>();
+        metadata.put("instanceId", aura.instanceId.toString()); metadata.put("rarity", aura.rarity.name()); metadata.put("origin", aura.origin.name());
+        return metadata;
+    }
+
+    private static String aggregateSummary(AuraModel.AuraInstance aura) {
+        StringBuilder out = new StringBuilder();
+        for (Map.Entry<com.example.revolution.effect.EffectResolver.Stat, BigDecimal> entry : aura.aggregatedEffects.entrySet()) {
+            if (out.length() > 0) out.append(','); out.append(entry.getKey().name()).append('=').append(entry.getValue().toPlainString());
+        }
+        return out.toString();
     }
 
     private List<AuraModel.AuraInstance> validatedConsumables(AuraModel.PlayerState state, AuraModel.Rarity rarity, List<UUID> ids) {
