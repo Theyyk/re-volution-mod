@@ -1,6 +1,9 @@
 package com.example.revolution.prestige;
 
 import com.example.revolution.effect.EffectResolver;
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,6 +22,7 @@ public final class PrestigeService implements EffectResolver.Source {
     private final PrestigeResetService resets;
     private final AppliedResetParticipant appliedResetParticipant;
     private FragmentRewardProvider fragmentRewards = DEFAULT_FRAGMENT_REWARDS;
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry) {
         this(repository, registry, (player, branch) -> registry.get(branch).defaultSaveMultiplier,
@@ -44,6 +48,10 @@ public final class PrestigeService implements EffectResolver.Source {
 
     public synchronized void setFragmentRewardProvider(FragmentRewardProvider provider) {
         fragmentRewards = provider == null ? DEFAULT_FRAGMENT_REWARDS : provider;
+    }
+
+    public synchronized void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
     public synchronized PrestigeState.RunState startRun(UUID playerUuid, PrestigeBranch branch) {
@@ -77,6 +85,9 @@ public final class PrestigeService implements EffectResolver.Source {
             if (run.branchProgress.compareTo(rank.unlockProgress) >= 0 && !run.reachedRanks.contains(rank.rankId)) run.reachedRanks.add(rank.rankId);
         }
         repository.save(playerUuid, state);
+        gameplayEvents.factualEvent(new GameplayEvent(
+                playerUuid, GameplayEventType.MASTERY_PROGRESS, factualAmount,
+                Collections.singletonMap("branch", sourceBranch.name()), "mastery_progress"));
     }
 
     /** Compatibility name: spends the single run-scoped spendable Fragments balance. */
@@ -126,6 +137,14 @@ public final class PrestigeService implements EffectResolver.Source {
         if (source == FragmentSource.MASTERY) run.masteryPendingFragments = BigDecimal.ZERO;
         else run.petPendingFragments = BigDecimal.ZERO;
         repository.save(playerUuid, state);
+        gameplayEvents.factualEvent(new GameplayEvent(
+                playerUuid, GameplayEventType.FRAGMENTS_COLLECTED, pending,
+                Collections.singletonMap("source", source.name()), "fragment_collection"));
+        if (source == FragmentSource.MASTERY) {
+            gameplayEvents.factualEvent(new GameplayEvent(
+                    playerUuid, GameplayEventType.FRAGMENTS_COLLECTED_MASTERY, pending,
+                    Collections.singletonMap("source", source.name()), "mastery_fragment_collection"));
+        }
         return pending;
     }
 
@@ -136,8 +155,12 @@ public final class PrestigeService implements EffectResolver.Source {
 
     public synchronized PrestigeResetService.ResetPreview previewReset(UUID playerUuid, String expectedRunId) { return resets.preview(playerUuid, expectedRunId); }
     public synchronized PrestigeResetService.ResetResult reset(UUID playerUuid, String expectedRunId) {
+        PrestigeState.RunState before = activeRun(playerUuid);
         PrestigeResetService.ResetResult result = resets.reset(playerUuid, expectedRunId);
-        if (result == PrestigeResetService.ResetResult.APPLIED) appliedResetParticipant.afterAppliedReset(playerUuid);
+        if (result == PrestigeResetService.ResetResult.APPLIED) {
+            appliedResetParticipant.afterAppliedReset(playerUuid);
+            emitMasteryReset(playerUuid, before);
+        }
         return result;
     }
 
@@ -149,6 +172,7 @@ public final class PrestigeService implements EffectResolver.Source {
         return masteryReset(playerUuid, expectedRunId, MasteryResetMode.NORMAL);
     }
     public synchronized PrestigeResetService.MasteryResetResult masteryReset(UUID playerUuid, String expectedRunId, MasteryResetMode mode) {
+        PrestigeState.RunState before = activeRun(playerUuid);
         boolean preserveRunes = false;
         if (mode == MasteryResetMode.PREMIUM_PRESERVE) {
             try {
@@ -157,9 +181,22 @@ public final class PrestigeService implements EffectResolver.Source {
             } catch (RuntimeException ignored) { preserveRunes = false; }
         }
         PrestigeResetService.MasteryResetResult result = resets.masteryReset(playerUuid, expectedRunId, mode);
-        if (result == PrestigeResetService.MasteryResetResult.APPLIED && !preserveRunes) appliedResetParticipant.afterAppliedReset(playerUuid);
+        if (result == PrestigeResetService.MasteryResetResult.APPLIED) {
+            if (!preserveRunes) appliedResetParticipant.afterAppliedReset(playerUuid);
+            emitMasteryReset(playerUuid, before);
+        }
         return result;
     }
+
+    private void emitMasteryReset(UUID playerUuid, PrestigeState.RunState before) {
+        gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.MASTERY_RESET));
+        if (before != null && before.activeBranch != null) {
+            gameplayEvents.factualEvent(new GameplayEvent(
+                    playerUuid, GameplayEventType.MASTERY_RESET_SPECIFIC_BRANCH, BigDecimal.ONE,
+                    Collections.singletonMap("branch", before.activeBranch.name()), "mastery_reset"));
+        }
+    }
+
     public synchronized int metaLevelGainPerRun(UUID playerUuid, PrestigeBranch branch) {
         return resets.metaLevelGainPerRun(repository.load(playerUuid).branch(branch));
     }
