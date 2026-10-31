@@ -15,6 +15,7 @@ public final class AchievementsGuiScreen extends GuiScreen {
     private static final int RUNES = 200, CLOSE = 299, PREV = 510, NEXT = 511, CATEGORY_BASE = 600;
     private static final String[] CATEGORIES = {"ALL", "DAMAGE", "RESOURCES", "MASTERY", "PETS", "RUNES", "KILLS", "LOCATIONS", "AURAS", "HIDDEN"};
     private static final int ROW_H = 46;
+    private static long requestNonce = System.currentTimeMillis();
     private String category = "ALL";
     private int page;
 
@@ -33,7 +34,7 @@ public final class AchievementsGuiScreen extends GuiScreen {
         }
         buttonList.add(new GuiButton(PREV, width / 2 - 105, height - 28, 100, 20, "< Previous"));
         buttonList.add(new GuiButton(NEXT, width / 2 + 5, height - 28, 100, 20, "Next >"));
-        NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket("sync", "", 0));
+        NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket("sync", "", 0, 0L));
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
@@ -61,11 +62,11 @@ public final class AchievementsGuiScreen extends GuiScreen {
             if (mouseY < y || mouseY >= y + ROW_H - 4) continue;
             if (mouseX >= width - 154 && mouseX < width - 84) {
                 if (e.completed && !e.claimed) NetworkHandler.INSTANCE.sendToServer(
-                        new AchievementActionPacket("claim", e.achievementId, e.stageIndex));
+                        new AchievementActionPacket("claim", e.achievementId, e.stageIndex, nextNonce()));
                 return;
             }
             if (mouseX >= width - 78 && mouseX < width - 8) {
-                NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket("share", e.achievementId, e.stageIndex));
+                NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket("share", e.achievementId, e.stageIndex, nextNonce()));
                 return;
             }
         }
@@ -111,6 +112,12 @@ public final class AchievementsGuiScreen extends GuiScreen {
         }
         drawCenteredString(fontRenderer, "Page " + (page + 1) + "/" + (maxPage + 1), width / 2, height - 39, 0xAEB7C2);
         super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    private static synchronized long nextNonce() {
+        long now = System.currentTimeMillis();
+        requestNonce = Math.max(requestNonce + 1L, now);
+        return requestNonce;
     }
 
     private static String stageHistory(int stage) {
