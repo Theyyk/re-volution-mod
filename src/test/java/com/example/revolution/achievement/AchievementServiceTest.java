@@ -2,6 +2,7 @@ package com.example.revolution.achievement;
 
 import com.example.revolution.gameplay.GameplayDamageSource;
 import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.gameplay.GameplayEventType;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -28,7 +29,9 @@ public final class AchievementServiceTest {
         ));
         AchievementService service = new AchievementService(repository, catalog, rewards);
         List<GameplayEvent> lifecycle = new ArrayList<>();
-        service.setLifecycleEventSink(new com.example.revolution.gameplay.GameplayEventSink() {
+        service.setLifecycleEventSink(new GameplayEventSink() {
+            @Override public void confirmedDamage(UUID playerUuid, GameplayDamageSource source, BigDecimal amount) { }
+            @Override public void earnedResource(UUID playerUuid, String resource, BigDecimal amount) { }
             @Override public void factualEvent(GameplayEvent event) { lifecycle.add(event); }
         });
         UUID player = UUID.randomUUID();
