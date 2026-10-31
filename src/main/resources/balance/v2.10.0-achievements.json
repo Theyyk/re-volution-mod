@@ -1,0 +1,155 @@
+{
+  "balanceSchemaVersion": 1,
+  "values": {
+    "achievement.zbt_status": "draft",
+    "achievement.ids": "damage_click,damage_poison,damage_burning,damage_bleeding,damage_curse,damage_wither,damage_decay,damage_total,earn_coins,earn_dust,earn_shards,earn_cores,mastery_branches,pets_obtained,rune_awakenings,kills_total,locations_reached,aura_drops,aura_rare,aura_legendary,aura_mythic",
+
+    "achievement.damage_click.name": "Click Damage",
+    "achievement.damage_click.category": "DAMAGE",
+    "achievement.damage_click.event": "DAMAGE_BY_CHANNEL",
+    "achievement.damage_click.filters": "channel=CLICK",
+    "achievement.damage_click.hidden": "false",
+    "achievement.damage_click.stages": "1000|5|0|0|5;10000|10|1|0|10;100000|20|2|0|20;1000000|40|4|0|40;10000000|75|8|1|80",
+
+    "achievement.damage_poison.name": "Poison Damage",
+    "achievement.damage_poison.category": "DAMAGE",
+    "achievement.damage_poison.event": "DAMAGE_BY_CHANNEL",
+    "achievement.damage_poison.filters": "channel=POISON",
+    "achievement.damage_poison.hidden": "false",
+    "achievement.damage_poison.stages": "1000|5|0|0|5;10000|10|1|0|10;100000|20|2|0|20;1000000|40|4|0|40;10000000|75|8|1|80",
+
+    "achievement.damage_burning.name": "Burning Damage",
+    "achievement.damage_burning.category": "DAMAGE",
+    "achievement.damage_burning.event": "DAMAGE_BY_CHANNEL",
+    "achievement.damage_burning.filters": "channel=BURNING",
+    "achievement.damage_burning.hidden": "false",
+    "achievement.damage_burning.stages": "1000|5|0|0|5;10000|10|1|0|10;100000|20|2|0|20;1000000|40|4|0|40;10000000|75|8|1|80",
+
+    "achievement.damage_bleeding.name": "Bleeding Damage",
+    "achievement.damage_bleeding.category": "DAMAGE",
+    "achievement.damage_bleeding.event": "DAMAGE_BY_CHANNEL",
+    "achievement.damage_bleeding.filters": "channel=BLEEDING",
+    "achievement.damage_bleeding.hidden": "false",
+    "achievement.damage_bleeding.stages": "1000|5|0|0|5;10000|10|1|0|10;100000|20|2|0|20;1000000|40|4|0|40;10000000|75|8|1|80",
+
+    "achievement.damage_curse.name": "Curse Damage",
+    "achievement.damage_curse.category": "DAMAGE",
+    "achievement.damage_curse.event": "DAMAGE_BY_CHANNEL",
+    "achievement.damage_curse.filters": "channel=CURSE",
+    "achievement.damage_curse.hidden": "false",
+    "achievement.damage_curse.stages": "1000|5|0|0|5;10000|10|1|0|10;100000|20|2|0|20;1000000|40|4|0|40;10000000|75|8|1|80",
+
+    "achievement.damage_wither.name": "Wither Damage",
+    "achievement.damage_wither.category": "DAMAGE",
+    "achievement.damage_wither.event": "DAMAGE_BY_CHANNEL",
+    "achievement.damage_wither.filters": "channel=WITHER",
+    "achievement.damage_wither.hidden": "false",
+    "achievement.damage_wither.stages": "1000|5|0|0|5;10000|10|1|0|10;100000|20|2|0|20;1000000|40|4|0|40;10000000|75|8|1|80",
+
+    "achievement.damage_decay.name": "Decay Damage",
+    "achievement.damage_decay.category": "DAMAGE",
+    "achievement.damage_decay.event": "DAMAGE_BY_CHANNEL",
+    "achievement.damage_decay.filters": "channel=DECAY",
+    "achievement.damage_decay.hidden": "false",
+    "achievement.damage_decay.stages": "1000|5|0|0|5;10000|10|1|0|10;100000|20|2|0|20;1000000|40|4|0|40;10000000|75|8|1|80",
+
+    "achievement.damage_total.name": "Total Damage",
+    "achievement.damage_total.category": "DAMAGE",
+    "achievement.damage_total.event": "TOTAL_DAMAGE",
+    "achievement.damage_total.hidden": "false",
+    "achievement.damage_total.stages": "5000|5|0|0|5;50000|10|1|0|10;500000|25|2|0|25;5000000|50|5|1|50;50000000|100|10|1|100",
+
+    "achievement.earn_coins.name": "Coins Earned",
+    "achievement.earn_coins.category": "RESOURCES",
+    "achievement.earn_coins.event": "COINS_EARNED",
+    "achievement.earn_coins.hidden": "false",
+    "achievement.earn_coins.stages": "1000|5|0|0|5;10000|10|1|0|10;100000|20|2|0|20;1000000|40|4|0|40;10000000|75|8|1|80",
+
+    "achievement.earn_dust.name": "Rune Dust Earned",
+    "achievement.earn_dust.category": "RESOURCES",
+    "achievement.earn_dust.event": "RUNE_DUST_EARNED",
+    "achievement.earn_dust.hidden": "false",
+    "achievement.earn_dust.stages": "100|5|0|0|5;1000|10|1|0|10;10000|20|2|0|20;100000|40|4|0|40;1000000|75|8|1|80",
+
+    "achievement.earn_shards.name": "Rune Shards Earned",
+    "achievement.earn_shards.category": "RESOURCES",
+    "achievement.earn_shards.event": "SHARDS_EARNED",
+    "achievement.earn_shards.hidden": "false",
+    "achievement.earn_shards.stages": "25|5|0|0|5;250|10|1|0|10;2500|20|2|0|20;25000|40|4|0|40;250000|75|8|1|80",
+
+    "achievement.earn_cores.name": "Rune Cores Earned",
+    "achievement.earn_cores.category": "RESOURCES",
+    "achievement.earn_cores.event": "RUNE_CORES_EARNED",
+    "achievement.earn_cores.hidden": "false",
+    "achievement.earn_cores.stages": "5|5|0|0|5;50|10|1|0|10;500|20|2|0|20;5000|40|4|0|40;50000|75|8|1|80",
+
+    "achievement.mastery_branches.name": "Mastery Branches",
+    "achievement.mastery_branches.category": "MASTERY",
+    "achievement.mastery_branches.event": "MASTERY_BRANCH_SELECTED",
+    "achievement.mastery_branches.hidden": "false",
+    "achievement.mastery_branches.stages": "1|10|1|0|10;3|25|2|0|25;5|50|5|1|50",
+
+    "achievement.pets_obtained.name": "Pets Obtained",
+    "achievement.pets_obtained.category": "PETS",
+    "achievement.pets_obtained.event": "PET_PURCHASE_SPECIFIC",
+    "achievement.pets_obtained.hidden": "false",
+    "achievement.pets_obtained.stages": "1|10|1|0|10;3|20|2|0|20;5|35|3|0|35;8|60|6|1|60;10|100|10|1|100",
+
+    "achievement.rune_awakenings.name": "Rune Awakenings",
+    "achievement.rune_awakenings.category": "RUNES",
+    "achievement.rune_awakenings.event": "RUNE_AWAKEN_ANY",
+    "achievement.rune_awakenings.hidden": "false",
+    "achievement.rune_awakenings.stages": "1|10|1|0|10;5|20|2|0|20;15|35|3|0|35;50|60|6|1|60;150|100|10|1|100",
+
+    "achievement.kills_total.name": "Mob Kills",
+    "achievement.kills_total.category": "KILLS",
+    "achievement.kills_total.event": "MOB_KILL_ANY",
+    "achievement.kills_total.hidden": "false",
+    "achievement.kills_total.stages": "10|5|0|0|5;100|10|1|0|10;1000|20|2|0|20;10000|40|4|0|40;100000|75|8|1|80",
+
+    "achievement.locations_reached.name": "Locations Reached",
+    "achievement.locations_reached.category": "LOCATIONS",
+    "achievement.locations_reached.event": "LOCATION_REACHED",
+    "achievement.locations_reached.hidden": "false",
+    "achievement.locations_reached.stages": "1|10|1|0|10;5|20|2|0|20;10|35|3|0|35;20|60|6|1|60;40|100|10|1|100",
+
+    "achievement.aura_drops.name": "Aura Chest Drops",
+    "achievement.aura_drops.category": "AURAS",
+    "achievement.aura_drops.event": "AURA_DROPPED_FROM_CHEST",
+    "achievement.aura_drops.hidden": "false",
+    "achievement.aura_drops.stages": "1|10|1|0|10;10|20|2|0|20;50|35|3|0|35;200|60|6|1|60;1000|100|10|1|100",
+
+    "achievement.aura_rare.name": "Rare Aura Drops",
+    "achievement.aura_rare.category": "AURAS",
+    "achievement.aura_rare.event": "AURA_DROPPED_FROM_CHEST",
+    "achievement.aura_rare.filters": "rarity=RARE",
+    "achievement.aura_rare.hidden": "false",
+    "achievement.aura_rare.stages": "1|10|1|0|10;10|25|2|0|25;50|50|5|1|50;200|100|10|1|100",
+
+    "achievement.aura_legendary.name": "Legendary Aura Drops",
+    "achievement.aura_legendary.category": "AURAS",
+    "achievement.aura_legendary.event": "AURA_DROPPED_FROM_CHEST",
+    "achievement.aura_legendary.filters": "rarity=LEGENDARY",
+    "achievement.aura_legendary.hidden": "true",
+    "achievement.aura_legendary.stages": "1|25|2|1|25;5|50|5|1|50;20|100|10|2|100",
+
+    "achievement.aura_mythic.name": "Mythic Aura Drops",
+    "achievement.aura_mythic.category": "AURAS",
+    "achievement.aura_mythic.event": "AURA_DROPPED_FROM_CHEST",
+    "achievement.aura_mythic.filters": "rarity=MYTHIC",
+    "achievement.aura_mythic.hidden": "true",
+    "achievement.aura_mythic.stages": "1|50|5|1|50;3|100|10|2|100;10|200|20|3|200"
+  },
+  "curves": {
+    "achievement.level.points_threshold": {
+      "mode": "TABLE",
+      "values": ["100", "250", "500", "1000", "2000", "4000", "8000", "16000"],
+      "tail_growth": "2"
+    },
+    "achievement.level.economy_bonus_percent": {
+      "mode": "TABLE",
+      "values": ["0", "1", "2", "3", "4", "5", "6", "7"],
+      "tail_growth": "1.10"
+    }
+  }
+}
