@@ -98,7 +98,7 @@ public final class GodWorshipService {
 
     /** Manual click semantics depend only on the authoritative current phase. */
     public synchronized MutationResult click(UUID playerUuid, GodId god, long nowMillis) {
-        if (!valid(playerUuid, god)) return MutationResult.REJECTED;
+        if (!valid(playerUuid, god) || !policy.enabled(god)) return MutationResult.REJECTED;
         GodWorshipModel.RunState run = repository.loadRunState(playerUuid);
         GodWorshipModel.PersistentState persistent = repository.loadPersistentState(playerUuid);
         State state = run.gods.get(god);
