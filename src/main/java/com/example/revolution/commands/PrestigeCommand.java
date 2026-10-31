@@ -1,6 +1,7 @@
 package com.example.revolution.commands;
 
 import com.example.revolution.lifecycle.ServerLifecycle;
+import com.example.revolution.prestige.MasteryResetMode;
 import com.example.revolution.prestige.PrestigeBranch;
 import com.example.revolution.prestige.PrestigeResetService;
 import com.example.revolution.prestige.PrestigeService;
@@ -24,7 +25,7 @@ public final class PrestigeCommand extends CommandBase {
     private final PrestigeService prestige;
     public PrestigeCommand(PrestigeService prestige) { this.prestige = prestige; }
     @Override public String getName() { return "prestige"; }
-    @Override public String getUsage(ICommandSender sender) { return "/prestige branches|select <branch>|status|collect|reset [confirm <runId>]|mastery-reset [confirm <runId>]|diagnose"; }
+    @Override public String getUsage(ICommandSender sender) { return "/prestige branches|select <branch>|status|collect|reset [confirm <runId>]|mastery-reset [confirm <runId> [normal|premium]]|diagnose"; }
     @Override public int getRequiredPermissionLevel() { return 0; }
 
     @Override public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
@@ -35,10 +36,17 @@ public final class PrestigeCommand extends CommandBase {
             if (action.equals("status")) { showStatus(player); return; }
             if (action.equals("collect")) { collect(player); return; }
             if (action.equals("reset")) { if (args.length == 1) { showResetPreview(player); return; } if (args.length == 3 && args[1].equalsIgnoreCase("confirm")) { confirmReset(player, args[2]); return; } throw new WrongUsageException("/prestige reset OR /prestige reset confirm <runId>"); }
-            if (action.equals("mastery-reset")) { if (args.length == 1) { showMasteryResetPreview(player); return; } if (args.length == 3 && args[1].equalsIgnoreCase("confirm")) { confirmMasteryReset(player, args[2]); return; } throw new WrongUsageException("/prestige mastery-reset OR /prestige mastery-reset confirm <runId>"); }
+            if (action.equals("mastery-reset")) {
+                if (args.length == 1) { showMasteryResetPreview(player); return; }
+                if ((args.length == 3 || args.length == 4) && args[1].equalsIgnoreCase("confirm")) {
+                    MasteryResetMode mode = args.length == 4 ? MasteryResetMode.parse(args[3]) : MasteryResetMode.NORMAL;
+                    confirmMasteryReset(player, args[2], mode); return;
+                }
+                throw new WrongUsageException("/prestige mastery-reset OR /prestige mastery-reset confirm <runId> [normal|premium]");
+            }
             if (action.equals("diagnose")) { if (!ServerLifecycle.services().adminAccess.canUseModCommands(sender)) throw new CommandException("Admin diagnostics permission required"); showDiagnostics(player); return; }
             throw new WrongUsageException(getUsage(sender));
-        } catch (IllegalArgumentException e) { throw new CommandException("Unknown Mastery branch"); }
+        } catch (IllegalArgumentException e) { throw new CommandException("Unknown Mastery branch or reset mode"); }
         catch (IllegalStateException e) { throw new CommandException(e.getMessage()); }
     }
 
@@ -82,16 +90,24 @@ public final class PrestigeCommand extends CommandBase {
         message(player, "§fTier: " + preview.currentMasteryTier + " -> " + preview.nextMasteryTier);
         message(player, "§fMeta cap: " + preview.currentRankMetaLevelCap + " -> " + preview.nextRankMetaLevelCap);
         message(player, "§fGain/run: +" + preview.currentMetaLevelGainPerRun + " -> +" + preview.nextMetaLevelGainPerRun);
-        message(player, "§fNormal reset: run-scoped state is cleared; permanent Mastery state and canonical preserved systems remain.");
-        message(player, "§7Premium preserve cost policy: " + preview.premiumPreserveCrystalCost + " Crystals (execution unavailable until preserve contract is defined).");
-        message(player, "§eConfirm normal Mastery Reset: /prestige mastery-reset confirm " + preview.runId);
+        message(player, "§fNormal: canonical run/pet/rune reset rules apply.");
+        if (preview.premiumPreserveEnabled) {
+            message(player, "§dPremium Preserve: " + preview.premiumPreserveCrystalCost + " Crystals | runes=" + preview.premiumPreserveRunes + " | pets=" + preview.premiumPreservePets);
+            message(player, "§eNormal: /prestige mastery-reset confirm " + preview.runId + " normal");
+            message(player, "§ePremium: /prestige mastery-reset confirm " + preview.runId + " premium");
+        } else {
+            message(player, "§7Premium Preserve is disabled by Balance Core for this balance snapshot.");
+            message(player, "§eConfirm: /prestige mastery-reset confirm " + preview.runId + " normal");
+        }
     }
-    private void confirmMasteryReset(EntityPlayerMP player, String runId) {
-        PrestigeResetService.MasteryResetResult result = prestige.masteryReset(player.getUniqueID(), runId);
-        if (result == PrestigeResetService.MasteryResetResult.APPLIED) message(player, "§aMastery Reset complete. Tier advanced; select an Искусство to begin the next run.");
+    private void confirmMasteryReset(EntityPlayerMP player, String runId, MasteryResetMode mode) {
+        PrestigeResetService.MasteryResetResult result = prestige.masteryReset(player.getUniqueID(), runId, mode);
+        if (result == PrestigeResetService.MasteryResetResult.APPLIED) message(player, "§aMastery Reset complete (" + mode + "). Tier advanced; select an Искусство to begin the next run.");
         else if (result == PrestigeResetService.MasteryResetResult.DUPLICATE) message(player, "§eThat Mastery Reset was already applied; tier was not duplicated.");
         else if (result == PrestigeResetService.MasteryResetResult.NOT_ELIGIBLE) message(player, "§cMastery Reset is locked until every rank reaches the current meta cap.");
-        else if (result == PrestigeResetService.MasteryResetResult.POLICY_UNAVAILABLE) message(player, "§cNext Mastery tier policy is unavailable.");
+        else if (result == PrestigeResetService.MasteryResetResult.INSUFFICIENT_CRYSTALS) message(player, "§cNot enough Crystals for the selected Mastery Reset option.");
+        else if (result == PrestigeResetService.MasteryResetResult.OPTION_UNAVAILABLE) message(player, "§cThat Mastery Reset option is disabled by Balance Core.");
+        else if (result == PrestigeResetService.MasteryResetResult.POLICY_UNAVAILABLE) message(player, "§cMastery Reset balance policy is unavailable.");
         else message(player, "§cStale Mastery Reset request rejected.");
     }
     private void showDiagnostics(EntityPlayerMP player) {
@@ -108,6 +124,7 @@ public final class PrestigeCommand extends CommandBase {
         if (args.length == 1) return getListOfStringsMatchingLastWord(args, Arrays.asList("branches", "select", "status", "collect", "reset", "mastery-reset", "diagnose"));
         if (args.length == 2 && args[0].equalsIgnoreCase("select")) { List<String> names = new ArrayList<>(); for (PrestigeBranch branch : prestige.branches()) names.add(branch.name()); return getListOfStringsMatchingLastWord(args, names); }
         if (args.length == 2 && (args[0].equalsIgnoreCase("reset") || args[0].equalsIgnoreCase("mastery-reset"))) return getListOfStringsMatchingLastWord(args, Arrays.asList("confirm"));
+        if (args.length == 4 && args[0].equalsIgnoreCase("mastery-reset") && args[1].equalsIgnoreCase("confirm")) return getListOfStringsMatchingLastWord(args, Arrays.asList("normal", "premium"));
         return new ArrayList<>();
     }
 }
