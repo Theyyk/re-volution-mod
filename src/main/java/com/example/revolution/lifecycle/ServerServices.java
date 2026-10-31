@@ -16,6 +16,7 @@ import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.god.BalanceGodWorshipPolicy;
 import com.example.revolution.god.GodWorshipAutomationService;
+import com.example.revolution.god.GodWorshipModel;
 import com.example.revolution.god.GodWorshipService;
 import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
@@ -167,6 +168,8 @@ public final class ServerServices implements AutoCloseable {
         PetRepository petRepository = new MongoPetRepository(connection, persistentGameplay);
 
         balance = BalanceBootstrap.activateBundledDefaults();
+        MongoGodWorshipRepository godRepository = new MongoGodWorshipRepository(connection, persistentGameplay);
+        godPolicy = new BalanceGodWorshipPolicy(balance);
         PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
         RunePrestigeResetService runePrestigeReset = new RunePrestigeResetService(players, enhancements);
         prestige = new PrestigeService(
@@ -174,14 +177,17 @@ public final class ServerServices implements AutoCloseable {
                 prestigeBranches,
                 (playerUuid, branch) -> prestigeBranches.get(branch).defaultSaveMultiplier,
                 runePrestigeReset::reset,
-                new BalanceMasteryTierPolicy(balance));
+                new BalanceMasteryTierPolicy(balance),
+                (playerUuid, mode) -> {
+                    if (!godPolicy.featureEnabled(GodWorshipModel.FeatureGate.GOD_RESET_PRESERVATION)) {
+                        godRepository.resetRunState(playerUuid);
+                    }
+                });
         prestige.setFragmentRewardProvider(branch -> new BigDecimal(balance.getActiveValue(
                 "prestige.fragment_reward." + branch.name().toLowerCase(Locale.ROOT) + ".per_level")));
         effects = new EffectResolver();
         effects.register(prestige);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
-        MongoGodWorshipRepository godRepository = new MongoGodWorshipRepository(connection, persistentGameplay);
-        godPolicy = new BalanceGodWorshipPolicy(balance);
         gods = new GodWorshipService(godRepository, resources, godPolicy);
         godAutomation = new GodWorshipAutomationService(godRepository, godPolicy);
         QuestBalanceService questBalance = new QuestBalanceService(balance);
