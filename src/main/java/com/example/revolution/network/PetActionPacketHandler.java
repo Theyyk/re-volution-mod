@@ -1,5 +1,7 @@
 package com.example.revolution.network;
 
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.lifecycle.ServerLifecycle;
 import com.example.revolution.lifecycle.ServerServices;
 import com.example.revolution.pet.definition.PetDefinition;
@@ -9,6 +11,7 @@ import com.example.revolution.pet.state.PetPlayerState;
 import com.example.revolution.prestige.PrestigeState;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -39,8 +42,23 @@ public final class PetActionPacketHandler implements IMessageHandler<PetActionPa
         else if ("revert_pet".equals(action)) result = services.pets.revertRank(player.getUniqueID(), request.getPetId());
         else if ("purchase_normal_slot".equals(action)) result = services.pets.purchaseNormalSlot(player.getUniqueID());
         else if ("purchase_premium_slot".equals(action)) result = services.pets.purchasePremiumSlot(player.getUniqueID());
+        if (result == PetService.Result.APPLIED) emitQuestFacts(player, services, request);
         if (result != null && result != PetService.Result.APPLIED && result != PetService.Result.ALREADY_OWNED) player.sendMessage(new TextComponentString("Pets: " + result.name()));
         sendSnapshot(player, services);
+    }
+
+    private static void emitQuestFacts(EntityPlayerMP player, ServerServices services, PetActionPacket request) {
+        GameplayEventType type = null;
+        if ("purchase_pet".equals(request.getAction())) type = GameplayEventType.PET_PURCHASE_ANY;
+        else if ("level_up_pet".equals(request.getAction())) type = GameplayEventType.PET_LEVEL_UP_ANY;
+        else if ("awaken_pet".equals(request.getAction())) type = GameplayEventType.PET_AWAKEN_ANY;
+        else if ("purchase_normal_slot".equals(request.getAction()) || "purchase_premium_slot".equals(request.getAction())) type = GameplayEventType.PET_SLOT_PURCHASE;
+        if (type == null) return;
+        String petId = request.getPetId();
+        services.gameplayEvents.factualEvent(new GameplayEvent(
+                player.getUniqueID(), type, BigDecimal.ONE,
+                petId == null || petId.isEmpty() ? null : Collections.singletonMap("petId", petId),
+                "pet_action"));
     }
 
     public static void sendSnapshot(EntityPlayerMP player, ServerServices services) {
