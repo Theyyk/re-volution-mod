@@ -185,6 +185,7 @@ public final class ServerServices implements AutoCloseable {
         PetBalanceService petBalance = new PetBalanceService(balance);
         pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
         runExchange = new RunExchangeService(prestige, resources, pets, balance, RunExchangeCatalogFactory.fromBalance(balance));
+        runExchange.setGameplayEventSink(gameplayEvents);
         petEffects = new PetEffectSource(petRepository, petCatalog, petBalance);
         effects.register(petEffects);
 
