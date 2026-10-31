@@ -48,7 +48,6 @@ public final class AchievementService implements GameplayEventSink {
     @Override
     public synchronized void factualEvent(GameplayEvent event) {
         if (event == null || event.playerUuid == null || event.amount == null || event.amount.signum() <= 0) return;
-        // Damage/resource observations use the typed sink methods above. Ignoring their generic twins prevents double counting.
         if (event.type == GameplayEventType.TOTAL_DAMAGE || event.type == GameplayEventType.DAMAGE_BY_CHANNEL
                 || event.type == GameplayEventType.COINS_EARNED || event.type == GameplayEventType.RUNE_DUST_EARNED
                 || event.type == GameplayEventType.SHARDS_EARNED || event.type == GameplayEventType.RUNE_CORES_EARNED) return;
@@ -77,15 +76,16 @@ public final class AchievementService implements GameplayEventSink {
         route(event.playerUuid, event.type, event.amount, event.metadata);
     }
 
-    public synchronized ClaimResult claim(UUID playerUuid, String achievementId) {
+    /** expectedStageIndex is part of the client intent so replaying Claim I can never advance Claim II. */
+    public synchronized ClaimResult claim(UUID playerUuid, String achievementId, int expectedStageIndex) {
         AchievementDefinition definition = catalog.get(achievementId);
         if (playerUuid == null || definition == null) return ClaimResult.UNKNOWN_ACHIEVEMENT;
         AchievementPlayerState state = state(playerUuid);
         int nextStage = state.claimedStage(achievementId) + 1;
+        if (expectedStageIndex != nextStage) return ClaimResult.OUT_OF_ORDER;
         AchievementStage stage = definition.stage(nextStage);
         if (stage == null) return ClaimResult.FINAL_STAGE_CLAIMED;
         if (state.progress(achievementId).compareTo(stage.target) < 0) return ClaimResult.NOT_COMPLETED;
-        if (nextStage != state.claimedStage(achievementId) + 1) return ClaimResult.OUT_OF_ORDER;
         String claimKey = achievementId + ":" + nextStage;
         if (!rewards.grantStageRewards(playerUuid, claimKey, stage)) return ClaimResult.REWARD_FAILED;
         state.highestClaimedStage.put(achievementId, nextStage);
