@@ -6,7 +6,6 @@ import com.mongodb.client.model.UpdateOptions;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.bson.Document;
 
@@ -63,7 +62,8 @@ public final class MongoGodWorshipRepository implements GodWorshipRepository {
                     .append("phase", god.phase == null ? GodWorshipModel.Phase.LOCKED.name() : god.phase.name())
                     .append("buffActiveUntil", Math.max(0L, god.buffActiveUntilMillis))
                     .append("cooldownUntil", Math.max(0L, god.cooldownUntilMillis))
-                    .append("chargeProgress", Math.max(0L, god.chargeProgress)));
+                    .append("chargeProgress", Math.max(0L, god.chargeProgress))
+                    .append("offeringSettledUntil", Math.max(0L, god.offeringSettledUntilMillis)));
         }
         return new Document("schemaVersion", SCHEMA_VERSION).append("gods", gods);
     }
@@ -86,6 +86,7 @@ public final class MongoGodWorshipRepository implements GodWorshipRepository {
                 god.buffActiveUntilMillis = Math.max(0L, number(stored.get("buffActiveUntil")));
                 god.cooldownUntilMillis = Math.max(0L, number(stored.get("cooldownUntil")));
                 god.chargeProgress = Math.max(0L, number(stored.get("chargeProgress")));
+                god.offeringSettledUntilMillis = Math.max(0L, number(stored.get("offeringSettledUntil")));
             } catch (RuntimeException ignored) { }
         }
         return state;
