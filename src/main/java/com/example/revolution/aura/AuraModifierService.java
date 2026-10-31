@@ -14,7 +14,10 @@ public final class AuraModifierService {
         if (playerUuid == null || preAuraDamage == null || preAuraDamage.signum() <= 0) return preAuraDamage == null ? BigDecimal.ZERO : preAuraDamage;
         AuraModel.PlayerState state = repository.load(playerUuid); state.repairActiveReference(); AuraModel.AuraInstance active = state.active();
         if (active == null) return preAuraDamage;
-        BigDecimal delta = value(active, statFor(source)).add(value(active, EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER));
+        BigDecimal delta = value(active, statFor(source))
+                .add(value(active, EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER))
+                .add(value(active, EffectResolver.Stat.VULNERABILITY_MULTIPLIER))
+                .add(value(active, EffectResolver.Stat.EFFECTIVENESS_MULTIPLIER));
         return preAuraDamage.multiply(BigDecimal.ONE.add(delta).max(BigDecimal.ZERO));
     }
 
@@ -23,7 +26,9 @@ public final class AuraModifierService {
         if (active == null || canonicalResource == null) return BigDecimal.ONE;
         EffectResolver.Stat stat = null;
         if ("coins".equalsIgnoreCase(canonicalResource)) stat = EffectResolver.Stat.COIN_REWARD_MULTIPLIER;
-        else if ("rune_dust".equalsIgnoreCase(canonicalResource) || "rune_shards".equalsIgnoreCase(canonicalResource) || "rune_cores".equalsIgnoreCase(canonicalResource)) stat = EffectResolver.Stat.RUNE_RESOURCE_REWARD_MULTIPLIER;
+        else if ("rune_dust".equalsIgnoreCase(canonicalResource)) stat = EffectResolver.Stat.RUNE_DUST_REWARD_MULTIPLIER;
+        else if ("rune_shards".equalsIgnoreCase(canonicalResource)) stat = EffectResolver.Stat.RUNE_SHARDS_REWARD_MULTIPLIER;
+        else if ("rune_cores".equalsIgnoreCase(canonicalResource)) stat = EffectResolver.Stat.RUNE_CORES_REWARD_MULTIPLIER;
         return stat == null ? BigDecimal.ONE : BigDecimal.ONE.add(value(active, stat)).max(BigDecimal.ZERO);
     }
 
