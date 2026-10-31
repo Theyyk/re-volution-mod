@@ -62,6 +62,7 @@ import com.example.revolution.player.service.PlayerCollectionService;
 import com.example.revolution.player.service.PlayerSessionService;
 import com.example.revolution.player.service.PlayerStatsService;
 import com.example.revolution.player.service.PlayerStatsSyncService;
+import com.example.revolution.prestige.BalanceMasteryTierPolicy;
 import com.example.revolution.prestige.PrestigeBranchRegistry;
 import com.example.revolution.prestige.PrestigeProgressRouter;
 import com.example.revolution.prestige.PrestigeService;
@@ -156,7 +157,8 @@ public final class ServerServices implements AutoCloseable {
                 new MongoPrestigeRepository(connection, persistentGameplay),
                 prestigeBranches,
                 (playerUuid, branch) -> prestigeBranches.get(branch).defaultSaveMultiplier,
-                runePrestigeReset::reset);
+                runePrestigeReset::reset,
+                new BalanceMasteryTierPolicy(balance));
         prestige.setFragmentRewardProvider(branch -> new BigDecimal(balance.getActiveValue(
                 "prestige.fragment_reward." + branch.name().toLowerCase(Locale.ROOT) + ".per_level")));
         effects = new EffectResolver();
