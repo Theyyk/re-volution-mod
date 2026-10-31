@@ -38,8 +38,14 @@ public final class AuraGenerator {
 
     private AuraModel.Rarity weightedRarity(Random random) {
         BigDecimal total = BigDecimal.ZERO;
-        for (AuraModel.Rarity rarity : AuraModel.Rarity.values()) if (policy.rarityEnabled(rarity)) total = total.add(policy.dropWeight(rarity).max(BigDecimal.ZERO));
-        if (total.signum() <= 0) throw new IllegalStateException("Aura rarity pool is empty");
+        AuraModel.Rarity fallback = null;
+        for (AuraModel.Rarity rarity : AuraModel.Rarity.values()) {
+            if (!policy.rarityEnabled(rarity)) continue;
+            BigDecimal weight = policy.dropWeight(rarity).max(BigDecimal.ZERO);
+            if (weight.signum() > 0) fallback = rarity;
+            total = total.add(weight);
+        }
+        if (total.signum() <= 0 || fallback == null) throw new IllegalStateException("Aura rarity pool is empty");
         BigDecimal needle = total.multiply(BigDecimal.valueOf(random.nextDouble()));
         BigDecimal cursor = BigDecimal.ZERO;
         for (AuraModel.Rarity rarity : AuraModel.Rarity.values()) {
@@ -47,7 +53,7 @@ public final class AuraGenerator {
             cursor = cursor.add(policy.dropWeight(rarity).max(BigDecimal.ZERO));
             if (needle.compareTo(cursor) < 0) return rarity;
         }
-        return AuraModel.Rarity.MYTHIC;
+        return fallback;
     }
 
     private EffectResolver.Stat weightedEffect(AuraModel.Rarity rarity, Random random) {
@@ -59,7 +65,9 @@ public final class AuraGenerator {
         EffectResolver.Stat fallback = null;
         for (EffectResolver.Stat stat : BalanceAuraPolicy.SUPPORTED_EFFECTS) {
             if (!policy.effectEnabled(rarity, stat)) continue;
-            fallback = stat; cursor = cursor.add(policy.effectWeight(rarity, stat).max(BigDecimal.ZERO));
+            BigDecimal weight = policy.effectWeight(rarity, stat).max(BigDecimal.ZERO);
+            if (weight.signum() > 0) fallback = stat;
+            cursor = cursor.add(weight);
             if (needle.compareTo(cursor) < 0) return stat;
         }
         if (fallback == null) throw new IllegalStateException("Aura effect pool is empty");
