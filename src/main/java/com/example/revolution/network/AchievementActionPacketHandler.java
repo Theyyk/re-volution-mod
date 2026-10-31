@@ -2,7 +2,6 @@ package com.example.revolution.network;
 
 import com.example.revolution.achievement.AchievementDefinition;
 import com.example.revolution.achievement.AchievementPlayerState;
-import com.example.revolution.achievement.AchievementService;
 import com.example.revolution.achievement.AchievementStage;
 import com.example.revolution.achievement.AchievementStageLabels;
 import com.example.revolution.lifecycle.ServerLifecycle;
@@ -40,10 +39,7 @@ public final class AchievementActionPacketHandler implements IMessageHandler<Ach
             sendSnapshot(player, services);
             return;
         }
-        if ("share".equals(action)) {
-            share(player, services, request.getAchievementId());
-            return;
-        }
+        if ("share".equals(action)) share(player, services, request.getAchievementId());
     }
 
     public static void sendSnapshot(EntityPlayerMP player, ServerServices services) {
@@ -62,7 +58,7 @@ public final class AchievementActionPacketHandler implements IMessageHandler<Ach
                 entries.add(hidden);
                 continue;
             }
-            entries.add(entry(services, state, definition));
+            entries.add(entry(state, definition));
         }
         long points = state.achievementPoints;
         NetworkHandler.sendToClient(new AchievementSnapshotPacket(entries, points,
@@ -70,14 +66,11 @@ public final class AchievementActionPacketHandler implements IMessageHandler<Ach
                 exact(services.achievementPolicy.nextLevelThreshold(points))), player);
     }
 
-    private static AchievementSnapshotPacket.Entry entry(ServerServices services, AchievementPlayerState state,
-                                                          AchievementDefinition definition) {
+    private static AchievementSnapshotPacket.Entry entry(AchievementPlayerState state, AchievementDefinition definition) {
         AchievementSnapshotPacket.Entry out = new AchievementSnapshotPacket.Entry();
         int claimed = state.claimedStage(definition.achievementId);
-        int completed = services.achievements.highestCompletedStage(nullSafeUuid(state, services, definition), definition.achievementId);
-        // highestCompletedStage needs the player's cached state; caller patches this value below through direct calculation.
         BigDecimal progress = state.progress(definition.achievementId);
-        completed = completed(definition, progress);
+        int completed = completed(definition, progress);
         int displayStage = claimed < definition.stages.size() ? claimed + 1 : definition.stages.size();
         AchievementStage stage = definition.stage(displayStage);
         out.achievementId = definition.achievementId;
@@ -108,11 +101,6 @@ public final class AchievementActionPacketHandler implements IMessageHandler<Ach
             completed = stage.stageIndex;
         }
         return completed;
-    }
-
-    /* Kept deliberately unreachable: prevents accidental use of client identity to calculate server facts. */
-    private static java.util.UUID nullSafeUuid(AchievementPlayerState ignored, ServerServices services, AchievementDefinition definition) {
-        return new java.util.UUID(0L, 0L);
     }
 
     private static void share(EntityPlayerMP player, ServerServices services, String achievementId) {
