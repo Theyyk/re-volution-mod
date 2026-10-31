@@ -1,6 +1,9 @@
 package com.example.revolution.mob.service;
 
 import com.example.revolution.RevolutionMod;
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.mob.definition.ManagedMobDefinition;
 import com.example.revolution.mob.rules.MobContributionRules;
 import com.example.revolution.network.NetworkHandler;
@@ -20,6 +23,7 @@ public final class MobRewardService {
     private final RuneMobEffectService runeEffects;
     private final PlayerStatsSyncService stats;
     private final PlayerRepository players;
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public MobRewardService(
             ResourceService resources,
@@ -30,6 +34,10 @@ public final class MobRewardService {
         this.runeEffects = runeEffects;
         this.stats = stats;
         this.players = players;
+    }
+
+    public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
     public void grant(EntityPlayerMP player, ManagedMobDefinition definition) {
@@ -53,6 +61,7 @@ public final class MobRewardService {
         if (resources.grantEarnedPlayerResource(player.getUniqueID(), definition.resource, rewardAmount)) {
             BigDecimal newBalance = resources.getPlayerResourceValue(player.getUniqueID(), definition.resource);
             BigDecimal granted = newBalance.subtract(before).max(BigDecimal.ZERO);
+            gameplayEvents.factualEvent(new GameplayEvent(player.getUniqueID(), GameplayEventType.MOB_KILL_ANY));
             player.sendMessage(new TextComponentString("§6+" + LargeNumbers.format(granted) + " "
                     + ResourceDefinitions.getDisplayName(definition.resource) + "! Баланс: " + LargeNumbers.format(newBalance)));
             stats.sendTo(player);

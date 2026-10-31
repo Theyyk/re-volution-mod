@@ -1,6 +1,9 @@
 package com.example.revolution.prestige.exchange.service;
 
 import com.example.revolution.balance.service.BalanceService;
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.pet.service.PetService;
 import com.example.revolution.pet.state.PetPlayerState;
 import com.example.revolution.prestige.PrestigeService;
@@ -10,6 +13,7 @@ import com.example.revolution.prestige.exchange.definition.RunExchangeOffer;
 import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.UUID;
 
 /** Server-authoritative v2.6.0 Run Exchange. Client input is only offerId + expectedRunId. */
@@ -51,6 +55,7 @@ public final class RunExchangeService {
     private final PetService pets;
     private final BalanceService balance;
     private final RunExchangeCatalog catalog;
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public RunExchangeService(PrestigeService prestige, ResourceService resources, PetService pets,
                               BalanceService balance, RunExchangeCatalog catalog) {
@@ -64,6 +69,10 @@ public final class RunExchangeService {
         this.catalog = catalog;
     }
 
+    public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
+    }
+
     public synchronized Result exchange(UUID playerUuid, String expectedRunId, String offerId) {
         RunExchangeOffer offer = catalog.get(offerId);
         if (offer == null) return Result.UNKNOWN_OFFER;
@@ -73,7 +82,11 @@ public final class RunExchangeService {
         if (run == null) return Result.NO_ACTIVE_RUN;
         if (expectedRunId == null || !expectedRunId.equals(run.runId)) return Result.STALE_RUN;
 
-        if (offer.isPetSlotOffer()) return purchasePetSlot(playerUuid, expectedRunId);
+        if (offer.isPetSlotOffer()) {
+            Result result = purchasePetSlot(playerUuid, expectedRunId);
+            if (result == Result.APPLIED) emitPurchase(playerUuid, offer);
+            return result;
+        }
         String target = ResourceDefinitions.findCanonicalName(offer.targetResource);
         if (!approvedTarget(target)) return Result.INVALID_TARGET;
 
@@ -91,7 +104,27 @@ public final class RunExchangeService {
         if (!prestige.recordRunExchangePurchase(playerUuid, expectedRunId, offer.offerId, purchaseCount)) {
             throw new IllegalStateException("Run Exchange purchase counter changed during authoritative purchase");
         }
+        emitPurchase(playerUuid, offer);
         return Result.APPLIED;
+    }
+
+    private void emitPurchase(UUID playerUuid, RunExchangeOffer offer) {
+        gameplayEvents.factualEvent(new GameplayEvent(
+                playerUuid, GameplayEventType.RUN_EXCHANGE_PURCHASE_ANY, BigDecimal.ONE,
+                Collections.singletonMap("offerId", offer.offerId), "run_exchange"));
+        gameplayEvents.factualEvent(new GameplayEvent(
+                playerUuid, GameplayEventType.RUN_EXCHANGE_PURCHASE_SPECIFIC, BigDecimal.ONE,
+                Collections.singletonMap("offerId", offer.offerId), "run_exchange"));
+        if (offer.isPetSlotOffer()) {
+            gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.PET_SLOT_PURCHASE));
+            return;
+        }
+        String target = ResourceDefinitions.findCanonicalName(offer.targetResource);
+        GameplayEventType targetType = null;
+        if ("coins".equals(target)) targetType = GameplayEventType.RUN_EXCHANGE_COINS;
+        else if (ResourceDefinitions.RUNE_DUST.equals(target)) targetType = GameplayEventType.RUN_EXCHANGE_DUST;
+        else if (ResourceDefinitions.RUNE_SHARDS.equals(target)) targetType = GameplayEventType.RUN_EXCHANGE_SHARDS;
+        if (targetType != null) gameplayEvents.factualEvent(new GameplayEvent(playerUuid, targetType));
     }
 
     /** Read-only data for a functional UI/debug surface. Purchase always recalculates these values. */

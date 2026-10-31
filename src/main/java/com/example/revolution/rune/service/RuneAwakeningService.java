@@ -1,5 +1,8 @@
 package com.example.revolution.rune.service;
 
+import com.example.revolution.gameplay.GameplayEvent;
+import com.example.revolution.gameplay.GameplayEventSink;
+import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RuneSlotPacket;
 import com.example.revolution.player.repository.PlayerRepository;
@@ -11,6 +14,8 @@ import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneAwakeningDecision;
 import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.state.RuneInventory;
+import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
@@ -21,6 +26,7 @@ public final class RuneAwakeningService {
     private final RuneRankUpBalanceService rankUpBalance;
     private final RuneAwakeningPaymentService paymentService;
     private final RuneSyncService sync;
+    private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public RuneAwakeningService(
             PlayerRepository players,
@@ -33,6 +39,10 @@ public final class RuneAwakeningService {
         this.rankUpBalance = rankUpBalance;
         this.paymentService = paymentService;
         this.sync = sync;
+    }
+
+    public void setGameplayEventSink(GameplayEventSink gameplayEvents) {
+        this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
     public void awakenRune(EntityPlayerMP player, int collectionIndex, int runeIndex) {
@@ -105,6 +115,9 @@ public final class RuneAwakeningService {
 
         applyRankUp(player, collectionIndex, runeIndex, bestRanks, rule);
         stats.sendTo(player);
+        gameplayEvents.factualEvent(new GameplayEvent(
+                player.getUniqueID(), GameplayEventType.RUNE_AWAKEN_ANY, BigDecimal.ONE,
+                Collections.singletonMap("collection", collectionId.name()), "rune_awakening"));
 
         String paymentText = payment.paid ? " §7Стоимость: §e" + payment.cost + " §f"
                 + ResourceDefinitions.getDisplayName(payment.resource) + "§7." : "";
