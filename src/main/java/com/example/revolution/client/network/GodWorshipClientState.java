@@ -8,7 +8,12 @@ import java.util.List;
 /** Physical-client cache populated only from authoritative God snapshots. */
 public final class GodWorshipClientState {
     private static Snapshot current = Snapshot.empty();
+    private static boolean openRequested;
     private GodWorshipClientState() {}
+
+    public static synchronized void requestOpen() { openRequested = true; }
+    public static synchronized void requestClose() { openRequested = false; }
+    public static synchronized boolean isOpenRequested() { return openRequested; }
 
     public static synchronized void update(GodWorshipSnapshotPacket packet) {
         if (packet == null) return;
@@ -24,7 +29,7 @@ public final class GodWorshipClientState {
     }
 
     public static synchronized Snapshot snapshot() { return current; }
-    public static synchronized void clear() { current = Snapshot.empty(); }
+    public static synchronized void clear() { current = Snapshot.empty(); openRequested = false; }
 
     public static final class Snapshot {
         public final List<GodWorshipSnapshotPacket.Entry> entries;
