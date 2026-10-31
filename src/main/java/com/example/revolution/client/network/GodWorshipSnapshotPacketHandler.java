@@ -13,6 +13,9 @@ public final class GodWorshipSnapshotPacketHandler implements IMessageHandler<Go
         Minecraft minecraft = Minecraft.getMinecraft();
         minecraft.addScheduledTask(() -> {
             GodWorshipClientState.update(message);
+            boolean alreadyOpen = minecraft.currentScreen instanceof GodWorshipGuiScreen;
+            if (!alreadyOpen && !GodWorshipClientState.isOpenRequested()) return;
+            if (alreadyOpen) ((GodWorshipGuiScreen) minecraft.currentScreen).suppressCloseSignal();
             minecraft.displayGuiScreen(new GodWorshipGuiScreen(
                     message.getEntries(),
                     message.getOfferings(),
