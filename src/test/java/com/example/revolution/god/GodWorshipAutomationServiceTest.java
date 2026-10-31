@@ -67,6 +67,31 @@ final class GodWorshipAutomationServiceTest {
     }
 
     @Test
+    void passiveChargeCountsOnlineTimeOnlyAndRetainsFraction() {
+        FakeRepository repository = new FakeRepository();
+        FakePolicy policy = new FakePolicy();
+        policy.passiveRate = new BigDecimal("0.5");
+        State state = repository.run.gods.get(GodId.GOD_1);
+        state.unlocked = true;
+        state.level = 1;
+        state.phase = Phase.CHARGE;
+        repository.persistent.preferences.get(GodId.GOD_1).activationMode = ActivationMode.MANUAL;
+        GodWorshipAutomationService service = new GodWorshipAutomationService(repository, policy);
+
+        service.tick(PLAYER, 1_000L); // login boundary, no offline passive progress
+        service.tick(PLAYER, 2_000L); // +0.5 remainder
+        assertEquals(0L, state.chargeProgress);
+        assertEquals(0, state.passiveChargeRemainder.compareTo(new BigDecimal("0.500000000000")));
+        service.tick(PLAYER, 3_000L); // accumulated +1 whole charge
+        assertEquals(1L, state.chargeProgress);
+        assertEquals(0, state.passiveChargeRemainder.signum());
+
+        service.playerDisconnected(PLAYER);
+        service.tick(PLAYER, 100_000L); // reconnect: offline gap must not count
+        assertEquals(1L, state.chargeProgress);
+    }
+
+    @Test
     void autoActivationPropagatesThroughLinkedGodsOnce() {
         FakeRepository repository = new FakeRepository();
         FakePolicy policy = new FakePolicy();
@@ -120,12 +145,14 @@ final class GodWorshipAutomationServiceTest {
     private static final class FakePolicy implements GodWorshipAutomationService.Policy {
         private final Set<FeatureGate> gates = EnumSet.noneOf(FeatureGate.class);
         private BigDecimal offeringRate = BigDecimal.ONE;
+        private BigDecimal passiveRate = BigDecimal.ZERO;
 
         @Override public boolean enabled(GodId god) { return true; }
         @Override public BigDecimal unlockCost(GodId god) { return BigDecimal.ONE; }
         @Override public BigDecimal upgradeCost(GodId god, long currentLevel) { return BigDecimal.ONE; }
         @Override public long chargeRequired(GodId god) { return 10L; }
         @Override public long chargePerClick(GodId god) { return 1L; }
+        @Override public BigDecimal passiveChargePerSecond(GodId god) { return passiveRate; }
         @Override public long buffDurationMillis(GodId god) { return 10_000L; }
         @Override public long cooldownDurationMillis(GodId god) { return 5_000L; }
         @Override public long cooldownReductionPerClickMillis(GodId god) { return 1_000L; }
