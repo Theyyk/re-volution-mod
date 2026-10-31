@@ -51,6 +51,7 @@ public final class AchievementAtomicClaimTest {
         com.example.revolution.persistence.MongoAchievementRepositoryTest.main(new String[0]);
         AchievementBalanceTest.main(new String[0]);
         com.example.revolution.network.AchievementNetworkPacketTest.main(new String[0]);
+        com.example.revolution.network.AchievementRequestLimiterTest.main(new String[0]);
         System.out.println("Achievement atomic claim and stable boss-id filter regressions passed");
     }
 
