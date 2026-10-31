@@ -21,15 +21,22 @@ public final class AchievementService implements GameplayEventSink {
     private final AchievementRepository repository;
     private final AchievementCatalog catalog;
     private final AchievementRewardGateway rewards;
+    private final AchievementAtomicClaimStore atomicClaims;
     private final Map<UUID, AchievementPlayerState> cache = new HashMap<>();
     private final Set<UUID> dirty = new HashSet<>();
     private GameplayEventSink lifecycleEvents = GameplayEventSink.NONE;
 
     public AchievementService(AchievementRepository repository, AchievementCatalog catalog, AchievementRewardGateway rewards) {
+        this(repository, catalog, rewards, null);
+    }
+
+    public AchievementService(AchievementRepository repository, AchievementCatalog catalog,
+                              AchievementRewardGateway rewards, AchievementAtomicClaimStore atomicClaims) {
         if (repository == null || catalog == null || rewards == null) throw new IllegalArgumentException("Achievement dependencies are required");
         this.repository = repository;
         this.catalog = catalog;
         this.rewards = rewards;
+        this.atomicClaims = atomicClaims;
     }
 
     public synchronized void setLifecycleEventSink(GameplayEventSink lifecycleEvents) {
@@ -89,17 +96,28 @@ public final class AchievementService implements GameplayEventSink {
         AchievementDefinition definition = catalog.get(achievementId);
         if (playerUuid == null || definition == null) return ClaimResult.UNKNOWN_ACHIEVEMENT;
         AchievementPlayerState state = state(playerUuid);
-        int nextStage = state.claimedStage(achievementId) + 1;
+        int priorClaimed = state.claimedStage(achievementId);
+        int nextStage = priorClaimed + 1;
         if (expectedStageIndex != nextStage) return ClaimResult.OUT_OF_ORDER;
         AchievementStage stage = definition.stage(nextStage);
         if (stage == null) return ClaimResult.FINAL_STAGE_CLAIMED;
         if (state.progress(achievementId).compareTo(stage.target) < 0) return ClaimResult.NOT_COMPLETED;
-        String claimKey = achievementId + ":" + nextStage;
-        if (!rewards.grantStageRewards(playerUuid, claimKey, stage)) return ClaimResult.REWARD_FAILED;
-        state.highestClaimedStage.put(achievementId, nextStage);
-        state.achievementPoints = safeAdd(state.achievementPoints, stage.achievementPoints);
-        repository.save(playerUuid, state.copy());
+
+        AchievementPlayerState nextState = state.copy();
+        nextState.highestClaimedStage.put(achievementId, nextStage);
+        nextState.achievementPoints = safeAdd(nextState.achievementPoints, stage.achievementPoints);
+
+        if (atomicClaims != null) {
+            if (!atomicClaims.commit(playerUuid, achievementId, priorClaimed, stage, nextState)) return ClaimResult.REWARD_FAILED;
+            cache.put(playerUuid, nextState);
+        } else {
+            String claimKey = achievementId + ":" + nextStage;
+            if (!rewards.grantStageRewards(playerUuid, claimKey, stage)) return ClaimResult.REWARD_FAILED;
+            repository.save(playerUuid, nextState.copy());
+            cache.put(playerUuid, nextState);
+        }
         dirty.remove(playerUuid);
+
         Map<String, String> metadata = new LinkedHashMap<>();
         metadata.put("achievementId", achievementId);
         metadata.put("stage", String.valueOf(nextStage));
