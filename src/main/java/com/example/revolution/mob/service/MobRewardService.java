@@ -15,6 +15,7 @@ import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.service.RuneMobEffectService;
 import java.math.BigDecimal;
+import java.util.Collections;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
 
@@ -62,6 +63,8 @@ public final class MobRewardService {
             BigDecimal newBalance = resources.getPlayerResourceValue(player.getUniqueID(), definition.resource);
             BigDecimal granted = newBalance.subtract(before).max(BigDecimal.ZERO);
             gameplayEvents.factualEvent(new GameplayEvent(player.getUniqueID(), GameplayEventType.MOB_KILL_ANY));
+            gameplayEvents.factualEvent(new GameplayEvent(player.getUniqueID(), GameplayEventType.MOB_KILL_SPECIFIC,
+                    BigDecimal.ONE, Collections.singletonMap("mobId", definition.spawnKey), "managed_mob_death"));
             player.sendMessage(new TextComponentString("§6+" + LargeNumbers.format(granted) + " "
                     + ResourceDefinitions.getDisplayName(definition.resource) + "! Баланс: " + LargeNumbers.format(newBalance)));
             stats.sendTo(player);
