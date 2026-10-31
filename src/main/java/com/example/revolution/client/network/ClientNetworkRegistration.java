@@ -9,6 +9,8 @@ import com.example.revolution.network.PetSnapshotPacket;
 import com.example.revolution.network.PingPacket;
 import com.example.revolution.network.PlayerStatsPacket;
 import com.example.revolution.network.PongPacket;
+import com.example.revolution.network.QuestActionPacket;
+import com.example.revolution.network.QuestSnapshotPacket;
 import com.example.revolution.network.RuneCollectionMetadataPacket;
 import com.example.revolution.network.RuneCollectionsPacket;
 import com.example.revolution.network.RuneEnhancementPacket;
@@ -36,5 +38,7 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(RuneCollectionMetadataPacketHandler.class, RuneCollectionMetadataPacket.class, 14, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(PetActionPacketClientHandler.class, PetActionPacket.class, 15, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(PetSnapshotPacketHandler.class, PetSnapshotPacket.class, 16, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(QuestActionPacketClientHandler.class, QuestActionPacket.class, 17, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(QuestSnapshotPacketHandler.class, QuestSnapshotPacket.class, 18, Side.CLIENT);
     }
 }
