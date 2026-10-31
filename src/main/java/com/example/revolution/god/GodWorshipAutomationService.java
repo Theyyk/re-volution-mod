@@ -35,6 +35,7 @@ public final class GodWorshipAutomationService {
         BigDecimal autoWorshipChargeCost();
         long autoWorshipChargeGain();
         BigDecimal durationUpgradeCost(long currentLevel);
+        int clickRateLimitPerSecond(GodId god);
     }
 
     private static final BigDecimal THOUSAND = BigDecimal.valueOf(1000L);
@@ -53,6 +54,7 @@ public final class GodWorshipAutomationService {
     }
 
     public long processingIntervalMillis() { return policy.autoWorshipIntervalMillis(); }
+    public int clickRateLimitPerSecond(GodId god) { return policy.clickRateLimitPerSecond(god); }
 
     /** Used on login and regular server cadence. Settles active time before phase normalization. */
     public synchronized TickResult tick(UUID playerUuid, long nowMillis) {
