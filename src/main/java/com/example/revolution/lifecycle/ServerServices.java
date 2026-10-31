@@ -202,10 +202,13 @@ public final class ServerServices implements AutoCloseable {
         RuneEnhancementPlanningService enhancementPlanning = new RuneEnhancementPlanningService(enhancementBalance);
         RuneRankUpBalanceService rankUpBalance = new RuneRankUpBalanceService(balance);
         RuneSyncService sync = new RuneSyncService(players, enhancements, enhancementBalance);
-        runeActions = new RuneActionService(players, stats,
-                new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance)),
-                new RuneEnhancementService(players, resources, stats, enhancements, sync, enhancementPlanning),
-                new RuneAwakeningService(players, stats, rankUpBalance, new RuneAwakeningPaymentService(resources), sync), sync);
+        RunePurchaseService runePurchase = new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance));
+        RuneEnhancementService runeEnhancement = new RuneEnhancementService(players, resources, stats, enhancements, sync, enhancementPlanning);
+        RuneAwakeningService runeAwakening = new RuneAwakeningService(players, stats, rankUpBalance, new RuneAwakeningPaymentService(resources), sync);
+        runePurchase.setGameplayEventSink(gameplayEvents);
+        runeEnhancement.setGameplayEventSink(gameplayEvents);
+        runeAwakening.setGameplayEventSink(gameplayEvents);
+        runeActions = new RuneActionService(players, stats, runePurchase, runeEnhancement, runeAwakening, sync);
         mobProgression = new MobProgressionService(progressionRepository);
         physicalBuilds = new REBuilderAdapter(configDirectory.toPath());
         LocationGenerationRepository storedGenerations = new MongoLocationGenerationRepository(connection, persistentGameplay);
