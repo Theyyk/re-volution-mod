@@ -25,6 +25,8 @@ public final class MongoAchievementAtomicClaimStore implements AchievementAtomic
         this.enabled = enabled;
     }
 
+    @Override public boolean available() { return enabled; }
+
     @Override
     public boolean commit(UUID playerUuid, String achievementId, int expectedPriorClaimedStage,
                           AchievementStage stage, AchievementPlayerState nextState) {
