@@ -1,5 +1,6 @@
 package com.example.revolution.god;
 
+import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.god.GodWorshipModel.ActivationMode;
 import com.example.revolution.god.GodWorshipModel.FeatureGate;
 import com.example.revolution.god.GodWorshipModel.GodId;
@@ -79,20 +80,20 @@ final class GodWorshipAutomationServiceTest {
         GodWorshipAutomationService service = new GodWorshipAutomationService(repository, policy);
 
         service.tick(PLAYER, 1_000L);
-        service.tick(PLAYER, 2_000L); // online, panel closed: no passive charge
+        service.tick(PLAYER, 2_000L);
         assertEquals(0L, state.chargeProgress);
         assertEquals(0, state.passiveChargeRemainder.signum());
 
         service.setMenuOpen(PLAYER, true, 2_000L);
-        service.tick(PLAYER, 3_000L); // +0.5 remainder while panel is open
+        service.tick(PLAYER, 3_000L);
         assertEquals(0L, state.chargeProgress);
         assertEquals(0, state.passiveChargeRemainder.compareTo(new BigDecimal("0.500000000000")));
-        service.tick(PLAYER, 4_000L); // accumulated +1 whole charge
+        service.tick(PLAYER, 4_000L);
         assertEquals(1L, state.chargeProgress);
         assertEquals(0, state.passiveChargeRemainder.signum());
 
         service.setMenuOpen(PLAYER, false, 4_000L);
-        service.tick(PLAYER, 100_000L); // closed/offline-style gap must not count
+        service.tick(PLAYER, 100_000L);
         assertEquals(1L, state.chargeProgress);
     }
 
@@ -154,6 +155,10 @@ final class GodWorshipAutomationServiceTest {
         private BigDecimal passiveRate = BigDecimal.ZERO;
 
         @Override public boolean enabled(GodId god) { return true; }
+        @Override public String unlockResource(GodId god) { return "coins"; }
+        @Override public String upgradeResource(GodId god) { return "coins"; }
+        @Override public EffectResolver.Stat primaryChannel(GodId god) { return EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER; }
+        @Override public EffectResolver.Stat secondaryChannel(GodId god) { return null; }
         @Override public BigDecimal unlockCost(GodId god) { return BigDecimal.ONE; }
         @Override public BigDecimal upgradeCost(GodId god, long currentLevel) { return BigDecimal.ONE; }
         @Override public long chargeRequired(GodId god) { return 10L; }
