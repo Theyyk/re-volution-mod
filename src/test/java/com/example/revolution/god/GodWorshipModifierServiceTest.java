@@ -20,8 +20,8 @@ final class GodWorshipModifierServiceTest {
     @Test
     void channelAndAllDamageAreAppliedOnceInLateGodLayer() {
         FakeRepository repository = new FakeRepository();
-        activate(repository.run.gods.get(GodId.GOD_1), 100_000L); // poison +10%
-        activate(repository.run.gods.get(GodId.GOD_3), 100_000L); // all damage +10%
+        activate(repository.run.gods.get(GodId.GOD_1), 100_000L);
+        activate(repository.run.gods.get(GodId.GOD_3), 100_000L);
         GodWorshipModifierService service = new GodWorshipModifierService(
                 repository, new BalanceGodWorshipPolicy(BalanceBootstrap.activateBundledDefaults()));
 
