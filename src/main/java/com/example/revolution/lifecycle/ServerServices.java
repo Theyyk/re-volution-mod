@@ -10,6 +10,7 @@ import com.example.revolution.admin.service.AdminStageBatchService;
 import com.example.revolution.balance.service.BalanceBootstrap;
 import com.example.revolution.balance.service.BalanceService;
 import com.example.revolution.effect.EffectResolver;
+import com.example.revolution.gameplay.CompositeGameplayEventSink;
 import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
@@ -48,6 +49,7 @@ import com.example.revolution.persistence.MongoMobRepository;
 import com.example.revolution.persistence.MongoPetRepository;
 import com.example.revolution.persistence.MongoPlayerRepository;
 import com.example.revolution.persistence.MongoPrestigeRepository;
+import com.example.revolution.persistence.MongoQuestRepository;
 import com.example.revolution.persistence.MongoResourceRepository;
 import com.example.revolution.persistence.MongoRuneEnhancementRepository;
 import com.example.revolution.persistence.MongoStageTransitionPreferenceRepository;
@@ -68,6 +70,10 @@ import com.example.revolution.prestige.PrestigeProgressRouter;
 import com.example.revolution.prestige.PrestigeService;
 import com.example.revolution.prestige.exchange.service.RunExchangeCatalogFactory;
 import com.example.revolution.prestige.exchange.service.RunExchangeService;
+import com.example.revolution.quest.service.QuestBalanceService;
+import com.example.revolution.quest.service.QuestCatalog;
+import com.example.revolution.quest.service.QuestGenerator;
+import com.example.revolution.quest.service.QuestService;
 import com.example.revolution.realm.service.RealmService;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
@@ -132,6 +138,7 @@ public final class ServerServices implements AutoCloseable {
     public final RunExchangeService runExchange;
     public final EffectResolver effects;
     public final GameplayEventSink gameplayEvents;
+    public final QuestService quests;
     public final PetService pets;
     public final PetEffectSource petEffects;
 
@@ -163,8 +170,16 @@ public final class ServerServices implements AutoCloseable {
                 "prestige.fragment_reward." + branch.name().toLowerCase(Locale.ROOT) + ".per_level")));
         effects = new EffectResolver();
         effects.register(prestige);
-        gameplayEvents = new PrestigeProgressRouter(prestige, prestigeBranches);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
+        QuestBalanceService questBalance = new QuestBalanceService(balance);
+        quests = new QuestService(
+                new MongoQuestRepository(connection, persistentGameplay),
+                resources,
+                new QuestGenerator(new QuestCatalog(questBalance)),
+                questBalance);
+        gameplayEvents = new CompositeGameplayEventSink(
+                new PrestigeProgressRouter(prestige, prestigeBranches),
+                quests);
         resources.setGameplayEventSink(gameplayEvents);
         PetCatalog petCatalog = new PetCatalog();
         PetBalanceService petBalance = new PetBalanceService(balance);
