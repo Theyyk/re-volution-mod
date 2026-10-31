@@ -79,9 +79,14 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
         for (GodId god : GodId.values()) {
             State state = run.gods.get(god);
             Preference preference = persistent.preferences.get(god);
+            GodWorshipModel.Definition definition = GodWorshipModel.definition(god);
             BigDecimal unlockCost = services.godPolicy.unlockCost(god);
             BigDecimal upgradeCost = state != null && state.unlocked
                     ? services.godPolicy.upgradeCost(god, state.level) : BigDecimal.ZERO;
+            BigDecimal currentMultiplier = BigDecimal.ONE.add(
+                    state != null && state.unlocked
+                            ? services.godPolicy.buffAdditiveMultiplier(god, state.level)
+                            : BigDecimal.ZERO);
             entries.add(new GodWorshipSnapshotPacket.Entry(
                     god.name(),
                     state != null && state.unlocked,
@@ -93,15 +98,21 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
                     services.godPolicy.chargeRequired(god),
                     exact(unlockCost),
                     exact(upgradeCost),
-                    GodWorshipModel.definition(god).resource,
+                    definition.resource,
+                    definition.primary.name(),
+                    definition.secondary == null ? "" : definition.secondary.name(),
+                    exact(currentMultiplier),
                     preference != null && preference.autoWorshipEnabled,
                     preference == null || preference.activationMode == null ? "MANUAL" : preference.activationMode.name(),
                     preference == null || preference.linkedGodId == null ? "" : preference.linkedGodId.name()));
         }
+        long durationBonusMillis = services.godPolicy.permanentDurationMillis(persistent.permanentDurationLevel);
+        long durationBonusSeconds = durationBonusMillis == Long.MAX_VALUE ? Long.MAX_VALUE : durationBonusMillis / 1000L;
         NetworkHandler.sendToClient(new GodWorshipSnapshotPacket(
                 entries,
                 exact(persistent.offerings),
                 persistent.permanentDurationLevel,
+                durationBonusSeconds,
                 exact(services.godPolicy.durationUpgradeCost(persistent.permanentDurationLevel)),
                 services.godPolicy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION),
                 services.godPolicy.featureEnabled(FeatureGate.GOD_PERMANENT_BUFF_DURATION),
