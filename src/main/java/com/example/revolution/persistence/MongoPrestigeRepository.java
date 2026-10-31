@@ -15,7 +15,7 @@ import org.bson.Document;
 
 /** Backward-compatible embedded Mastery persistence in the existing players document. */
 public final class MongoPrestigeRepository implements PrestigeRepository {
-    private static final int SCHEMA_VERSION = 2;
+    private static final int SCHEMA_VERSION = 3;
     private final MongoConnection connection;
     private final boolean enabled;
 
@@ -100,7 +100,7 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         Document meta = new Document();
         for (Map.Entry<String, Integer> entry : state.rankMetaLevels.entrySet()) meta.append(entry.getKey(), entry.getValue());
         return new Document("bestSavedProgress", exact(state.bestSavedProgress)).append("rankMetaLevels", meta).append("rankMetaLevelCap", state.rankMetaLevelCap)
-                .append("masteryTier", state.masteryTier).append("masteryQuestState", state.masteryQuestState);
+                .append("masteryTier", state.masteryTier);
     }
 
     @SuppressWarnings("unchecked") private PrestigeState decode(Document root) {
@@ -127,7 +127,6 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
             PrestigeState.BranchState target = state.branch(branch); target.bestSavedProgress = decimal(stored.get("bestSavedProgress"));
             target.rankMetaLevelCap = Math.max(0, stored.getInteger("rankMetaLevelCap", target.rankMetaLevelCap));
             target.masteryTier = Math.max(0, stored.getInteger("masteryTier", 0));
-            String quest = stored.getString("masteryQuestState"); if (quest != null) target.masteryQuestState = quest;
             Document meta = stored.get("rankMetaLevels", Document.class);
             if (meta != null) for (String key : meta.keySet()) { Object value = meta.get(key); if (value instanceof Number) target.rankMetaLevels.put(key, Math.max(0, ((Number) value).intValue())); }
         }
