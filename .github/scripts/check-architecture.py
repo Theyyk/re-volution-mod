@@ -95,6 +95,8 @@ def validate():
         'client/network/GodWorshipSnapshotPacketHandler.java',
         'client/network/AuraActionPacketClientHandler.java',
         'client/network/AuraSnapshotPacketHandler.java',
+        'client/network/AchievementActionPacketClientHandler.java',
+        'client/network/AchievementSnapshotPacketHandler.java',
         'client/input/KeyInputHandler.java',
         'client/input/EnhancementClickGuard.java',
         'mob/event/ManagedMobEvents.java',
@@ -126,6 +128,7 @@ def validate():
     assert 'RateLimitedPingPacketHandler.reset()' in source_map['lifecycle/ServerLifecycle.java'], 'Limiter not reset by lifecycle'
     assert 'GodWorshipRequestLimiter.reset()' in source_map['lifecycle/ServerLifecycle.java'], 'God Worship limiter not reset by lifecycle'
     assert 'AuraRequestLimiter.reset()' in source_map['lifecycle/ServerLifecycle.java'], 'Aura limiter not reset by lifecycle'
+    assert 'AchievementRequestLimiter.reset()' in source_map['lifecycle/ServerLifecycle.java'], 'Achievement limiter not reset by lifecycle'
     assert 'stopping.close()' in source_map['lifecycle/ServerLifecycle.java'], 'Server graph not closed'
 
     nio_types = r'(?:Byte|Char|Double|Float|Int|Long|Short)Buffer'
@@ -152,6 +155,7 @@ def validate():
             ('QuestActionPacket', 17, 'SERVER'), ('QuestSnapshotPacket', 18, 'CLIENT'),
             ('GodWorshipActionPacket', 19, 'SERVER'), ('GodWorshipSnapshotPacket', 20, 'CLIENT'),
             ('AuraActionPacket', 21, 'SERVER'), ('AuraSnapshotPacket', 22, 'CLIENT'),
+            ('AchievementActionPacket', 23, 'SERVER'), ('AchievementSnapshotPacket', 24, 'CLIENT'),
         ],
         'client/network/ClientNetworkRegistration.java': [
             ('PingPacket', 0, 'CLIENT'), ('PongPacket', 1, 'CLIENT'), ('RuneSlotPacket', 2, 'CLIENT'),
@@ -164,6 +168,7 @@ def validate():
             ('QuestActionPacket', 17, 'CLIENT'), ('QuestSnapshotPacket', 18, 'CLIENT'),
             ('GodWorshipActionPacket', 19, 'CLIENT'), ('GodWorshipSnapshotPacket', 20, 'CLIENT'),
             ('AuraActionPacket', 21, 'CLIENT'), ('AuraSnapshotPacket', 22, 'CLIENT'),
+            ('AchievementActionPacket', 23, 'CLIENT'), ('AchievementSnapshotPacket', 24, 'CLIENT'),
         ],
     }
     for path, expected in expected_registrations.items():
@@ -182,6 +187,8 @@ def validate():
         assert ('GodWorshipSnapshotPacket', 20, 'CLIENT') in compact, path + ': discriminator 20 changed'
         assert ('AuraActionPacket', 21, 'SERVER' if path.startswith('network/') else 'CLIENT') in compact, path + ': discriminator 21 changed'
         assert ('AuraSnapshotPacket', 22, 'CLIENT') in compact, path + ': discriminator 22 changed'
+        assert ('AchievementActionPacket', 23, 'SERVER' if path.startswith('network/') else 'CLIENT') in compact, path + ': discriminator 23 changed'
+        assert ('AchievementSnapshotPacket', 24, 'CLIENT') in compact, path + ': discriminator 24 changed'
         if path.startswith('network/'):
             assert actual[0][0] == 'RateLimitedPingPacketHandler', 'Enhancement anti-spam bypassed'
 
@@ -208,7 +215,7 @@ def validate():
             if assets[path] != actual_assets[path]: details.append('Digest mismatch: ' + path + ' expected=' + assets[path] + ' actual=' + actual_assets[path])
         raise AssertionError('Resource assets changed; review the resource contract explicitly\n' + '\n'.join(details))
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13/14/15/16/17/18/19/20/21/22, optional client and resource assets passed.')
+    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13/14/15/16/17/18/19/20/21/22/23/24, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':

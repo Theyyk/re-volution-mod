@@ -7,6 +7,11 @@ import com.example.revolution.admin.service.AdminOperationsService;
 import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.admin.service.AdminToolsService;
 import com.example.revolution.admin.service.AdminStageBatchService;
+import com.example.revolution.achievement.AchievementEconomyBonusService;
+import com.example.revolution.achievement.AchievementService;
+import com.example.revolution.achievement.BalanceAchievementCatalogFactory;
+import com.example.revolution.achievement.BalanceAchievementPolicy;
+import com.example.revolution.achievement.CanonicalAchievementRewardGateway;
 import com.example.revolution.aura.AuraModifierService;
 import com.example.revolution.aura.AuraService;
 import com.example.revolution.aura.BalanceAuraPolicy;
@@ -22,11 +27,7 @@ import com.example.revolution.god.GodWorshipAutomationService;
 import com.example.revolution.god.GodWorshipModel;
 import com.example.revolution.god.GodWorshipModifierService;
 import com.example.revolution.god.GodWorshipService;
-import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
-import com.example.revolution.location.world.REBuilderAdapter;
-import com.example.revolution.persistence.MongoLocationBuildTemplateRepository;
-import com.example.revolution.persistence.MongoLocationGenerationRepository;
 import com.example.revolution.location.generation.LocationTemplate;
 import com.example.revolution.location.repository.FastAutoPreferenceRepository;
 import com.example.revolution.location.repository.LocationGenerationRepository;
@@ -41,6 +42,7 @@ import com.example.revolution.location.service.MobZoneOverlayService;
 import com.example.revolution.location.service.StageMobBootstrapService;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionTriggerService;
+import com.example.revolution.location.world.REBuilderAdapter;
 import com.example.revolution.mob.repository.MobProgressionRepository;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.BalanceAwareMobRepository;
@@ -50,10 +52,14 @@ import com.example.revolution.mob.service.MobBalanceService;
 import com.example.revolution.mob.service.MobProgressionService;
 import com.example.revolution.mob.service.MobRewardService;
 import com.example.revolution.persistence.FileAdminWhitelistRepository;
+import com.example.revolution.persistence.MongoAchievementRepository;
+import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.persistence.MongoAuraRepository;
 import com.example.revolution.persistence.MongoConnection;
 import com.example.revolution.persistence.MongoFastAutoPreferenceRepository;
 import com.example.revolution.persistence.MongoGodWorshipRepository;
+import com.example.revolution.persistence.MongoLocationBuildTemplateRepository;
+import com.example.revolution.persistence.MongoLocationGenerationRepository;
 import com.example.revolution.persistence.MongoLocationRepository;
 import com.example.revolution.persistence.MongoLocationStageTemplateRepository;
 import com.example.revolution.persistence.MongoMobProgressionRepository;
@@ -160,6 +166,9 @@ public final class ServerServices implements AutoCloseable {
     public final BalanceAuraPolicy auraPolicy;
     public final AuraService auras;
     public final AuraModifierService auraModifiers;
+    public final AchievementService achievements;
+    public final BalanceAchievementPolicy achievementPolicy;
+    public final AchievementEconomyBonusService achievementBonus;
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         this.logger = logger;
@@ -199,6 +208,15 @@ public final class ServerServices implements AutoCloseable {
         effects = new EffectResolver();
         effects.register(prestige);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
+
+        achievementPolicy = new BalanceAchievementPolicy(balance);
+        achievements = new AchievementService(
+                new MongoAchievementRepository(connection, persistentGameplay),
+                BalanceAchievementCatalogFactory.fromBalance(balance),
+                new CanonicalAchievementRewardGateway(resources, godRepository));
+        achievementBonus = new AchievementEconomyBonusService(achievements, achievementPolicy);
+        resources.setAchievementRewardMultiplier(achievementBonus::multiplier);
+
         auras = new AuraService(auraRepository, resources, auraPolicy);
         auraModifiers = new AuraModifierService(auraRepository);
         resources.setLateRewardMultiplier(auraModifiers::resourceMultiplier);
@@ -213,7 +231,8 @@ public final class ServerServices implements AutoCloseable {
                 questBalance);
         gameplayEvents = new CompositeGameplayEventSink(
                 new PrestigeProgressRouter(prestige, prestigeBranches),
-                quests);
+                quests,
+                achievements);
         prestige.setGameplayEventSink(gameplayEvents);
         resources.setGameplayEventSink(gameplayEvents);
         auras.setGameplayEventSink(gameplayEvents);
@@ -222,6 +241,7 @@ public final class ServerServices implements AutoCloseable {
         PetCatalog petCatalog = new PetCatalog();
         PetBalanceService petBalance = new PetBalanceService(balance);
         pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
+        pets.setGameplayEventSink(gameplayEvents);
         runExchange = new RunExchangeService(prestige, resources, pets, balance, RunExchangeCatalogFactory.fromBalance(balance));
         runExchange.setGameplayEventSink(gameplayEvents);
         petEffects = new PetEffectSource(petRepository, petCatalog, petBalance);
@@ -264,6 +284,7 @@ public final class ServerServices implements AutoCloseable {
                 physicalBuilds,
                 bootstrappingGenerations);
         stageTransitions = new StageTransitionService(locationRepository, mobProgression);
+        stageTransitions.setGameplayEventSink(gameplayEvents);
         stageTransitionTriggers = new StageTransitionTriggerService(
                 triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
         fastAuto = new FastAutoService(fastAutoPreferences, mobProgression);
@@ -303,6 +324,7 @@ public final class ServerServices implements AutoCloseable {
 
     @Override public void close() {
         adminApi.close();
+        achievements.flushAll();
         runeTransientEffects.clear();
         mobs.clear();
         fastAuto.clear();

@@ -1,5 +1,6 @@
 package com.example.revolution.lifecycle;
 
+import com.example.revolution.achievement.AchievementPersistenceHandler;
 import com.example.revolution.aura.event.AuraDamageHandler;
 import com.example.revolution.combat.DamageBonusHandler;
 import com.example.revolution.combat.LegacyAttackCooldownHandler;
@@ -19,6 +20,7 @@ import com.example.revolution.location.event.FastAutoHandler;
 import com.example.revolution.location.event.StageTransitionTriggerHandler;
 import com.example.revolution.mob.event.ManagedMobAppearanceEvents;
 import com.example.revolution.mob.event.ManagedMobEvents;
+import com.example.revolution.network.AchievementRequestLimiter;
 import com.example.revolution.network.AuraRequestLimiter;
 import com.example.revolution.network.GodWorshipRequestLimiter;
 import com.example.revolution.network.NetworkHandler;
@@ -71,10 +73,12 @@ public final class ServerLifecycle {
     private static void initialize() {
         if (current != null) return;
         current = new ServerServices(logger, dedicatedServer, configDirectory);
+        current.achievements.setLifecycleEventSink(current.gameplayEvents);
         if (!dedicatedServer) return;
         current.connect();
         current.adminAccess.init(configDirectory);
         listeners.add(new PlayerJoinHandler(current.sessions));
+        listeners.add(new AchievementPersistenceHandler(current.achievements));
         listeners.add(new GodWorshipRuntimeHandler(current.godAutomation));
         listeners.add(new RpgSurvivalGuard());
         listeners.add(new RealmLoginHandler(current.realms));
@@ -156,6 +160,7 @@ public final class ServerLifecycle {
         RateLimitedPingPacketHandler.reset();
         GodWorshipRequestLimiter.reset();
         AuraRequestLimiter.reset();
+        AchievementRequestLimiter.reset();
         try {
             if (stopping != null) stopping.close();
         } finally {

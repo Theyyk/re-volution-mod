@@ -25,7 +25,8 @@ public final class BalanceBootstrap {
             "/balance/v2.6.0-run-exchange.json",
             "/balance/v2.7.0-quests.json",
             "/balance/v2.8.0-god-worship.json",
-            "/balance/v2.9.0-auras.json"
+            "/balance/v2.9.0-auras.json",
+            "/balance/v2.10.0-achievements.json"
     };
 
     private BalanceBootstrap() {}

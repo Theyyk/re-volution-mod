@@ -78,6 +78,8 @@ public final class PrestigeService implements EffectResolver.Source {
         run.startedAt = System.currentTimeMillis();
         state.activeRun = run;
         repository.save(playerUuid, state);
+        gameplayEvents.factualEvent(new GameplayEvent(playerUuid, GameplayEventType.MASTERY_BRANCH_SELECTED,
+                BigDecimal.ONE, Collections.singletonMap("branch", branch.name()), "mastery_selection"));
         return run.copy();
     }
 
