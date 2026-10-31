@@ -1,6 +1,7 @@
 package com.example.revolution.client.input;
 
 import com.example.revolution.client.ClientUiBridge;
+import com.example.revolution.client.network.GodWorshipClientState;
 import com.example.revolution.network.GodWorshipActionPacket;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.QuestActionPacket;
@@ -79,6 +80,7 @@ public class KeyInputHandler {
         if (godWorshipPressed && !godWorshipWasPressed
                 && minecraft.player != null && minecraft.getConnection() != null
                 && minecraft.currentScreen == null) {
+            GodWorshipClientState.requestOpen();
             NetworkHandler.INSTANCE.sendToServer(new GodWorshipActionPacket("sync", "", "", "", 0L));
         }
         godWorshipWasPressed = godWorshipPressed;
