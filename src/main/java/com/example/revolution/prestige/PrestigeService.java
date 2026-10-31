@@ -21,17 +21,24 @@ public final class PrestigeService implements EffectResolver.Source {
     private FragmentRewardProvider fragmentRewards = DEFAULT_FRAGMENT_REWARDS;
 
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry) {
-        this(repository, registry, (player, branch) -> registry.get(branch).defaultSaveMultiplier, NO_RESET_PARTICIPANT);
+        this(repository, registry, (player, branch) -> registry.get(branch).defaultSaveMultiplier,
+                NO_RESET_PARTICIPANT, MasteryTierPolicy.compatibility());
     }
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry, PrestigeResetService.SaveMultiplierProvider saveMultipliers) {
-        this(repository, registry, saveMultipliers, NO_RESET_PARTICIPANT);
+        this(repository, registry, saveMultipliers, NO_RESET_PARTICIPANT, MasteryTierPolicy.compatibility());
     }
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry,
                            PrestigeResetService.SaveMultiplierProvider saveMultipliers,
                            AppliedResetParticipant appliedResetParticipant) {
+        this(repository, registry, saveMultipliers, appliedResetParticipant, MasteryTierPolicy.compatibility());
+    }
+    public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry,
+                           PrestigeResetService.SaveMultiplierProvider saveMultipliers,
+                           AppliedResetParticipant appliedResetParticipant,
+                           MasteryTierPolicy tierPolicy) {
         this.repository = repository;
         this.registry = registry;
-        this.resets = new PrestigeResetService(repository, registry, saveMultipliers);
+        this.resets = new PrestigeResetService(repository, registry, saveMultipliers, tierPolicy);
         this.appliedResetParticipant = appliedResetParticipant == null ? NO_RESET_PARTICIPANT : appliedResetParticipant;
     }
 
@@ -120,6 +127,20 @@ public final class PrestigeService implements EffectResolver.Source {
         if (result == PrestigeResetService.ResetResult.APPLIED) appliedResetParticipant.afterAppliedReset(playerUuid);
         return result;
     }
+
+    public synchronized boolean masteryResetAvailable(UUID playerUuid) { return resets.masteryResetAvailable(playerUuid); }
+    public synchronized PrestigeResetService.MasteryResetPreview previewMasteryReset(UUID playerUuid, String expectedRunId) {
+        return resets.previewMasteryReset(playerUuid, expectedRunId);
+    }
+    public synchronized PrestigeResetService.MasteryResetResult masteryReset(UUID playerUuid, String expectedRunId) {
+        PrestigeResetService.MasteryResetResult result = resets.masteryReset(playerUuid, expectedRunId);
+        if (result == PrestigeResetService.MasteryResetResult.APPLIED) appliedResetParticipant.afterAppliedReset(playerUuid);
+        return result;
+    }
+    public synchronized int metaLevelGainPerRun(UUID playerUuid, PrestigeBranch branch) {
+        return resets.metaLevelGainPerRun(repository.load(playerUuid).branch(branch));
+    }
+
     public synchronized PrestigeState snapshot(UUID playerUuid) { return repository.load(playerUuid).copy(); }
     public List<PrestigeBranch> branches() { return registry.branches(); }
     public String progressSource(PrestigeBranch branch) { return registry.get(branch).progressSource.toString(); }
