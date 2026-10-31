@@ -166,10 +166,10 @@ public final class ServerServices implements AutoCloseable {
         gameplayEvents = new PrestigeProgressRouter(prestige, prestigeBranches);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
         resources.setGameplayEventSink(gameplayEvents);
-        runExchange = new RunExchangeService(prestige, resources, RunExchangeCatalog.empty());
         PetCatalog petCatalog = new PetCatalog();
         PetBalanceService petBalance = new PetBalanceService(balance);
         pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
+        runExchange = new RunExchangeService(prestige, resources, pets, balance, RunExchangeCatalog.fromBalance(balance));
         petEffects = new PetEffectSource(petRepository, petCatalog, petBalance);
         effects.register(petEffects);
 
