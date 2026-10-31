@@ -14,6 +14,9 @@ import com.example.revolution.gameplay.CompositeGameplayEventSink;
 import com.example.revolution.gameplay.GameplayEvent;
 import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.gameplay.GameplayEventType;
+import com.example.revolution.god.BalanceGodWorshipPolicy;
+import com.example.revolution.god.GodWorshipAutomationService;
+import com.example.revolution.god.GodWorshipService;
 import com.example.revolution.persistence.MongoAdminStageStore;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
 import com.example.revolution.location.world.REBuilderAdapter;
@@ -44,6 +47,7 @@ import com.example.revolution.mob.service.MobRewardService;
 import com.example.revolution.persistence.FileAdminWhitelistRepository;
 import com.example.revolution.persistence.MongoConnection;
 import com.example.revolution.persistence.MongoFastAutoPreferenceRepository;
+import com.example.revolution.persistence.MongoGodWorshipRepository;
 import com.example.revolution.persistence.MongoLocationRepository;
 import com.example.revolution.persistence.MongoLocationStageTemplateRepository;
 import com.example.revolution.persistence.MongoMobProgressionRepository;
@@ -143,6 +147,9 @@ public final class ServerServices implements AutoCloseable {
     public final QuestService quests;
     public final PetService pets;
     public final PetEffectSource petEffects;
+    public final BalanceGodWorshipPolicy godPolicy;
+    public final GodWorshipService gods;
+    public final GodWorshipAutomationService godAutomation;
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         this.logger = logger;
@@ -173,6 +180,10 @@ public final class ServerServices implements AutoCloseable {
         effects = new EffectResolver();
         effects.register(prestige);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
+        MongoGodWorshipRepository godRepository = new MongoGodWorshipRepository(connection, persistentGameplay);
+        godPolicy = new BalanceGodWorshipPolicy(balance);
+        gods = new GodWorshipService(godRepository, resources, godPolicy);
+        godAutomation = new GodWorshipAutomationService(godRepository, godPolicy);
         QuestBalanceService questBalance = new QuestBalanceService(balance);
         quests = new QuestService(
                 new MongoQuestRepository(connection, persistentGameplay),
@@ -184,6 +195,8 @@ public final class ServerServices implements AutoCloseable {
                 quests);
         prestige.setGameplayEventSink(gameplayEvents);
         resources.setGameplayEventSink(gameplayEvents);
+        gods.setGameplayEventSink(gameplayEvents);
+        godAutomation.setGameplayEventSink(gameplayEvents);
         PetCatalog petCatalog = new PetCatalog();
         PetBalanceService petBalance = new PetBalanceService(balance);
         pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
