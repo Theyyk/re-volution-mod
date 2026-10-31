@@ -16,6 +16,10 @@ public final class AuraGuiScreen extends GuiScreen {
     private final List<AuraSnapshotPacket.Entry> visible = new ArrayList<>();
     private String rarityFilter = "ALL";
     private int selectedIndex = -1;
+    private String pendingAction = "";
+    private String pendingRarity = "";
+    private String pendingIds = "";
+    private String pendingInstanceId = "";
 
     @Override public void initGui() {
         buttonList.clear();
@@ -30,7 +34,7 @@ public final class AuraGuiScreen extends GuiScreen {
         buttonList.add(new GuiButton(12, left + 146, top + 53, 64, 20, "Unequip"));
         buttonList.add(new GuiButton(13, left + 214, top + 53, 46, 20, "Pin"));
         buttonList.add(new GuiButton(14, left + 264, top + 53, 46, 20, "Unpin"));
-        buttonList.add(new GuiButton(20, left, top + 184, 90, 20, "Craft Auto"));
+        buttonList.add(new GuiButton(20, left, top + 184, 90, 20, "Auto Fill"));
         buttonList.add(new GuiButton(21, left + 94, top + 184, 90, 20, "Dismantle"));
         buttonList.add(new GuiButton(22, left + 188, top + 184, 58, 20, "Refresh"));
         buttonList.add(new GuiButton(23, left + 250, top + 184, 60, 20, "Close"));
@@ -39,32 +43,49 @@ public final class AuraGuiScreen extends GuiScreen {
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
         if (button.id >= 1 && button.id <= 4) {
-            int[] amounts = {1, 3, 5, 10}; send("open", String.valueOf(amounts[button.id - 1]), ""); return;
+            int[] amounts = {1, 3, 5, 10}; clearPending(); send("open", String.valueOf(amounts[button.id - 1]), ""); return;
         }
-        if (button.id == 5) { send("skip_animation", String.valueOf(!AuraClientState.skipAnimation()), ""); return; }
-        if (button.id == 10) { cycleFilter(); initGui(); return; }
+        if (button.id == 5) { clearPending(); send("skip_animation", String.valueOf(!AuraClientState.skipAnimation()), ""); return; }
+        if (button.id == 10) { clearPending(); cycleFilter(); initGui(); return; }
         AuraSnapshotPacket.Entry selected = selected();
-        if (button.id == 11 && selected != null) send("equip", selected.instanceId, "");
-        else if (button.id == 12) send("unequip", "", "");
-        else if (button.id == 13 && selected != null) send("pin", selected.instanceId, "");
-        else if (button.id == 14 && selected != null) send("unpin", selected.instanceId, "");
-        else if (button.id == 20 && selected != null && !"MYTHIC".equals(selected.rarity)) sendAutoCraft(selected.rarity);
-        else if (button.id == 21 && selected != null && !"COMMON".equals(selected.rarity)) send("dismantle", selected.instanceId, "");
-        else if (button.id == 22) send("sync", "", "");
+        if (button.id == 11 && selected != null) { clearPending(); send("equip", selected.instanceId, ""); }
+        else if (button.id == 12) { clearPending(); send("unequip", "", ""); }
+        else if (button.id == 13 && selected != null) { clearPending(); send("pin", selected.instanceId, ""); }
+        else if (button.id == 14 && selected != null) { clearPending(); send("unpin", selected.instanceId, ""); }
+        else if (button.id == 20 && selected != null && !"MYTHIC".equals(selected.rarity)) previewOrConfirmCraft(selected.rarity);
+        else if (button.id == 21 && selected != null && !"COMMON".equals(selected.rarity)) previewOrConfirmDismantle(selected);
+        else if (button.id == 22) { clearPending(); send("sync", "", ""); }
         else if (button.id == 23) mc.displayGuiScreen(null);
     }
 
-    private void sendAutoCraft(String rarity) {
+    /** First click only prepares Auto Fill selection; second click explicitly confirms the craft mutation. */
+    private void previewOrConfirmCraft(String rarity) {
+        int required = AuraClientState.craftCost(rarity);
+        if (required <= 0) { clearPending(); return; }
+        if ("craft".equals(pendingAction) && rarity.equals(pendingRarity) && !pendingIds.isEmpty()) {
+            String ids = pendingIds; clearPending(); send("craft", rarity, ids); return;
+        }
         List<String> ids = new ArrayList<>();
         for (AuraSnapshotPacket.Entry entry : AuraClientState.entries()) {
             if (rarity.equals(entry.rarity) && !entry.pinned && !entry.active) ids.add(entry.instanceId);
+            if (ids.size() == required) break;
         }
-        int required = "COMMON".equals(rarity) ? 3 : "RARE".equals(rarity) ? 4 : "EPIC".equals(rarity) ? 5 : 6;
-        if (ids.size() < required) return;
+        if (ids.size() != required) { clearPending(); return; }
         StringBuilder joined = new StringBuilder();
-        for (int i = 0; i < required; i++) { if (joined.length() > 0) joined.append(','); joined.append(ids.get(i)); }
-        send("craft", rarity, joined.toString());
+        for (String id : ids) { if (joined.length() > 0) joined.append(','); joined.append(id); }
+        pendingAction = "craft"; pendingRarity = rarity; pendingIds = joined.toString(); pendingInstanceId = "";
     }
+
+    /** First click is preview only; second click confirms consumption and configured return count. */
+    private void previewOrConfirmDismantle(AuraSnapshotPacket.Entry selected) {
+        if (selected.pinned || selected.active || AuraClientState.dismantleReturn(selected.rarity) <= 0) { clearPending(); return; }
+        if ("dismantle".equals(pendingAction) && selected.instanceId.equals(pendingInstanceId)) {
+            String id = pendingInstanceId; clearPending(); send("dismantle", id, ""); return;
+        }
+        pendingAction = "dismantle"; pendingRarity = selected.rarity; pendingInstanceId = selected.instanceId; pendingIds = "";
+    }
+
+    private void clearPending() { pendingAction = ""; pendingRarity = ""; pendingIds = ""; pendingInstanceId = ""; }
 
     private void send(String action, String value, String ids) {
         NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket(action, value, ids, ++nonce));
@@ -90,7 +111,7 @@ public final class AuraGuiScreen extends GuiScreen {
         int left = width / 2 - 155, top = height / 2 - 105;
         if (mouseX < left || mouseX > left + 310 || mouseY < top + 78 || mouseY > top + 174) return;
         int row = (mouseY - (top + 78)) / 12;
-        if (row >= 0 && row < Math.min(8, visible.size())) selectedIndex = row;
+        if (row >= 0 && row < Math.min(8, visible.size())) { selectedIndex = row; clearPending(); }
     }
 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
@@ -111,6 +132,11 @@ public final class AuraGuiScreen extends GuiScreen {
         }
         AuraSnapshotPacket.Entry selected = selected();
         if (selected != null) drawString(fontRenderer, "Raw: " + selected.rawRolls, left, top + 166, 0xAAAAAA);
+        if ("craft".equals(pendingAction)) {
+            drawString(fontRenderer, "Preview: consume " + AuraClientState.craftCost(pendingRarity) + " " + pendingRarity + " -> next rarity. Click Auto Fill again to confirm.", left, top + 174, 0xFFFFAA);
+        } else if ("dismantle".equals(pendingAction)) {
+            drawString(fontRenderer, "Preview: consume 1 " + pendingRarity + " -> " + AuraClientState.dismantleReturn(pendingRarity) + " new lower Aura. Click again to confirm.", left, top + 174, 0xFFFFAA);
+        }
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
