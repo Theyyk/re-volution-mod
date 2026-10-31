@@ -7,6 +7,7 @@ import com.mongodb.client.model.UpdateOptions;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.bson.Document;
 
@@ -39,9 +40,14 @@ public final class MongoAuraRepository implements AuraRepository {
         for (AuraModel.AuraInstance aura : state.ownedAuras) {
             List<Document> raw = new ArrayList<>();
             for (AuraModel.Roll roll : aura.rawRolls) raw.add(new Document("stat", roll.stat.name()).append("value", roll.additiveMultiplier.toPlainString()));
+            List<Document> aggregated = new ArrayList<>();
+            for (Map.Entry<EffectResolver.Stat, BigDecimal> effect : aura.aggregatedEffects.entrySet()) {
+                aggregated.add(new Document("stat", effect.getKey().name()).append("value", effect.getValue().toPlainString()));
+            }
             owned.add(new Document("instanceId", aura.instanceId.toString())
                     .append("rarity", aura.rarity.name()).append("origin", aura.origin.name())
                     .append("generationSeed", aura.generationSeed).append("rawRolls", raw)
+                    .append("aggregatedEffects", aggregated)
                     .append("pinned", aura.pinned).append("createdAt", aura.createdAtMillis));
         }
         return new Document("schemaVersion", SCHEMA_VERSION).append("ownedAuras", owned)
@@ -62,9 +68,18 @@ public final class MongoAuraRepository implements AuraRepository {
                     EffectResolver.Stat stat = EffectResolver.Stat.valueOf(roll.getString("stat"));
                     BigDecimal value = new BigDecimal(String.valueOf(roll.get("value"))); if (value.signum() >= 0) rolls.add(new AuraModel.Roll(stat, value));
                 }
-                state.ownedAuras.add(new AuraModel.AuraInstance(UUID.fromString(stored.getString("instanceId")),
+                AuraModel.AuraInstance aura = new AuraModel.AuraInstance(UUID.fromString(stored.getString("instanceId")),
                         AuraModel.Rarity.valueOf(stored.getString("rarity")), AuraModel.Origin.valueOf(stored.getString("origin")),
-                        number(stored.get("generationSeed")), rolls, Boolean.TRUE.equals(stored.getBoolean("pinned")), number(stored.get("createdAt"))));
+                        number(stored.get("generationSeed")), rolls, Boolean.TRUE.equals(stored.getBoolean("pinned")), number(stored.get("createdAt")));
+                // Aggregates are persisted for audit but raw rolls remain canonical. Reject silently corrupted stored aggregates.
+                List<Document> storedAggregated = (List<Document>) stored.get("aggregatedEffects");
+                if (storedAggregated != null) for (Document effect : storedAggregated) {
+                    EffectResolver.Stat stat = EffectResolver.Stat.valueOf(effect.getString("stat"));
+                    BigDecimal value = new BigDecimal(String.valueOf(effect.get("value")));
+                    BigDecimal recomputed = aura.aggregatedEffects.get(stat);
+                    if (recomputed == null || recomputed.compareTo(value) != 0) throw new IllegalArgumentException("Aura aggregate audit mismatch");
+                }
+                state.ownedAuras.add(aura);
             } catch (RuntimeException ignored) { }
         }
         try { String active = root.getString("activeAuraId"); state.activeAuraId = active == null ? null : UUID.fromString(active); } catch (RuntimeException ignored) { state.activeAuraId = null; }
