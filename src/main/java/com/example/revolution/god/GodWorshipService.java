@@ -1,5 +1,6 @@
 package com.example.revolution.god;
 
+import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.gameplay.GameplayEvent;
 import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.gameplay.GameplayEventType;
@@ -18,6 +19,10 @@ import java.util.UUID;
 public final class GodWorshipService {
     public interface Policy {
         boolean enabled(GodId god);
+        String unlockResource(GodId god);
+        String upgradeResource(GodId god);
+        EffectResolver.Stat primaryChannel(GodId god);
+        EffectResolver.Stat secondaryChannel(GodId god);
         BigDecimal unlockCost(GodId god);
         BigDecimal upgradeCost(GodId god, long currentLevel);
         long chargeRequired(GodId god);
@@ -51,7 +56,7 @@ public final class GodWorshipService {
         State state = run.gods.get(god);
         if (state.unlocked) return MutationResult.DUPLICATE;
         BigDecimal cost = nonNegative(policy.unlockCost(god));
-        String resource = GodWorshipModel.definition(god).resource;
+        String resource = policy.unlockResource(god);
         if (!resources.spendPlayerResource(playerUuid, resource, cost)) return MutationResult.INSUFFICIENT_RESOURCE;
         try {
             state.unlocked = true;
@@ -77,7 +82,7 @@ public final class GodWorshipService {
         State state = run.gods.get(god);
         if (!state.unlocked || state.level < 1L) return MutationResult.REJECTED;
         BigDecimal cost = nonNegative(policy.upgradeCost(god, state.level));
-        String resource = GodWorshipModel.definition(god).resource;
+        String resource = policy.upgradeResource(god);
         if (!resources.spendPlayerResource(playerUuid, resource, cost)) return MutationResult.INSUFFICIENT_RESOURCE;
         try {
             if (state.level == Long.MAX_VALUE) throw new IllegalStateException("God level overflow");
@@ -146,13 +151,8 @@ public final class GodWorshipService {
         return run;
     }
 
-    public synchronized GodWorshipModel.RunState runState(UUID playerUuid) {
-        return repository.loadRunState(playerUuid);
-    }
-
-    public synchronized GodWorshipModel.PersistentState persistentState(UUID playerUuid) {
-        return repository.loadPersistentState(playerUuid);
-    }
+    public synchronized GodWorshipModel.RunState runState(UUID playerUuid) { return repository.loadRunState(playerUuid); }
+    public synchronized GodWorshipModel.PersistentState persistentState(UUID playerUuid) { return repository.loadPersistentState(playerUuid); }
 
     /** Centralized Mastery Reset hook. Preferences/meta/Offerings live in persistent state and remain untouched. */
     public synchronized void onMasteryReset(UUID playerUuid, boolean preserveGodProgression) {
