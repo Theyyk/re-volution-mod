@@ -1,5 +1,6 @@
 package com.example.revolution.lifecycle;
 
+import com.example.revolution.achievement.AchievementPersistenceHandler;
 import com.example.revolution.aura.event.AuraDamageHandler;
 import com.example.revolution.combat.DamageBonusHandler;
 import com.example.revolution.combat.LegacyAttackCooldownHandler;
@@ -71,10 +72,12 @@ public final class ServerLifecycle {
     private static void initialize() {
         if (current != null) return;
         current = new ServerServices(logger, dedicatedServer, configDirectory);
+        current.achievements.setLifecycleEventSink(current.gameplayEvents);
         if (!dedicatedServer) return;
         current.connect();
         current.adminAccess.init(configDirectory);
         listeners.add(new PlayerJoinHandler(current.sessions));
+        listeners.add(new AchievementPersistenceHandler(current.achievements));
         listeners.add(new GodWorshipRuntimeHandler(current.godAutomation));
         listeners.add(new RpgSurvivalGuard());
         listeners.add(new RealmLoginHandler(current.realms));
