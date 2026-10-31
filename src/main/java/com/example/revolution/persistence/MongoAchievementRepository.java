@@ -31,7 +31,14 @@ public final class MongoAchievementRepository implements AchievementRepository, 
     public AchievementPlayerState load(UUID playerUuid) {
         if (playerUuid == null || !enabled || !connection.isConnected()) return new AchievementPlayerState();
         Document player = connection.collection("players").find(new Document("_id", playerUuid.toString())).first();
-        return player == null ? new AchievementPlayerState() : decode(player.get("achievementState", Document.class));
+        if (player == null) return new AchievementPlayerState();
+        Document stored = player.get("achievementState", Document.class);
+        if (stored != null) return decode(stored);
+
+        AchievementPlayerState migrated = migrateFromV29(player);
+        connection.collection("players").updateOne(new Document("_id", playerUuid.toString()),
+                new Document("$set", new Document("achievementState", encode(migrated))));
+        return migrated;
     }
 
     @Override
@@ -45,6 +52,16 @@ public final class MongoAchievementRepository implements AchievementRepository, 
     public boolean commit(UUID playerUuid, String achievementId, int expectedPriorClaimedStage,
                           AchievementStage stage, AchievementPlayerState nextState) {
         return atomicClaims.commit(playerUuid, achievementId, expectedPriorClaimedStage, stage, nextState);
+    }
+
+    /** Only facts with exact v2.9 lifetime semantics are bootstrapped; unrecoverable history stays zero. */
+    static AchievementPlayerState migrateFromV29(Document player) {
+        AchievementPlayerState state = new AchievementPlayerState();
+        if (player == null) return state;
+        Document aura = player.get("auraState", Document.class);
+        long chestDrops = aura == null ? 0L : Math.max(0L, number(aura.get("totalChestAuraDrops")));
+        if (chestDrops > 0L) state.achievementProgress.put("aura_drops", BigDecimal.valueOf(chestDrops));
+        return state;
     }
 
     static Document encode(AchievementPlayerState state) {
