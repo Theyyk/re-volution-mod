@@ -13,7 +13,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-// Stable release metadata for v2.5.0.
+// Stable release metadata for v2.5.0 (release branch).
 version = '2.5.0'
 group = 'com.example.revolution'
 archivesBaseName = 'RE-volution'
