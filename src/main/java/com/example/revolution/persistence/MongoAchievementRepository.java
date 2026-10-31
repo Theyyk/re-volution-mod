@@ -54,13 +54,48 @@ public final class MongoAchievementRepository implements AchievementRepository, 
         return atomicClaims.commit(playerUuid, achievementId, expectedPriorClaimedStage, stage, nextState);
     }
 
-    /** Only facts with exact v2.9 lifetime semantics are bootstrapped; unrecoverable history stays zero. */
+    /** Only facts that v2.9 persisted unambiguously are bootstrapped; unrecoverable history stays zero. */
+    @SuppressWarnings("unchecked")
     static AchievementPlayerState migrateFromV29(Document player) {
         AchievementPlayerState state = new AchievementPlayerState();
         if (player == null) return state;
+
         Document aura = player.get("auraState", Document.class);
         long chestDrops = aura == null ? 0L : Math.max(0L, number(aura.get("totalChestAuraDrops")));
         if (chestDrops > 0L) state.achievementProgress.put("aura_drops", BigDecimal.valueOf(chestDrops));
+
+        Document petSystem = player.get("petSystem", Document.class);
+        if (petSystem != null) {
+            Document pets = petSystem.get("pets", Document.class);
+            if (pets != null) for (String petId : pets.keySet()) addStableId(state.everObtainedPetIds, petId);
+            Document run = petSystem.get("run", Document.class);
+            if (run != null) {
+                List<Object> purchased = (List<Object>) run.get("purchasedPetIds");
+                addStrings(state.everObtainedPetIds, purchased);
+            }
+        }
+        if (!state.everObtainedPetIds.isEmpty()) {
+            state.achievementProgress.put("pets_obtained", BigDecimal.valueOf(state.everObtainedPetIds.size()));
+        }
+
+        Document prestige = player.get("prestige", Document.class);
+        if (prestige != null) {
+            Document activeRun = prestige.get("activeRun", Document.class);
+            if (activeRun != null) addStableId(state.everSelectedMasteryIds, activeRun.getString("branch"));
+            Document branches = prestige.get("branches", Document.class);
+            if (branches != null) for (String branchId : branches.keySet()) {
+                Document branch = branches.get(branchId, Document.class);
+                if (branch == null) continue;
+                Document rankMetaLevels = branch.get("rankMetaLevels", Document.class);
+                boolean factualHistory = decimal(branch.get("bestSavedProgress")).signum() > 0
+                        || integer(branch.get("masteryTier")) > 0
+                        || (rankMetaLevels != null && !rankMetaLevels.isEmpty());
+                if (factualHistory) addStableId(state.everSelectedMasteryIds, branchId);
+            }
+        }
+        if (!state.everSelectedMasteryIds.isEmpty()) {
+            state.achievementProgress.put("mastery_branches", BigDecimal.valueOf(state.everSelectedMasteryIds.size()));
+        }
         return state;
     }
 
@@ -109,7 +144,11 @@ public final class MongoAchievementRepository implements AchievementRepository, 
 
     private static void addStrings(Set<String> target, List<Object> stored) {
         if (stored == null) return;
-        for (Object value : stored) if (value != null && !String.valueOf(value).trim().isEmpty()) target.add(String.valueOf(value));
+        for (Object value : stored) if (value != null) addStableId(target, String.valueOf(value));
+    }
+
+    private static void addStableId(Set<String> target, String value) {
+        if (value != null && !value.trim().isEmpty()) target.add(value.trim());
     }
 
     private static BigDecimal decimal(Object value) {
