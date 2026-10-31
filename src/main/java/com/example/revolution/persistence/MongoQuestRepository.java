@@ -39,10 +39,14 @@ public final class MongoQuestRepository implements QuestRepository {
     static Document encode(QuestPlayerState state) {
         List<Document> board = new ArrayList<>();
         for (QuestEntry entry : state.boardEntries) {
+            Document filters = new Document();
+            for (Map.Entry<String, String> filter : entry.filters.entrySet()) {
+                filters.append(filter.getKey(), filter.getValue());
+            }
             board.add(new Document("entryId", entry.entryId)
                     .append("templateId", entry.templateId)
                     .append("eventType", entry.eventType == null ? null : entry.eventType.name())
-                    .append("filters", new Document(entry.filters))
+                    .append("filters", filters)
                     .append("target", exact(entry.target))
                     .append("progress", exact(entry.progress))
                     .append("state", entry.state.name())
