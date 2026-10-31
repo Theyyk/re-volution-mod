@@ -12,10 +12,13 @@ import com.example.revolution.commands.LocationCommand;
 import com.example.revolution.commands.PrestigeCommand;
 import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.commands.StageCommand;
+import com.example.revolution.god.event.GodWorshipDamageHandler;
+import com.example.revolution.god.event.GodWorshipRuntimeHandler;
 import com.example.revolution.location.event.FastAutoHandler;
 import com.example.revolution.location.event.StageTransitionTriggerHandler;
 import com.example.revolution.mob.event.ManagedMobAppearanceEvents;
 import com.example.revolution.mob.event.ManagedMobEvents;
+import com.example.revolution.network.GodWorshipRequestLimiter;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
 import com.example.revolution.pet.event.PetRuntimeHandler;
@@ -70,6 +73,7 @@ public final class ServerLifecycle {
         current.connect();
         current.adminAccess.init(configDirectory);
         listeners.add(new PlayerJoinHandler(current.sessions));
+        listeners.add(new GodWorshipRuntimeHandler(current.godAutomation));
         listeners.add(new RpgSurvivalGuard());
         listeners.add(new RealmLoginHandler(current.realms));
         listeners.add(new RealmEntityLoadHandler());
@@ -78,6 +82,7 @@ public final class ServerLifecycle {
         listeners.add(new LegacyAttackCooldownHandler(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new PrestigeDamageEffectHandler(current.mobs, current.effects));
+        listeners.add(new GodWorshipDamageHandler(current.mobs, current.godModifiers));
         listeners.add(new PoisonMobPauseHandler(current.mobs));
         listeners.add(new RuneStatusTickHandler(current.mobs, current.combat));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
@@ -146,6 +151,7 @@ public final class ServerLifecycle {
         ServerServices stopping = current;
         current = null;
         RateLimitedPingPacketHandler.reset();
+        GodWorshipRequestLimiter.reset();
         try {
             if (stopping != null) stopping.close();
         } finally {

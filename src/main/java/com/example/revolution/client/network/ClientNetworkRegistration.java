@@ -1,6 +1,8 @@
 package com.example.revolution.client.network;
 
 import com.example.revolution.network.FastAutoTogglePacket;
+import com.example.revolution.network.GodWorshipActionPacket;
+import com.example.revolution.network.GodWorshipSnapshotPacket;
 import com.example.revolution.network.MobZoneOverlayPacket;
 import com.example.revolution.network.MobZoneOverlayRequestPacket;
 import com.example.revolution.network.NetworkHandler;
@@ -40,5 +42,7 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(PetSnapshotPacketHandler.class, PetSnapshotPacket.class, 16, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(QuestActionPacketClientHandler.class, QuestActionPacket.class, 17, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(QuestSnapshotPacketHandler.class, QuestSnapshotPacket.class, 18, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(GodWorshipActionPacketClientHandler.class, GodWorshipActionPacket.class, 19, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(GodWorshipSnapshotPacketHandler.class, GodWorshipSnapshotPacket.class, 20, Side.CLIENT);
     }
 }
