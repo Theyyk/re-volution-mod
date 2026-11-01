@@ -22,6 +22,7 @@ public final class ResourceService {
     private final ResourceRepository repository;
     private final EffectResolver effects;
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
+    private RewardMultiplier uniqueRuneRewardMultiplier = IDENTITY_REWARD;
     private RewardMultiplier achievementRewardMultiplier = IDENTITY_REWARD;
     private RewardMultiplier lateRewardMultiplier = IDENTITY_REWARD;
 
@@ -36,7 +37,12 @@ public final class ResourceService {
         this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
-    /** Dedicated permanent Achievement layer: normal effects -> Achievement -> Aura late layer. */
+    /** v2.11.0 permanent layer: normal effects -> Unique Rune -> later permanent layers. */
+    public void setUniqueRuneRewardMultiplier(RewardMultiplier uniqueRuneRewardMultiplier) {
+        this.uniqueRuneRewardMultiplier = uniqueRuneRewardMultiplier == null ? IDENTITY_REWARD : uniqueRuneRewardMultiplier;
+    }
+
+    /** Dedicated permanent Achievement layer retained after the Unique Rune layer. */
     public void setAchievementRewardMultiplier(RewardMultiplier achievementRewardMultiplier) {
         this.achievementRewardMultiplier = achievementRewardMultiplier == null ? IDENTITY_REWARD : achievementRewardMultiplier;
     }
@@ -67,17 +73,18 @@ public final class ResourceService {
     }
 
     /**
-     * Grants an authoritative earned reward. Normal effects are resolved first, then the permanent
-     * Achievement layer, then the dedicated Aura late layer. Observers receive exactly the persisted amount.
+     * Grants an authoritative earned reward. Normal effects are resolved first, then Unique Rune,
+     * then Achievement, then the Aura late layer. Observers receive exactly the persisted amount.
      */
     public synchronized boolean grantEarnedPlayerResource(UUID uuid, String resource, BigDecimal baseAmount) {
         String canonical = findCanonicalName(resource);
         if (canonical == null || uuid == null || baseAmount == null || baseAmount.signum() < 0) return false;
         if (baseAmount.signum() == 0) return true;
         BigDecimal normal = rewardMultiplier(uuid, canonical);
+        BigDecimal uniqueRune = safeMultiplier(uniqueRuneRewardMultiplier.multiplier(uuid, canonical));
         BigDecimal achievement = safeMultiplier(achievementRewardMultiplier.multiplier(uuid, canonical));
         BigDecimal late = safeMultiplier(lateRewardMultiplier.multiplier(uuid, canonical));
-        BigDecimal granted = LargeNumbers.normalize(baseAmount.multiply(normal).multiply(achievement).multiply(late));
+        BigDecimal granted = LargeNumbers.normalize(baseAmount.multiply(normal).multiply(uniqueRune).multiply(achievement).multiply(late));
         if (granted.signum() <= 0) return true;
         BigDecimal next = LargeNumbers.normalize(repository.getPlayerResourceValue(uuid, canonical).add(granted));
         repository.writePlayerResource(uuid, canonical, next);
