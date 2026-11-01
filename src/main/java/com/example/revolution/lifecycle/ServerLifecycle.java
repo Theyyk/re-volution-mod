@@ -91,9 +91,9 @@ public final class ServerLifecycle {
         listeners.add(new LegacyAttackCooldownHandler(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new PrestigeDamageEffectHandler(current.mobs, current.effects));
-        listeners.add(new UniqueRuneDamageHandler(current.mobs, current.uniqueRuneModifiers));
-        listeners.add(new GodWorshipDamageHandler(current.mobs, current.godModifiers));
-        listeners.add(new AuraDamageHandler(current.mobs, current.auraModifiers));
+        listeners.add(new UniqueRuneDamageHandler(current.mobs, current.uniqueRuneModifiers, current.mechanicUnlocks));
+        listeners.add(new GodWorshipDamageHandler(current.mobs, current.godModifiers, current.mechanicUnlocks));
+        listeners.add(new AuraDamageHandler(current.mobs, current.auraModifiers, current.mechanicUnlocks));
         listeners.add(new PoisonMobPauseHandler(current.mobs));
         listeners.add(new RuneStatusTickHandler(current.mobs, current.combat));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
