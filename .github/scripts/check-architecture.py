@@ -97,6 +97,8 @@ def validate():
         'client/network/AuraSnapshotPacketHandler.java',
         'client/network/AchievementActionPacketClientHandler.java',
         'client/network/AchievementSnapshotPacketHandler.java',
+        'client/network/UniqueRuneActionPacketClientHandler.java',
+        'client/network/UniqueRuneSnapshotPacketHandler.java',
         'client/input/KeyInputHandler.java',
         'client/input/EnhancementClickGuard.java',
         'mob/event/ManagedMobEvents.java',
@@ -106,6 +108,9 @@ def validate():
         'god/event/GodWorshipRuntimeHandler.java',
         'god/event/GodWorshipDamageHandler.java',
         'aura/event/AuraDamageHandler.java',
+        'unique/event/UniqueRuneDamageHandler.java',
+        'network/UniqueRuneActionPacketHandler.java',
+        'network/UniqueRuneSnapshotPacketServerHandler.java',
     }
     missing_adapters = sorted(required_adapter_paths.difference(source_map))
     assert not missing_adapters, 'Adapter package topology regressed: ' + ', '.join(missing_adapters)
@@ -130,6 +135,12 @@ def validate():
     assert 'AuraRequestLimiter.reset()' in source_map['lifecycle/ServerLifecycle.java'], 'Aura limiter not reset by lifecycle'
     assert 'AchievementRequestLimiter.reset()' in source_map['lifecycle/ServerLifecycle.java'], 'Achievement limiter not reset by lifecycle'
     assert 'stopping.close()' in source_map['lifecycle/ServerLifecycle.java'], 'Server graph not closed'
+
+    lifecycle = source_map['lifecycle/ServerLifecycle.java']
+    unique_pos = lifecycle.index('new UniqueRuneDamageHandler')
+    god_pos = lifecycle.index('new GodWorshipDamageHandler')
+    aura_pos = lifecycle.index('new AuraDamageHandler')
+    assert unique_pos < god_pos < aura_pos, 'Unique Rune modifier layer must register before GOD and AURA'
 
     nio_types = r'(?:Byte|Char|Double|Float|Int|Long|Short)Buffer'
     nio_mutators = r'(?:clear|flip|rewind|mark|reset|position|limit)'
@@ -156,6 +167,7 @@ def validate():
             ('GodWorshipActionPacket', 19, 'SERVER'), ('GodWorshipSnapshotPacket', 20, 'CLIENT'),
             ('AuraActionPacket', 21, 'SERVER'), ('AuraSnapshotPacket', 22, 'CLIENT'),
             ('AchievementActionPacket', 23, 'SERVER'), ('AchievementSnapshotPacket', 24, 'CLIENT'),
+            ('UniqueRuneActionPacket', 25, 'SERVER'), ('UniqueRuneSnapshotPacket', 26, 'CLIENT'),
         ],
         'client/network/ClientNetworkRegistration.java': [
             ('PingPacket', 0, 'CLIENT'), ('PongPacket', 1, 'CLIENT'), ('RuneSlotPacket', 2, 'CLIENT'),
@@ -169,6 +181,7 @@ def validate():
             ('GodWorshipActionPacket', 19, 'CLIENT'), ('GodWorshipSnapshotPacket', 20, 'CLIENT'),
             ('AuraActionPacket', 21, 'CLIENT'), ('AuraSnapshotPacket', 22, 'CLIENT'),
             ('AchievementActionPacket', 23, 'CLIENT'), ('AchievementSnapshotPacket', 24, 'CLIENT'),
+            ('UniqueRuneActionPacket', 25, 'CLIENT'), ('UniqueRuneSnapshotPacket', 26, 'CLIENT'),
         ],
     }
     for path, expected in expected_registrations.items():
@@ -189,6 +202,8 @@ def validate():
         assert ('AuraSnapshotPacket', 22, 'CLIENT') in compact, path + ': discriminator 22 changed'
         assert ('AchievementActionPacket', 23, 'SERVER' if path.startswith('network/') else 'CLIENT') in compact, path + ': discriminator 23 changed'
         assert ('AchievementSnapshotPacket', 24, 'CLIENT') in compact, path + ': discriminator 24 changed'
+        assert ('UniqueRuneActionPacket', 25, 'SERVER' if path.startswith('network/') else 'CLIENT') in compact, path + ': discriminator 25 changed'
+        assert ('UniqueRuneSnapshotPacket', 26, 'CLIENT') in compact, path + ': discriminator 26 changed'
         if path.startswith('network/'):
             assert actual[0][0] == 'RateLimitedPingPacketHandler', 'Enhancement anti-spam bypassed'
 
@@ -215,7 +230,7 @@ def validate():
             if assets[path] != actual_assets[path]: details.append('Digest mismatch: ' + path + ' expected=' + assets[path] + ' actual=' + actual_assets[path])
         raise AssertionError('Resource assets changed; review the resource contract explicitly\n' + '\n'.join(details))
     assert not errors, '\n'.join(errors)
-    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13/14/15/16/17/18/19/20/21/22/23/24, optional client and resource assets passed.')
+    print('Architecture boundaries, adapter topology, early Java 8 NIO compatibility, mirrored runners, reserved admin IDs 5/6, discriminators 7/10/11/12/13/14/15/16/17/18/19/20/21/22/23/24/25/26, optional client and resource assets passed.')
 
 
 if __name__ == '__main__':
