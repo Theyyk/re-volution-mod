@@ -2,6 +2,7 @@ package com.example.revolution.admin.service;
 
 import com.example.revolution.admin.definition.AdminMobSnapshot;
 import com.example.revolution.admin.definition.AdminPlayerSnapshot;
+import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.mob.definition.MobDefinition;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.number.LargeNumbers;
@@ -11,6 +12,7 @@ import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.state.RuneInventory;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -108,5 +110,13 @@ public final class AdminQueryService {
 
     public List<String> resourceNames() {
         return new ArrayList<>(ResourceDefinitions.getResourceNames());
+    }
+
+    public BigDecimal resolvedEffectMultiplier(UUID playerUuid, EffectResolver.Stat stat) {
+        return resources.resolvedEffectMultiplier(playerUuid, stat);
+    }
+
+    public List<EffectResolver.Contribution> inspectResolvedEffect(UUID playerUuid, EffectResolver.Stat stat) {
+        return resources.inspectResolvedEffect(playerUuid, stat);
     }
 }
