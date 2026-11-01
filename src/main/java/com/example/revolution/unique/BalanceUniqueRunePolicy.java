@@ -7,11 +7,9 @@ import com.example.revolution.unique.UniqueRuneModel.CollectionDefinition;
 import com.example.revolution.unique.UniqueRuneModel.CollectionId;
 import com.example.revolution.unique.UniqueRuneModel.DuplicatePolicy;
 import com.example.revolution.unique.UniqueRuneModel.Effect;
-import com.example.revolution.unique.UniqueRuneModel.Rarity;
 import com.example.revolution.unique.UniqueRuneModel.RuneDefinition;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
@@ -40,8 +38,9 @@ public final class BalanceUniqueRunePolicy {
     public BigDecimal duplicatePearl() { return number("unique_rune.crystal.duplicate_pearl"); }
     public BigDecimal rollbackCrystalCost(CollectionId id) { return number(prefix(id) + ".rollback_crystal_cost"); }
     public BigDecimal enhancementPearlCost(String runeId, int currentLevel) {
+        int index = runeIndex(runeId);
         BigDecimal base = number("unique_rune.crystal.enhancement_base_cost");
-        BigDecimal growth = number("unique_rune.rune." + runeId + ".enhancement_cost_growth");
+        BigDecimal growth = decimalList("unique_rune.crystal.enhancement_cost_growth").get(index);
         return base.multiply(BigDecimal.ONE.add(growth.multiply(BigDecimal.valueOf(Math.max(0, currentLevel)))));
     }
     public String dailyExtraResource() { return value("unique_rune.daily.extra_resource"); }
@@ -49,33 +48,24 @@ public final class BalanceUniqueRunePolicy {
     public String zbtStatus() { return value("unique_rune.zbt_status"); }
 
     private CollectionDefinition build(CollectionId id, AcquisitionType acquisition, DuplicatePolicy duplicate, String stem) {
+        String p = prefix(id);
+        List<String> stats = list(p + ".effect_stats");
+        List<BigDecimal> bases = decimalList(p + ".base_values");
+        List<BigDecimal> rarityScales = decimalList(p + ".rarity_scales");
+        List<BigDecimal> enhancementSteps = id == CollectionId.CRYSTAL_COLLECTION
+                ? decimalList(p + ".enhancement_steps") : Collections.<BigDecimal>emptyList();
+        require26(stats, p + ".effect_stats"); require26(bases, p + ".base_values"); require26(rarityScales, p + ".rarity_scales");
+        if (id == CollectionId.CRYSTAL_COLLECTION) require26(enhancementSteps, p + ".enhancement_steps");
         List<RuneDefinition> runes = new ArrayList<>();
-        List<EffectResolver.Stat> rotation = Arrays.asList(
-                EffectResolver.Stat.CLICK_DAMAGE_MULTIPLIER,
-                EffectResolver.Stat.POISON_DAMAGE_MULTIPLIER,
-                EffectResolver.Stat.BURNING_DAMAGE_MULTIPLIER,
-                EffectResolver.Stat.BLEEDING_DAMAGE_MULTIPLIER,
-                EffectResolver.Stat.CURSE_DAMAGE_MULTIPLIER,
-                EffectResolver.Stat.WITHER_DAMAGE_MULTIPLIER,
-                EffectResolver.Stat.DECAY_DAMAGE_MULTIPLIER,
-                EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER,
-                EffectResolver.Stat.COIN_REWARD_MULTIPLIER,
-                EffectResolver.Stat.RUNE_DUST_REWARD_MULTIPLIER,
-                EffectResolver.Stat.RUNE_SHARDS_REWARD_MULTIPLIER,
-                EffectResolver.Stat.RUNE_CORES_REWARD_MULTIPLIER,
-                EffectResolver.Stat.VULNERABILITY_MULTIPLIER,
-                EffectResolver.Stat.EFFECTIVENESS_MULTIPLIER);
-        for (int i = 1; i <= UniqueRuneModel.RUNES_PER_COLLECTION; i++) {
-            String runeId = String.format("%s_%02d", stem, i);
-            String runePrefix = "unique_rune.rune." + runeId;
-            BigDecimal base = number(runePrefix + ".base");
-            BigDecimal rarityScale = number(runePrefix + ".rarity_scale");
-            BigDecimal enhancementStep = id == CollectionId.CRYSTAL_COLLECTION ? number(runePrefix + ".enhancement_step") : BigDecimal.ZERO;
-            EffectResolver.Stat stat = rotation.get((i - 1) % rotation.size());
+        for (int i = 0; i < UniqueRuneModel.RUNES_PER_COLLECTION; i++) {
+            String runeId = String.format("%s_%02d", stem, i + 1);
+            EffectResolver.Stat stat = EffectResolver.Stat.valueOf(stats.get(i));
+            BigDecimal enhancementStep = id == CollectionId.CRYSTAL_COLLECTION ? enhancementSteps.get(i) : BigDecimal.ZERO;
             List<Effect> effects = new ArrayList<>();
-            effects.add(new Effect(stat, base, rarityScale, enhancementStep));
-            if (i == 26) effects.add(new Effect(EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER, base.divide(BigDecimal.valueOf(2)), rarityScale, enhancementStep));
-            runes.add(new RuneDefinition(runeId, id, value(runePrefix + ".name"), effects));
+            effects.add(new Effect(stat, bases.get(i), rarityScales.get(i), enhancementStep));
+            if (i == 25) effects.add(new Effect(EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER,
+                    bases.get(i).divide(BigDecimal.valueOf(2)), rarityScales.get(i), enhancementStep));
+            runes.add(new RuneDefinition(runeId, id, technicalName(stem, i + 1), effects));
         }
         return new CollectionDefinition(id, acquisition, duplicate, runes);
     }
@@ -87,6 +77,27 @@ public final class BalanceUniqueRunePolicy {
             case OFFERINGS_COLLECTION: return "unique_rune.offerings";
             default: throw new IllegalArgumentException("unknown collection");
         }
+    }
+    private static String technicalName(String stem, int number) {
+        return Character.toUpperCase(stem.charAt(0)) + stem.substring(1) + " Rune " + String.format("%02d", number);
+    }
+    private static int runeIndex(String runeId) {
+        if (runeId == null || !runeId.startsWith("crystal_") || runeId.length() != 10) throw new IllegalArgumentException("Unknown Crystal Rune: " + runeId);
+        try {
+            int value = Integer.parseInt(runeId.substring(8));
+            if (value < 1 || value > 26) throw new IllegalArgumentException("Unknown Crystal Rune: " + runeId);
+            return value - 1;
+        } catch (NumberFormatException e) { throw new IllegalArgumentException("Unknown Crystal Rune: " + runeId); }
+    }
+    private static void require26(List<?> values, String key) {
+        if (values.size() != UniqueRuneModel.RUNES_PER_COLLECTION) throw new IllegalArgumentException(key + " must contain 26 values");
+    }
+    private List<String> list(String key) {
+        String[] split = value(key).split(","); List<String> result = new ArrayList<>();
+        for (String item : split) result.add(item.trim()); return result;
+    }
+    private List<BigDecimal> decimalList(String key) {
+        List<BigDecimal> result = new ArrayList<>(); for (String item : list(key)) result.add(new BigDecimal(item)); return result;
     }
     private boolean bool(String key) { return Boolean.parseBoolean(value(key)); }
     private BigDecimal number(String key) { return new BigDecimal(value(key)); }
