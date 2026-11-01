@@ -33,6 +33,7 @@ import com.example.revolution.realm.event.RealmEntityLoadHandler;
 import com.example.revolution.realm.event.RealmLoginHandler;
 import com.example.revolution.realm.world.RealmStartupSync;
 import com.example.revolution.rune.event.RuneStatusTickHandler;
+import com.example.revolution.unique.event.UniqueRuneDamageHandler;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -88,6 +89,7 @@ public final class ServerLifecycle {
         listeners.add(new LegacyAttackCooldownHandler(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new PrestigeDamageEffectHandler(current.mobs, current.effects));
+        listeners.add(new UniqueRuneDamageHandler(current.mobs, current.uniqueRuneModifiers));
         listeners.add(new GodWorshipDamageHandler(current.mobs, current.godModifiers));
         listeners.add(new AuraDamageHandler(current.mobs, current.auraModifiers));
         listeners.add(new PoisonMobPauseHandler(current.mobs));
@@ -161,6 +163,7 @@ public final class ServerLifecycle {
         GodWorshipRequestLimiter.reset();
         AuraRequestLimiter.reset();
         AchievementRequestLimiter.reset();
+        if (stopping != null) stopping.uniqueRunes.clearReplayState();
         try {
             if (stopping != null) stopping.close();
         } finally {
