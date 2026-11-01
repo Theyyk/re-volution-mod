@@ -39,6 +39,8 @@ public class NetworkHandler {
         INSTANCE.registerMessage(AchievementSnapshotPacketServerHandler.class, AchievementSnapshotPacket.class, 24, Side.CLIENT);
         INSTANCE.registerMessage(UniqueRuneActionPacketHandler.class, UniqueRuneActionPacket.class, 25, Side.SERVER);
         INSTANCE.registerMessage(UniqueRuneSnapshotPacketServerHandler.class, UniqueRuneSnapshotPacket.class, 26, Side.CLIENT);
+        INSTANCE.registerMessage(MechanicUnlockActionPacketHandler.class, MechanicUnlockActionPacket.class, 27, Side.SERVER);
+        INSTANCE.registerMessage(MechanicUnlockSnapshotPacketServerHandler.class, MechanicUnlockSnapshotPacket.class, 28, Side.CLIENT);
     }
 
     public static boolean clientHasRevolutionMod(EntityPlayerMP player) {
