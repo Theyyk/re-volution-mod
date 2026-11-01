@@ -2,9 +2,9 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v2.11.0`.**
+**Стабильная версия: `v2.12.0`.**
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.11.0](docs/releases/v2.11.0.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.12.0](docs/releases/v2.12.0.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -105,6 +105,7 @@ Gameplay-мод не должен содержать приватные signing 
 
 - Адаптивный GUI со статистикой, ресурсами, персонажем, рунами, питомцами, Aura System и навигацией.
 - Rune System содержит семь фиксированных коллекций по 26 persistent slots каждая; Collection 1 сохраняет существующий CLICK + POISON контракт.
+- Mechanic Unlock System использует historical maximum прогресса только Standard Rune Collections: достижение Balance Core requirement делает механику eligible, после чего игрок вручную открывает её permanent-кнопкой `Unlock`; reset/re-obtain не позволяет повторно фармить progress.
 - Unique Rune Collections содержат три отдельные permanent коллекции по 26 рун: Crystal, Daily и Offerings, с server-authoritative acquisition, Awakening, rollback, Share и отдельным modifier layer.
 - Следующая коллекция permanently открывается после первого достижения `13/13` factual рун ранга `IMPROVED` или выше в предыдущей коллекции и после этого не закрывается.
 - Pet System содержит 8 run-scoped normal slots и 2 permanent premium slots, server-authoritative покупку/выбор, Awakening, cooldown и Rank Revert.

@@ -27,7 +27,8 @@ public final class BalanceBootstrap {
             "/balance/v2.8.0-god-worship.json",
             "/balance/v2.9.0-auras.json",
             "/balance/v2.10.0-achievements.json",
-            "/balance/v2.11.0-unique-runes.json"
+            "/balance/v2.11.0-unique-runes.json",
+            "/balance/v2.12.0-mechanic-unlocks.json"
     };
 
     private BalanceBootstrap() {}

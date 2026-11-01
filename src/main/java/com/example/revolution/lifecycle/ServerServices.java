@@ -44,6 +44,8 @@ import com.example.revolution.location.service.StageMobBootstrapService;
 import com.example.revolution.location.service.StageTransitionService;
 import com.example.revolution.location.service.StageTransitionTriggerService;
 import com.example.revolution.location.world.REBuilderAdapter;
+import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
+import com.example.revolution.mechanic.MechanicUnlockService;
 import com.example.revolution.mob.repository.MobProgressionRepository;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.BalanceAwareMobRepository;
@@ -63,6 +65,7 @@ import com.example.revolution.persistence.MongoLocationBuildTemplateRepository;
 import com.example.revolution.persistence.MongoLocationGenerationRepository;
 import com.example.revolution.persistence.MongoLocationRepository;
 import com.example.revolution.persistence.MongoLocationStageTemplateRepository;
+import com.example.revolution.persistence.MongoMechanicUnlockRepository;
 import com.example.revolution.persistence.MongoMobProgressionRepository;
 import com.example.revolution.persistence.MongoMobRepository;
 import com.example.revolution.persistence.MongoPetRepository;
@@ -137,6 +140,7 @@ public final class ServerServices implements AutoCloseable {
     private final boolean persistentGameplay;
     public final AdminAccessService adminAccess = new AdminAccessService(new FileAdminWhitelistRepository());
     public final BalanceService balance;
+    public final MechanicUnlockService mechanicUnlocks;
     public final ResourceService resources;
     public final RuneActionService runeActions;
     public final AdminOperationsService adminOperations;
@@ -195,6 +199,10 @@ public final class ServerServices implements AutoCloseable {
         PetRepository petRepository = new MongoPetRepository(connection, persistentGameplay);
 
         balance = BalanceBootstrap.activateBundledDefaults();
+        mechanicUnlocks = new MechanicUnlockService(
+                players,
+                new MongoMechanicUnlockRepository(connection, persistentGameplay),
+                new BalanceMechanicUnlockPolicy(balance));
         MongoGodWorshipRepository godRepository = new MongoGodWorshipRepository(connection, persistentGameplay);
         MongoAuraRepository auraRepository = new MongoAuraRepository(connection, persistentGameplay);
         UniqueRuneRepository uniqueRuneRepository = new MongoUniqueRuneRepository(connection, persistentGameplay);
@@ -211,16 +219,20 @@ public final class ServerServices implements AutoCloseable {
                 runePrestigeReset::reset,
                 new BalanceMasteryTierPolicy(balance),
                 (playerUuid, mode) -> {
-                    if (!godPolicy.featureEnabled(GodWorshipModel.FeatureGate.GOD_RESET_PRESERVATION)) {
+                    if (!godPolicy.featureEnabled(GodWorshipModel.FeatureGate.GOD_RESET_PRESERVATION)
+                            || !mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.GOD_RESET_PRESERVATION)) {
                         godRepository.resetRunState(playerUuid);
                     }
                 });
         prestige.setFragmentRewardProvider(branch -> new BigDecimal(balance.getActiveValue(
                 "prestige.fragment_reward." + branch.name().toLowerCase(Locale.ROOT) + ".per_level")));
+        prestige.setEffectAccessGate(playerUuid -> mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.ARTS));
         effects = new EffectResolver();
         effects.register(prestige);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
-        resources.setUniqueRuneRewardMultiplier(uniqueRuneModifiers::resourceMultiplier);
+        resources.setUniqueRuneRewardMultiplier((playerUuid, canonicalResource) ->
+                mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS)
+                        ? uniqueRuneModifiers.resourceMultiplier(playerUuid, canonicalResource) : BigDecimal.ONE);
 
         achievementPolicy = new BalanceAchievementPolicy(balance);
         achievements = new AchievementService(
@@ -228,11 +240,15 @@ public final class ServerServices implements AutoCloseable {
                 BalanceAchievementCatalogFactory.fromBalance(balance),
                 new CanonicalAchievementRewardGateway(resources, godRepository));
         achievementBonus = new AchievementEconomyBonusService(achievements, achievementPolicy);
-        resources.setAchievementRewardMultiplier(achievementBonus::multiplier);
+        resources.setAchievementRewardMultiplier((playerUuid, canonicalResource) ->
+                mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.ACHIEVEMENTS)
+                        ? achievementBonus.multiplier(playerUuid, canonicalResource) : BigDecimal.ONE);
 
         auras = new AuraService(auraRepository, resources, auraPolicy);
         auraModifiers = new AuraModifierService(auraRepository);
-        resources.setLateRewardMultiplier(auraModifiers::resourceMultiplier);
+        resources.setLateRewardMultiplier((playerUuid, canonicalResource) ->
+                mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.AURA_SYSTEM)
+                        ? auraModifiers.resourceMultiplier(playerUuid, canonicalResource) : BigDecimal.ONE);
         gods = new GodWorshipService(godRepository, resources, godPolicy);
         godAutomation = new GodWorshipAutomationService(godRepository, godPolicy);
         godModifiers = new GodWorshipModifierService(godRepository, godPolicy);
@@ -256,6 +272,7 @@ public final class ServerServices implements AutoCloseable {
         pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
         pets.setGameplayEventSink(gameplayEvents);
         runExchange = new RunExchangeService(prestige, resources, pets, balance, RunExchangeCatalogFactory.fromBalance(balance));
+        runExchange.setAccessGate(playerUuid -> mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.RUN_EXCHANGE));
         runExchange.setGameplayEventSink(gameplayEvents);
         petEffects = new PetEffectSource(petRepository, petCatalog, petBalance);
         effects.register(petEffects);
@@ -280,7 +297,7 @@ public final class ServerServices implements AutoCloseable {
         runePurchase.setGameplayEventSink(gameplayEvents);
         runeEnhancement.setGameplayEventSink(gameplayEvents);
         runeAwakening.setGameplayEventSink(gameplayEvents);
-        runeActions = new RuneActionService(players, stats, runePurchase, runeEnhancement, runeAwakening, sync);
+        runeActions = new RuneActionService(players, stats, runePurchase, runeEnhancement, runeAwakening, sync, mechanicUnlocks);
         mobProgression = new MobProgressionService(progressionRepository);
 
         uniqueRunes = new UniqueRuneService(
