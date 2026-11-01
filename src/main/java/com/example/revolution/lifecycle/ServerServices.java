@@ -226,12 +226,13 @@ public final class ServerServices implements AutoCloseable {
                 });
         prestige.setFragmentRewardProvider(branch -> new BigDecimal(balance.getActiveValue(
                 "prestige.fragment_reward." + branch.name().toLowerCase(Locale.ROOT) + ".per_level")));
+        prestige.setEffectAccessGate(playerUuid -> mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.ARTS));
         effects = new EffectResolver();
         effects.register(prestige);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
-        resources.setUniqueRuneRewardMultiplier(playerUuid ->
+        resources.setUniqueRuneRewardMultiplier((playerUuid, canonicalResource) ->
                 mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS)
-                        ? uniqueRuneModifiers.resourceMultiplier(playerUuid) : BigDecimal.ONE);
+                        ? uniqueRuneModifiers.resourceMultiplier(playerUuid, canonicalResource) : BigDecimal.ONE);
 
         achievementPolicy = new BalanceAchievementPolicy(balance);
         achievements = new AchievementService(
@@ -239,15 +240,15 @@ public final class ServerServices implements AutoCloseable {
                 BalanceAchievementCatalogFactory.fromBalance(balance),
                 new CanonicalAchievementRewardGateway(resources, godRepository));
         achievementBonus = new AchievementEconomyBonusService(achievements, achievementPolicy);
-        resources.setAchievementRewardMultiplier(playerUuid ->
+        resources.setAchievementRewardMultiplier((playerUuid, canonicalResource) ->
                 mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.ACHIEVEMENTS)
-                        ? achievementBonus.multiplier(playerUuid) : BigDecimal.ONE);
+                        ? achievementBonus.multiplier(playerUuid, canonicalResource) : BigDecimal.ONE);
 
         auras = new AuraService(auraRepository, resources, auraPolicy);
         auraModifiers = new AuraModifierService(auraRepository);
-        resources.setLateRewardMultiplier(playerUuid ->
+        resources.setLateRewardMultiplier((playerUuid, canonicalResource) ->
                 mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.AURA_SYSTEM)
-                        ? auraModifiers.resourceMultiplier(playerUuid) : BigDecimal.ONE);
+                        ? auraModifiers.resourceMultiplier(playerUuid, canonicalResource) : BigDecimal.ONE);
         gods = new GodWorshipService(godRepository, resources, godPolicy);
         godAutomation = new GodWorshipAutomationService(godRepository, godPolicy);
         godModifiers = new GodWorshipModifierService(godRepository, godPolicy);
@@ -271,6 +272,7 @@ public final class ServerServices implements AutoCloseable {
         pets = new PetService(petRepository, petCatalog, petBalance, resources, prestige);
         pets.setGameplayEventSink(gameplayEvents);
         runExchange = new RunExchangeService(prestige, resources, pets, balance, RunExchangeCatalogFactory.fromBalance(balance));
+        runExchange.setAccessGate(playerUuid -> mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.RUN_EXCHANGE));
         runExchange.setGameplayEventSink(gameplayEvents);
         petEffects = new PetEffectSource(petRepository, petCatalog, petBalance);
         effects.register(petEffects);
