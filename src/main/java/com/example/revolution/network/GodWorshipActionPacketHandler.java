@@ -57,7 +57,8 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
         } else if ("click".equals(action)) {
             long now = System.currentTimeMillis();
             if (!GodWorshipRequestLimiter.acceptClick(player.getUniqueID(), now, services.godAutomation.clickRateLimitPerSecond(god))) return;
-            services.gods.click(player.getUniqueID(), god, now);
+            boolean duration = services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.GOD_PERMANENT_DURATION);
+            services.gods.click(player.getUniqueID(), god, now, duration);
         } else if ("auto_worship".equals(action)) {
             if (!services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.GOD_AUTO_WORSHIP)) return;
             services.godAutomation.setAutoWorship(player.getUniqueID(), god, Boolean.parseBoolean(request.getValue()));
@@ -71,19 +72,18 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
         sendSnapshot(player, services, System.currentTimeMillis());
     }
 
-    public static void sendSnapshot(EntityPlayerMP player, ServerServices services) {
-        sendSnapshot(player, services, System.currentTimeMillis());
-    }
+    public static void sendSnapshot(EntityPlayerMP player, ServerServices services) { sendSnapshot(player, services, System.currentTimeMillis()); }
 
     private static void sendSnapshot(EntityPlayerMP player, ServerServices services, long now) {
         if (!services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.GOD_WORSHIP)) return;
-        services.godAutomation.tick(player.getUniqueID(), now);
+        boolean autoUnlocked = services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.GOD_AUTO_WORSHIP);
+        boolean durationUnlocked = services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.GOD_PERMANENT_DURATION);
+        services.godAutomation.tick(player.getUniqueID(), now, autoUnlocked, durationUnlocked);
         RunState run = services.gods.runState(player.getUniqueID());
         PersistentState persistent = services.gods.persistentState(player.getUniqueID());
         List<GodWorshipSnapshotPacket.Entry> entries = new ArrayList<>();
         for (GodId god : GodId.values()) {
-            State state = run.gods.get(god);
-            Preference preference = persistent.preferences.get(god);
+            State state = run.gods.get(god); Preference preference = persistent.preferences.get(god);
             BigDecimal unlockCost = services.godPolicy.unlockCost(god);
             BigDecimal upgradeCost = state != null && state.unlocked ? services.godPolicy.upgradeCost(god, state.level) : BigDecimal.ZERO;
             BigDecimal currentMultiplier = BigDecimal.ONE.add(state != null && state.unlocked ? services.godPolicy.buffAdditiveMultiplier(god, state.level) : BigDecimal.ZERO);
@@ -92,18 +92,16 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
                     state == null || state.phase == null ? "LOCKED" : state.phase.name(), state == null ? 0L : state.buffActiveUntilMillis,
                     state == null ? 0L : state.cooldownUntilMillis, state == null ? 0L : state.chargeProgress, services.godPolicy.chargeRequired(god),
                     exact(unlockCost), exact(upgradeCost), services.godPolicy.unlockResource(god), primary == null ? "" : primary.name(),
-                    secondary == null ? "" : secondary.name(), exact(currentMultiplier), preference != null && preference.autoWorshipEnabled,
-                    preference == null || preference.activationMode == null ? "MANUAL" : preference.activationMode.name(),
-                    preference == null || preference.linkedGodId == null ? "" : preference.linkedGodId.name()));
+                    secondary == null ? "" : secondary.name(), exact(currentMultiplier), autoUnlocked && preference != null && preference.autoWorshipEnabled,
+                    autoUnlocked && preference != null && preference.activationMode != null ? preference.activationMode.name() : "MANUAL",
+                    autoUnlocked && preference != null && preference.linkedGodId != null ? preference.linkedGodId.name() : ""));
         }
-        long durationBonusMillis = services.godPolicy.permanentDurationMillis(persistent.permanentDurationLevel);
+        long durationBonusMillis = durationUnlocked ? services.godPolicy.permanentDurationMillis(persistent.permanentDurationLevel) : 0L;
         long durationBonusSeconds = durationBonusMillis == Long.MAX_VALUE ? Long.MAX_VALUE : durationBonusMillis / 1000L;
         NetworkHandler.sendToClient(new GodWorshipSnapshotPacket(entries, exact(persistent.offerings), persistent.permanentDurationLevel,
                 durationBonusSeconds, exact(services.godPolicy.durationUpgradeCost(persistent.permanentDurationLevel)),
-                services.godPolicy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION)
-                        && services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.GOD_AUTO_WORSHIP),
-                services.godPolicy.featureEnabled(FeatureGate.GOD_PERMANENT_BUFF_DURATION)
-                        && services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.GOD_PERMANENT_DURATION),
+                services.godPolicy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION) && autoUnlocked,
+                services.godPolicy.featureEnabled(FeatureGate.GOD_PERMANENT_BUFF_DURATION) && durationUnlocked,
                 services.godPolicy.featureEnabled(FeatureGate.GOD_SECONDARY_BUFFS)
                         && services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.GOD_SECONDARY_BUFFS)), player);
     }
