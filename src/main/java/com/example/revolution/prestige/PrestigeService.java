@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /** Server-authoritative Mastery run engine. Legacy Prestige names remain for compatibility. */
 public final class PrestigeService implements EffectResolver.Source {
@@ -19,6 +20,7 @@ public final class PrestigeService implements EffectResolver.Source {
     private static final AppliedResetParticipant NO_RESET_PARTICIPANT = playerUuid -> { };
     private static final AppliedMasteryResetObserver NO_MASTERY_RESET_OBSERVER = (playerUuid, mode) -> { };
     private static final FragmentRewardProvider DEFAULT_FRAGMENT_REWARDS = branch -> BigDecimal.ONE;
+    private static final Predicate<UUID> OPEN_ACCESS = playerUuid -> true;
     private final PrestigeRepository repository;
     private final PrestigeBranchRegistry registry;
     private final PrestigeResetService resets;
@@ -26,6 +28,7 @@ public final class PrestigeService implements EffectResolver.Source {
     private final AppliedMasteryResetObserver appliedMasteryResetObserver;
     private FragmentRewardProvider fragmentRewards = DEFAULT_FRAGMENT_REWARDS;
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
+    private Predicate<UUID> effectAccessGate = OPEN_ACCESS;
 
     public PrestigeService(PrestigeRepository repository, PrestigeBranchRegistry registry) {
         this(repository, registry, (player, branch) -> registry.get(branch).defaultSaveMultiplier,
@@ -68,6 +71,11 @@ public final class PrestigeService implements EffectResolver.Source {
         this.gameplayEvents = gameplayEvents == null ? GameplayEventSink.NONE : gameplayEvents;
     }
 
+    /** v2.12.0 access gate affects passive Mastery benefits only; persistent/factual state is retained. */
+    public synchronized void setEffectAccessGate(Predicate<UUID> gate) {
+        effectAccessGate = gate == null ? OPEN_ACCESS : gate;
+    }
+
     public synchronized PrestigeState.RunState startRun(UUID playerUuid, PrestigeBranch branch) {
         PrestigeState state = repository.load(playerUuid);
         if (state.activeRun != null) throw new IllegalStateException("A Mastery run is already active; reset it before switching branch");
@@ -106,7 +114,6 @@ public final class PrestigeService implements EffectResolver.Source {
                 Collections.singletonMap("branch", sourceBranch.name()), "mastery_progress"));
     }
 
-    /** Compatibility name: spends the single run-scoped spendable Fragments balance. */
     public synchronized boolean spendRunBranchCurrency(UUID playerUuid, String expectedRunId, BigDecimal amount) {
         if (playerUuid == null || expectedRunId == null || amount == null || amount.signum() < 0) return false;
         PrestigeState state = repository.load(playerUuid);
@@ -117,7 +124,6 @@ public final class PrestigeService implements EffectResolver.Source {
         return true;
     }
 
-    /** Commits exactly one resource-offer purchase against the factual expected counter. */
     public synchronized boolean recordRunExchangePurchase(UUID playerUuid, String expectedRunId, String offerId, int expectedPurchaseCount) {
         if (playerUuid == null || expectedRunId == null || offerId == null || offerId.trim().isEmpty() || expectedPurchaseCount < 0) return false;
         PrestigeState state = repository.load(playerUuid);
@@ -130,7 +136,6 @@ public final class PrestigeService implements EffectResolver.Source {
         return true;
     }
 
-    /** Authoritative Pet reward path. Threshold reach alone never calls this method. */
     public synchronized boolean addPetPendingFragments(UUID playerUuid, String expectedRunId, BigDecimal amount) {
         if (playerUuid == null || expectedRunId == null || amount == null || amount.signum() <= 0) return false;
         PrestigeState state = repository.load(playerUuid);
@@ -141,7 +146,6 @@ public final class PrestigeService implements EffectResolver.Source {
         return true;
     }
 
-    /** Moves factual pending from exactly one source into the shared Fragments balance. */
     public synchronized BigDecimal collectFragments(UUID playerUuid, String expectedRunId, FragmentSource source) {
         if (playerUuid == null || expectedRunId == null || source == null) return BigDecimal.ZERO;
         PrestigeState state = repository.load(playerUuid);
@@ -223,6 +227,7 @@ public final class PrestigeService implements EffectResolver.Source {
     public String progressSource(PrestigeBranch branch) { return registry.get(branch).progressSource.toString(); }
 
     @Override public synchronized List<EffectResolver.Contribution> contributions(UUID playerUuid, EffectResolver.Stat stat) {
+        if (!effectAccessGate.test(playerUuid)) return Collections.emptyList();
         PrestigeState state = repository.load(playerUuid);
         List<EffectResolver.Contribution> result = new ArrayList<>();
         for (PrestigeBranch branch : registry.branches()) {
