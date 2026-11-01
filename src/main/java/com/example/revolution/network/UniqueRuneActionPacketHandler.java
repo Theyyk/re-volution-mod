@@ -2,6 +2,7 @@ package com.example.revolution.network;
 
 import com.example.revolution.lifecycle.ServerLifecycle;
 import com.example.revolution.lifecycle.ServerServices;
+import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.unique.UniqueRuneModel;
 import com.example.revolution.unique.UniqueRuneService;
 import java.math.BigDecimal;
@@ -28,6 +29,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
 
     private static void handle(EntityPlayerMP player, UniqueRuneActionPacket request) {
         ServerServices services = ServerLifecycle.services();
+        if (!services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS)) return;
         String action = request.getAction();
         if ("sync".equals(action)) { sendSnapshot(player, services); return; }
         UniqueRuneModel.CollectionId collection = collection(request.getCollectionId());
@@ -43,6 +45,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
     }
 
     public static void sendSnapshot(EntityPlayerMP player, ServerServices services) {
+        if (!services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS)) return;
         UniqueRuneModel.PlayerState state = services.uniqueRunes.snapshot(player.getUniqueID());
         List<UniqueRuneSnapshotPacket.Collection> collections = new ArrayList<>();
         List<UniqueRuneSnapshotPacket.Entry> entries = new ArrayList<>();
@@ -78,11 +81,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         if (player.getServer() != null) player.getServer().getPlayerList().sendMessage(message);
     }
 
-    private static String effectText(Map<String, String> effects) {
-        if (effects == null || effects.isEmpty()) return "none"; StringBuilder out = new StringBuilder();
-        for (Map.Entry<String, String> entry : effects.entrySet()) { if (out.length() > 0) out.append(", "); out.append(entry.getKey()).append(" +").append(entry.getValue()); }
-        return out.toString();
-    }
+    private static String effectText(Map<String, String> effects) { if (effects == null || effects.isEmpty()) return "none"; StringBuilder out = new StringBuilder(); for (Map.Entry<String, String> entry : effects.entrySet()) { if (out.length() > 0) out.append(", "); out.append(entry.getKey()).append(" +").append(entry.getValue()); } return out.toString(); }
     private static UniqueRuneModel.CollectionId collection(String raw) { try { return UniqueRuneModel.CollectionId.valueOf(raw); } catch (RuntimeException ignored) { return null; } }
     private static String exact(BigDecimal value) { return value == null ? "0" : value.stripTrailingZeros().toPlainString(); }
 }
