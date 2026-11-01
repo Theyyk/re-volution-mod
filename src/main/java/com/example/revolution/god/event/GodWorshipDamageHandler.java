@@ -29,7 +29,8 @@ public final class GodWorshipDamageHandler {
         GameplayDamageSource source = GameplayDamageContext.current();
         if (source == null) source = mobs.isApplyingPoisonDamage(player.getUniqueID()) ? GameplayDamageSource.POISON : GameplayDamageSource.CLICK;
         BigDecimal before = BigDecimal.valueOf(event.getAmount());
-        BigDecimal after = modifiers.apply(player.getUniqueID(), source, before, System.currentTimeMillis());
+        boolean secondary = unlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.GOD_SECONDARY_BUFFS);
+        BigDecimal after = modifiers.apply(player.getUniqueID(), source, before, System.currentTimeMillis(), secondary);
         if (after.compareTo(before) != 0) event.setAmount(after.floatValue());
     }
 }
