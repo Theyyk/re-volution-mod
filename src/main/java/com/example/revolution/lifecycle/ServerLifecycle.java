@@ -82,7 +82,7 @@ public final class ServerLifecycle {
         current.adminAccess.init(configDirectory);
         listeners.add(new PlayerJoinHandler(current.sessions));
         listeners.add(new AchievementPersistenceHandler(current.achievements));
-        listeners.add(new GodWorshipRuntimeHandler(current.godAutomation));
+        listeners.add(new GodWorshipRuntimeHandler(current.godAutomation, current.mechanicUnlocks));
         listeners.add(new RpgSurvivalGuard());
         listeners.add(new RealmLoginHandler(current.realms));
         listeners.add(new RealmEntityLoadHandler());
