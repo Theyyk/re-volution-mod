@@ -58,6 +58,8 @@ final class AdminApiRoutes {
                             return profile == null ? "" : profile.getName();
                         }))),
                 AdminApiCapability.PLAYERS_READ, AdminApiCapability.RESOURCES_READ, AdminApiCapability.RUNES_READ);
+        formRead(http, wrapper, "/api/v1/players/runes", AdminApiCapability.RUNES_READ, UUID_FIELDS,
+                form -> AdminApiJson.runes(serverThread.call(() -> queries.runes(parseUuid(form.get("uuid"))))));
         read(http, wrapper, "/api/v1/mobs",
                 () -> AdminApiJson.mobs(serverThread.call(queries::mobs)),
                 AdminApiCapability.MOBS_READ);
@@ -118,6 +120,31 @@ final class AdminApiRoutes {
             }
             try {
                 AdminApiHttp.respond(exchange, 200, action.execute());
+            } catch (Exception e) {
+                throw asRuntime(e);
+            }
+        }));
+    }
+
+    private void formRead(HttpServer http, RouteWrapper wrapper, String path, AdminApiCapability capability,
+                          Set<String> expectedFields, FormReadAction action) {
+        http.createContext(path, wrapper.wrap(path, exchange -> {
+            if (!AdminApiHttp.requireMethod(exchange, "POST")) return;
+            if (!authorized(exchange, capability)) {
+                AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
+                return;
+            }
+            String body = AdminApiHttp.readFormBody(exchange);
+            if (body == null) {
+                AdminApiHttp.respond(exchange, 413, "{\"error\":\"invalid_body\"}");
+                return;
+            }
+            final AdminFormData form;
+            try {
+                form = AdminFormData.parse(body, expectedFields);
+                AdminApiHttp.respond(exchange, 200, action.execute(form));
+            } catch (IllegalArgumentException e) {
+                AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}");
             } catch (Exception e) {
                 throw asRuntime(e);
             }
@@ -260,6 +287,7 @@ final class AdminApiRoutes {
     }
 
     private interface ReadAction { String execute() throws Exception; }
+    private interface FormReadAction { String execute(AdminFormData form) throws Exception; }
     private interface FormAction { boolean execute(AdminFormData form) throws Exception; }
     private interface PlayerAction { boolean execute(EntityPlayerMP player) throws Exception; }
     private interface KnownPlayerAction { boolean execute(UUID uuid, EntityPlayerMP player) throws Exception; }
