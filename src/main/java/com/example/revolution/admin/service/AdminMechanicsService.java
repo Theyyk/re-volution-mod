@@ -15,6 +15,8 @@ import java.util.UUID;
 
 /** Read-only Admin API projection for mechanic-specific player state. */
 public final class AdminMechanicsService {
+    public static final int SNAPSHOT_SCHEMA_VERSION = 1;
+
     private final PrestigeService prestige;
     private final PetService pets;
     private final GodWorshipService gods;
@@ -37,6 +39,8 @@ public final class AdminMechanicsService {
     public Map<String, Object> snapshot(UUID playerUuid) {
         if (playerUuid == null) throw new IllegalArgumentException("playerUuid is required");
         Map<String, Object> result = new LinkedHashMap<>();
+        result.put("schemaVersion", SNAPSHOT_SCHEMA_VERSION);
+        result.put("playerUuid", playerUuid.toString());
         result.put("mastery", prestige.snapshot(playerUuid));
         result.put("pets", pets.snapshot(playerUuid));
 
