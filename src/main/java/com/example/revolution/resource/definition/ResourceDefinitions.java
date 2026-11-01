@@ -12,10 +12,11 @@ public final class ResourceDefinitions {
     public static final String RUNE_SHARDS = "rune_shards";
     public static final String RUNE_CORES = "rune_cores";
     public static final String AURA_KEY = "aura_key";
+    public static final String PEARL = "pearl";
     public static final String RETIRED_LIGHTNINGS = "lightnings";
 
     private static final List<String> BUILT_IN = Arrays.asList(
-            "coins", "crystals", RUNE_DUST, RUNE_SHARDS, RUNE_CORES, AURA_KEY
+            "coins", "crystals", RUNE_DUST, RUNE_SHARDS, RUNE_CORES, AURA_KEY, PEARL
     );
 
     public static boolean isRetiredResource(String name) { return RETIRED_LIGHTNINGS.equals(normalize(name).trim()); }
@@ -30,6 +31,7 @@ public final class ResourceDefinitions {
         if (normalized.equals(RUNE_SHARDS)) return "Осколки рун";
         if (normalized.equals(RUNE_CORES)) return "Ядра рун";
         if (normalized.equals(AURA_KEY)) return "Ключ Ауры";
+        if (normalized.equals(PEARL)) return "Жемчуг";
         return resource;
     }
 
