@@ -6,7 +6,6 @@ import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.resource.repository.ResourceRepository;
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.Function;
 import static com.example.revolution.resource.definition.ResourceDefinitions.*;
 
 /** Validates resource actions and preserves the existing read/modify/write economy. */
@@ -43,31 +42,13 @@ public final class ResourceService {
         this.uniqueRuneRewardMultiplier = uniqueRuneRewardMultiplier == null ? IDENTITY_REWARD : uniqueRuneRewardMultiplier;
     }
 
-    /** Convenience adapter for player-only access gates that do not depend on resource identity. */
-    public void setUniqueRuneRewardMultiplier(Function<UUID, BigDecimal> uniqueRuneRewardMultiplier) {
-        setUniqueRuneRewardMultiplier(uniqueRuneRewardMultiplier == null ? null
-                : (playerUuid, canonicalResource) -> uniqueRuneRewardMultiplier.apply(playerUuid));
-    }
-
     /** Dedicated permanent Achievement layer retained after the Unique Rune layer. */
     public void setAchievementRewardMultiplier(RewardMultiplier achievementRewardMultiplier) {
         this.achievementRewardMultiplier = achievementRewardMultiplier == null ? IDENTITY_REWARD : achievementRewardMultiplier;
     }
 
-    /** Convenience adapter for player-only access gates that do not depend on resource identity. */
-    public void setAchievementRewardMultiplier(Function<UUID, BigDecimal> achievementRewardMultiplier) {
-        setAchievementRewardMultiplier(achievementRewardMultiplier == null ? null
-                : (playerUuid, canonicalResource) -> achievementRewardMultiplier.apply(playerUuid));
-    }
-
     public void setLateRewardMultiplier(RewardMultiplier lateRewardMultiplier) {
         this.lateRewardMultiplier = lateRewardMultiplier == null ? IDENTITY_REWARD : lateRewardMultiplier;
-    }
-
-    /** Convenience adapter for player-only access gates that do not depend on resource identity. */
-    public void setLateRewardMultiplier(Function<UUID, BigDecimal> lateRewardMultiplier) {
-        setLateRewardMultiplier(lateRewardMultiplier == null ? null
-                : (playerUuid, canonicalResource) -> lateRewardMultiplier.apply(playerUuid));
     }
 
     public int getPlayerResource(UUID uuid, String resource) {
