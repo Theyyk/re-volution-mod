@@ -96,6 +96,7 @@ public final class AdminApiServer implements AutoCloseable {
                 new AdminBalanceRoutes(balance, balanceBatch, newAuth, minecraftServer, logger).register(newServer, this::exact);
             }
             if (mechanics != null) new AdminMechanicsRoutes(mechanics, newAuth, minecraftServer).register(newServer, this::exact);
+            new AdminEffectsRoutes(queries, newAuth, minecraftServer).register(newServer, this::exact);
             newServer.start();
             server = newServer;
             executor = newExecutor;
@@ -190,6 +191,7 @@ public final class AdminApiServer implements AutoCloseable {
             capabilities.add("balance.write");
         }
         if (mechanics != null) capabilities.add("mechanics.read");
+        capabilities.add("effects.read");
         StringBuilder json = new StringBuilder("[");
         for (int i = 0; i < capabilities.size(); i++) {
             if (i > 0) json.append(',');
