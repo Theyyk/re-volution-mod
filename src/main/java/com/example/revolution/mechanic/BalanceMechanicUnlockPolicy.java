@@ -39,7 +39,7 @@ public final class BalanceMechanicUnlockPolicy {
                     id,
                     Boolean.parseBoolean(value(balance, key + "enabled")),
                     value(balance, key + "target_mechanic"),
-                    value(balance, key + "parent"),
+                    optionalValue(balance, key + "parent"),
                     enumValue(MechanicUnlockModel.Visibility.class, value(balance, key + "visibility")),
                     enumValue(MechanicUnlockModel.RequirementType.class, value(balance, key + "requirement_type")),
                     enumValue(MechanicUnlockModel.Rarity.class, value(balance, key + "rarity")),
@@ -61,6 +61,10 @@ public final class BalanceMechanicUnlockPolicy {
     }
 
     private static String value(BalanceService balance, String key) { return balance.getActiveValue(key); }
+    private static String optionalValue(BalanceService balance, String key) {
+        String value = balance.getActiveSnapshot().getConfig().getValue(key);
+        return value == null ? "" : value;
+    }
     private static int integer(BalanceService balance, String key) {
         try { return Integer.parseInt(value(balance, key)); }
         catch (NumberFormatException e) { throw new IllegalArgumentException("invalid integer balance value '" + key + "'", e); }
