@@ -5,7 +5,6 @@
 
     "mechanic_unlock.arts.enabled": "true",
     "mechanic_unlock.arts.target_mechanic": "ARTS",
-    "mechanic_unlock.arts.parent": "",
     "mechanic_unlock.arts.visibility": "VISIBLE_WHEN_LOCKED",
     "mechanic_unlock.arts.requirement_type": "RUNE_PROGRESS_MAX",
     "mechanic_unlock.arts.rarity": "IMPROVED",
@@ -15,7 +14,6 @@
 
     "mechanic_unlock.run_exchange.enabled": "true",
     "mechanic_unlock.run_exchange.target_mechanic": "RUN_EXCHANGE",
-    "mechanic_unlock.run_exchange.parent": "",
     "mechanic_unlock.run_exchange.visibility": "VISIBLE_WHEN_LOCKED",
     "mechanic_unlock.run_exchange.requirement_type": "RUNE_PROGRESS_MAX",
     "mechanic_unlock.run_exchange.rarity": "IMPROVED",
@@ -25,7 +23,6 @@
 
     "mechanic_unlock.god_worship.enabled": "true",
     "mechanic_unlock.god_worship.target_mechanic": "GOD_WORSHIP",
-    "mechanic_unlock.god_worship.parent": "",
     "mechanic_unlock.god_worship.visibility": "VISIBLE_WHEN_LOCKED",
     "mechanic_unlock.god_worship.requirement_type": "RUNE_PROGRESS_MAX",
     "mechanic_unlock.god_worship.rarity": "IMPROVED",
@@ -35,7 +32,6 @@
 
     "mechanic_unlock.aura_system.enabled": "true",
     "mechanic_unlock.aura_system.target_mechanic": "AURA_SYSTEM",
-    "mechanic_unlock.aura_system.parent": "",
     "mechanic_unlock.aura_system.visibility": "VISIBLE_WHEN_LOCKED",
     "mechanic_unlock.aura_system.requirement_type": "RUNE_PROGRESS_MAX",
     "mechanic_unlock.aura_system.rarity": "ADVANCED",
@@ -45,7 +41,6 @@
 
     "mechanic_unlock.achievements.enabled": "true",
     "mechanic_unlock.achievements.target_mechanic": "ACHIEVEMENTS",
-    "mechanic_unlock.achievements.parent": "",
     "mechanic_unlock.achievements.visibility": "VISIBLE_WHEN_LOCKED",
     "mechanic_unlock.achievements.requirement_type": "RUNE_PROGRESS_MAX",
     "mechanic_unlock.achievements.rarity": "ADVANCED",
@@ -55,7 +50,6 @@
 
     "mechanic_unlock.unique_rune_collections.enabled": "true",
     "mechanic_unlock.unique_rune_collections.target_mechanic": "UNIQUE_RUNE_COLLECTIONS",
-    "mechanic_unlock.unique_rune_collections.parent": "",
     "mechanic_unlock.unique_rune_collections.visibility": "VISIBLE_WHEN_LOCKED",
     "mechanic_unlock.unique_rune_collections.requirement_type": "RUNE_PROGRESS_MAX",
     "mechanic_unlock.unique_rune_collections.rarity": "ADVANCED",
