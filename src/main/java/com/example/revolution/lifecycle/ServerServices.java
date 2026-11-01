@@ -27,6 +27,7 @@ import com.example.revolution.god.GodWorshipAutomationService;
 import com.example.revolution.god.GodWorshipModel;
 import com.example.revolution.god.GodWorshipModifierService;
 import com.example.revolution.god.GodWorshipService;
+import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.location.generation.LocationGenerationPlanner;
 import com.example.revolution.location.generation.LocationTemplate;
 import com.example.revolution.location.repository.FastAutoPreferenceRepository;
@@ -72,6 +73,7 @@ import com.example.revolution.persistence.MongoResourceRepository;
 import com.example.revolution.persistence.MongoRuneEnhancementRepository;
 import com.example.revolution.persistence.MongoStageTransitionPreferenceRepository;
 import com.example.revolution.persistence.MongoStageTransitionTriggerRepository;
+import com.example.revolution.persistence.MongoUniqueRuneRepository;
 import com.example.revolution.pet.definition.PetCatalog;
 import com.example.revolution.pet.repository.PetRepository;
 import com.example.revolution.pet.service.PetBalanceService;
@@ -113,6 +115,10 @@ import com.example.revolution.rune.service.RuneRewardBonusService;
 import com.example.revolution.rune.service.RuneSyncService;
 import com.example.revolution.rune.service.RuneTransientEffectRuntime;
 import com.example.revolution.rune.state.RuneCombatState;
+import com.example.revolution.unique.BalanceUniqueRunePolicy;
+import com.example.revolution.unique.UniqueRuneModifierService;
+import com.example.revolution.unique.UniqueRuneRepository;
+import com.example.revolution.unique.UniqueRuneService;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -169,6 +175,9 @@ public final class ServerServices implements AutoCloseable {
     public final AchievementService achievements;
     public final BalanceAchievementPolicy achievementPolicy;
     public final AchievementEconomyBonusService achievementBonus;
+    public final BalanceUniqueRunePolicy uniqueRunePolicy;
+    public final UniqueRuneService uniqueRunes;
+    public final UniqueRuneModifierService uniqueRuneModifiers;
 
     public ServerServices(Logger logger, boolean persistentGameplay, File configDirectory) {
         this.logger = logger;
@@ -188,6 +197,9 @@ public final class ServerServices implements AutoCloseable {
         balance = BalanceBootstrap.activateBundledDefaults();
         MongoGodWorshipRepository godRepository = new MongoGodWorshipRepository(connection, persistentGameplay);
         MongoAuraRepository auraRepository = new MongoAuraRepository(connection, persistentGameplay);
+        UniqueRuneRepository uniqueRuneRepository = new MongoUniqueRuneRepository(connection, persistentGameplay);
+        uniqueRunePolicy = new BalanceUniqueRunePolicy(balance);
+        uniqueRuneModifiers = new UniqueRuneModifierService(uniqueRuneRepository, uniqueRunePolicy);
         godPolicy = new BalanceGodWorshipPolicy(balance);
         auraPolicy = new BalanceAuraPolicy(balance);
         PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
@@ -208,6 +220,7 @@ public final class ServerServices implements AutoCloseable {
         effects = new EffectResolver();
         effects.register(prestige);
         resources = new ResourceService(new MongoResourceRepository(connection), effects);
+        resources.setUniqueRuneRewardMultiplier(uniqueRuneModifiers::resourceMultiplier);
 
         achievementPolicy = new BalanceAchievementPolicy(balance);
         achievements = new AchievementService(
@@ -269,6 +282,42 @@ public final class ServerServices implements AutoCloseable {
         runeAwakening.setGameplayEventSink(gameplayEvents);
         runeActions = new RuneActionService(players, stats, runePurchase, runeEnhancement, runeAwakening, sync);
         mobProgression = new MobProgressionService(progressionRepository);
+
+        uniqueRunes = new UniqueRuneService(
+                uniqueRuneRepository,
+                uniqueRunePolicy,
+                resources,
+                playerUuid -> {
+                    long unlocked = 0L;
+                    for (Integer worldLocationId : mobProgression.configuredWorldLocations()) {
+                        for (Integer slot : mobProgression.configuredSlots(worldLocationId)) {
+                            if (mobProgression.isUnlocked(playerUuid, MobZoneIds.encode(worldLocationId, slot))) unlocked++;
+                        }
+                    }
+                    return unlocked;
+                },
+                playerUuid -> {
+                    GodWorshipModel.RunState run = godRepository.loadRunState(playerUuid);
+                    for (GodWorshipModel.State state : run.gods.values()) if (state.unlocked) return true;
+                    return false;
+                },
+                new UniqueRuneService.OfferingsWallet() {
+                    @Override public BigDecimal balance(java.util.UUID playerUuid) {
+                        GodWorshipModel.PersistentState state = godRepository.loadPersistentState(playerUuid);
+                        return state.offerings == null ? BigDecimal.ZERO : state.offerings;
+                    }
+                    @Override public synchronized boolean spend(java.util.UUID playerUuid, BigDecimal amount) {
+                        if (amount == null || amount.signum() < 0) return false;
+                        GodWorshipModel.PersistentState state = godRepository.loadPersistentState(playerUuid);
+                        BigDecimal current = state.offerings == null ? BigDecimal.ZERO : state.offerings;
+                        if (current.compareTo(amount) < 0) return false;
+                        state.offerings = current.subtract(amount);
+                        godRepository.savePersistentState(playerUuid, state);
+                        return true;
+                    }
+                });
+        uniqueRunes.setGameplayEventSink(gameplayEvents);
+
         physicalBuilds = new REBuilderAdapter(configDirectory.toPath());
         LocationGenerationRepository storedGenerations = new MongoLocationGenerationRepository(connection, persistentGameplay);
         stageMobs = new StageMobBootstrapService(mobRepository, locationRepository, storedGenerations);

@@ -24,6 +24,8 @@ import com.example.revolution.network.RuneSlotPacket;
 import com.example.revolution.network.StageTravelMenuPacket;
 import com.example.revolution.network.StageTravelMenuRequestPacket;
 import com.example.revolution.network.StageTravelTeleportRequestPacket;
+import com.example.revolution.network.UniqueRuneActionPacket;
+import com.example.revolution.network.UniqueRuneSnapshotPacket;
 import net.minecraftforge.fml.relauncher.Side;
 
 public final class ClientNetworkRegistration {
@@ -52,5 +54,7 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(AuraSnapshotPacketHandler.class, AuraSnapshotPacket.class, 22, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(AchievementActionPacketClientHandler.class, AchievementActionPacket.class, 23, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(AchievementSnapshotPacketHandler.class, AchievementSnapshotPacket.class, 24, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(UniqueRuneActionPacketClientHandler.class, UniqueRuneActionPacket.class, 25, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(UniqueRuneSnapshotPacketHandler.class, UniqueRuneSnapshotPacket.class, 26, Side.CLIENT);
     }
 }

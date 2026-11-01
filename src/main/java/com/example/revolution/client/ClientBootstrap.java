@@ -39,6 +39,7 @@ public final class ClientBootstrap {
         MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());
         MinecraftForge.EVENT_BUS.register(new PetTabUiHandler());
         MinecraftForge.EVENT_BUS.register(new AchievementTabUiHandler());
+        MinecraftForge.EVENT_BUS.register(new UniqueRuneTabUiHandler());
         RuneTexturePreloader.register();
 
         Minecraft minecraft = Minecraft.getMinecraft();
