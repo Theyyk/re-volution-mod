@@ -13,8 +13,6 @@ import com.example.revolution.admin.service.AdminQueryService;
 import com.example.revolution.admin.service.AdminStageBatchService;
 import com.example.revolution.admin.service.AdminToolsService;
 import com.example.revolution.balance.service.BalanceService;
-import com.example.revolution.lifecycle.ServerLifecycle;
-import com.example.revolution.lifecycle.ServerServices;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -22,6 +20,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -48,10 +48,12 @@ public final class AdminApiServer implements AutoCloseable {
     private AdminStageBatchService batch;
     private BalanceService balance;
     private AdminBalanceBatchService balanceBatch;
+    private AdminMechanicsService mechanics;
     private String installationId;
 
     public void setTools(AdminToolsService tools, AdminStageBatchService batch) { this.tools = tools; this.batch = batch; }
     public void setBalance(BalanceService balance, AdminBalanceBatchService batch) { this.balance = balance; this.balanceBatch = batch; }
+    public void setMechanics(AdminMechanicsService mechanics) { this.mechanics = mechanics; }
 
     public AdminApiServer(Logger logger, AdminOperationsService operations, AdminQueryService queries) {
         if (logger == null || operations == null || queries == null) throw new IllegalArgumentException("Admin API dependencies are required");
@@ -93,10 +95,7 @@ public final class AdminApiServer implements AutoCloseable {
             if (balance != null && balanceBatch != null) {
                 new AdminBalanceRoutes(balance, balanceBatch, newAuth, minecraftServer, logger).register(newServer, this::exact);
             }
-            ServerServices services = ServerLifecycle.services();
-            AdminMechanicsService mechanics = new AdminMechanicsService(
-                    services.prestige, services.pets, services.gods, services.auras, services.achievements, services.uniqueRunes);
-            new AdminMechanicsRoutes(mechanics, newAuth, minecraftServer).register(newServer, this::exact);
+            if (mechanics != null) new AdminMechanicsRoutes(mechanics, newAuth, minecraftServer).register(newServer, this::exact);
             newServer.start();
             server = newServer;
             executor = newExecutor;
@@ -174,8 +173,29 @@ public final class AdminApiServer implements AutoCloseable {
         if (!"DEV".equals(environment) && !"PROD".equals(environment)) environment = "UNCONFIGURED";
         AdminApiHttp.respond(exchange, 200, "{\"apiVersion\":1,\"modVersion\":\"" + RevolutionMod.VERSION
                 + "\",\"remoteMode\":false,\"environment\":\"" + environment
-                + "\",\"installationId\":\"" + installationId + "\",\"capabilities\":"
-                + (tools == null ? "[\"mechanics.read\"]" : "[\"stages.read\",\"stages.write\",\"progression.read\",\"progression.write\",\"enhancements.write\",\"balance.read\",\"balance.write\",\"mechanics.read\"]") + "}");
+                + "\",\"installationId\":\"" + installationId + "\",\"capabilities\":" + capabilitiesJson() + "}");
+    }
+
+    private String capabilitiesJson() {
+        List<String> capabilities = new ArrayList<>();
+        if (tools != null) {
+            capabilities.add("stages.read");
+            capabilities.add("stages.write");
+            capabilities.add("progression.read");
+            capabilities.add("progression.write");
+            capabilities.add("enhancements.write");
+        }
+        if (balance != null && balanceBatch != null) {
+            capabilities.add("balance.read");
+            capabilities.add("balance.write");
+        }
+        if (mechanics != null) capabilities.add("mechanics.read");
+        StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < capabilities.size(); i++) {
+            if (i > 0) json.append(',');
+            json.append('"').append(capabilities.get(i)).append('"');
+        }
+        return json.append(']').toString();
     }
 
     static int resolvePort() {
