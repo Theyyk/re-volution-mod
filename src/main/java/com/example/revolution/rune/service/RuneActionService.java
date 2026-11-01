@@ -1,6 +1,7 @@
 package com.example.revolution.rune.service;
 
 import com.example.revolution.RevolutionMod;
+import com.example.revolution.mechanic.MechanicUnlockService;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PongPacket;
 import com.example.revolution.player.repository.PlayerRepository;
@@ -19,6 +20,7 @@ public final class RuneActionService {
     private final RuneRankRevertService revert;
     private final RuneSyncService sync;
     private final RuneCollectionUnlockService collectionUnlocks;
+    private final MechanicUnlockService mechanicUnlocks;
 
     public RuneActionService(
             PlayerRepository players,
@@ -28,7 +30,19 @@ public final class RuneActionService {
             RuneAwakeningService awakening,
             RuneSyncService sync) {
         this(players, stats, purchase, enhancement, awakening,
-                new RuneRankRevertService(players, stats, sync, purchase.revertBalanceRules()), sync);
+                new RuneRankRevertService(players, stats, sync, purchase.revertBalanceRules()), sync, null);
+    }
+
+    public RuneActionService(
+            PlayerRepository players,
+            PlayerStatsSyncService stats,
+            RunePurchaseService purchase,
+            RuneEnhancementService enhancement,
+            RuneAwakeningService awakening,
+            RuneSyncService sync,
+            MechanicUnlockService mechanicUnlocks) {
+        this(players, stats, purchase, enhancement, awakening,
+                new RuneRankRevertService(players, stats, sync, purchase.revertBalanceRules()), sync, mechanicUnlocks);
     }
 
     RuneActionService(
@@ -39,6 +53,18 @@ public final class RuneActionService {
             RuneAwakeningService awakening,
             RuneRankRevertService revert,
             RuneSyncService sync) {
+        this(players, stats, purchase, enhancement, awakening, revert, sync, null);
+    }
+
+    RuneActionService(
+            PlayerRepository players,
+            PlayerStatsSyncService stats,
+            RunePurchaseService purchase,
+            RuneEnhancementService enhancement,
+            RuneAwakeningService awakening,
+            RuneRankRevertService revert,
+            RuneSyncService sync,
+            MechanicUnlockService mechanicUnlocks) {
         this.players = players;
         this.stats = stats;
         this.purchase = purchase;
@@ -46,6 +72,7 @@ public final class RuneActionService {
         this.awakening = awakening;
         this.revert = revert;
         this.sync = sync;
+        this.mechanicUnlocks = mechanicUnlocks;
         this.collectionUnlocks = players instanceof RuneCollectionStateRepository
                 ? new RuneCollectionUnlockService(players, (RuneCollectionStateRepository) players)
                 : null;
@@ -74,12 +101,14 @@ public final class RuneActionService {
         if (action.equals("buy_card")) {
             purchase.buyRunes(player, collectionIndex, 1, false);
             evaluateCollectionUnlock(player);
+            refreshMechanicProgress(player);
         } else if (action.startsWith("buy_cards:")) {
             String rawAmount = action.substring("buy_cards:".length());
 
             if (rawAmount.equalsIgnoreCase("all")) {
                 purchase.buyRunes(player, collectionIndex, Integer.MAX_VALUE, true);
                 evaluateCollectionUnlock(player);
+                refreshMechanicProgress(player);
                 return;
             }
 
@@ -91,6 +120,7 @@ public final class RuneActionService {
                 }
                 purchase.buyRunes(player, collectionIndex, requestedAmount, false);
                 evaluateCollectionUnlock(player);
+                refreshMechanicProgress(player);
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНекорректное количество рун."));
             }
@@ -108,6 +138,7 @@ public final class RuneActionService {
                     return;
                 }
                 enhancement.enhanceRune(player, collectionIndex, runeIndex, requestedAmount);
+                refreshMechanicProgress(player);
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНекорректная команда усиления."));
             }
@@ -116,6 +147,7 @@ public final class RuneActionService {
             try {
                 awakening.awakenRune(player, collectionIndex, Integer.parseInt(rawIndex));
                 evaluateCollectionUnlock(player);
+                refreshMechanicProgress(player);
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНекорректная руна."));
             }
@@ -123,6 +155,7 @@ public final class RuneActionService {
             String rawIndex = action.substring("revert_rune:".length());
             try {
                 revert.revertRune(player, collectionIndex, Integer.parseInt(rawIndex));
+                refreshMechanicProgress(player);
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНекорректная руна."));
             }
@@ -136,6 +169,7 @@ public final class RuneActionService {
             sync.sendRunes(player, collectionIndex);
         } else if (action.equals("load_decks")) {
             evaluateCollectionUnlock(player);
+            refreshMechanicProgress(player);
             sync.sendCollectionState(player);
         } else if (action.startsWith("switch_deck:")) {
             String rawIndex = action.substring("switch_deck:".length());
@@ -175,6 +209,10 @@ public final class RuneActionService {
         if (unlocked == null) return;
         player.sendMessage(new TextComponentString("§aОткрыта коллекция рун §e" + (unlocked.legacyIndex() + 1) + "§a!"));
         sync.sendCollectionState(player);
+    }
+
+    private void refreshMechanicProgress(EntityPlayerMP player) {
+        if (mechanicUnlocks != null) mechanicUnlocks.refreshRuneProgress(player.getUniqueID());
     }
 
     private static boolean isImportantPlayerAction(String action) {

@@ -11,6 +11,7 @@ import com.example.revolution.commands.CustomResourceCommand;
 import com.example.revolution.commands.CustomRunesCommand;
 import com.example.revolution.commands.CustomStatusCommand;
 import com.example.revolution.commands.LocationCommand;
+import com.example.revolution.commands.MechanicUnlockCommand;
 import com.example.revolution.commands.PrestigeCommand;
 import com.example.revolution.commands.RealmCommand;
 import com.example.revolution.commands.StageCommand;
@@ -23,6 +24,7 @@ import com.example.revolution.mob.event.ManagedMobEvents;
 import com.example.revolution.network.AchievementRequestLimiter;
 import com.example.revolution.network.AuraRequestLimiter;
 import com.example.revolution.network.GodWorshipRequestLimiter;
+import com.example.revolution.network.MechanicUnlockActionPacketHandler;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
 import com.example.revolution.pet.event.PetRuntimeHandler;
@@ -80,7 +82,7 @@ public final class ServerLifecycle {
         current.adminAccess.init(configDirectory);
         listeners.add(new PlayerJoinHandler(current.sessions));
         listeners.add(new AchievementPersistenceHandler(current.achievements));
-        listeners.add(new GodWorshipRuntimeHandler(current.godAutomation));
+        listeners.add(new GodWorshipRuntimeHandler(current.godAutomation, current.mechanicUnlocks));
         listeners.add(new RpgSurvivalGuard());
         listeners.add(new RealmLoginHandler(current.realms));
         listeners.add(new RealmEntityLoadHandler());
@@ -89,9 +91,9 @@ public final class ServerLifecycle {
         listeners.add(new LegacyAttackCooldownHandler(current.mobs));
         listeners.add(new DamageBonusHandler(current.mobs, current.combat, current.playerStats));
         listeners.add(new PrestigeDamageEffectHandler(current.mobs, current.effects));
-        listeners.add(new UniqueRuneDamageHandler(current.mobs, current.uniqueRuneModifiers));
-        listeners.add(new GodWorshipDamageHandler(current.mobs, current.godModifiers));
-        listeners.add(new AuraDamageHandler(current.mobs, current.auraModifiers));
+        listeners.add(new UniqueRuneDamageHandler(current.mobs, current.uniqueRuneModifiers, current.mechanicUnlocks));
+        listeners.add(new GodWorshipDamageHandler(current.mobs, current.godModifiers, current.mechanicUnlocks));
+        listeners.add(new AuraDamageHandler(current.mobs, current.auraModifiers, current.mechanicUnlocks));
         listeners.add(new PoisonMobPauseHandler(current.mobs));
         listeners.add(new RuneStatusTickHandler(current.mobs, current.combat));
         listeners.add(new StageTransitionTriggerHandler(current.stageTransitionTriggers));
@@ -107,17 +109,13 @@ public final class ServerLifecycle {
 
     public static void aboutToStart(FMLServerAboutToStartEvent event) {
         if (!dedicatedServer || !event.getServer().isDedicatedServer()) return;
-        if (realmSave != null || DimensionManager.getWorlds().length != 0) {
-            throw new IllegalStateException("Realm startup sync requires all Forge worlds to be unloaded");
-        }
+        if (realmSave != null || DimensionManager.getWorlds().length != 0) throw new IllegalStateException("Realm startup sync requires all Forge worlds to be unloaded");
         MinecraftServer server = event.getServer();
         File world = server.getActiveAnvilConverter().getFile(server.getFolderName(), "");
         try {
             realmSave = RealmStartupSync.prepare(world.toPath());
             logger.info("Realm startup sync complete: DIM201 -> DIM202/DIM203; dimension 0 excluded.");
-        } catch (IOException e) {
-            throw new IllegalStateException("Realm startup sync failed; refusing to load worlds", e);
-        }
+        } catch (IOException e) { throw new IllegalStateException("Realm startup sync failed; refusing to load worlds", e); }
     }
 
     public static void starting(FMLServerStartingEvent event) {
@@ -129,10 +127,10 @@ public final class ServerLifecycle {
         event.registerServerCommand(new CustomResourceCommand(current.resources));
         event.registerServerCommand(new AdminPanelCommand(current.adminAccess));
         event.registerServerCommand(new PrestigeCommand(current.prestige));
+        event.registerServerCommand(new MechanicUnlockCommand(current.mechanicUnlocks));
         event.registerServerCommand(new RealmCommand(current.realms));
         event.registerServerCommand(new LocationCommand(current.locationProvisioning, current.stageTransitionTriggers, current.physicalBuilds));
-        event.registerServerCommand(new StageCommand(
-                current.stageTransitions, current.stageTransitionTriggers, current.mobProgression, current.mobAdmin));
+        event.registerServerCommand(new StageCommand(current.stageTransitions, current.stageTransitionTriggers, current.mobProgression, current.mobAdmin));
         current.resources.purgeDeprecatedLightnings();
     }
 
@@ -146,11 +144,8 @@ public final class ServerLifecycle {
         current.realms.initialize(server);
         current.mobs.loadFromDatabase(server);
         if (dedicatedServer) {
-            try {
-                current.startAdminApi(server, configDirectory);
-            } catch (IOException | RuntimeException e) {
-                logger.error("RE:volution Admin API failed closed and was not started.", e);
-            }
+            try { current.startAdminApi(server, configDirectory); }
+            catch (IOException | RuntimeException e) { logger.error("RE:volution Admin API failed closed and was not started.", e); }
         }
     }
 
@@ -163,6 +158,7 @@ public final class ServerLifecycle {
         GodWorshipRequestLimiter.reset();
         AuraRequestLimiter.reset();
         AchievementRequestLimiter.reset();
+        MechanicUnlockActionPacketHandler.clear();
         if (stopping != null) stopping.uniqueRunes.clearReplayState();
         try {
             if (stopping != null) stopping.close();

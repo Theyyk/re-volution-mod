@@ -11,7 +11,6 @@ import com.example.revolution.god.GodWorshipModel.Phase;
 import com.example.revolution.god.GodWorshipModel.Preference;
 import com.example.revolution.god.GodWorshipModel.RunState;
 import com.example.revolution.god.GodWorshipModel.State;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collections;
@@ -82,59 +81,71 @@ public final class GodWorshipAutomationService {
         openMenus.clear();
     }
 
-    /** Used on login and regular server cadence. Offline/closed-menu time never contributes passive charge. */
+    /** Backward-compatible unrestricted call used by existing unit tests. */
     public synchronized TickResult tick(UUID playerUuid, long nowMillis) {
+        return tick(playerUuid, nowMillis, true, true);
+    }
+
+    /**
+     * Runtime call used by v2.12.0 gates. Base God state/Offering settlement remains factual while
+     * automatic actions and permanent-duration effects obey their child unlocks.
+     */
+    public synchronized TickResult tick(UUID playerUuid, long nowMillis,
+                                        boolean automationUnlocked, boolean permanentDurationUnlocked) {
         if (playerUuid == null) return TickResult.EMPTY;
         Long previousTick = lastRuntimeTickAt.put(playerUuid, nowMillis);
         long elapsed = previousTick == null || nowMillis <= previousTick ? 0L : nowMillis - previousTick;
         RunState run = repository.loadRunState(playerUuid);
         PersistentState persistent = repository.loadPersistentState(playerUuid);
 
-        BigDecimal earned = settleOfferings(playerUuid, run, persistent, nowMillis);
+        BigDecimal earned = settleOfferings(playerUuid, run, persistent, nowMillis, permanentDurationUnlocked);
         normalize(playerUuid, run, nowMillis);
-        if (openMenus.contains(playerUuid)) settlePassiveCharge(run, persistent, elapsed);
+        if (openMenus.contains(playerUuid)) settlePassiveCharge(run, persistent, elapsed, automationUnlocked);
 
         BigDecimal spent = BigDecimal.ZERO;
         int activations = 0;
-        if (policy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION)) {
-            activations += activateReady(playerUuid, run, persistent, nowMillis);
+        boolean autoActivation = automationUnlocked && policy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION);
+        if (autoActivation) {
+            activations += activateReady(playerUuid, run, persistent, nowMillis, permanentDurationUnlocked);
         }
-        for (GodId god : GodId.values()) {
-            Preference preference = persistent.preferences.get(god);
-            State state = run.gods.get(god);
-            if (preference == null || state == null || !state.unlocked || !policy.enabled(god)
-                    || !preference.autoWorshipEnabled) continue;
-            BigDecimal cost = state.phase == Phase.COOLDOWN
-                    ? policy.autoWorshipCooldownCost()
-                    : state.phase == Phase.CHARGE ? policy.autoWorshipChargeCost() : BigDecimal.ZERO;
-            if (cost.signum() <= 0 || persistent.offerings.compareTo(cost) < 0) continue;
+        if (automationUnlocked) {
+            for (GodId god : GodId.values()) {
+                Preference preference = persistent.preferences.get(god);
+                State state = run.gods.get(god);
+                if (preference == null || state == null || !state.unlocked || !policy.enabled(god)
+                        || !preference.autoWorshipEnabled) continue;
+                BigDecimal cost = state.phase == Phase.COOLDOWN
+                        ? policy.autoWorshipCooldownCost()
+                        : state.phase == Phase.CHARGE ? policy.autoWorshipChargeCost() : BigDecimal.ZERO;
+                if (cost.signum() <= 0 || persistent.offerings.compareTo(cost) < 0) continue;
 
-            boolean changed = false;
-            if (state.phase == Phase.COOLDOWN) {
-                long reduced = GodWorshipRules.reduceCooldown(state, nowMillis, policy.autoWorshipCooldownReductionMillis());
-                changed = reduced > 0L;
-            } else if (state.phase == Phase.CHARGE) {
-                long required = policy.chargeRequired(god);
-                long before = state.chargeProgress;
-                state.chargeProgress = GodWorshipRules.automatedChargeTarget(
-                        before,
-                        policy.autoWorshipChargeGain(),
-                        required,
-                        policy.chargePerClick(god),
-                        preference.activationMode,
-                        policy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION));
-                changed = state.chargeProgress != before;
+                boolean changed = false;
+                if (state.phase == Phase.COOLDOWN) {
+                    long reduced = GodWorshipRules.reduceCooldown(state, nowMillis, policy.autoWorshipCooldownReductionMillis());
+                    changed = reduced > 0L;
+                } else if (state.phase == Phase.CHARGE) {
+                    long required = policy.chargeRequired(god);
+                    long before = state.chargeProgress;
+                    state.chargeProgress = GodWorshipRules.automatedChargeTarget(
+                            before,
+                            policy.autoWorshipChargeGain(),
+                            required,
+                            policy.chargePerClick(god),
+                            preference.activationMode,
+                            autoActivation);
+                    changed = state.chargeProgress != before;
+                }
+                if (!changed) continue;
+
+                persistent.offerings = persistent.offerings.subtract(cost);
+                spent = spent.add(cost);
+                emit(playerUuid, GameplayEventType.GOD_AUTO_WORSHIP_SPEND, god, cost);
+                emit(playerUuid, GameplayEventType.OFFERINGS_SPENT, god, cost);
             }
-            if (!changed) continue;
-
-            persistent.offerings = persistent.offerings.subtract(cost);
-            spent = spent.add(cost);
-            emit(playerUuid, GameplayEventType.GOD_AUTO_WORSHIP_SPEND, god, cost);
-            emit(playerUuid, GameplayEventType.OFFERINGS_SPENT, god, cost);
         }
 
-        if (policy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION)) {
-            activations += activateReady(playerUuid, run, persistent, nowMillis);
+        if (autoActivation) {
+            activations += activateReady(playerUuid, run, persistent, nowMillis, permanentDurationUnlocked);
         }
         repository.saveRunState(playerUuid, run);
         repository.savePersistentState(playerUuid, persistent);
@@ -182,7 +193,8 @@ public final class GodWorshipAutomationService {
         return true;
     }
 
-    private BigDecimal settleOfferings(UUID playerUuid, RunState run, PersistentState persistent, long nowMillis) {
+    private BigDecimal settleOfferings(UUID playerUuid, RunState run, PersistentState persistent, long nowMillis,
+                                       boolean permanentDurationUnlocked) {
         BigDecimal rate = policy.offeringGenerationPerSecond();
         if (rate.signum() <= 0) return BigDecimal.ZERO;
         BigDecimal earned = BigDecimal.ZERO;
@@ -190,7 +202,8 @@ public final class GodWorshipAutomationService {
             State state = run.gods.get(god);
             if (state == null || !policy.enabled(god) || state.phase != Phase.BUFF_ACTIVE
                     || state.buffActiveUntilMillis <= 0L) continue;
-            long duration = safeAdd(policy.buffDurationMillis(god), policy.permanentDurationMillis(persistent.permanentDurationLevel));
+            long permanent = permanentDurationUnlocked ? policy.permanentDurationMillis(persistent.permanentDurationLevel) : 0L;
+            long duration = safeAdd(policy.buffDurationMillis(god), permanent);
             long inferredStart = Math.max(0L, state.buffActiveUntilMillis - duration);
             long from = state.offeringSettledUntilMillis > 0L ? state.offeringSettledUntilMillis : inferredStart;
             long end = Math.min(nowMillis, state.buffActiveUntilMillis);
@@ -207,9 +220,10 @@ public final class GodWorshipAutomationService {
         return earned;
     }
 
-    private void settlePassiveCharge(RunState run, PersistentState persistent, long menuOpenElapsedMillis) {
+    private void settlePassiveCharge(RunState run, PersistentState persistent, long menuOpenElapsedMillis,
+                                     boolean automationUnlocked) {
         if (menuOpenElapsedMillis <= 0L) return;
-        boolean autoActivation = policy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION);
+        boolean autoActivation = automationUnlocked && policy.featureEnabled(FeatureGate.GOD_AUTO_ACTIVATION);
         for (GodId god : GodId.values()) {
             State state = run.gods.get(god);
             Preference preference = persistent.preferences.get(god);
@@ -244,31 +258,32 @@ public final class GodWorshipAutomationService {
         }
     }
 
-    private int activateReady(UUID playerUuid, RunState run, PersistentState persistent, long nowMillis) {
+    private int activateReady(UUID playerUuid, RunState run, PersistentState persistent, long nowMillis,
+                              boolean permanentDurationUnlocked) {
         int activations = 0;
         for (GodId god : GodId.values()) {
             Preference preference = persistent.preferences.get(god);
             if (preference != null && preference.activationMode == ActivationMode.AUTO_WHEN_READY) {
                 activations += activateCascade(playerUuid, god, run, persistent, nowMillis,
-                        EnumSet.noneOf(GodId.class), false);
+                        EnumSet.noneOf(GodId.class), false, permanentDurationUnlocked);
             }
         }
         return activations;
     }
 
     private int activateCascade(UUID playerUuid, GodId god, RunState run, PersistentState persistent,
-                                long nowMillis, Set<GodId> visited, boolean linkedTrigger) {
+                                long nowMillis, Set<GodId> visited, boolean linkedTrigger,
+                                boolean permanentDurationUnlocked) {
         if (god == null || visited.size() >= GodId.values().length || !visited.add(god)) return 0;
         State state = run.gods.get(god);
         Preference preference = persistent.preferences.get(god);
         if (state == null || preference == null || !policy.enabled(god)
                 || !GodWorshipRules.readyToActivate(state, policy.chargeRequired(god))) return 0;
-
         if (!linkedTrigger && preference.activationMode != ActivationMode.AUTO_WHEN_READY) return 0;
         if (linkedTrigger && preference.activationMode != ActivationMode.LINKED_TO_GOD) return 0;
 
-        GodWorshipRules.activate(state, nowMillis, policy.buffDurationMillis(god),
-                policy.permanentDurationMillis(persistent.permanentDurationLevel));
+        long permanent = permanentDurationUnlocked ? policy.permanentDurationMillis(persistent.permanentDurationLevel) : 0L;
+        GodWorshipRules.activate(state, nowMillis, policy.buffDurationMillis(god), permanent);
         state.offeringSettledUntilMillis = nowMillis;
         state.passiveChargeRemainder = BigDecimal.ZERO;
         emit(playerUuid, GameplayEventType.GOD_BUFF_ACTIVATE, god, BigDecimal.ONE);
@@ -280,7 +295,8 @@ public final class GodWorshipAutomationService {
             if (candidatePreference != null
                     && candidatePreference.activationMode == ActivationMode.LINKED_TO_GOD
                     && candidatePreference.linkedGodId == god) {
-                count += activateCascade(playerUuid, candidate, run, persistent, nowMillis, visited, true);
+                count += activateCascade(playerUuid, candidate, run, persistent, nowMillis, visited, true,
+                        permanentDurationUnlocked);
             }
         }
         return count;
@@ -304,7 +320,6 @@ public final class GodWorshipAutomationService {
         public final BigDecimal offeringsEarned;
         public final BigDecimal offeringsSpent;
         public final int activations;
-
         public TickResult(BigDecimal offeringsEarned, BigDecimal offeringsSpent, int activations) {
             this.offeringsEarned = offeringsEarned == null ? BigDecimal.ZERO : offeringsEarned;
             this.offeringsSpent = offeringsSpent == null ? BigDecimal.ZERO : offeringsSpent;
