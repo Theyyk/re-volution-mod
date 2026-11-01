@@ -83,6 +83,13 @@ public enum GameplayEventType {
     ACHIEVEMENT_STAGE_CLAIMED,
     ACHIEVEMENT_REVEALED,
 
+    /** v2.11.0 factual Unique Rune lifecycle facts; no Achievement content is bound here. */
+    UNIQUE_RUNE_OBTAINED,
+    UNIQUE_RUNE_DUPLICATE,
+    UNIQUE_RUNE_ENHANCED,
+    UNIQUE_COLLECTION_AWAKENED,
+    UNIQUE_COLLECTION_ROLLED_BACK,
+
     /** Contract only. Forge gameplay is intentionally out of scope for v2.10.0. */
     FORGE_ITEM_CRAFTED
 }
