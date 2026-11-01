@@ -7,6 +7,8 @@ import com.example.revolution.network.AuraSnapshotPacket;
 import com.example.revolution.network.FastAutoTogglePacket;
 import com.example.revolution.network.GodWorshipActionPacket;
 import com.example.revolution.network.GodWorshipSnapshotPacket;
+import com.example.revolution.network.MechanicUnlockActionPacket;
+import com.example.revolution.network.MechanicUnlockSnapshotPacket;
 import com.example.revolution.network.MobZoneOverlayPacket;
 import com.example.revolution.network.MobZoneOverlayRequestPacket;
 import com.example.revolution.network.NetworkHandler;
@@ -56,5 +58,7 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(AchievementSnapshotPacketHandler.class, AchievementSnapshotPacket.class, 24, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneActionPacketClientHandler.class, UniqueRuneActionPacket.class, 25, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneSnapshotPacketHandler.class, UniqueRuneSnapshotPacket.class, 26, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(MechanicUnlockActionPacketClientHandler.class, MechanicUnlockActionPacket.class, 27, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(MechanicUnlockSnapshotPacketHandler.class, MechanicUnlockSnapshotPacket.class, 28, Side.CLIENT);
     }
 }
