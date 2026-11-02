@@ -21,7 +21,7 @@ import net.minecraft.server.MinecraftServer;
 
 /** Read-only projection of the shared gameplay EffectResolver for one player. */
 final class AdminEffectsRoutes {
-    private static final String PATH = "/api/v1/players/effects";
+    static final String PATH = "/api/v1/players/effects";
     private static final Set<String> UUID_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid")));
     private static final Gson JSON = new Gson();
 
