@@ -21,6 +21,7 @@ import org.apache.logging.log4j.Logger;
 
 /** Registers explicit versioned routes and delegates only typed values to admin services on the server thread. */
 final class AdminApiRoutes {
+    static final String RUNES_READ_PATH = "/api/v1/players/runes";
     private static final Set<String> RESOURCE_FIELDS = fields("uuid", "resource", "value");
     private static final Set<String> RESOURCE_ADD_FIELDS = fields("uuid", "resource", "amount");
     private static final Set<String> UUID_FIELDS = fields("uuid");
@@ -58,7 +59,7 @@ final class AdminApiRoutes {
                             return profile == null ? "" : profile.getName();
                         }))),
                 AdminApiCapability.PLAYERS_READ, AdminApiCapability.RESOURCES_READ, AdminApiCapability.RUNES_READ);
-        formRead(http, wrapper, "/api/v1/players/runes", AdminApiCapability.RUNES_READ, UUID_FIELDS,
+        formRead(http, wrapper, RUNES_READ_PATH, AdminApiCapability.RUNES_READ, UUID_FIELDS,
                 form -> AdminApiJson.runes(serverThread.call(() -> queries.runes(parseUuid(form.get("uuid"))))));
         read(http, wrapper, "/api/v1/mobs",
                 () -> AdminApiJson.mobs(serverThread.call(queries::mobs)),
