@@ -123,6 +123,7 @@ public final class GodWorshipService {
 
     public synchronized GodWorshipModel.RunState runState(UUID playerUuid) { return repository.loadRunState(playerUuid); }
     public synchronized GodWorshipModel.PersistentState persistentState(UUID playerUuid) { return repository.loadPersistentState(playerUuid); }
+    public Policy policy() { return policy; }
     public synchronized void onMasteryReset(UUID playerUuid, boolean preserveGodProgression) { if (playerUuid != null && !preserveGodProgression) repository.resetRunState(playerUuid); }
     private void normalizeOne(State state, GodId god, long nowMillis) { GodWorshipRules.normalize(state, nowMillis, policy.cooldownDurationMillis(god)); }
     private void emit(UUID playerUuid, GameplayEventType type, GodId god, BigDecimal amount) {
