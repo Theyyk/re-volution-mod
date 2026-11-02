@@ -2,6 +2,7 @@ package com.example.revolution.admin.api;
 
 import com.example.revolution.admin.definition.AdminMobSnapshot;
 import com.example.revolution.admin.definition.AdminPlayerSnapshot;
+import com.example.revolution.admin.definition.AdminRuneSnapshot;
 import java.util.List;
 import java.util.Map;
 
@@ -43,6 +44,35 @@ final class AdminApiJson {
                 quote(out, entry.getValue());
             }
             out.append("}}");
+        }
+        return out.append("]}").toString();
+    }
+
+    static String runes(AdminRuneSnapshot snapshot) {
+        StringBuilder out = new StringBuilder("{");
+        out.append("\"schemaVersion\":").append(snapshot.schemaVersion).append(',');
+        field(out, "playerUuid", snapshot.playerUuid).append(',');
+        out.append("\"activeCollection\":").append(snapshot.activeCollection).append(',');
+        out.append("\"collections\":[");
+        for (int i = 0; i < snapshot.collections.size(); i++) {
+            if (i > 0) out.append(',');
+            AdminRuneSnapshot.Collection collection = snapshot.collections.get(i);
+            out.append('{');
+            out.append("\"index\":").append(collection.index).append(',');
+            field(out, "name", collection.name).append(',');
+            out.append("\"active\":").append(collection.active).append(',');
+            out.append("\"runes\":[");
+            for (int j = 0; j < collection.runes.size(); j++) {
+                if (j > 0) out.append(',');
+                AdminRuneSnapshot.Rune rune = collection.runes.get(j);
+                out.append('{')
+                        .append("\"slot\":").append(rune.slot).append(',')
+                        .append("\"runeIndex\":").append(rune.runeIndex).append(',')
+                        .append("\"layer\":").append(rune.layer).append(',')
+                        .append("\"level\":").append(rune.level)
+                        .append('}');
+            }
+            out.append("]}");
         }
         return out.append("]}").toString();
     }
