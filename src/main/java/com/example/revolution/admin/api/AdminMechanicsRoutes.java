@@ -16,8 +16,8 @@ import net.minecraft.server.MinecraftServer;
 
 /** Explicit read-only routes for mechanic-specific player state. */
 final class AdminMechanicsRoutes {
-    private static final String PATH = "/api/v1/players/mechanics";
-    private static final String TIME_SIMULATION_PATH = "/api/v1/players/mechanics/simulate-time";
+    static final String PATH = "/api/v1/players/mechanics";
+    static final String TIME_SIMULATION_PATH = "/api/v1/players/mechanics/simulate-time";
     private static final long MAX_DELTA_MILLIS = 7L * 24L * 60L * 60L * 1000L;
     private static final Set<String> UUID_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid")));
     private static final Set<String> TIME_SIMULATION_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid", "deltaMillis")));
@@ -46,21 +46,11 @@ final class AdminMechanicsRoutes {
             AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
             return;
         }
-
         String body = AdminApiHttp.readFormBody(exchange);
-        if (body == null) {
-            AdminApiHttp.respond(exchange, 413, "{\"error\":\"invalid_body\"}");
-            return;
-        }
-
+        if (body == null) { AdminApiHttp.respond(exchange, 413, "{\"error\":\"invalid_body\"}"); return; }
         final AdminFormData form;
-        try {
-            form = AdminFormData.parse(body, UUID_FIELDS);
-        } catch (IllegalArgumentException e) {
-            AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}");
-            return;
-        }
-
+        try { form = AdminFormData.parse(body, UUID_FIELDS); }
+        catch (IllegalArgumentException e) { AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}"); return; }
         try {
             UUID uuid = UUID.fromString(form.get("uuid"));
             String payload = serverThread.call(() -> JSON.toJson(mechanics.snapshot(uuid)));
@@ -79,21 +69,11 @@ final class AdminMechanicsRoutes {
             AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
             return;
         }
-
         String body = AdminApiHttp.readFormBody(exchange);
-        if (body == null) {
-            AdminApiHttp.respond(exchange, 413, "{\"error\":\"invalid_body\"}");
-            return;
-        }
-
+        if (body == null) { AdminApiHttp.respond(exchange, 413, "{\"error\":\"invalid_body\"}"); return; }
         final AdminFormData form;
-        try {
-            form = AdminFormData.parse(body, TIME_SIMULATION_FIELDS);
-        } catch (IllegalArgumentException e) {
-            AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}");
-            return;
-        }
-
+        try { form = AdminFormData.parse(body, TIME_SIMULATION_FIELDS); }
+        catch (IllegalArgumentException e) { AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}"); return; }
         try {
             UUID uuid = UUID.fromString(form.get("uuid"));
             long deltaMillis = Long.parseLong(form.get("deltaMillis"));
