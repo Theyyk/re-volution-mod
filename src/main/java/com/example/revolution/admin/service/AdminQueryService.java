@@ -2,6 +2,8 @@ package com.example.revolution.admin.service;
 
 import com.example.revolution.admin.definition.AdminMobSnapshot;
 import com.example.revolution.admin.definition.AdminPlayerSnapshot;
+import com.example.revolution.admin.definition.AdminRuneSnapshot;
+import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.mob.definition.MobDefinition;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.number.LargeNumbers;
@@ -11,6 +13,7 @@ import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.state.RuneInventory;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -91,6 +94,28 @@ public final class AdminQueryService {
     /** Compatibility alias retained for older internal callers and tests. */
     public List<AdminPlayerSnapshot> onlinePlayers(Iterable<EntityPlayerMP> online) { return allPlayers(online); }
 
+    public AdminRuneSnapshot runes(UUID playerUuid) {
+        if (playerUuid == null) throw new IllegalArgumentException("playerUuid is required");
+        int active = players.getActiveCollection(playerUuid);
+        List<String> names = players.getCollectionNames(playerUuid);
+        int collectionCount = Math.max(names.size(), active + 1);
+        List<AdminRuneSnapshot.Collection> collections = new ArrayList<>();
+        for (int index = 0; index < collectionCount; index++) {
+            List<AdminRuneSnapshot.Rune> runes = new ArrayList<>();
+            for (RuneRecord rune : players.getRunesInCollection(playerUuid, index)) {
+                runes.add(new AdminRuneSnapshot.Rune(rune.slot, rune.runeIndex, rune.layer, rune.level));
+            }
+            runes.sort((left, right) -> {
+                int slot = Integer.compare(left.slot, right.slot);
+                if (slot != 0) return slot;
+                return Integer.compare(left.runeIndex, right.runeIndex);
+            });
+            String name = index < names.size() ? names.get(index) : "Collection " + (index + 1);
+            collections.add(new AdminRuneSnapshot.Collection(index, name, index == active, runes));
+        }
+        return new AdminRuneSnapshot(playerUuid.toString(), active, collections);
+    }
+
     public List<AdminMobSnapshot> mobs() {
         configurationGuard.run();
         List<AdminMobSnapshot> snapshots = new ArrayList<>();
@@ -108,5 +133,13 @@ public final class AdminQueryService {
 
     public List<String> resourceNames() {
         return new ArrayList<>(ResourceDefinitions.getResourceNames());
+    }
+
+    public BigDecimal resolvedEffectMultiplier(UUID playerUuid, EffectResolver.Stat stat) {
+        return resources.resolvedEffectMultiplier(playerUuid, stat);
+    }
+
+    public List<EffectResolver.Contribution> inspectResolvedEffect(UUID playerUuid, EffectResolver.Stat stat) {
+        return resources.inspectResolvedEffect(playerUuid, stat);
     }
 }

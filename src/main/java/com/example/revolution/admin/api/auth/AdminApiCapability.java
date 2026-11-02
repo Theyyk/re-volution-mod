@@ -13,6 +13,8 @@ public enum AdminApiCapability {
     STAGES_WRITE,
     PROGRESSION_READ,
     PROGRESSION_WRITE,
+    MECHANICS_READ,
+    EFFECTS_READ,
     BALANCE_READ,
     BALANCE_WRITE
 }

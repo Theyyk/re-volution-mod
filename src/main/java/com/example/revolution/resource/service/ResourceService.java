@@ -167,6 +167,18 @@ public final class ResourceService {
         return true;
     }
 
+    /** Read-only access to the exact shared resolver used by gameplay reward calculations. */
+    public BigDecimal resolvedEffectMultiplier(UUID uuid, EffectResolver.Stat stat) {
+        if (uuid == null || stat == null || effects == null) return BigDecimal.ONE;
+        return effects.multiplier(uuid, stat);
+    }
+
+    /** Read-only contribution breakdown from the exact shared gameplay resolver. */
+    public java.util.List<EffectResolver.Contribution> inspectResolvedEffect(UUID uuid, EffectResolver.Stat stat) {
+        if (uuid == null || stat == null || effects == null) return java.util.Collections.emptyList();
+        return effects.inspect(uuid, stat);
+    }
+
     public void purgeDeprecatedLightnings(){ repository.purgeDeprecatedLightnings(); }
     public void purgeDeprecatedLightnings(UUID uuid){ repository.purgeDeprecatedLightnings(uuid); }
     public BigDecimal getPlayerResourceValue(UUID uuid, String resource){ return repository.getPlayerResourceValue(uuid, resource); }
