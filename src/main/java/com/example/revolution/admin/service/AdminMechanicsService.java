@@ -127,9 +127,9 @@ public final class AdminMechanicsService {
             } else if ("achievements".equals(key)) {
                 AchievementPlayerState value = JSON.fromJson(json, AchievementPlayerState.class);
                 if (value == null) throw new IllegalArgumentException("achievement state is required");
+                achievements.unload(playerUuid);
                 AchievementRepository repository = repository(achievements, AchievementRepository.class);
                 repository.save(playerUuid, value.copy());
-                achievements.unload(playerUuid);
             } else if ("uniqueRunes".equals(key)) {
                 UniqueRuneModel.PlayerState value = JSON.fromJson(json, UniqueRuneModel.PlayerState.class);
                 if (value == null) throw new IllegalArgumentException("unique rune state is required");
