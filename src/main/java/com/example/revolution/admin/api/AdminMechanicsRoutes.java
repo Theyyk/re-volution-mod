@@ -92,6 +92,7 @@ final class AdminMechanicsRoutes {
             result.put("state", state);
             AdminApiHttp.respond(exchange, 200, JSON.toJson(result));
         } catch (IllegalArgumentException e) {
+            logBadRequest(form, e);
             AdminApiHttp.respond(exchange, 400, badRequestPayload(e));
         } catch (Exception e) {
             throw e instanceof RuntimeException ? (RuntimeException) e : new IllegalStateException("Admin mechanics editor write failed", e);
@@ -122,6 +123,15 @@ final class AdminMechanicsRoutes {
         String message = safeBadRequestMessage(failure == null ? null : failure.getMessage());
         if (message != null) result.put("message", message);
         return JSON.toJson(result);
+    }
+
+    private static void logBadRequest(AdminFormData form, IllegalArgumentException failure) {
+        String uuid = form == null ? "-" : safeBadRequestMessage(form.get("uuid"));
+        String section = form == null ? "-" : safeBadRequestMessage(form.get("section"));
+        String message = safeBadRequestMessage(failure == null ? null : failure.getMessage());
+        System.out.println("[admin-mechanics] set rejected uuid=" + (uuid == null ? "-" : uuid)
+                + " section=" + (section == null ? "-" : section)
+                + " message=" + (message == null ? "-" : message));
     }
 
     static String safeBadRequestMessage(String message) {
