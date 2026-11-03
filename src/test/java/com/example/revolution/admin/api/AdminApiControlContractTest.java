@@ -10,6 +10,7 @@ public final class AdminApiControlContractTest {
         testRoutePaths();
         testRuneJsonSchema();
         testMechanicsBadRequestDiagnostics();
+        testMechanicsSetPayloadLimit();
         System.out.println("Admin API Control contract regression passed");
     }
 
@@ -76,6 +77,19 @@ public final class AdminApiControlContractTest {
         require(safe != null && safe.length() == 160, "Mechanics validation reason must be bounded");
         require("bad value".equals(AdminMechanicsRoutes.safeBadRequestMessage("bad\nvalue")),
                 "Mechanics validation reason must normalize control characters");
+    }
+
+    private static void testMechanicsSetPayloadLimit() {
+        StringBuilder json = new StringBuilder();
+        for (int i = 0; i < 1300; i++) json.append('x');
+        java.util.Set<String> keys = new java.util.HashSet<>(Arrays.asList("uuid", "section", "json"));
+        AdminFormData parsed = AdminFormData.parse(
+                "uuid=00000000-0000-0000-0000-000000000001&section=gods&json=" + json,
+                keys,
+                AdminMechanicsRoutes.SET_MAX_VALUE_LENGTH);
+        require(json.toString().equals(parsed.get("json")), "Mechanics set payload above 256 chars must remain accepted");
+        require(AdminMechanicsRoutes.SET_MAX_VALUE_LENGTH == AdminApiHttp.MAX_FORM_BODY_BYTES,
+                "Mechanics set value limit must stay bounded by the HTTP form body limit");
     }
 
     private static void require(boolean condition, String message) {
