@@ -9,6 +9,7 @@ public final class AdminApiControlContractTest {
         testStatusCapabilities();
         testRoutePaths();
         testRuneJsonSchema();
+        testMechanicsBadRequestDiagnostics();
         System.out.println("Admin API Control contract regression passed");
     }
 
@@ -62,6 +63,19 @@ public final class AdminApiControlContractTest {
         require(json.contains("\"runeIndex\":7"), "Rune index missing");
         require(json.contains("\"layer\":3"), "Rune layer missing");
         require(json.contains("\"level\":11"), "Rune level missing");
+    }
+
+    private static void testMechanicsBadRequestDiagnostics() {
+        String payload = AdminMechanicsRoutes.badRequestPayload(new IllegalArgumentException("GOD_1 linkedGodId is required"));
+        require(payload.contains("\"error\":\"bad_request\""), "Mechanics bad request error code changed");
+        require(payload.contains("\"message\":\"GOD_1 linkedGodId is required\""), "Mechanics validation reason missing");
+
+        StringBuilder longMessage = new StringBuilder();
+        for (int i = 0; i < 200; i++) longMessage.append('x');
+        String safe = AdminMechanicsRoutes.safeBadRequestMessage(longMessage.toString());
+        require(safe != null && safe.length() == 160, "Mechanics validation reason must be bounded");
+        require("bad value".equals(AdminMechanicsRoutes.safeBadRequestMessage("bad\nvalue")),
+                "Mechanics validation reason must normalize control characters");
     }
 
     private static void require(boolean condition, String message) {
