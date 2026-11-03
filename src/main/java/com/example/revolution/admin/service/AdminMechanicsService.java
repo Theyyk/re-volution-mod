@@ -119,8 +119,7 @@ public final class AdminMechanicsService {
                 if (run == null || persistent == null) throw new IllegalArgumentException("god state is required");
                 normalizeGodEditorState(run, persistent);
                 GodWorshipRepository repository = repository(gods, GodWorshipRepository.class);
-                repository.saveRunState(playerUuid, run);
-                repository.savePersistentState(playerUuid, persistent);
+                saveGodEditorState(playerUuid, repository, run, persistent);
             } else if ("aura".equals(key)) {
                 AuraModel.PlayerState value = JSON.fromJson(json, AuraModel.PlayerState.class);
                 if (value == null) throw new IllegalArgumentException("aura state is required");
@@ -148,8 +147,35 @@ public final class AdminMechanicsService {
         return editableSnapshot(playerUuid);
     }
 
-    private static void normalizeGodEditorState(GodWorshipModel.RunState run,
-                                                GodWorshipModel.PersistentState persistent) {
+    static void saveGodEditorState(UUID playerUuid, GodWorshipRepository repository,
+                                   GodWorshipModel.RunState run,
+                                   GodWorshipModel.PersistentState persistent) {
+        GodWorshipModel.RunState oldRun = repository.loadRunState(playerUuid);
+        GodWorshipModel.PersistentState oldPersistent = repository.loadPersistentState(playerUuid);
+        boolean runChanged = !sameEditorState(oldRun, run);
+        boolean persistentChanged = !sameEditorState(oldPersistent, persistent);
+
+        if (!runChanged && !persistentChanged) return;
+
+        // Persistent data is written first. If it fails, reset-scoped run state is untouched.
+        if (persistentChanged) repository.savePersistentState(playerUuid, persistent);
+        try {
+            if (runChanged) repository.saveRunState(playerUuid, run);
+        } catch (RuntimeException failure) {
+            if (persistentChanged) {
+                try { repository.savePersistentState(playerUuid, oldPersistent); }
+                catch (RuntimeException rollbackFailure) { failure.addSuppressed(rollbackFailure); }
+            }
+            throw failure;
+        }
+    }
+
+    private static boolean sameEditorState(Object left, Object right) {
+        return JSON.toJson(left).equals(JSON.toJson(right));
+    }
+
+    static void normalizeGodEditorState(GodWorshipModel.RunState run,
+                                        GodWorshipModel.PersistentState persistent) {
         if (run.gods == null || persistent.preferences == null)
             throw new IllegalArgumentException("god maps are required");
 
@@ -187,6 +213,12 @@ public final class AdminMechanicsService {
             }
             if (preference.activationMode == null)
                 preference.activationMode = GodWorshipModel.ActivationMode.MANUAL;
+            if (preference.activationMode != GodWorshipModel.ActivationMode.LINKED_TO_GOD)
+                preference.linkedGodId = null;
+            if (preference.linkedGodId == god) {
+                preference.activationMode = GodWorshipModel.ActivationMode.MANUAL;
+                preference.linkedGodId = null;
+            }
             preference.validateFor(god);
         }
 
