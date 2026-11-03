@@ -10,16 +10,21 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.server.MinecraftServer;
 
-/** Explicit read-only routes for mechanic-specific player state. */
+/** Explicit local DEV routes for mechanic-specific player state. */
 final class AdminMechanicsRoutes {
     static final String PATH = "/api/v1/players/mechanics";
+    static final String EDITABLE_PATH = "/api/v1/players/mechanics/editable";
+    static final String SET_PATH = "/api/v1/players/mechanics/set";
     static final String TIME_SIMULATION_PATH = "/api/v1/players/mechanics/simulate-time";
     private static final long MAX_DELTA_MILLIS = 7L * 24L * 60L * 60L * 1000L;
     private static final Set<String> UUID_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid")));
+    private static final Set<String> SET_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid", "section", "json")));
     private static final Set<String> TIME_SIMULATION_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid", "deltaMillis")));
     private static final Gson JSON = new Gson();
 
@@ -36,21 +41,15 @@ final class AdminMechanicsRoutes {
 
     void register(HttpServer http, AdminApiRoutes.RouteWrapper wrapper) {
         http.createContext(PATH, wrapper.wrap(PATH, this::handle));
+        http.createContext(EDITABLE_PATH, wrapper.wrap(EDITABLE_PATH, this::handleEditable));
+        http.createContext(SET_PATH, wrapper.wrap(SET_PATH, this::handleSet));
         http.createContext(TIME_SIMULATION_PATH, wrapper.wrap(TIME_SIMULATION_PATH, this::handleTimeSimulation));
     }
 
     private void handle(HttpExchange exchange) throws IOException {
-        if (!AdminApiHttp.requireMethod(exchange, "POST")) return;
-        String authorization = AdminApiHttp.boundedHeader(exchange, "Authorization", 128);
-        if (!auth.authorizeBearer(authorization, AdminApiCapability.MECHANICS_READ)) {
-            AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
-            return;
-        }
-        String body = AdminApiHttp.readFormBody(exchange);
-        if (body == null) { AdminApiHttp.respond(exchange, 413, "{\"error\":\"invalid_body\"}"); return; }
-        final AdminFormData form;
-        try { form = AdminFormData.parse(body, UUID_FIELDS); }
-        catch (IllegalArgumentException e) { AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}"); return; }
+        if (!authorizePost(exchange)) return;
+        AdminFormData form = parse(exchange, UUID_FIELDS);
+        if (form == null) return;
         try {
             UUID uuid = UUID.fromString(form.get("uuid"));
             String payload = serverThread.call(() -> JSON.toJson(mechanics.snapshot(uuid)));
@@ -62,18 +61,46 @@ final class AdminMechanicsRoutes {
         }
     }
 
-    private void handleTimeSimulation(HttpExchange exchange) throws IOException {
-        if (!AdminApiHttp.requireMethod(exchange, "POST")) return;
-        String authorization = AdminApiHttp.boundedHeader(exchange, "Authorization", 128);
-        if (!auth.authorizeBearer(authorization, AdminApiCapability.MECHANICS_READ)) {
-            AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
-            return;
+    private void handleEditable(HttpExchange exchange) throws IOException {
+        if (!authorizePost(exchange)) return;
+        AdminFormData form = parse(exchange, UUID_FIELDS);
+        if (form == null) return;
+        try {
+            UUID uuid = UUID.fromString(form.get("uuid"));
+            String payload = serverThread.call(() -> JSON.toJson(mechanics.editableSnapshot(uuid)));
+            AdminApiHttp.respond(exchange, 200, payload);
+        } catch (IllegalArgumentException e) {
+            AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}");
+        } catch (Exception e) {
+            throw e instanceof RuntimeException ? (RuntimeException) e : new IllegalStateException("Admin mechanics editor read failed", e);
         }
-        String body = AdminApiHttp.readFormBody(exchange);
-        if (body == null) { AdminApiHttp.respond(exchange, 413, "{\"error\":\"invalid_body\"}"); return; }
-        final AdminFormData form;
-        try { form = AdminFormData.parse(body, TIME_SIMULATION_FIELDS); }
-        catch (IllegalArgumentException e) { AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}"); return; }
+    }
+
+    private void handleSet(HttpExchange exchange) throws IOException {
+        if (!authorizePost(exchange)) return;
+        AdminFormData form = parse(exchange, SET_FIELDS);
+        if (form == null) return;
+        try {
+            UUID uuid = UUID.fromString(form.get("uuid"));
+            String section = form.get("section");
+            String json = form.get("json");
+            Map<String, Object> state = serverThread.call(() -> mechanics.replaceSection(uuid, section, json));
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("ok", true);
+            result.put("section", section);
+            result.put("state", state);
+            AdminApiHttp.respond(exchange, 200, JSON.toJson(result));
+        } catch (IllegalArgumentException e) {
+            AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}");
+        } catch (Exception e) {
+            throw e instanceof RuntimeException ? (RuntimeException) e : new IllegalStateException("Admin mechanics editor write failed", e);
+        }
+    }
+
+    private void handleTimeSimulation(HttpExchange exchange) throws IOException {
+        if (!authorizePost(exchange)) return;
+        AdminFormData form = parse(exchange, TIME_SIMULATION_FIELDS);
+        if (form == null) return;
         try {
             UUID uuid = UUID.fromString(form.get("uuid"));
             long deltaMillis = Long.parseLong(form.get("deltaMillis"));
@@ -85,6 +112,30 @@ final class AdminMechanicsRoutes {
             AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}");
         } catch (Exception e) {
             throw e instanceof RuntimeException ? (RuntimeException) e : new IllegalStateException("Admin time simulation failed", e);
+        }
+    }
+
+    private boolean authorizePost(HttpExchange exchange) throws IOException {
+        if (!AdminApiHttp.requireMethod(exchange, "POST")) return false;
+        String authorization = AdminApiHttp.boundedHeader(exchange, "Authorization", 128);
+        if (!auth.authorizeBearer(authorization, AdminApiCapability.MECHANICS_READ)) {
+            AdminApiHttp.respond(exchange, 401, "{\"error\":\"unauthorized\"}");
+            return false;
+        }
+        return true;
+    }
+
+    private static AdminFormData parse(HttpExchange exchange, Set<String> fields) throws IOException {
+        String body = AdminApiHttp.readFormBody(exchange);
+        if (body == null) {
+            AdminApiHttp.respond(exchange, 413, "{\"error\":\"invalid_body\"}");
+            return null;
+        }
+        try {
+            return AdminFormData.parse(body, fields);
+        } catch (IllegalArgumentException e) {
+            AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}");
+            return null;
         }
     }
 }
