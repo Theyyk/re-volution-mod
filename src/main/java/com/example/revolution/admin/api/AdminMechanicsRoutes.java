@@ -22,6 +22,7 @@ final class AdminMechanicsRoutes {
     static final String EDITABLE_PATH = "/api/v1/players/mechanics/editable";
     static final String SET_PATH = "/api/v1/players/mechanics/set";
     static final String TIME_SIMULATION_PATH = "/api/v1/players/mechanics/simulate-time";
+    static final int SET_MAX_VALUE_LENGTH = AdminApiHttp.MAX_FORM_BODY_BYTES;
     private static final long MAX_DELTA_MILLIS = 7L * 24L * 60L * 60L * 1000L;
     private static final int MAX_BAD_REQUEST_MESSAGE_LENGTH = 160;
     private static final Set<String> UUID_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid")));
@@ -79,7 +80,7 @@ final class AdminMechanicsRoutes {
 
     private void handleSet(HttpExchange exchange) throws IOException {
         if (!authorizePost(exchange)) return;
-        AdminFormData form = parse(exchange, SET_FIELDS);
+        AdminFormData form = parse(exchange, SET_FIELDS, SET_MAX_VALUE_LENGTH);
         if (form == null) return;
         try {
             UUID uuid = UUID.fromString(form.get("uuid"));
@@ -159,15 +160,19 @@ final class AdminMechanicsRoutes {
     }
 
     private static AdminFormData parse(HttpExchange exchange, Set<String> fields) throws IOException {
+        return parse(exchange, fields, 256);
+    }
+
+    private static AdminFormData parse(HttpExchange exchange, Set<String> fields, int maximumValueLength) throws IOException {
         String body = AdminApiHttp.readFormBody(exchange);
         if (body == null) {
             AdminApiHttp.respond(exchange, 413, "{\"error\":\"invalid_body\"}");
             return null;
         }
         try {
-            return AdminFormData.parse(body, fields);
+            return AdminFormData.parse(body, fields, maximumValueLength);
         } catch (IllegalArgumentException e) {
-            AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}");
+            AdminApiHttp.respond(exchange, 400, badRequestPayload(e));
             return null;
         }
     }
