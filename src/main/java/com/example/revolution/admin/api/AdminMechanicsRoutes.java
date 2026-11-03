@@ -23,6 +23,7 @@ final class AdminMechanicsRoutes {
     static final String SET_PATH = "/api/v1/players/mechanics/set";
     static final String TIME_SIMULATION_PATH = "/api/v1/players/mechanics/simulate-time";
     private static final long MAX_DELTA_MILLIS = 7L * 24L * 60L * 60L * 1000L;
+    private static final int MAX_BAD_REQUEST_MESSAGE_LENGTH = 160;
     private static final Set<String> UUID_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid")));
     private static final Set<String> SET_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid", "section", "json")));
     private static final Set<String> TIME_SIMULATION_FIELDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("uuid", "deltaMillis")));
@@ -91,7 +92,7 @@ final class AdminMechanicsRoutes {
             result.put("state", state);
             AdminApiHttp.respond(exchange, 200, JSON.toJson(result));
         } catch (IllegalArgumentException e) {
-            AdminApiHttp.respond(exchange, 400, "{\"error\":\"bad_request\"}");
+            AdminApiHttp.respond(exchange, 400, badRequestPayload(e));
         } catch (Exception e) {
             throw e instanceof RuntimeException ? (RuntimeException) e : new IllegalStateException("Admin mechanics editor write failed", e);
         }
@@ -113,6 +114,28 @@ final class AdminMechanicsRoutes {
         } catch (Exception e) {
             throw e instanceof RuntimeException ? (RuntimeException) e : new IllegalStateException("Admin time simulation failed", e);
         }
+    }
+
+    static String badRequestPayload(IllegalArgumentException failure) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("error", "bad_request");
+        String message = safeBadRequestMessage(failure == null ? null : failure.getMessage());
+        if (message != null) result.put("message", message);
+        return JSON.toJson(result);
+    }
+
+    static String safeBadRequestMessage(String message) {
+        if (message == null) return null;
+        String trimmed = message.trim();
+        if (trimmed.isEmpty()) return null;
+        StringBuilder safe = new StringBuilder(Math.min(trimmed.length(), MAX_BAD_REQUEST_MESSAGE_LENGTH));
+        for (int i = 0; i < trimmed.length() && safe.length() < MAX_BAD_REQUEST_MESSAGE_LENGTH; i++) {
+            char c = trimmed.charAt(i);
+            if (c >= 32 && c <= 126) safe.append(c);
+            else safe.append(' ');
+        }
+        String normalized = safe.toString().trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private boolean authorizePost(HttpExchange exchange) throws IOException {
