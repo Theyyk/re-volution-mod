@@ -147,9 +147,9 @@ public final class AdminMechanicsService {
         return editableSnapshot(playerUuid);
     }
 
-    private static void saveGodEditorState(UUID playerUuid, GodWorshipRepository repository,
-                                           GodWorshipModel.RunState run,
-                                           GodWorshipModel.PersistentState persistent) {
+    static void saveGodEditorState(UUID playerUuid, GodWorshipRepository repository,
+                                   GodWorshipModel.RunState run,
+                                   GodWorshipModel.PersistentState persistent) {
         GodWorshipModel.RunState oldRun = repository.loadRunState(playerUuid);
         GodWorshipModel.PersistentState oldPersistent = repository.loadPersistentState(playerUuid);
         boolean runChanged = !sameEditorState(oldRun, run);
@@ -174,8 +174,8 @@ public final class AdminMechanicsService {
         return JSON.toJson(left).equals(JSON.toJson(right));
     }
 
-    private static void normalizeGodEditorState(GodWorshipModel.RunState run,
-                                                GodWorshipModel.PersistentState persistent) {
+    static void normalizeGodEditorState(GodWorshipModel.RunState run,
+                                        GodWorshipModel.PersistentState persistent) {
         if (run.gods == null || persistent.preferences == null)
             throw new IllegalArgumentException("god maps are required");
 
@@ -213,6 +213,12 @@ public final class AdminMechanicsService {
             }
             if (preference.activationMode == null)
                 preference.activationMode = GodWorshipModel.ActivationMode.MANUAL;
+            if (preference.activationMode != GodWorshipModel.ActivationMode.LINKED_TO_GOD)
+                preference.linkedGodId = null;
+            if (preference.linkedGodId == god) {
+                preference.activationMode = GodWorshipModel.ActivationMode.MANUAL;
+                preference.linkedGodId = null;
+            }
             preference.validateFor(god);
         }
 
