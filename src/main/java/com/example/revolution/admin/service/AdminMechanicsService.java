@@ -23,6 +23,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -116,6 +117,7 @@ public final class AdminMechanicsService {
                 GodWorshipModel.RunState run = JSON.fromJson(value.get("run"), GodWorshipModel.RunState.class);
                 GodWorshipModel.PersistentState persistent = JSON.fromJson(value.get("persistent"), GodWorshipModel.PersistentState.class);
                 if (run == null || persistent == null) throw new IllegalArgumentException("god state is required");
+                normalizeGodEditorState(run, persistent);
                 GodWorshipRepository repository = repository(gods, GodWorshipRepository.class);
                 repository.saveRunState(playerUuid, run);
                 repository.savePersistentState(playerUuid, persistent);
@@ -144,6 +146,54 @@ public final class AdminMechanicsService {
             throw new IllegalStateException("Admin mechanics section replacement failed", e);
         }
         return editableSnapshot(playerUuid);
+    }
+
+    private static void normalizeGodEditorState(GodWorshipModel.RunState run,
+                                                GodWorshipModel.PersistentState persistent) {
+        if (run.gods == null || persistent.preferences == null)
+            throw new IllegalArgumentException("god maps are required");
+
+        for (GodWorshipModel.GodId god : GodWorshipModel.GodId.values()) {
+            GodWorshipModel.State state = run.gods.get(god);
+            if (state == null) {
+                state = new GodWorshipModel.State();
+                run.gods.put(god, state);
+            }
+            if (state.passiveChargeRemainder == null || state.passiveChargeRemainder.signum() < 0)
+                state.passiveChargeRemainder = BigDecimal.ZERO;
+            if (state.chargeProgress < 0L) state.chargeProgress = 0L;
+            if (state.buffActiveUntilMillis < 0L) state.buffActiveUntilMillis = 0L;
+            if (state.cooldownUntilMillis < 0L) state.cooldownUntilMillis = 0L;
+            if (state.offeringSettledUntilMillis < 0L) state.offeringSettledUntilMillis = 0L;
+
+            if (!state.unlocked) {
+                state.level = 0L;
+                state.phase = GodWorshipModel.Phase.LOCKED;
+                state.chargeProgress = 0L;
+                state.buffActiveUntilMillis = 0L;
+                state.cooldownUntilMillis = 0L;
+                state.offeringSettledUntilMillis = 0L;
+                state.passiveChargeRemainder = BigDecimal.ZERO;
+            } else {
+                if (state.level < 1L) state.level = 1L;
+                if (state.phase == null || state.phase == GodWorshipModel.Phase.LOCKED)
+                    state.phase = GodWorshipModel.Phase.CHARGE;
+            }
+
+            GodWorshipModel.Preference preference = persistent.preferences.get(god);
+            if (preference == null) {
+                preference = new GodWorshipModel.Preference();
+                persistent.preferences.put(god, preference);
+            }
+            if (preference.activationMode == null)
+                preference.activationMode = GodWorshipModel.ActivationMode.MANUAL;
+            preference.validateFor(god);
+        }
+
+        if (persistent.offerings == null || persistent.offerings.signum() < 0)
+            persistent.offerings = BigDecimal.ZERO;
+        if (persistent.permanentDurationLevel < 0L)
+            persistent.permanentDurationLevel = 0L;
     }
 
     @SuppressWarnings("unchecked")
