@@ -92,6 +92,8 @@ final class AdminMechanicsRoutes {
             result.put("state", state);
             AdminApiHttp.respond(exchange, 200, JSON.toJson(result));
         } catch (IllegalArgumentException e) {
+            String message = safeBadRequestMessage(e.getMessage());
+            System.err.println("[admin-mechanics-set] bad_request message=" + (message == null ? "-" : message));
             AdminApiHttp.respond(exchange, 400, badRequestPayload(e));
         } catch (Exception e) {
             throw e instanceof RuntimeException ? (RuntimeException) e : new IllegalStateException("Admin mechanics editor write failed", e);
