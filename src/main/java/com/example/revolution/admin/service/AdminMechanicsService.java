@@ -134,6 +134,7 @@ public final class AdminMechanicsService {
             } else if ("uniqueRunes".equals(key)) {
                 UniqueRuneModel.PlayerState value = JSON.fromJson(json, UniqueRuneModel.PlayerState.class);
                 if (value == null) throw new IllegalArgumentException("unique rune state is required");
+                validateUniqueRuneEditorState(value);
                 repository(uniqueRunes, UniqueRuneRepository.class).save(playerUuid, value.copy());
                 uniqueRunes.clearReplayState();
             } else {
@@ -145,6 +146,30 @@ public final class AdminMechanicsService {
             throw new IllegalStateException("Admin mechanics section replacement failed", e);
         }
         return editableSnapshot(playerUuid);
+    }
+
+    /** Reject invalid admin JSON before handing it to the Mongo encoder. Gson maps unknown enum names to null. */
+    static void validateUniqueRuneEditorState(UniqueRuneModel.PlayerState state) {
+        for (UniqueRuneModel.CollectionId id : UniqueRuneModel.CollectionId.values()) {
+            UniqueRuneModel.CollectionState collection = state.collection(id);
+            if (collection == null) throw new IllegalArgumentException("uniqueRunes missing collection: " + id.name());
+            if (collection.currentRarity == null || !collection.currentRarity.gameplayEnabled)
+                throw new IllegalArgumentException("uniqueRunes " + id.name()
+                        + " currentRarity must be COMMON, IMPROVED, ADVANCED or MYTHIC");
+            if (collection.owned == null || collection.enhancement == null || collection.rollbackOwned == null)
+                throw new IllegalArgumentException("uniqueRunes " + id.name() + " collection maps are required");
+            if (collection.rollbackRarity != null && !collection.rollbackRarity.gameplayEnabled)
+                throw new IllegalArgumentException("uniqueRunes " + id.name() + " rollbackRarity is invalid");
+            for (Map.Entry<String, UniqueRuneModel.Rarity> entry : collection.owned.entrySet())
+                if (entry.getKey() == null || entry.getValue() == null || !entry.getValue().gameplayEnabled)
+                    throw new IllegalArgumentException("uniqueRunes " + id.name() + " invalid owned rarity");
+            for (Map.Entry<String, UniqueRuneModel.Rarity> entry : collection.rollbackOwned.entrySet())
+                if (entry.getKey() == null || entry.getValue() == null || !entry.getValue().gameplayEnabled)
+                    throw new IllegalArgumentException("uniqueRunes " + id.name() + " invalid rollback rarity");
+            for (Map.Entry<String, Integer> entry : collection.enhancement.entrySet())
+                if (entry.getKey() == null || entry.getValue() == null)
+                    throw new IllegalArgumentException("uniqueRunes " + id.name() + " invalid enhancement");
+        }
     }
 
     static void saveGodEditorState(UUID playerUuid, GodWorshipRepository repository,
