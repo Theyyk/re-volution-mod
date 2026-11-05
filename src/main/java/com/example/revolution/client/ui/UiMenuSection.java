@@ -4,21 +4,23 @@ import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 
 /** Semantic E-menu sections and a single source for button IDs. */
 public enum UiMenuSection {
-    RUNES("runes", 200, "Р", null),
-    UNIQUE_RUNES("unique_runes", 300, "У", BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS),
-    PETS("pets", 301, "П", null),
-    MECHANIC_UNLOCKS("mechanic_unlocks", 302, "О", null),
-    ACHIEVEMENTS("achievements", 303, "Д", BalanceMechanicUnlockPolicy.ACHIEVEMENTS);
+    RUNES("runes", 200, "Р", "Руны", null),
+    UNIQUE_RUNES("unique_runes", 300, "У", "Уникальные руны", BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS),
+    PETS("pets", 301, "П", "Питомцы", null),
+    MECHANIC_UNLOCKS("mechanic_unlocks", 302, "О", "Разблокировки", null),
+    ACHIEVEMENTS("achievements", 303, "Д", "Достижения", BalanceMechanicUnlockPolicy.ACHIEVEMENTS);
 
     private final String id;
     private final int buttonId;
     private final String shortLabel;
+    private final String displayName;
     private final String mechanicUnlockId;
 
-    UiMenuSection(String id, int buttonId, String shortLabel, String mechanicUnlockId) {
+    UiMenuSection(String id, int buttonId, String shortLabel, String displayName, String mechanicUnlockId) {
         this.id = id;
         this.buttonId = buttonId;
         this.shortLabel = shortLabel;
+        this.displayName = displayName;
         this.mechanicUnlockId = mechanicUnlockId;
     }
 
@@ -32,6 +34,10 @@ public enum UiMenuSection {
 
     public String shortLabel() {
         return shortLabel;
+    }
+
+    public String displayName() {
+        return displayName;
     }
 
     /** Null means no v2.12.0 permanent mechanic unlock gates this tab. */
