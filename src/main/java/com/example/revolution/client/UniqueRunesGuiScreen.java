@@ -67,7 +67,7 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
     private int slotY(int slot) { return gridY() + (slot / 10) * (slotSize() + 4); }
 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        UnifiedMainMenuChrome.draw(mc, width, height, "УНИКАЛЬНЫЕ РУНЫ");
+        UnifiedMainMenuChrome.draw(mc, width, height, mouseX, mouseY, "УНИКАЛЬНЫЕ РУНЫ");
         UnifiedMainMenuChrome.refreshNavigation(buttonList);
         UniqueRuneSnapshotPacket snapshot = ClientUniqueRunes.snapshot();
         String collection = COLLECTIONS[selected];
