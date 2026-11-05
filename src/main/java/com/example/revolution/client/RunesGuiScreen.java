@@ -228,8 +228,9 @@ public class RunesGuiScreen extends GuiScreen {
         int x = layout.runePanelX + scaled(8, 4);
         int y = layout.runePanelY + 57;
         int gap = scaled(3, 2);
-        int availableRight = layout.runePanelX + layout.runePanelWidth - scaled(8, 4);
-        int lastOrdinaryRight = x;
+        // Keep a dedicated top-right space for the three special Rune collections.
+        // The original first-collection rune grid and purchase panel remain untouched.
+        int availableRight = UniqueRuneInlineTabs.ordinaryRightLimit(layout);
 
         for (int i = 0; i < count; i++) {
             String name = collectionNames.get(i);
@@ -245,9 +246,8 @@ public class RunesGuiScreen extends GuiScreen {
                     name, i == activeCollection
             ));
             x += buttonWidth + gap;
-            lastOrdinaryRight = x - gap;
         }
-        UniqueRuneInlineTabs.install(buttonList, layout, lastOrdinaryRight);
+        UniqueRuneInlineTabs.install(buttonList, layout);
     }
 
     private void rebuildNavigationButtons() {
