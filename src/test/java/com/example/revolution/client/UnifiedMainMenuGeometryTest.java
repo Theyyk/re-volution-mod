@@ -16,8 +16,8 @@ public class UnifiedMainMenuGeometryTest {
             int left = UnifiedMainMenuGeometry.contentLeft(w,h);
             int right = UnifiedMainMenuGeometry.contentRight(w,h);
             int top = UnifiedMainMenuGeometry.contentTop(w,h);
-            assertTrue(left >= rune.canvasX + Math.round(310 * rune.canvasScale),
-                    "stats overlap at " + w + "x" + h);
+            assertTrue(left >= rune.canvasX + Math.round(rune.runePanelX * rune.canvasScale),
+                    "feature content overlaps persistent character/equipment panel at " + w + "x" + h);
             assertTrue(right < rune.canvasX + Math.round(rune.navPanelX * rune.canvasScale),
                     "nav overlap at " + w + "x" + h);
             assertTrue(right > left + 100 * rune.canvasScale, "content collapsed");
