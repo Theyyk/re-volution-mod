@@ -56,6 +56,16 @@ public final class UnifiedMainMenuChrome {
         return layout;
     }
 
+    /** Public factory for screens outside the client root package. */
+    public static GuiButton panelButton(int id, int x, int y, int width, int height, String text) {
+        return new GuiControls.PanelButton(id, x, y, width, height, text);
+    }
+
+    /** Theme-consistent surface for feature screens in subpackages. */
+    public static void panel(int x, int y, int width, int height) {
+        GuiDrawing.drawSurface(x, y, width, height, PANEL_BG_SOFT, PANEL_BORDER_COLOR);
+    }
+
     public static void installNavigation(List<GuiButton> buttons, int width, int height,
                                          UiMenuSection active) {
         GuiLayout layout = geometry(width, height);
