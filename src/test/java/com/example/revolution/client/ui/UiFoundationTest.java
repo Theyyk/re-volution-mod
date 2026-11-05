@@ -54,7 +54,10 @@ public class UiFoundationTest {
             assertEquals(section, UiMenuSection.fromButtonId(section.buttonId()));
         }
         assertEquals(200, UiMenuSection.RUNES.buttonId());
-        assertEquals(4, UiMenuSection.auxiliaryTabs().length);
+        assertEquals(3, UiMenuSection.auxiliaryTabs().length);
+        assertEquals(4, UiMenuSection.mainTabs().length);
+        assertFalse(java.util.Arrays.asList(UiMenuSection.mainTabs()).contains(UiMenuSection.UNIQUE_RUNES));
+        assertFalse(java.util.Arrays.asList(UiMenuSection.auxiliaryTabs()).contains(UiMenuSection.UNIQUE_RUNES));
         for (UiMenuSection tab : UiMenuSection.auxiliaryTabs()) {
             // The original screen reserves IDs 0-299.
             assertTrue(tab.buttonId() >= 300);
