@@ -78,7 +78,7 @@ public final class MechanicUnlockGuiScreen extends GuiScreen {
     }
 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        UnifiedMainMenuChrome.draw(mc, width, height, "РАЗБЛОКИРОВКИ");
+        UnifiedMainMenuChrome.draw(mc, width, height, mouseX, mouseY, "РАЗБЛОКИРОВКИ");
         UnifiedMainMenuChrome.refreshNavigation(buttonList);
         int left = UnifiedMainMenuChrome.contentLeft(width, height);
         int right = UnifiedMainMenuChrome.contentRight(width, height);
