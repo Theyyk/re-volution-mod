@@ -762,12 +762,17 @@ public class RunesGuiScreen extends GuiScreen {
 
     private void drawNavigationTooltip(int mouseX, int mouseY) {
         for (GuiButton button : buttonList) {
-            if (button.id != NAV_RUNES_ID) continue;
+            if (!button.visible) continue;
+            com.example.revolution.client.ui.UiMenuSection section =
+                    com.example.revolution.client.ui.UiMenuSection.fromButtonId(button.id);
+            if (section == null) continue;
             if (mouseX < button.x || mouseX >= button.x + button.width
                     || mouseY < button.y || mouseY >= button.y + button.height) continue;
             List<String> tooltip = new ArrayList<>();
-            tooltip.add("§bРуны");
-            tooltip.add("§7Статусы и коллекция рун");
+            tooltip.add("§b" + section.displayName());
+            if (section == com.example.revolution.client.ui.UiMenuSection.RUNES)
+                tooltip.add("§7Статусы и коллекция рун");
+            else tooltip.add(button.enabled ? "§7Нажмите, чтобы открыть" : "§7Пока недоступно");
             drawCanvasTooltip(tooltip, mouseX, mouseY);
             return;
         }
