@@ -41,16 +41,15 @@ final class UniqueRuneInlineTabs {
     static int positionX(GuiLayout layout, int lastOrdinaryRight) {
         int panelRight = layout.runePanelX + layout.runePanelWidth - 8;
         // Never modify existing normal collection buttons to make room.
-        return fitsFirstRow(layout, lastOrdinaryRight)
-                ? panelRight - totalWidth()
-                : layout.runePanelX + 8;
+        return panelRight - totalWidth();
     }
 
     static int positionY(GuiLayout layout, int lastOrdinaryRight) {
-        // The spare line ends just above the rune grid (runeGridY).
+        // Never overlap the rune grid, its action hints or purchase controls.
+        // When row one is full, append the selectors below the purchase panel.
         return fitsFirstRow(layout, lastOrdinaryRight)
                 ? layout.runePanelY + 57
-                : layout.runePanelY + 76;
+                : layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT + 18;
     }
 
     static void install(List<GuiButton> buttons, GuiLayout layout, int lastOrdinaryRight) {
