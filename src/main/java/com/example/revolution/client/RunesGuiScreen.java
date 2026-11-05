@@ -256,6 +256,9 @@ public class RunesGuiScreen extends GuiScreen {
         buttonList.add(new PanelButton(
                 CLOSE_BUTTON_ID, x, closeY, closeSize, closeSize, "X"
         ));
+        // Collection snapshots rebuild buttonList after Forge's InitGuiEvent.Post.
+        // Always reinstall auxiliary tabs alongside the canonical rune/close buttons.
+        UnifiedMenuTabHandler.installButtons(buttonList, layout);
     }
 
     void updatePurchaseAvailability() {
@@ -794,6 +797,8 @@ public class RunesGuiScreen extends GuiScreen {
         drawCenterPanelContent(mouseX, mouseY);
         drawRunePanelContent(mouseX, mouseY);
 
+        // Apply a fresh server Mechanic Unlock snapshot before button rendering.
+        UnifiedMenuTabHandler.refreshButtons(buttonList);
         super.drawScreen(mouseX, mouseY, partialTicks);
         drawElementTooltip(mouseX, mouseY);
         drawNavigationTooltip(mouseX, mouseY);
