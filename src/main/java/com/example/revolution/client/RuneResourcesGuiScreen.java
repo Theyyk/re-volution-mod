@@ -21,6 +21,24 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         GlStateManager.pushMatrix();
         GlStateManager.translate(resourceLayout.canvasX, resourceLayout.canvasY, 0);
         GlStateManager.scale(resourceLayout.canvasScale, resourceLayout.canvasScale, 1);
+        drawSharedResourcePanels();
+        GlStateManager.popMatrix();
+    }
+
+    /**
+     * Draws the identical stats, currency, rune resources, equipment slots and
+     * live player preview across the auxiliary E-menu sections. Never opens
+     * the rune preloader or mutates inventory.
+     * Caller has installed the virtual canvas GL transform.
+     */
+    void drawAuxiliarySidebar(net.minecraft.client.Minecraft minecraft, int screenWidth,
+                              int screenHeight, int logicalMouseX, int logicalMouseY) {
+        drawSharedSidebarForAuxiliary(minecraft, screenWidth, screenHeight, logicalMouseX, logicalMouseY);
+        resourceLayout.update(screenWidth, screenHeight);
+        drawSharedResourcePanels();
+    }
+
+    private void drawSharedResourcePanels() {
         int panelX = resourceLayout.leftPanelX;
         int currencyY = resourceLayout.leftPanelY + resourceLayout.leftPanelHeight + 11;
         int runeY = currencyY + CURRENCY_PANEL_HEIGHT + PANEL_GAP;
@@ -44,7 +62,6 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         drawResourceLine(x, y, "Осколки рун", ClientPlayerStats.getRuneShards(), textWidth);
         y += resourceLayout.scaled(16, 12);
         drawResourceLine(x, y, "Ядра рун", ClientPlayerStats.getRuneCores(), textWidth);
-        GlStateManager.popMatrix();
     }
 
     private void drawResourceLine(int x, int y, String name, BigDecimal value, int availableWidth) {

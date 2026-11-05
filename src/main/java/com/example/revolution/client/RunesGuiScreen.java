@@ -137,6 +137,8 @@ public class RunesGuiScreen extends GuiScreen {
         if (!searchField.textboxKeyTyped(character, key)) super.keyTyped(character, key);
     }
 
+    private boolean runeScreenInitialized;
+
     @Override
     public void initGui() {
         buttonList.clear();
@@ -146,7 +148,12 @@ public class RunesGuiScreen extends GuiScreen {
             renderItem = Minecraft.getMinecraft().getRenderItem();
         }
 
-        inventory.clear();
+        // Keep the currently rendered runes when returning from another E tab.
+        // A new screen starts empty; the authoritative server snapshot still refreshes on init.
+        if (!runeScreenInitialized) {
+            inventory.clear();
+            runeScreenInitialized = true;
+        }
 
         updateLayout();
         rebuildControls();
@@ -336,6 +343,23 @@ public class RunesGuiScreen extends GuiScreen {
                     : 1;
             updateAmountButtonSelection();
         }
+    }
+
+    /**
+     * Reuse the original rune-screen left statistics and complete equipment/character
+     * renderer inside the shared E-menu chrome. No GUI init or network requests.
+     * Caller owns the original 1280x669 canvas GL transform.
+     */
+    final void drawSharedSidebarForAuxiliary(Minecraft minecraft, int screenWidth, int screenHeight,
+                                              int logicalMouseX, int logicalMouseY) {
+        this.mc = minecraft;
+        this.fontRenderer = GuiFontRenderer.get(minecraft);
+        this.width = screenWidth;
+        this.height = screenHeight;
+        updateLayout();
+        drawPanel(layout.leftPanelX, layout.leftPanelY, layout.leftPanelWidth, layout.leftPanelHeight);
+        drawLeftPanelContent();
+        drawCenterPanelContent(logicalMouseX, logicalMouseY);
     }
 
     private void drawPanel(int x, int y, int w, int h) {

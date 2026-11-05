@@ -21,6 +21,9 @@ import static com.example.revolution.client.GuiTheme.*;
 public final class UnifiedMainMenuChrome {
     private static final int CLOSE_ID = 299;
     private static final UiMenuSection[] SECTIONS = UiMenuSection.values();
+    // Renderer-only instance. Never display this screen or initialize its GUI.
+    private static final RuneResourcesGuiScreen AUXILIARY_SIDEBAR = new RuneResourcesGuiScreen();
+    private static RuneResourcesGuiScreen lastRuneScreen;
     private UnifiedMainMenuChrome() {}
 
     static int px(GuiLayout layout, int logicalX) {
@@ -51,6 +54,27 @@ public final class UnifiedMainMenuChrome {
         GuiLayout layout = new GuiLayout(26);
         layout.update(width, height);
         return layout;
+    }
+
+    /** Retain the original Rune GUI across E-tab changes, without re-running the preloader. */
+    public static void rememberRunes(RunesGuiScreen screen) {
+        if (screen instanceof RuneResourcesGuiScreen)
+            lastRuneScreen = (RuneResourcesGuiScreen) screen;
+    }
+
+    public static void forgetRunes() {
+        lastRuneScreen = null;
+    }
+
+    public static void openRunes(Minecraft minecraft) {
+        RuneResourcesGuiScreen screen = lastRuneScreen;
+        if (screen == null) {
+            screen = new RuneResourcesGuiScreen();
+            lastRuneScreen = screen;
+        }
+        // Never show a null screen between two tabs; the original screen will
+        // re-sync its authoritative rune snapshot on init.
+        minecraft.displayGuiScreen(screen);
     }
 
     /** Public factory for screens outside the client root package. */
@@ -116,8 +140,7 @@ public final class UnifiedMainMenuChrome {
                 && !ClientMechanicUnlocks.uiState(unlockId, UiAvailability.AVAILABLE).isInteractive()) return true;
         switch (target) {
             case RUNES:
-                ClientUiBridge.beginRuneOpen();
-                mc.displayGuiScreen(null);
+                openRunes(mc);
                 break;
             case PETS: mc.displayGuiScreen(new PetsGuiScreen()); break;
             case UNIQUE_RUNES: mc.displayGuiScreen(new UniqueRunesGuiScreen()); break;
@@ -128,47 +151,29 @@ public final class UnifiedMainMenuChrome {
         return true;
     }
 
-    public static void draw(Minecraft mc, int width, int height, String sectionName) {
+    public static void draw(Minecraft mc, int width, int height,
+                            int mouseX, int mouseY, String sectionName) {
         GuiLayout layout = geometry(width, height);
         Gui.drawRect(0, 0, width, height, OVERLAY_COLOR);
         GlStateManager.pushMatrix();
         GlStateManager.translate(layout.canvasX, layout.canvasY, 0);
         GlStateManager.scale(layout.canvasScale, layout.canvasScale, 1);
-        GuiDrawing.drawSurface(layout.leftPanelX, layout.leftPanelY, 300, 68, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
-        GuiDrawing.drawSurface(layout.leftPanelX, 89, 300, 68, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
-        GuiDrawing.drawSurface(layout.leftPanelX, 168, 300, 84, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
-        GuiDrawing.drawSurface(layout.centerPanelX, 10,
-                Math.max(200, layout.navPanelX - layout.centerPanelX - 10),
+
+        // Exactly the same existing renderer as the original rune screen:
+        // character preview, equipment slots, statistics and all currencies.
+        AUXILIARY_SIDEBAR.drawAuxiliarySidebar(mc, width, height,
+                layout.canvasMouseX(mouseX), layout.canvasMouseY(mouseY));
+
+        // Only the right-hand feature content changes between main tabs.
+        GuiDrawing.drawSurface(layout.runePanelX, layout.runePanelY,
+                Math.max(80, layout.navPanelX - layout.runePanelX - 10),
                 624, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
         GuiDrawing.drawSurface(layout.navPanelX, layout.navPanelY,
-                layout.navPanelWidth, layout.navPanelHeight, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
+                layout.navPanelWidth, layout.navPanelHeight,
+                PANEL_BG_COLOR, PANEL_BORDER_COLOR);
 
-        FontRenderer font = GuiFontRenderer.get(mc);
-        FontRenderer heading = GuiFontRenderer.heading(mc);
-        heading.drawStringWithShadow("СТАТИСТИКА", 18, 18, HEADING_TEXT_COLOR);
-        stat(font, 18, 43, 284, "Урон за клик",
-                LargeNumbers.format(ClientPlayerStats.getResolvedClickDamage()));
-        stat(font, 18, 56, 284, "Урон яда",
-                LargeNumbers.format(ClientPlayerStats.getResolvedPoisonDamage()));
-
-        heading.drawStringWithShadow("ВАЛЮТА", 18, 97, HEADING_TEXT_COLOR);
-        stat(font, 18, 122, 284, "Монеты", LargeNumbers.format(ClientPlayerStats.getCoins()));
-        stat(font, 18, 138, 284, "Кристаллы", LargeNumbers.format(ClientPlayerStats.getCrystals()));
-
-        heading.drawStringWithShadow("РЕСУРСЫ РУН", 18, 176, HEADING_TEXT_COLOR);
-        stat(font, 18, 201, 284, "Пыль рун", LargeNumbers.format(ClientPlayerStats.getRuneDust()));
-        stat(font, 18, 217, 284, "Осколки рун", LargeNumbers.format(ClientPlayerStats.getRuneShards()));
-        stat(font, 18, 233, 284, "Ядра рун", LargeNumbers.format(ClientPlayerStats.getRuneCores()));
-
-        heading.drawStringWithShadow(sectionName, 335, 22, HEADING_TEXT_COLOR);
+        GuiFontRenderer.heading(mc).drawStringWithShadow(sectionName,
+                layout.runePanelX + 10, 22, HEADING_TEXT_COLOR);
         GlStateManager.popMatrix();
-    }
-
-    private static void stat(FontRenderer font, int x, int y, int right,
-                             String label, String value) {
-        int valueX = right - font.getStringWidth(value);
-        font.drawString(font.trimStringToWidth(label, Math.max(12, valueX - x - 6)),
-                x, y, TEXT_COLOR);
-        font.drawString(value, valueX, y, TEXT_COLOR);
     }
 }

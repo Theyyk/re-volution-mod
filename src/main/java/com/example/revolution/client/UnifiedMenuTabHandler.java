@@ -58,6 +58,7 @@ public final class UnifiedMenuTabHandler {
         if (!state(tab).isInteractive()) return;
 
         Minecraft mc = Minecraft.getMinecraft();
+        UnifiedMainMenuChrome.rememberRunes((RunesGuiScreen) event.getGui());
         switch (tab) {
             case UNIQUE_RUNES: mc.displayGuiScreen(new UniqueRunesGuiScreen()); break;
             case PETS: mc.displayGuiScreen(new PetsGuiScreen()); break;

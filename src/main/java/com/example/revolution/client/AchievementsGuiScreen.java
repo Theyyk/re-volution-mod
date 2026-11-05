@@ -108,7 +108,7 @@ public final class AchievementsGuiScreen extends GuiScreen {
     }
 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        UnifiedMainMenuChrome.draw(mc, width, height, "ДОСТИЖЕНИЯ");
+        UnifiedMainMenuChrome.draw(mc, width, height, mouseX, mouseY, "ДОСТИЖЕНИЯ");
         UnifiedMainMenuChrome.refreshNavigation(buttonList);
         String meta = "Очки: " + ClientAchievements.points()
                 + "   Уровень: " + ClientAchievements.level()

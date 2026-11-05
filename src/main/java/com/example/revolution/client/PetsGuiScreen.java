@@ -126,7 +126,7 @@ public final class PetsGuiScreen extends GuiScreen {
     }
 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        UnifiedMainMenuChrome.draw(mc, width, height, "ПИТОМЦЫ");
+        UnifiedMainMenuChrome.draw(mc, width, height, mouseX, mouseY, "ПИТОМЦЫ");
         UnifiedMainMenuChrome.refreshNavigation(buttonList);
         int left = UnifiedMainMenuChrome.contentLeft(width, height);
         int right = UnifiedMainMenuChrome.contentRight(width, height);
