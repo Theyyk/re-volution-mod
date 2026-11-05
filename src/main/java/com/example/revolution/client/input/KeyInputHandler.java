@@ -2,6 +2,7 @@ package com.example.revolution.client.input;
 
 import com.example.revolution.client.ClientUiBridge;
 import com.example.revolution.client.UnifiedMainMenuChrome;
+import com.example.revolution.client.ClientUniqueRunes;
 import com.example.revolution.client.mechanic.ClientMechanicUnlocks;
 import com.example.revolution.client.network.AuraClientState;
 import com.example.revolution.client.network.GodWorshipClientState;
@@ -54,6 +55,7 @@ public class KeyInputHandler {
         // Do not reuse another server/player's unlock visibility after disconnect.
         if (minecraft.getConnection() == null) {
             ClientMechanicUnlocks.reset();
+            ClientUniqueRunes.reset();
             UnifiedMainMenuChrome.forgetRunes();
         }
         configureVanillaBindings(minecraft);
