@@ -22,36 +22,26 @@ public class UniqueRuneInlineTabsTest {
     }
 
     @Test
-    void placementReservesExistingOrdinaryButtonsAtEveryResolution() {
-        int[][] sizes = {{1280,669},{1920,1080},{2560,1440},{854,480},{640,360},{2560,1080}};
+    void specialCollectionsStayOnTopRowAtEveryResolution() {
+        int[][] sizes = {{1280,669},{1920,1080},{2560,1440},{854,480},
+                {640,360},{2560,1080},{320,180},{1080,1920}};
         for (int[] size : sizes) {
             GuiLayout layout = new GuiLayout(26);
             layout.update(size[0],size[1]);
-            int ordinaryRight = layout.runePanelX + 320;
-            int uniqueX = UniqueRuneInlineTabs.positionX(layout,ordinaryRight);
-            int uniqueY = UniqueRuneInlineTabs.positionY(layout,ordinaryRight);
-            assertTrue(uniqueX >= ordinaryRight + 10);
-            assertEquals(layout.runePanelY + 57, uniqueY);
+            int uniqueX = UniqueRuneInlineTabs.positionX(layout);
+            int uniqueY = UniqueRuneInlineTabs.positionY(layout);
+            assertEquals(layout.runePanelY + 57, uniqueY,
+                    "unique Rune tabs must stay in collection selector row");
+            assertEquals(layout.runePanelX + layout.runePanelWidth - 8
+                    - UniqueRuneInlineTabs.totalWidth(),uniqueX);
+            assertEquals(uniqueX - 10, UniqueRuneInlineTabs.ordinaryRightLimit(layout));
+            assertTrue(uniqueX > layout.runePanelX + 8);
             assertTrue(uniqueX + UniqueRuneInlineTabs.totalWidth()
                     <= layout.runePanelX + layout.runePanelWidth - 8);
-
-            // If normal tabs fill the entire first row, the three special
-            // controls wrap onto the spare row above the rune inventory grid.
-            int crowdedRight = layout.runePanelX + layout.runePanelWidth - 20;
-            assertFalse(UniqueRuneInlineTabs.fitsFirstRow(layout,crowdedRight));
-            assertEquals(layout.runePanelX + layout.runePanelWidth - 8 - UniqueRuneInlineTabs.totalWidth(),
-                    UniqueRuneInlineTabs.positionX(layout,crowdedRight));
-            int wrappedY = UniqueRuneInlineTabs.positionY(layout,crowdedRight);
-            assertEquals(layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT + 18, wrappedY);
-            assertTrue(wrappedY >= layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT);
-            assertTrue(wrappedY + 18 < GuiLayout.CANVAS_HEIGHT);
-            assertTrue(UnqiueTabsFit(layout));
+            assertTrue(uniqueY + 18 < layout.runeGridY,
+                    "special collection buttons must stay above the Rune inventory");
+            assertTrue(uniqueY < layout.purchasePanelY,
+                    "special collection buttons must never move below purchase controls");
         }
-    }
-
-    private static boolean UnqiueTabsFit(GuiLayout layout) {
-        return UniqueRuneInlineTabs.positionX(layout,layout.runePanelX + layout.runePanelWidth - 20)
-                + UniqueRuneInlineTabs.totalWidth()
-                <= layout.runePanelX + layout.runePanelWidth - 8;
     }
 }
