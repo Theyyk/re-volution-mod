@@ -3,11 +3,9 @@ package com.example.revolution.client;
 import com.example.revolution.client.mechanic.ClientMechanicUnlocks;
 import com.example.revolution.client.mechanic.MechanicUnlockGuiScreen;
 import com.example.revolution.client.ui.UiAvailability;
-import com.example.revolution.client.ui.UiAvailabilityResolver;
 import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.network.MechanicUnlockActionPacket;
 import com.example.revolution.network.NetworkHandler;
-import java.util.Collections;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraftforge.client.event.GuiScreenEvent;
@@ -26,8 +24,6 @@ public final class UnifiedMenuTabHandler {
     private static final String[] LABELS = {"У", "П", "Р", "Д"};
     private final GuiButton[] buttons = new GuiButton[IDS.length];
     private RunesGuiScreen currentScreen;
-    private static final UiAvailabilityResolver STATES =
-            new UiAvailabilityResolver(Collections.emptyMap());
 
     @SubscribeEvent
     public void onInit(GuiScreenEvent.InitGuiEvent.Post event) {
@@ -42,7 +38,9 @@ public final class UnifiedMenuTabHandler {
         for (int i = 0; i < IDS.length; i++) {
             GuiControls.PanelButton button = new GuiControls.PanelButton(
                     IDS[i], x, y + i * (buttonSize + 3), buttonSize, buttonSize, LABELS[i]);
-            button.enabled = state(IDS[i]).isInteractive();
+            UiAvailability state = state(IDS[i]);
+            button.visible = state.isVisible();
+            button.enabled = state.isInteractive();
             buttons[i] = button;
             event.getButtonList().add(button);
         }
@@ -50,10 +48,14 @@ public final class UnifiedMenuTabHandler {
     }
 
     @SubscribeEvent
-    public void onDraw(GuiScreenEvent.DrawScreenEvent.Post event) {
+    public void onDraw(GuiScreenEvent.DrawScreenEvent.Pre event) {
         if (event.getGui() != currentScreen) return;
         for (GuiButton button : buttons) {
-            if (button != null) button.enabled = state(button.id).isInteractive();
+            if (button != null) {
+                UiAvailability state = state(button.id);
+                button.visible = state.isVisible();
+                button.enabled = state.isInteractive();
+            }
         }
     }
 
@@ -77,11 +79,11 @@ public final class UnifiedMenuTabHandler {
     }
 
     private static UiAvailability state(int id) {
-        boolean unlocked = true;
         if (id == UNIQUE_RUNES)
-            unlocked = ClientMechanicUnlocks.isUnlocked(BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS);
+            return ClientMechanicUnlocks.uiState(BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS, UiAvailability.AVAILABLE);
         if (id == ACHIEVEMENTS)
-            unlocked = ClientMechanicUnlocks.isUnlocked(BalanceMechanicUnlockPolicy.ACHIEVEMENTS);
-        return STATES.resolve("main." + id, UiAvailability.AVAILABLE, true, unlocked, true);
+            return ClientMechanicUnlocks.uiState(BalanceMechanicUnlockPolicy.ACHIEVEMENTS, UiAvailability.AVAILABLE);
+        // Pets and the Unlock Journal are currently not gated by v2.12 unlock IDs.
+        return UiAvailability.AVAILABLE;
     }
 }
