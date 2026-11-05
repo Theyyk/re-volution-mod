@@ -3,7 +3,7 @@ package com.example.revolution.client;
 import com.example.revolution.client.mechanic.ClientMechanicUnlocks;
 import com.example.revolution.client.mechanic.MechanicUnlockGuiScreen;
 import com.example.revolution.client.ui.UiAvailability;
-import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
+import com.example.revolution.client.ui.UiMenuSection;
 import com.example.revolution.network.MechanicUnlockActionPacket;
 import com.example.revolution.network.NetworkHandler;
 import net.minecraft.client.Minecraft;
@@ -12,17 +12,12 @@ import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 /**
- * One owner for E-menu navigation. Does not alter the rune canvas or game logic.
- * UI-02 will embed these destinations as tabs; for now it preserves their screens.
+ * Sole owner of auxiliary E-menu navigation. Uses the existing virtual canvas,
+ * without replacing the v2.12 rune screen, stats, preloader or server rules.
  */
 public final class UnifiedMenuTabHandler {
-    private static final int UNIQUE_RUNES = 300;
-    private static final int PETS = 301;
-    private static final int UNLOCKS = 302;
-    private static final int ACHIEVEMENTS = 303;
-    private static final int[] IDS = {UNIQUE_RUNES, PETS, UNLOCKS, ACHIEVEMENTS};
-    private static final String[] LABELS = {"У", "П", "Р", "Д"};
-    private final GuiButton[] buttons = new GuiButton[IDS.length];
+    private static final UiMenuSection[] TABS = UiMenuSection.auxiliaryTabs();
+    private final GuiButton[] buttons = new GuiButton[TABS.length];
     private RunesGuiScreen currentScreen;
 
     @SubscribeEvent
@@ -35,12 +30,11 @@ public final class UnifiedMenuTabHandler {
         int x = layout.navPanelX + 2;
         int y = layout.navPanelY + 36;
         int buttonSize = layout.navPanelWidth - 4;
-        for (int i = 0; i < IDS.length; i++) {
+        for (int i = 0; i < TABS.length; i++) {
+            UiMenuSection tab = TABS[i];
             GuiControls.PanelButton button = new GuiControls.PanelButton(
-                    IDS[i], x, y + i * (buttonSize + 3), buttonSize, buttonSize, LABELS[i]);
-            UiAvailability state = state(IDS[i]);
-            button.visible = state.isVisible();
-            button.enabled = state.isInteractive();
+                    tab.buttonId(), x, y + i * (buttonSize + 3), buttonSize, buttonSize, tab.shortLabel());
+            applyState(button, tab);
             buttons[i] = button;
             event.getButtonList().add(button);
         }
@@ -50,40 +44,38 @@ public final class UnifiedMenuTabHandler {
     @SubscribeEvent
     public void onDraw(GuiScreenEvent.DrawScreenEvent.Pre event) {
         if (event.getGui() != currentScreen) return;
-        for (GuiButton button : buttons) {
-            if (button != null) {
-                UiAvailability state = state(button.id);
-                button.visible = state.isVisible();
-                button.enabled = state.isInteractive();
-            }
+        for (int i = 0; i < TABS.length; i++) {
+            if (buttons[i] != null) applyState(buttons[i], TABS[i]);
         }
     }
 
     @SubscribeEvent
     public void onAction(GuiScreenEvent.ActionPerformedEvent.Pre event) {
-        if (!(event.getGui() instanceof RunesGuiScreen) || !isNavigationId(event.getButton().id)) return;
+        if (!(event.getGui() instanceof RunesGuiScreen)) return;
+        UiMenuSection tab = UiMenuSection.fromButtonId(event.getButton().id);
+        if (tab == null || tab == UiMenuSection.RUNES) return;
         event.setCanceled(true);
-        int id = event.getButton().id;
-        if (!state(id).isInteractive()) return;
+        if (!state(tab).isInteractive()) return;
 
         Minecraft mc = Minecraft.getMinecraft();
-        if (id == UNIQUE_RUNES) mc.displayGuiScreen(new UniqueRunesGuiScreen());
-        else if (id == PETS) mc.displayGuiScreen(new PetsGuiScreen());
-        else if (id == UNLOCKS) mc.displayGuiScreen(new MechanicUnlockGuiScreen());
-        else if (id == ACHIEVEMENTS) mc.displayGuiScreen(new AchievementsGuiScreen());
+        switch (tab) {
+            case UNIQUE_RUNES: mc.displayGuiScreen(new UniqueRunesGuiScreen()); break;
+            case PETS: mc.displayGuiScreen(new PetsGuiScreen()); break;
+            case MECHANIC_UNLOCKS: mc.displayGuiScreen(new MechanicUnlockGuiScreen()); break;
+            case ACHIEVEMENTS: mc.displayGuiScreen(new AchievementsGuiScreen()); break;
+            default: break;
+        }
     }
 
-    private static boolean isNavigationId(int id) {
-        for (int value : IDS) if (value == id) return true;
-        return false;
+    private static void applyState(GuiButton button, UiMenuSection tab) {
+        UiAvailability state = state(tab);
+        button.visible = state.isVisible();
+        button.enabled = state.isInteractive();
     }
 
-    private static UiAvailability state(int id) {
-        if (id == UNIQUE_RUNES)
-            return ClientMechanicUnlocks.uiState(BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS, UiAvailability.AVAILABLE);
-        if (id == ACHIEVEMENTS)
-            return ClientMechanicUnlocks.uiState(BalanceMechanicUnlockPolicy.ACHIEVEMENTS, UiAvailability.AVAILABLE);
-        // Pets and the Unlock Journal are currently not gated by v2.12 unlock IDs.
-        return UiAvailability.AVAILABLE;
+    private static UiAvailability state(UiMenuSection tab) {
+        String unlockId = tab.mechanicUnlockId();
+        if (unlockId == null) return UiAvailability.AVAILABLE;
+        return ClientMechanicUnlocks.uiState(unlockId, UiAvailability.AVAILABLE);
     }
 }
