@@ -2,9 +2,6 @@ package com.example.revolution.client.mechanic;
 
 import com.example.revolution.client.UnifiedMainMenuChrome;
 import com.example.revolution.client.ui.UiMenuSection;
-import com.example.revolution.client.GuiTheme;
-import com.example.revolution.client.GuiControls;
-import com.example.revolution.client.GuiDrawing;
 import com.example.revolution.network.MechanicUnlockActionPacket;
 import com.example.revolution.network.MechanicUnlockSnapshotPacket;
 import com.example.revolution.network.NetworkHandler;
@@ -50,16 +47,16 @@ public final class MechanicUnlockGuiScreen extends GuiScreen {
             int index = start + row;
             MechanicUnlockSnapshotPacket.Entry entry = entries.get(index);
             if (entry.eligible && !entry.unlocked) {
-                buttonList.add(new GuiControls.PanelButton(
+                buttonList.add(UnifiedMainMenuChrome.panelButton(
                         FIRST_UNLOCK_BUTTON + index, Math.max(left, right - 94),
                         top + row * 28 + 2, 84, 21, "Открыть"));
             }
         }
-        GuiButton prev = new GuiControls.PanelButton(PREVIOUS_PAGE, Math.max(left, right - 126),
+        GuiButton prev = UnifiedMainMenuChrome.panelButton(PREVIOUS_PAGE, Math.max(left, right - 126),
                 height - 30, 56, 20, "<");
         prev.enabled = page > 0;
         buttonList.add(prev);
-        GuiButton next = new GuiControls.PanelButton(NEXT_PAGE, Math.max(left, right - 63),
+        GuiButton next = UnifiedMainMenuChrome.panelButton(NEXT_PAGE, Math.max(left, right - 63),
                 height - 30, 56, 20, ">");
         next.enabled = page < lastPage();
         buttonList.add(next);
@@ -87,25 +84,24 @@ public final class MechanicUnlockGuiScreen extends GuiScreen {
         int right = UnifiedMainMenuChrome.contentRight(width, height);
         int top = UnifiedMainMenuChrome.contentTop(width, height);
         fontRenderer.drawString("Пороговые значения ZBT: " + ClientMechanicUnlocks.zbtStatus(),
-                left, Math.max(25, top - 19), GuiTheme.DISABLED_TEXT_COLOR);
+                left, Math.max(25, top - 19), 0xFF909090);
         List<MechanicUnlockSnapshotPacket.Entry> entries = ClientMechanicUnlocks.entries();
         page = Math.min(page, lastPage());
         int start = page * visibleRows();
         for (int row = 0; row < visibleRows() && start + row < entries.size(); row++) {
             MechanicUnlockSnapshotPacket.Entry entry = entries.get(start + row);
             int y = top + row * 28;
-            GuiDrawing.drawSurface(left, y, Math.max(10, right - left), 25,
-                    GuiTheme.PANEL_BG_SOFT, GuiTheme.PANEL_BORDER_COLOR);
+            UnifiedMainMenuChrome.panel(left, y, Math.max(10, right - left), 25);
             String state = entry.unlocked ? "ОТКРЫТО" : entry.eligible ? "ГОТОВО К ОТКРЫТИЮ" : "ЗАКРЫТО";
             String desc = entry.displayName + "  " + entry.rarity
                     + "  " + entry.progress + "/" + entry.target + "  " + state;
             int usable = right - left - (entry.eligible && !entry.unlocked ? 105 : 14);
             fontRenderer.drawString(fontRenderer.trimStringToWidth(desc, Math.max(8, usable)),
                     left + 8, y + 8, entry.unlocked ? 0xFF8FD4A5
-                            : entry.eligible ? 0xFFFFDD55 : GuiTheme.DISABLED_TEXT_COLOR);
+                            : entry.eligible ? 0xFFFFDD55 : 0xFF909090);
         }
         fontRenderer.drawString("Стр. " + (page + 1) + "/" + (lastPage() + 1),
-                left, height - 25, GuiTheme.SILVER_COLOR);
+                left, height - 25, 0xFFC9CDD2);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
