@@ -1,0 +1,55 @@
+package com.example.revolution.client.ui;
+
+import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
+
+/** Semantic E-menu sections and a single source for button IDs. */
+public enum UiMenuSection {
+    RUNES("runes", 200, "Р", null),
+    UNIQUE_RUNES("unique_runes", 300, "У", BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS),
+    PETS("pets", 301, "П", null),
+    MECHANIC_UNLOCKS("mechanic_unlocks", 302, "О", null),
+    ACHIEVEMENTS("achievements", 303, "Д", BalanceMechanicUnlockPolicy.ACHIEVEMENTS);
+
+    private final String id;
+    private final int buttonId;
+    private final String shortLabel;
+    private final String mechanicUnlockId;
+
+    UiMenuSection(String id, int buttonId, String shortLabel, String mechanicUnlockId) {
+        this.id = id;
+        this.buttonId = buttonId;
+        this.shortLabel = shortLabel;
+        this.mechanicUnlockId = mechanicUnlockId;
+    }
+
+    public String id() {
+        return id;
+    }
+
+    public int buttonId() {
+        return buttonId;
+    }
+
+    public String shortLabel() {
+        return shortLabel;
+    }
+
+    /** Null means no v2.12.0 permanent mechanic unlock gates this tab. */
+    public String mechanicUnlockId() {
+        return mechanicUnlockId;
+    }
+
+    public static UiMenuSection fromId(String id) {
+        for (UiMenuSection section : values()) if (section.id.equals(id)) return section;
+        throw new IllegalArgumentException("Unknown UI section: " + id);
+    }
+
+    public static UiMenuSection fromButtonId(int buttonId) {
+        for (UiMenuSection section : values()) if (section.buttonId == buttonId) return section;
+        return null;
+    }
+
+    public static UiMenuSection[] auxiliaryTabs() {
+        return new UiMenuSection[] {UNIQUE_RUNES, PETS, MECHANIC_UNLOCKS, ACHIEVEMENTS};
+    }
+}
