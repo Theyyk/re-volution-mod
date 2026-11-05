@@ -36,18 +36,15 @@ public final class UnifiedMainMenuChrome {
     }
 
     public static int contentLeft(int width, int height) {
-        GuiLayout layout = geometry(width, height);
-        return px(layout, layout.centerPanelX) + scaled(layout, 8);
+        return UnifiedMainMenuGeometry.contentLeft(width, height);
     }
 
     public static int contentRight(int width, int height) {
-        GuiLayout layout = geometry(width, height);
-        return px(layout, layout.navPanelX) - scaled(layout, 12);
+        return UnifiedMainMenuGeometry.contentRight(width, height);
     }
 
     public static int contentTop(int width, int height) {
-        GuiLayout layout = geometry(width, height);
-        return py(layout, 65);
+        return UnifiedMainMenuGeometry.contentTop(width, height);
     }
 
     private static GuiLayout geometry(int width, int height) {
