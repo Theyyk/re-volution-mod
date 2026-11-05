@@ -9,7 +9,8 @@ import net.minecraft.client.gui.GuiButton;
 
 /**
  * Three special Rune collection selectors at the END of the ordinary collection strip.
- * Not part of the E-menu sidebar or the Mechanic Unlock Journal.
+ * Not part of the E-menu sidebar. The Journal temporarily retains the
+ * manual unlock action for DEV testing until automatic unlocks are approved.
  * The server snapshots are authoritative for both visibility and interaction.
  */
 final class UniqueRuneInlineTabs {
@@ -32,17 +33,31 @@ final class UniqueRuneInlineTabs {
 
     static int totalWidth() { return COUNT * WIDTH + (COUNT - 1) * GAP; }
 
+    static boolean fitsFirstRow(GuiLayout layout, int lastOrdinaryRight) {
+        int panelRight = layout.runePanelX + layout.runePanelWidth - 8;
+        return lastOrdinaryRight + 10 + totalWidth() <= panelRight;
+    }
+
     static int positionX(GuiLayout layout, int lastOrdinaryRight) {
         int panelRight = layout.runePanelX + layout.runePanelWidth - 8;
-        // Reserve normal rune collections without moving or resizing their buttons.
-        return Math.max(lastOrdinaryRight + 10, panelRight - totalWidth());
+        // Never modify existing normal collection buttons to make room.
+        return fitsFirstRow(layout, lastOrdinaryRight)
+                ? panelRight - totalWidth()
+                : layout.runePanelX + 8;
+    }
+
+    static int positionY(GuiLayout layout, int lastOrdinaryRight) {
+        // The spare line ends just above the rune grid (runeGridY).
+        return fitsFirstRow(layout, lastOrdinaryRight)
+                ? layout.runePanelY + 57
+                : layout.runePanelY + 76;
     }
 
     static void install(List<GuiButton> buttons, GuiLayout layout, int lastOrdinaryRight) {
         int x = positionX(layout, lastOrdinaryRight);
         int right = layout.runePanelX + layout.runePanelWidth - 8;
-        if (x + totalWidth() > right) return; // Never overlap normal collection selectors.
-        int y = layout.runePanelY + 57;
+        if (x + totalWidth() > right) return;
+        int y = positionY(layout, lastOrdinaryRight);
         for (int i = 0; i < COUNT; i++) {
             GuiButton button = new GuiControls.PanelButton(
                     buttonId(i), x + i * (WIDTH + GAP), y, WIDTH, 18, label(i));
