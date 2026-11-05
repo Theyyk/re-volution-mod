@@ -10,18 +10,19 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import org.lwjgl.input.Mouse;
 
 /** Achievement categories, server rewards and meta levels in common E-menu chrome. */
 public final class AchievementsGuiScreen extends GuiScreen {
-    private static final int PREV = 510, NEXT = 511, CATEGORY_BASE = 600;
+    private static final int CATEGORY_BASE = 600;
     private static final String[] CATEGORIES =
             {"ALL", "DAMAGE", "RESOURCES", "MASTERY", "PETS", "RUNES", "KILLS", "LOCATIONS", "AURAS", "HIDDEN"};
     private static final String[] CATEGORY_LABELS =
             {"Все", "Урон", "Ресурсы", "Мастерство", "Питомцы", "Руны", "Убийства", "Локации", "Ауры", "Скрытые"};
-    private static final int ROW_H = 46;
+    private static final int ROW_H = 70;
     private static long requestNonce = System.currentTimeMillis();
     private String category = "ALL";
-    private int page;
+    private int scrollRow;
 
     private int left() { return UnifiedMainMenuChrome.contentLeft(width, height); }
     private int right() { return UnifiedMainMenuChrome.contentRight(width, height); }
@@ -41,12 +42,22 @@ public final class AchievementsGuiScreen extends GuiScreen {
         return top() + categoryRowCount() * 23 + 44;
     }
 
-    private int perPage() {
-        return Math.max(1, (height - contentTop() - 45) / ROW_H);
+    private int visibleRows() {
+        return Math.max(1, (height - contentTop() - 42) / ROW_H);
     }
 
-    private int maxPage(List<AchievementSnapshotPacket.Entry> visible) {
-        return Math.max(0, (visible.size() - 1) / perPage());
+    private int maxScroll(List<AchievementSnapshotPacket.Entry> visible) {
+        return Math.max(0, visible.size() - visibleRows());
+    }
+
+    @Override public void handleMouseInput() throws IOException {
+        super.handleMouseInput();
+        int wheel = Mouse.getEventDWheel();
+        if (wheel == 0) return;
+        int mx = Mouse.getEventX() * width / mc.displayWidth;
+        int my = height - Mouse.getEventY() * height / mc.displayHeight - 1;
+        if (mx >= left() && mx < right() && my >= contentTop() && my < height-42)
+            scrollRow = Math.max(0, Math.min(maxScroll(filtered()), scrollRow + (wheel < 0 ? 1 : -1)));
     }
 
     @Override public void initGui() {
@@ -62,20 +73,14 @@ public final class AchievementsGuiScreen extends GuiScreen {
             buttonList.add(button);
             x += w + 4;
         }
-        buttonList.add(new GuiControls.PanelButton(PREV, Math.max(left(), right()-126),
-                height - 29, 56, 20, "<"));
-        buttonList.add(new GuiControls.PanelButton(NEXT, Math.max(left(), right()-63),
-                height - 29, 56, 20, ">"));
         NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket("sync", "", 0, 0L));
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
         if (!button.enabled) return;
         if (UnifiedMainMenuChrome.handleNavigation(button.id, UiMenuSection.ACHIEVEMENTS, mc)) return;
-        if (button.id == PREV) { page = Math.max(0, page - 1); return; }
-        if (button.id == NEXT) { page = Math.min(maxPage(filtered()), page + 1); return; }
         if (button.id >= CATEGORY_BASE && button.id < CATEGORY_BASE + CATEGORIES.length) {
-            category = CATEGORIES[button.id - CATEGORY_BASE]; page = 0; initGui();
+            category = CATEGORIES[button.id - CATEGORY_BASE]; scrollRow = 0; initGui();
         }
     }
 
@@ -85,12 +90,13 @@ public final class AchievementsGuiScreen extends GuiScreen {
     @Override protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         if (mouseButton == 0) {
             List<AchievementSnapshotPacket.Entry> visible = filtered();
-            int start = page * perPage();
-            for (int row = 0; row < perPage() && start + row < visible.size(); row++) {
+            scrollRow = Math.min(scrollRow, maxScroll(visible));
+            int start = scrollRow;
+            for (int row = 0; row < visibleRows() && start + row < visible.size(); row++) {
                 AchievementSnapshotPacket.Entry e = visible.get(start + row);
                 if (!e.revealed || e.achievementId.startsWith("hidden:")) continue;
                 int y = contentTop() + row * ROW_H;
-                if (mouseY < y + 8 || mouseY >= y + 34) continue;
+                if (mouseY < y + 30 || mouseY >= y + 54) continue;
                 if (mouseX >= claimX() && mouseX < claimX() + 68) {
                     if (e.completed && !e.claimed)
                         NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket(
@@ -118,15 +124,14 @@ public final class AchievementsGuiScreen extends GuiScreen {
                 left(), contentTop()-30, GuiTheme.SILVER_COLOR);
 
         List<AchievementSnapshotPacket.Entry> visible = filtered();
-        int maximum = maxPage(visible);
-        page = Math.min(page, maximum);
-        int start = page * perPage();
-        for (int row = 0; row < perPage() && start + row < visible.size(); row++) {
+        scrollRow = Math.min(scrollRow, maxScroll(visible));
+        int start = scrollRow;
+        for (int row = 0; row < visibleRows() && start + row < visible.size(); row++) {
             AchievementSnapshotPacket.Entry e = visible.get(start + row);
             int y = contentTop() + row * ROW_H;
             boolean hover = mouseX >= left() && mouseX < right()
                     && mouseY >= y && mouseY < y + ROW_H - 4;
-            GuiDrawing.drawSurface(left(), y, Math.max(10,right()-left()), ROW_H-4,
+            GuiDrawing.drawSurface(left(), y, Math.max(10,right()-left()), ROW_H-5,
                     hover ? GuiTheme.RUNE_HOVER_BG_COLOR : GuiTheme.PANEL_BG_SOFT,
                     GuiTheme.PANEL_BORDER_COLOR);
             if (!e.revealed) {
@@ -143,23 +148,25 @@ public final class AchievementsGuiScreen extends GuiScreen {
             String progress = e.progress + "/" + e.target + "  [" + e.category + "]  " + history;
             fontRenderer.drawString(fontRenderer.trimStringToWidth(progress, descriptionWidth),
                     left()+7, y+17, e.completed ? 0xFF8FE3A5 : GuiTheme.SILVER_COLOR);
+            int progressBar = Math.max(12, descriptionWidth - 8);
+            drawRect(left()+7, y+38, left()+7+progressBar, y+43, 0xFF29303A);
+            double fraction = AchievementProgressMath.fraction(e.progress, e.target, e.completed);
+            drawRect(left()+7, y+38, left()+7+(int)Math.round(progressBar*fraction),
+                    y+43, 0xFF6EA8DA);
             String reward = "Кристаллы " + e.crystals + " | Подношения " + e.offerings
                     + " | Ключи ауры " + e.auraKeys + " | Очки " + e.achievementPoints;
             fontRenderer.drawString(fontRenderer.trimStringToWidth(reward, descriptionWidth),
-                    left()+7, y+29, GuiTheme.DISABLED_TEXT_COLOR);
-            drawRect(claimX(), y+9, claimX()+68, y+31,
+                    left()+7, y+49, GuiTheme.DISABLED_TEXT_COLOR);
+            drawRect(claimX(), y+30, claimX()+68, y+54,
                     e.claimed ? 0xFF333333 : e.completed ? 0xFF2E7547 : 0xFF3B414A);
             drawCenteredString(fontRenderer, e.claimed ? "Получено" : e.completed ? "Забрать" : "Закрыто",
-                    claimX()+34, y+16, GuiTheme.TEXT_COLOR);
-            drawRect(shareX(), y+9, shareX()+68, y+31, 0xFF3B4E67);
-            drawCenteredString(fontRenderer, "Поделиться", shareX()+34, y+16, GuiTheme.TEXT_COLOR);
+                    claimX()+34, y+38, GuiTheme.TEXT_COLOR);
+            drawRect(shareX(), y+30, shareX()+68, y+54, 0xFF3B4E67);
+            drawCenteredString(fontRenderer, "Поделиться", shareX()+34, y+38, GuiTheme.TEXT_COLOR);
         }
-        fontRenderer.drawString("Стр. " + (page+1) + "/" + (maximum+1),
-                left(), height - 25, GuiTheme.SILVER_COLOR);
-        for (GuiButton b : buttonList) {
-            if (b.id == PREV) b.enabled = page > 0;
-            if (b.id == NEXT) b.enabled = page < maximum;
-        }
+        fontRenderer.drawString("Показано: " + (visible.isEmpty() ? 0 : scrollRow+1)
+                + "-" + Math.min(visible.size(), scrollRow+visibleRows()) + " из " + visible.size()
+                + "   Колёсико мыши: прокрутка", left(), height-25, GuiTheme.SILVER_COLOR);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
