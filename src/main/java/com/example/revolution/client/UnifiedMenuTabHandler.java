@@ -27,13 +27,12 @@ public final class UnifiedMenuTabHandler {
         currentScreen = screen;
         GuiLayout layout = new GuiLayout(26);
         layout.update(screen.width, screen.height);
-        int x = layout.navPanelX + 2;
-        int y = layout.navPanelY + 36;
-        int buttonSize = layout.navPanelWidth - 4;
+        int x = UnifiedMenuLayout.x(layout);
+        int buttonSize = UnifiedMenuLayout.size(layout);
         for (int i = 0; i < TABS.length; i++) {
             UiMenuSection tab = TABS[i];
             GuiControls.PanelButton button = new GuiControls.PanelButton(
-                    tab.buttonId(), x, y + i * (buttonSize + 3), buttonSize, buttonSize, tab.shortLabel());
+                    tab.buttonId(), x, UnifiedMenuLayout.y(layout, i), buttonSize, buttonSize, tab.shortLabel());
             applyState(button, tab);
             buttons[i] = button;
             event.getButtonList().add(button);
