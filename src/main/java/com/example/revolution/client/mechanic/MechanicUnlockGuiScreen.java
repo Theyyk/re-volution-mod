@@ -2,7 +2,6 @@ package com.example.revolution.client.mechanic;
 
 import com.example.revolution.client.UnifiedMainMenuChrome;
 import com.example.revolution.client.ui.UiMenuSection;
-import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.network.MechanicUnlockActionPacket;
 import com.example.revolution.network.MechanicUnlockSnapshotPacket;
 import com.example.revolution.network.NetworkHandler;
@@ -49,8 +48,6 @@ public final class MechanicUnlockGuiScreen extends GuiScreen {
         List<MechanicUnlockSnapshotPacket.Entry> entries = ClientMechanicUnlocks.entries();
         Map<String, MechanicUnlockSnapshotPacket.Entry> known = new LinkedHashMap<>();
         for (MechanicUnlockSnapshotPacket.Entry entry : entries) {
-            // Unique rune collections are normal Rune-strip tabs, not a journal-unlock action.
-            if (BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS.equals(entry.unlockId)) continue;
             known.put(entry.unlockId, entry);
         }
         Map<String, Group> roots = new LinkedHashMap<>();
