@@ -39,18 +39,19 @@ public class UniqueRuneInlineTabsTest {
             // controls wrap onto the spare row above the rune inventory grid.
             int crowdedRight = layout.runePanelX + layout.runePanelWidth - 20;
             assertFalse(UniqueRuneInlineTabs.fitsFirstRow(layout,crowdedRight));
-            assertEquals(layout.runePanelX + 8,
+            assertEquals(layout.runePanelX + layout.runePanelWidth - 8 - UniqueRuneInlineTabs.totalWidth(),
                     UniqueRuneInlineTabs.positionX(layout,crowdedRight));
             int wrappedY = UniqueRuneInlineTabs.positionY(layout,crowdedRight);
-            assertEquals(layout.runePanelY + 76,wrappedY);
-            assertTrue(wrappedY > layout.runePanelY + 57 + 18);
-            assertTrue(wrappedY + 18 < layout.runeGridY);
+            assertEquals(layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT + 18, wrappedY);
+            assertTrue(wrappedY >= layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT);
+            assertTrue(wrappedY + 18 < GuiLayout.CANVAS_HEIGHT);
             assertTrue(UnqiueTabsFit(layout));
         }
     }
 
     private static boolean UnqiueTabsFit(GuiLayout layout) {
-        return layout.runePanelX + 8 + UniqueRuneInlineTabs.totalWidth()
+        return UniqueRuneInlineTabs.positionX(layout,layout.runePanelX + layout.runePanelWidth - 20)
+                + UniqueRuneInlineTabs.totalWidth()
                 <= layout.runePanelX + layout.runePanelWidth - 8;
     }
 }
