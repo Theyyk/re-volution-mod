@@ -50,6 +50,8 @@ public class KeyInputHandler {
         if (event.phase != TickEvent.Phase.END) return;
         ClientUiBridge.tickRunePreloader();
         Minecraft minecraft = Minecraft.getMinecraft();
+        // Do not reuse another server/player's unlock visibility after disconnect.
+        if (minecraft.getConnection() == null) ClientMechanicUnlocks.reset();
         configureVanillaBindings(minecraft);
         if (minecraft.gameSettings.attackIndicator != 0) minecraft.gameSettings.attackIndicator = 0;
 
