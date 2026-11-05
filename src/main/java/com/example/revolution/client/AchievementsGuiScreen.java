@@ -126,7 +126,7 @@ public final class AchievementsGuiScreen extends GuiScreen {
         List<AchievementSnapshotPacket.Entry> visible = filtered();
         scrollRow = Math.min(scrollRow, maxScroll(visible));
         int start = scrollRow;
-        for (int row = 0; row < perPage() && start + row < visible.size(); row++) {
+        for (int row = 0; row < visibleRows() && start + row < visible.size(); row++) {
             AchievementSnapshotPacket.Entry e = visible.get(start + row);
             int y = contentTop() + row * ROW_H;
             boolean hover = mouseX >= left() && mouseX < right()
