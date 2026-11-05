@@ -7,7 +7,7 @@ final class UnifiedMainMenuGeometry {
     static int contentLeft(int width, int height) {
         GuiLayout layout = new GuiLayout(26);
         layout.update(width, height);
-        return layout.canvasX + Math.round(layout.centerPanelX * layout.canvasScale)
+        return layout.canvasX + Math.round(layout.runePanelX * layout.canvasScale)
                 + Math.max(1, Math.round(8 * layout.canvasScale));
     }
 
