@@ -24,6 +24,8 @@ public final class UnifiedMenuTabHandler {
     private static final int ACHIEVEMENTS = 303;
     private static final int[] IDS = {UNIQUE_RUNES, PETS, UNLOCKS, ACHIEVEMENTS};
     private static final String[] LABELS = {"У", "П", "Р", "Д"};
+    private final GuiButton[] buttons = new GuiButton[IDS.length];
+    private RunesGuiScreen currentScreen;
     private static final UiAvailabilityResolver STATES =
             new UiAvailabilityResolver(Collections.emptyMap());
 
@@ -31,6 +33,7 @@ public final class UnifiedMenuTabHandler {
     public void onInit(GuiScreenEvent.InitGuiEvent.Post event) {
         if (!(event.getGui() instanceof RunesGuiScreen)) return;
         RunesGuiScreen screen = (RunesGuiScreen) event.getGui();
+        currentScreen = screen;
         GuiLayout layout = new GuiLayout(26);
         layout.update(screen.width, screen.height);
         int x = layout.navPanelX + 2;
@@ -40,6 +43,7 @@ public final class UnifiedMenuTabHandler {
             GuiControls.PanelButton button = new GuiControls.PanelButton(
                     IDS[i], x, y + i * (buttonSize + 3), buttonSize, buttonSize, LABELS[i]);
             button.enabled = state(IDS[i]).isInteractive();
+            buttons[i] = button;
             event.getButtonList().add(button);
         }
         NetworkHandler.INSTANCE.sendToServer(new MechanicUnlockActionPacket("sync", "", 0L));
@@ -47,9 +51,9 @@ public final class UnifiedMenuTabHandler {
 
     @SubscribeEvent
     public void onDraw(GuiScreenEvent.DrawScreenEvent.Post event) {
-        if (!(event.getGui() instanceof RunesGuiScreen)) return;
-        for (GuiButton button : event.getGui().buttonList) {
-            if (isNavigationId(button.id)) button.enabled = state(button.id).isInteractive();
+        if (event.getGui() != currentScreen) return;
+        for (GuiButton button : buttons) {
+            if (button != null) button.enabled = state(button.id).isInteractive();
         }
     }
 
