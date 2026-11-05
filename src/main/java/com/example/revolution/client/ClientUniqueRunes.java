@@ -16,6 +16,7 @@ public final class ClientUniqueRunes {
 
     public static synchronized void accept(UniqueRuneSnapshotPacket value) { snapshot = value == null ? new UniqueRuneSnapshotPacket() : value; }
     public static synchronized UniqueRuneSnapshotPacket snapshot() { return snapshot; }
+    public static synchronized void reset() { snapshot = new UniqueRuneSnapshotPacket(); }
     public static synchronized long nextNonce() {
         long now = System.currentTimeMillis();
         if (nonce < now) nonce = now;
