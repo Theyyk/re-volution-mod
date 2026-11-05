@@ -33,30 +33,23 @@ final class UniqueRuneInlineTabs {
 
     static int totalWidth() { return COUNT * WIDTH + (COUNT - 1) * GAP; }
 
-    static boolean fitsFirstRow(GuiLayout layout, int lastOrdinaryRight) {
-        int panelRight = layout.runePanelX + layout.runePanelWidth - 8;
-        return lastOrdinaryRight + 10 + totalWidth() <= panelRight;
+    /** Reserved top-right strip, not affected by the number of normal collections. */
+    static int positionX(GuiLayout layout) {
+        return layout.runePanelX + layout.runePanelWidth - 8 - totalWidth();
     }
 
-    static int positionX(GuiLayout layout, int lastOrdinaryRight) {
-        int panelRight = layout.runePanelX + layout.runePanelWidth - 8;
-        // Never modify existing normal collection buttons to make room.
-        return panelRight - totalWidth();
+    static int positionY(GuiLayout layout) {
+        return layout.runePanelY + 57;
     }
 
-    static int positionY(GuiLayout layout, int lastOrdinaryRight) {
-        // Never overlap the rune grid, its action hints or purchase controls.
-        // When row one is full, append the selectors below the purchase panel.
-        return fitsFirstRow(layout, lastOrdinaryRight)
-                ? layout.runePanelY + 57
-                : layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT + 18;
+    /** Last pixel available to normal selectors, leaving a clear gap. */
+    static int ordinaryRightLimit(GuiLayout layout) {
+        return positionX(layout) - 10;
     }
 
-    static void install(List<GuiButton> buttons, GuiLayout layout, int lastOrdinaryRight) {
-        int x = positionX(layout, lastOrdinaryRight);
-        int right = layout.runePanelX + layout.runePanelWidth - 8;
-        if (x + totalWidth() > right) return;
-        int y = positionY(layout, lastOrdinaryRight);
+    static void install(List<GuiButton> buttons, GuiLayout layout) {
+        int x = positionX(layout);
+        int y = positionY(layout);
         for (int i = 0; i < COUNT; i++) {
             GuiButton button = new GuiControls.PanelButton(
                     buttonId(i), x + i * (WIDTH + GAP), y, WIDTH, 18, label(i));
