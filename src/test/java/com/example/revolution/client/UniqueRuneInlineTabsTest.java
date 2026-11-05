@@ -29,9 +29,28 @@ public class UniqueRuneInlineTabsTest {
             layout.update(size[0],size[1]);
             int ordinaryRight = layout.runePanelX + 320;
             int uniqueX = UniqueRuneInlineTabs.positionX(layout,ordinaryRight);
+            int uniqueY = UniqueRuneInlineTabs.positionY(layout,ordinaryRight);
             assertTrue(uniqueX >= ordinaryRight + 10);
+            assertEquals(layout.runePanelY + 57, uniqueY);
             assertTrue(uniqueX + UniqueRuneInlineTabs.totalWidth()
                     <= layout.runePanelX + layout.runePanelWidth - 8);
+
+            // If normal tabs fill the entire first row, the three special
+            // controls wrap onto the spare row above the rune inventory grid.
+            int crowdedRight = layout.runePanelX + layout.runePanelWidth - 20;
+            assertFalse(UniqueRuneInlineTabs.fitsFirstRow(layout,crowdedRight));
+            assertEquals(layout.runePanelX + 8,
+                    UniqueRuneInlineTabs.positionX(layout,crowdedRight));
+            int wrappedY = UniqueRuneInlineTabs.positionY(layout,crowdedRight);
+            assertEquals(layout.runePanelY + 76,wrappedY);
+            assertTrue(wrappedY > layout.runePanelY + 57 + 18);
+            assertTrue(wrappedY + 18 < layout.runeGridY);
+            assertTrue(UnqiueTabsFit(layout));
         }
+    }
+
+    private static boolean UnqiueTabsFit(GuiLayout layout) {
+        return layout.runePanelX + 8 + UniqueRuneInlineTabs.totalWidth()
+                <= layout.runePanelX + layout.runePanelWidth - 8;
     }
 }
