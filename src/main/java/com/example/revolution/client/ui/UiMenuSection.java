@@ -55,7 +55,12 @@ public enum UiMenuSection {
         return null;
     }
 
+    /** Main E navigation excludes unique runes, which live in the Rune collections strip. */
+    public static UiMenuSection[] mainTabs() {
+        return new UiMenuSection[] {RUNES, PETS, MECHANIC_UNLOCKS, ACHIEVEMENTS};
+    }
+
     public static UiMenuSection[] auxiliaryTabs() {
-        return new UiMenuSection[] {UNIQUE_RUNES, PETS, MECHANIC_UNLOCKS, ACHIEVEMENTS};
+        return new UiMenuSection[] {PETS, MECHANIC_UNLOCKS, ACHIEVEMENTS};
     }
 }

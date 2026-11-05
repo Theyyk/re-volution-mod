@@ -16,6 +16,15 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
     private int selected;
     private boolean rollbackArmed;
 
+    public UniqueRunesGuiScreen() { this(0); }
+
+    /** Open the specific special collection selected from the main rune strip. */
+    public UniqueRunesGuiScreen(int selected) {
+        if (selected < 0 || selected >= COLLECTIONS.length)
+            throw new IllegalArgumentException("Unknown unique rune collection index: " + selected);
+        this.selected = selected;
+    }
+
     @Override public void initGui() {
         buttonList.clear();
         UnifiedMainMenuChrome.installNavigation(buttonList, width, height, UiMenuSection.UNIQUE_RUNES);

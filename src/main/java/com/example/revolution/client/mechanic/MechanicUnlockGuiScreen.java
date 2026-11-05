@@ -47,10 +47,12 @@ public final class MechanicUnlockGuiScreen extends GuiScreen {
     private List<Group> groups() {
         List<MechanicUnlockSnapshotPacket.Entry> entries = ClientMechanicUnlocks.entries();
         Map<String, MechanicUnlockSnapshotPacket.Entry> known = new LinkedHashMap<>();
-        for (MechanicUnlockSnapshotPacket.Entry entry : entries)
+        for (MechanicUnlockSnapshotPacket.Entry entry : entries) {
             known.put(entry.unlockId, entry);
+        }
         Map<String, Group> roots = new LinkedHashMap<>();
         for (MechanicUnlockSnapshotPacket.Entry entry : entries) {
+            if (!known.containsKey(entry.unlockId)) continue;
             String parent = entry.parentUnlockId;
             String id = entry.unlockId;
             int safety = 0;
@@ -62,6 +64,7 @@ public final class MechanicUnlockGuiScreen extends GuiScreen {
             if (!roots.containsKey(id)) roots.put(id, new Group(known.get(id)));
         }
         for (MechanicUnlockSnapshotPacket.Entry entry : entries) {
+            if (!known.containsKey(entry.unlockId)) continue;
             for (Map.Entry<String,Group> root : roots.entrySet()) {
                 if (!entry.unlockId.equals(root.getKey()) && isDescendant(entry, root.getKey(), known)) {
                     root.getValue().children.add(entry);

@@ -229,6 +229,7 @@ public class RunesGuiScreen extends GuiScreen {
         int y = layout.runePanelY + 57;
         int gap = scaled(3, 2);
         int availableRight = layout.runePanelX + layout.runePanelWidth - scaled(8, 4);
+        int lastOrdinaryRight = x;
 
         for (int i = 0; i < count; i++) {
             String name = collectionNames.get(i);
@@ -244,7 +245,9 @@ public class RunesGuiScreen extends GuiScreen {
                     name, i == activeCollection
             ));
             x += buttonWidth + gap;
+            lastOrdinaryRight = x - gap;
         }
+        UniqueRuneInlineTabs.install(buttonList, layout, lastOrdinaryRight);
     }
 
     private void rebuildNavigationButtons() {
@@ -317,6 +320,14 @@ public class RunesGuiScreen extends GuiScreen {
         }
 
         if (button.id == NAV_RUNES_ID) {
+            return;
+        }
+        if (UniqueRuneInlineTabs.isButton(button.id)) {
+            int index = UniqueRuneInlineTabs.index(button.id);
+            if (UniqueRuneInlineTabs.state(index).isInteractive()) {
+                UnifiedMainMenuChrome.rememberRunes(this);
+                mc.displayGuiScreen(new UniqueRunesGuiScreen(index));
+            }
             return;
         }
 
@@ -784,6 +795,21 @@ public class RunesGuiScreen extends GuiScreen {
         }
     }
 
+    private void drawUniqueRuneInlineTooltip(int mouseX, int mouseY) {
+        for (GuiButton button : buttonList) {
+            if (!button.visible || !UniqueRuneInlineTabs.isButton(button.id)) continue;
+            if (mouseX < button.x || mouseX >= button.x + button.width
+                    || mouseY < button.y || mouseY >= button.y + button.height) continue;
+            int index = UniqueRuneInlineTabs.index(button.id);
+            List<String> tooltip = new ArrayList<>();
+            tooltip.add("§b" + (index == 0 ? "Кристальные руны"
+                    : index == 1 ? "Ежедневные руны" : "Руны за подношения"));
+            tooltip.add(button.enabled ? "§7Открыть коллекцию" : "§7Коллекция ещё не открыта");
+            drawCanvasTooltip(tooltip, mouseX, mouseY);
+            return;
+        }
+    }
+
     private void drawNavigationTooltip(int mouseX, int mouseY) {
         for (GuiButton button : buttonList) {
             if (!button.visible) continue;
@@ -828,9 +854,11 @@ public class RunesGuiScreen extends GuiScreen {
 
         // Apply a fresh server Mechanic Unlock snapshot before button rendering.
         UnifiedMenuTabHandler.refreshButtons(buttonList);
+        UniqueRuneInlineTabs.refresh(buttonList);
         super.drawScreen(mouseX, mouseY, partialTicks);
         drawElementTooltip(mouseX, mouseY);
         drawNavigationTooltip(mouseX, mouseY);
+        drawUniqueRuneInlineTooltip(mouseX, mouseY);
         drawRuneTooltip(mouseX, mouseY);
         if (equipmentTooltip != null) drawCanvasTooltip(java.util.Collections.singletonList(equipmentTooltip), mouseX, mouseY);
         GlStateManager.popMatrix();
