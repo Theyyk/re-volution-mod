@@ -20,7 +20,7 @@ import static com.example.revolution.client.GuiTheme.*;
  */
 public final class UnifiedMainMenuChrome {
     private static final int CLOSE_ID = 299;
-    private static final UiMenuSection[] SECTIONS = UiMenuSection.values();
+    private static final UiMenuSection[] SECTIONS = UiMenuSection.mainTabs();
     // Renderer-only instance. Never display this screen or initialize its GUI.
     private static final RuneResourcesGuiScreen AUXILIARY_SIDEBAR = new RuneResourcesGuiScreen();
     private static RuneResourcesGuiScreen lastRuneScreen;
@@ -94,12 +94,11 @@ public final class UnifiedMainMenuChrome {
         int size = scaled(layout, UnifiedMenuLayout.size(layout));
         for (int i = 0; i < SECTIONS.length; i++) {
             UiMenuSection section = SECTIONS[i];
-            int logicalY = section == UiMenuSection.RUNES
-                    ? layout.navPanelY + 2 : UnifiedMenuLayout.y(layout, i - 1);
+            int logicalY = i == 0 ? layout.navPanelY + 2 : UnifiedMenuLayout.y(layout, i - 1);
             GuiControls.PanelButton b = new GuiControls.PanelButton(
                     section.buttonId(), x, py(layout, logicalY), size, size,
                     section.shortLabel());
-            b.setSelected(section == active);
+            b.setSelected(section == active || (section == UiMenuSection.RUNES && active == UiMenuSection.UNIQUE_RUNES));
             applyState(b, section);
             buttons.add(b);
         }
