@@ -47,6 +47,8 @@ public final class UnifiedMenuTabHandler {
     public void onInit(GuiScreenEvent.InitGuiEvent.Post event) {
         if (!(event.getGui() instanceof RunesGuiScreen)) return;
         NetworkHandler.INSTANCE.sendToServer(new MechanicUnlockActionPacket("sync", "", 0L));
+        // The rune strip has three server-gated special collection selectors.
+        ClientUniqueRunes.sync();
     }
 
     @SubscribeEvent
