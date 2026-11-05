@@ -44,6 +44,8 @@ public class UiFoundationTest {
         for (UiMenuSection section : UiMenuSection.values()) {
             assertTrue(ids.add(section.id()));
             assertEquals(section, UiMenuSection.fromId(section.id()));
+            assertNotNull(section.displayName());
+            assertFalse(section.displayName().trim().isEmpty());
         }
         assertEquals(5, ids.size());
         Set<Integer> buttonIds = new HashSet<>();
