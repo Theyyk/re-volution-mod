@@ -333,15 +333,20 @@ public class RunesGuiScreen extends GuiScreen {
                     button.visible = false;
                     button.enabled = false;
                 } else if (button.id == UNIQUE_ACQUIRE_ID) {
+                    int pad = scaled(7, 3);
+                    button.x = layout.runePanelX + pad;
+                    button.width = selectedUniqueCollection == 0
+                            ? (layout.runePanelWidth - 2 * pad - 5) / 2
+                            : layout.runePanelWidth - 2 * pad;
                     button.visible = true;
                     button.enabled = unlocked && state.progress < VISIBLE_RUNE_SLOTS
                             && (selectedUniqueCollection != 1 || remaining <= 0L);
                     if (selectedUniqueCollection == 1) {
                         button.displayString = remaining > 0L
-                                ? "Ежедневная руна:\\nДо сброса " + formatRemaining(remaining)
-                                : "Ежедневная руна:\\nПолучить";
+                                ? "Ежедневная руна:\nДо сброса " + formatRemaining(remaining)
+                                : "Ежедневная руна:\nПолучить";
                     } else {
-                        button.displayString = "Купить руну:\\n"
+                        button.displayString = "Купить руну:\n"
                                 + (selectedUniqueCollection == 0
                                    ? snapshot.getCrystalPurchaseCost() + " кристаллов"
                                    : snapshot.getOfferingsPurchaseCost() + " подношений");
@@ -351,8 +356,8 @@ public class RunesGuiScreen extends GuiScreen {
                     UniqueRuneSnapshotPacket.Entry selected = selectedUniqueEntry();
                     button.enabled = button.visible && unlocked && selected != null
                             && canAffordPearl(selected.enhancementPearlCost, snapshot.getPearl());
-                    button.displayString = selected == null ? "Усилить руну:\\nВыберите руну"
-                            : "Усилить руну:\\n" + selected.enhancementPearlCost + " жемчуга";
+                    button.displayString = selected == null ? "Усилить руну:\nВыберите руну"
+                            : "Усилить руну:\n" + selected.enhancementPearlCost + " жемчуга";
                 }
             }
             return;
@@ -733,6 +738,9 @@ public class RunesGuiScreen extends GuiScreen {
             drawSurface(sx, sy, layout.runeSlotWidth, layout.runeSlotHeight,
                     hovered ? RUNE_HOVER_BG_COLOR : SLOT_BG_COLOR,
                     hovered ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
+            if (i < entries.size() && entries.get(i).runeId.equals(selectedUniqueRuneId))
+                drawSurface(sx, sy, layout.runeSlotWidth, layout.runeSlotHeight,
+                        0, SELECTED_COLOR);
             if (i >= entries.size()) continue;
             UniqueRuneSnapshotPacket.Entry entry = entries.get(i);
             if (!matchesSearch(i)) continue;
