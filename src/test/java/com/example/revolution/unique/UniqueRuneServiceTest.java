@@ -35,6 +35,47 @@ final class UniqueRuneServiceTest {
         assertEquals(f.policy.duplicatePearl(), f.resources.getPlayerResourceValue(PLAYER, "pearl"));
     }
 
+    @Test void crystalPurchaseUsesFullPoolAndControlledRandomRoll() {
+        Fixture first = new Fixture();
+        Fixture last = new Fixture(true);
+        first.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
+        last.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
+        UniqueRuneService.Result low = first.service.purchaseCrystal(PLAYER, 1L);
+        UniqueRuneService.Result high = last.service.purchaseCrystal(PLAYER, 1L);
+        assertEquals("crystal_01", low.runeId);
+        assertEquals("crystal_26", high.runeId);
+        assertEquals(1, first.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).progress());
+        assertEquals(1, last.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).progress());
+        assertEquals("crystal_01", first.service.purchaseCrystal(PLAYER, 2L).runeId);
+        assertEquals("crystal_26", last.service.purchaseCrystal(PLAYER, 2L).runeId);
+        assertEquals(1, first.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).progress());
+        assertEquals(1, last.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).progress());
+    }
+
+    @Test void crystalPurchaseRejectsInsufficientBalanceWithoutGrantingOwnership() {
+        Fixture f = new Fixture();
+        assertEquals(UniqueRuneService.ResultCode.INSUFFICIENT_RESOURCE,
+                f.service.purchaseCrystal(PLAYER, 1L).code);
+        assertEquals(0, f.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).progress());
+        assertEquals(BigDecimal.ZERO, f.resources.getPlayerResourceValue(PLAYER, "pearl"));
+    }
+
+    @Test void crystalEnhancementUsesFixedPearlPerSuccessfulOperation() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_01", Rarity.COMMON);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_01", 30);
+        f.unique.save(PLAYER, state);
+        f.resources.setPlayerResourceValue(PLAYER, "pearl", new BigDecimal("2"));
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.enhance(PLAYER, 1L).code);
+        assertEquals(0, BigDecimal.ONE.compareTo(f.resources.getPlayerResourceValue(PLAYER, "pearl")));
+        assertEquals(31, f.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.enhance(PLAYER, 2L).code);
+        assertEquals(0, BigDecimal.ZERO.compareTo(f.resources.getPlayerResourceValue(PLAYER, "pearl")));
+        assertEquals(UniqueRuneService.ResultCode.INSUFFICIENT_RESOURCE, f.service.enhance(PLAYER, 3L).code);
+        assertEquals(32, f.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
+    }
+
     @Test void dailyExcludesOwnedRuneAndAllowsOnlyOneClaimPerDay() {
         Fixture f = new Fixture();
         UniqueRuneService.Result first = f.service.claimDaily(PLAYER, 100L, 1L);
