@@ -63,7 +63,8 @@ public class RunePurchaseUiHandler {
                 || ((RunesGuiScreen) event.getGui()).isUniqueCollectionSelected()
                 || !Mouse.getEventButtonState()) return;
         int button = Mouse.getEventButton();
-        if (!RuneAwakeningInput.isAwakeningButton(button) && !RuneRankRevertInput.isRevertButton(button)) return;
+        if (!RuneAwakeningInput.isAwakeningGesture(button, GuiScreen.isCtrlKeyDown())
+                && !RuneRankRevertInput.isRevertButton(button)) return;
 
         RunesGuiScreen screen = (RunesGuiScreen) event.getGui(); Minecraft mc = Minecraft.getMinecraft();
         int mouseX = Mouse.getEventX() * screen.width / Math.max(1, mc.displayWidth);
@@ -78,6 +79,8 @@ public class RunePurchaseUiHandler {
             return;
         }
 
+        // The Post event fires even if RunesGuiScreen consumed Ctrl+click for Share.
+        if (!RuneAwakeningInput.isAwakeningGesture(button, GuiScreen.isCtrlKeyDown())) return;
         int rune = screen.awakeningRuneAt(mouseX, mouseY);
         if (rune >= 0) NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
     }
