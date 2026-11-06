@@ -8,6 +8,9 @@ public final class RuneAwakeningInputTest {
         equal(RuneAwakeningInput.isAwakeningButton(0), true, "left click must awaken");
         equal(RuneAwakeningInput.isAwakeningButton(1), false, "right click must not awaken");
         equal(RuneAwakeningInput.isAwakeningButton(2), false, "middle click must not awaken");
+        equal(RuneAwakeningInput.isAwakeningGesture(0, false), true, "plain left click may awaken");
+        equal(RuneAwakeningInput.isAwakeningGesture(0, true), false, "Ctrl+LMB share must not awaken");
+        equal(RuneAwakeningInput.isAwakeningGesture(1, true), false, "Ctrl+RMB revert must not awaken");
 
         RuneInventory inventory = new RuneInventory();
         GuiLayout layout = new GuiLayout(26);
