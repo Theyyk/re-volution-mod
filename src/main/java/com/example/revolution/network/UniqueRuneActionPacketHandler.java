@@ -36,7 +36,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         if ("purchase_crystal".equals(action)) services.uniqueRunes.purchaseCrystal(player.getUniqueID(), request.getRequestNonce());
         else if ("purchase_offerings".equals(action)) services.uniqueRunes.purchaseOfferings(player.getUniqueID(), request.getRequestNonce());
         else if ("daily".equals(action)) services.uniqueRunes.claimDaily(player.getUniqueID(), System.currentTimeMillis() / 86400000L, request.getRequestNonce());
-        else if ("enhance".equals(action)) services.uniqueRunes.enhance(player.getUniqueID(), request.getRuneId(), request.getRequestNonce());
+        else if ("enhance".equals(action)) services.uniqueRunes.enhance(player.getUniqueID(), request.getRequestNonce());
         else if ("awaken".equals(action) && collection != null) services.uniqueRunes.awaken(player.getUniqueID(), collection, request.getRuneId(), request.getRequestNonce());
         else if ("rollback".equals(action) && collection != null) services.uniqueRunes.rollback(player.getUniqueID(), collection, request.isConfirmed(), request.getRequestNonce());
         else if ("share".equals(action) && collection != null) { share(player, services, collection, request.getRuneId()); return; }
