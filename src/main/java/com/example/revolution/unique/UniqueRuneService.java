@@ -143,16 +143,28 @@ public final class UniqueRuneService {
         return Result.grant(rune.runeId);
     }
 
-    public synchronized Result enhance(UUID playerUuid, String runeId, long requestNonce) {
+    /** Random enhancement of one owned Crystal rune; the client never chooses a target. */
+    public synchronized Result enhance(UUID playerUuid, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.CRYSTAL_COLLECTION)) return Result.of(ResultCode.LOCKED);
-        CollectionDefinition definition = policy.definition(CollectionId.CRYSTAL_COLLECTION); if (definition.rune(runeId) == null) return Result.of(ResultCode.INVALID);
         PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(CollectionId.CRYSTAL_COLLECTION);
-        if (!collection.owned.containsKey(runeId)) return Result.of(ResultCode.INVALID);
-        int level = collection.enhancement(runeId); BigDecimal cost = policy.enhancementPearlCost(runeId, level);
-        if (!resources.spendPlayerResource(playerUuid, ResourceDefinitions.PEARL, cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
+        BigDecimal pearls = pearlBalance(playerUuid);
+        List<String> eligible = new ArrayList<>();
+        for (RuneDefinition rune : policy.definition(CollectionId.CRYSTAL_COLLECTION).runes) {
+            if (collection.owned.containsKey(rune.runeId)
+                    && policy.enhancementPearlCost(rune.runeId, collection.enhancement(rune.runeId)).compareTo(pearls) <= 0)
+                eligible.add(rune.runeId);
+        }
+        if (eligible.isEmpty()) return Result.of(collection.owned.isEmpty()
+                ? ResultCode.INVALID : ResultCode.INSUFFICIENT_RESOURCE);
+        String runeId = eligible.get(random.nextInt(eligible.size()));
+        int level = collection.enhancement(runeId);
+        BigDecimal cost = policy.enhancementPearlCost(runeId, level);
+        if (!resources.spendPlayerResource(playerUuid, ResourceDefinitions.PEARL, cost))
+            return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
         collection.enhancement.put(runeId, level + 1); repository.save(playerUuid, state);
-        factual(playerUuid, GameplayEventType.UNIQUE_RUNE_ENHANCED, CollectionId.CRYSTAL_COLLECTION, runeId); return Result.grant(runeId);
+        factual(playerUuid, GameplayEventType.UNIQUE_RUNE_ENHANCED, CollectionId.CRYSTAL_COLLECTION, runeId);
+        return Result.grant(runeId);
     }
 
     public synchronized Result awaken(UUID playerUuid, CollectionId id, String promotedRuneId, long requestNonce) {
