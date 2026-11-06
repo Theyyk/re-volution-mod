@@ -33,6 +33,10 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
     private String crystals = "0";
     private String offerings = "0";
     private String crystalPurchaseCost = "0";
+    private String crystalEnhancementCost = "0";
+    private String lastCrystalRollId = "";
+    private boolean lastCrystalRollDuplicate;
+    private String lastCrystalRollCompensation = "0";
     private String offeringsPurchaseCost = "0";
     private String zbtStatus = "draft";
     private String dailyExtraResource = "";
@@ -59,6 +63,16 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
     public String getCrystals() { return crystals; }
     public String getOfferings() { return offerings; }
     public String getCrystalPurchaseCost() { return crystalPurchaseCost; }
+    public String getCrystalEnhancementCost() { return crystalEnhancementCost; }
+    public void setCrystalEnhancementCost(String value) { crystalEnhancementCost = safe(value); }
+    public String getLastCrystalRollId() { return lastCrystalRollId; }
+    public boolean isLastCrystalRollDuplicate() { return lastCrystalRollDuplicate; }
+    public String getLastCrystalRollCompensation() { return lastCrystalRollCompensation; }
+    public void setLastCrystalRoll(String runeId, boolean duplicate, String compensation) {
+        lastCrystalRollId = safe(runeId);
+        lastCrystalRollDuplicate = duplicate;
+        lastCrystalRollCompensation = safe(compensation);
+    }
     public String getOfferingsPurchaseCost() { return offeringsPurchaseCost; }
     public String getZbtStatus() { return zbtStatus; }
     public long getDailyNextClaimMillis() { return dailyNextClaimMillis; }
@@ -79,6 +93,10 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
         crystalPurchaseCost = ByteBufUtils.readUTF8String(buf); offeringsPurchaseCost = ByteBufUtils.readUTF8String(buf); zbtStatus = ByteBufUtils.readUTF8String(buf); dailyNextClaimMillis = Math.max(0L, buf.readLong());
         dailyExtraResource = ByteBufUtils.readUTF8String(buf);
         dailyExtraAmount = ByteBufUtils.readUTF8String(buf);
+        crystalEnhancementCost = ByteBufUtils.readUTF8String(buf);
+        lastCrystalRollId = ByteBufUtils.readUTF8String(buf);
+        lastCrystalRollDuplicate = buf.readBoolean();
+        lastCrystalRollCompensation = ByteBufUtils.readUTF8String(buf);
     }
     @Override public void toBytes(ByteBuf buf) {
         int collectionCount = Math.min(3, collections.size()); buf.writeInt(collectionCount);
@@ -89,6 +107,10 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
         ByteBufUtils.writeUTF8String(buf, safe(crystalPurchaseCost)); ByteBufUtils.writeUTF8String(buf, safe(offeringsPurchaseCost)); ByteBufUtils.writeUTF8String(buf, safe(zbtStatus)); buf.writeLong(Math.max(0L, dailyNextClaimMillis));
         ByteBufUtils.writeUTF8String(buf, safe(dailyExtraResource));
         ByteBufUtils.writeUTF8String(buf, safe(dailyExtraAmount));
+        ByteBufUtils.writeUTF8String(buf, safe(crystalEnhancementCost));
+        ByteBufUtils.writeUTF8String(buf, safe(lastCrystalRollId));
+        buf.writeBoolean(lastCrystalRollDuplicate);
+        ByteBufUtils.writeUTF8String(buf, safe(lastCrystalRollCompensation));
     }
     private static String safe(String value) { return value == null ? "" : value; }
 }

@@ -38,10 +38,9 @@ public final class BalanceUniqueRunePolicy {
     public BigDecimal duplicatePearl() { return number("unique_rune.crystal.duplicate_pearl"); }
     public BigDecimal rollbackCrystalCost(CollectionId id) { return number(prefix(id) + ".rollback_crystal_cost"); }
     public BigDecimal enhancementPearlCost(String runeId, int currentLevel) {
-        int index = runeIndex(runeId);
-        BigDecimal base = number("unique_rune.crystal.enhancement_base_cost");
-        BigDecimal growth = decimalList("unique_rune.crystal.enhancement_cost_growth").get(index);
-        return base.multiply(BigDecimal.ONE.add(growth.multiply(BigDecimal.valueOf(Math.max(0, currentLevel)))));
+        // A single Balance Core price applies to every owned Crystal rune at any enhancement level.
+        // Keep the legacy growth config key readable, but do not use it for gameplay pricing.
+        return number("unique_rune.crystal.enhancement_base_cost");
     }
     public String dailyExtraResource() { return value("unique_rune.daily.extra_resource"); }
     public BigDecimal dailyExtraAmount() { return number("unique_rune.daily.extra_amount"); }
