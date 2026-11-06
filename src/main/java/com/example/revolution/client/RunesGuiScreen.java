@@ -326,6 +326,10 @@ public class RunesGuiScreen extends GuiScreen {
                     && UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive();
             UniqueRuneSnapshotPacket snapshot = ClientUniqueRunes.snapshot();
             long remaining = Math.max(0L, snapshot.getDailyNextClaimMillis() - System.currentTimeMillis());
+            boolean canPurchase = selectedUniqueCollection == 1
+                    || (selectedUniqueCollection == 0
+                        ? canAffordPearl(snapshot.getCrystalPurchaseCost(), snapshot.getCrystals())
+                        : canAffordPearl(snapshot.getOfferingsPurchaseCost(), snapshot.getOfferings()));
             for (GuiButton button : buttonList) {
                 if (button.id == BUY_BUTTON_ID || button.id == UPGRADE_PLACEHOLDER_ID
                         || button.id == AMOUNT_BUTTON_START_ID || button.id == 3
@@ -337,7 +341,7 @@ public class RunesGuiScreen extends GuiScreen {
                     button.x = layout.runePanelX + pad;
                     button.width = (layout.runePanelWidth - 2 * pad - 5) / 2;
                     button.visible = true;
-                    button.enabled = unlocked && state.progress < VISIBLE_RUNE_SLOTS
+                    button.enabled = unlocked && canPurchase && state.progress < VISIBLE_RUNE_SLOTS
                             && (selectedUniqueCollection != 1 || remaining <= 0L);
                     if (selectedUniqueCollection == 1) {
                         button.displayString = remaining > 0L
@@ -924,9 +928,14 @@ public class RunesGuiScreen extends GuiScreen {
                 || !UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive()) return true;
         if (id == UNIQUE_ACQUIRE_ID) {
             uniqueRollbackArmed = false;
-            if (state.progress < VISIBLE_RUNE_SLOTS
+            UniqueRuneSnapshotPacket snapshot = ClientUniqueRunes.snapshot();
+            boolean enoughCurrency = selectedUniqueCollection == 1
+                    || (selectedUniqueCollection == 0
+                        ? canAffordPearl(snapshot.getCrystalPurchaseCost(), snapshot.getCrystals())
+                        : canAffordPearl(snapshot.getOfferingsPurchaseCost(), snapshot.getOfferings()));
+            if (enoughCurrency && state.progress < VISIBLE_RUNE_SLOTS
                     && (selectedUniqueCollection != 1
-                        || ClientUniqueRunes.snapshot().getDailyNextClaimMillis() <= System.currentTimeMillis()))
+                        || snapshot.getDailyNextClaimMillis() <= System.currentTimeMillis()))
                 ClientUniqueRunes.action(selectedUniqueCollection == 0 ? "purchase_crystal"
                         : selectedUniqueCollection == 1 ? "daily"
                         : "purchase_offerings", uniqueCollectionId(), "", false);

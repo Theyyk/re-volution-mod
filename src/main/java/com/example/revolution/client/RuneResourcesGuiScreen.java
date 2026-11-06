@@ -52,7 +52,9 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         y += resourceLayout.scaled(21, 16);
         drawResourceLine(x, y, "Монеты", ClientPlayerStats.getCoins(), textWidth);
         y += resourceLayout.scaled(16, 12);
-        drawResourceLine(x, y, "Кристаллы", ClientPlayerStats.getCrystals(), textWidth);
+        drawResourceLine(x, y, "Кристаллы", isUniqueCollectionSelected()
+                ? new BigDecimal(ClientUniqueRunes.snapshot().getCrystals())
+                : ClientPlayerStats.getCrystals(), textWidth);
         int additionalHeight = isUniqueCollectionSelected() ? 38 : 0;
         drawSurface(panelX, runeY, panelWidth, RUNE_PANEL_HEIGHT + additionalHeight,
                 PANEL_BG_COLOR, PANEL_BORDER_COLOR);
