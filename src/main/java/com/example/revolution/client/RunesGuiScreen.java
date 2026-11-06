@@ -71,7 +71,9 @@ public class RunesGuiScreen extends GuiScreen {
 
     private int activeCollection = 0;
     /** -1 = ordinary server-backed Rune collection; 0..2 = unique collection inline. */
-    private int selectedUniqueCollection = -1;
+    private int selectedUniqueCollection = ClientUniqueRunes.selectedCollectionIndex();
+    private java.math.BigDecimal observedCrystalWallet;
+
     private boolean uniqueRollbackArmed;
     private static final int UNIQUE_ACQUIRE_ID = 520;
     private static final int UNIQUE_AWAKEN_ID = 521;
@@ -87,10 +89,9 @@ public class RunesGuiScreen extends GuiScreen {
     private boolean matchesSearch(int slot) {
         if (searchField == null) return true;
         if (isUniqueCollectionSelected()) {
-            List<UniqueRuneSnapshotPacket.Entry> entries = uniqueEntries();
-            if (slot < 0 || slot >= entries.size()) return false;
+            UniqueRuneSnapshotPacket.Entry rune = uniqueEntryAtSlot(slot);
+            if (rune == null) return false;
             String query = searchField.getText().trim().toLowerCase(java.util.Locale.ROOT);
-            UniqueRuneSnapshotPacket.Entry rune = entries.get(slot);
             return rune.name.toLowerCase(java.util.Locale.ROOT).contains(query)
                     || rune.runeId.toLowerCase(java.util.Locale.ROOT).contains(query)
                     || rune.effects.toLowerCase(java.util.Locale.ROOT).contains(query);
@@ -145,6 +146,17 @@ public class RunesGuiScreen extends GuiScreen {
 
     private List<UniqueRuneSnapshotPacket.Entry> uniqueEntries() {
         return ClientUniqueRunes.entriesFor(uniqueCollectionId());
+    }
+
+    private UniqueRuneSnapshotPacket.Entry uniqueEntryAtSlot(int slot) {
+        return UniqueRuneInlineLayout.entryAtSlot(uniqueEntries(), uniqueCollectionId(), slot);
+    }
+
+    private boolean uniquePurchaseAffordable(UniqueRuneSnapshotPacket snapshot) {
+        if (selectedUniqueCollection == 1) return true;
+        if (selectedUniqueCollection == 0)
+            return canAffordPearl(snapshot.getCrystalPurchaseCost(), ClientPlayerStats.getCrystals().toPlainString());
+        return canAffordPearl(snapshot.getOfferingsPurchaseCost(), ClientPlayerStats.getOfferings().toPlainString());
     }
 
     private UniqueRuneSnapshotPacket.Collection uniqueState() {
@@ -208,6 +220,8 @@ public class RunesGuiScreen extends GuiScreen {
             }
         }
 
+        observedCrystalWallet = ClientPlayerStats.getCrystals();
+        if (isUniqueCollectionSelected()) ClientUniqueRunes.sync();
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("get_player_stats"));
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_decks"));
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_cards"));
@@ -325,10 +339,7 @@ public class RunesGuiScreen extends GuiScreen {
                     && UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive();
             UniqueRuneSnapshotPacket snapshot = ClientUniqueRunes.snapshot();
             long remaining = Math.max(0L, snapshot.getDailyNextClaimMillis() - System.currentTimeMillis());
-            boolean canPurchase = selectedUniqueCollection == 1
-                    || (selectedUniqueCollection == 0
-                        ? canAffordPearl(snapshot.getCrystalPurchaseCost(), snapshot.getCrystals())
-                        : canAffordPearl(snapshot.getOfferingsPurchaseCost(), snapshot.getOfferings()));
+            boolean canPurchase = uniquePurchaseAffordable(snapshot);
             for (GuiButton button : buttonList) {
                 if (button.id == BUY_BUTTON_ID || button.id == UPGRADE_PLACEHOLDER_ID
                         || button.id == AMOUNT_BUTTON_START_ID || button.id == 3
@@ -426,6 +437,7 @@ public class RunesGuiScreen extends GuiScreen {
             int index = UniqueRuneInlineTabs.index(button.id);
             if (UniqueRuneInlineTabs.state(index).isInteractive()) {
                 selectedUniqueCollection = index;
+                ClientUniqueRunes.selectCollectionIndex(index);
                 uniqueRollbackArmed = false;
                 searchField.setText("");
                 rebuildControls();
@@ -440,6 +452,7 @@ public class RunesGuiScreen extends GuiScreen {
             if (targetCollection >= 0 && targetCollection < collectionNames.size()) {
                 boolean returnFromUnique = isUniqueCollectionSelected();
                 selectedUniqueCollection = -1;
+                ClientUniqueRunes.selectCollectionIndex(-1);
                 uniqueRollbackArmed = false;
                 if (returnFromUnique) {
                     searchField.setText("");
@@ -739,9 +752,8 @@ public class RunesGuiScreen extends GuiScreen {
             drawSurface(sx, sy, layout.runeSlotWidth, layout.runeSlotHeight,
                     hovered ? RUNE_HOVER_BG_COLOR : SLOT_BG_COLOR,
                     hovered ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
-            if (i >= entries.size()) continue;
-            UniqueRuneSnapshotPacket.Entry entry = entries.get(i);
-            if (!matchesSearch(i)) continue;
+            UniqueRuneSnapshotPacket.Entry entry = uniqueEntryAtSlot(i);
+            if (entry == null || !matchesSearch(i)) continue;
             // Unique rune art is not supplied by the current server packet. Use
             // its factual display name rather than inventing ordinary-rune icons.
             String name = entry.name == null || entry.name.isEmpty() ? entry.runeId : entry.name;
@@ -782,13 +794,13 @@ public class RunesGuiScreen extends GuiScreen {
     }
 
     private boolean uniqueSlotClicked(int x, int y, int mouseButton) {
-        List<UniqueRuneSnapshotPacket.Entry> entries = uniqueEntries();
-        for (int slot = 0; slot < entries.size() && slot < VISIBLE_RUNE_SLOTS; slot++) {
+        for (int slot = 0; slot < VISIBLE_RUNE_SLOTS; slot++) {
+            UniqueRuneSnapshotPacket.Entry rune = uniqueEntryAtSlot(slot);
+            if (rune == null) continue;
             int[] pos = getRuneSlotPosition(slot);
             if (x < pos[0] || x >= pos[0] + layout.runeSlotWidth
                     || y < pos[1] || y >= pos[1] + layout.runeSlotHeight) continue;
             if (!matchesSearch(slot)) return true;
-            UniqueRuneSnapshotPacket.Entry rune = entries.get(slot);
             UniqueRuneSnapshotPacket.Collection state = uniqueState();
             boolean unlocked = state != null && state.unlocked
                     && UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive();
@@ -902,13 +914,12 @@ public class RunesGuiScreen extends GuiScreen {
     }
 
     private void drawInlineUniqueTooltip(int x, int y) {
-        List<UniqueRuneSnapshotPacket.Entry> entries = uniqueEntries();
-        for (int slot = 0; slot < entries.size() && slot < VISIBLE_RUNE_SLOTS; slot++) {
-            if (!matchesSearch(slot)) continue;
+        for (int slot = 0; slot < VISIBLE_RUNE_SLOTS; slot++) {
+            UniqueRuneSnapshotPacket.Entry rune = uniqueEntryAtSlot(slot);
+            if (rune == null || !matchesSearch(slot)) continue;
             int[] pos = getRuneSlotPosition(slot);
             if (x < pos[0] || x >= pos[0] + layout.runeSlotWidth
                     || y < pos[1] || y >= pos[1] + layout.runeSlotHeight) continue;
-            UniqueRuneSnapshotPacket.Entry rune = entries.get(slot);
             List<String> tooltip = new ArrayList<>();
             tooltip.add("§b" + localizeUniqueRuneName(rune.name));
             tooltip.add("§7" + rune.rarity + " +" + rune.enhancement);
@@ -931,10 +942,7 @@ public class RunesGuiScreen extends GuiScreen {
         if (id == UNIQUE_ACQUIRE_ID) {
             uniqueRollbackArmed = false;
             UniqueRuneSnapshotPacket snapshot = ClientUniqueRunes.snapshot();
-            boolean enoughCurrency = selectedUniqueCollection == 1
-                    || (selectedUniqueCollection == 0
-                        ? canAffordPearl(snapshot.getCrystalPurchaseCost(), snapshot.getCrystals())
-                        : canAffordPearl(snapshot.getOfferingsPurchaseCost(), snapshot.getOfferings()));
+            boolean enoughCurrency = uniquePurchaseAffordable(snapshot);
             if (enoughCurrency && state.progress < VISIBLE_RUNE_SLOTS
                     && (selectedUniqueCollection != 1
                         || snapshot.getDailyNextClaimMillis() <= System.currentTimeMillis()))
@@ -1222,6 +1230,12 @@ public class RunesGuiScreen extends GuiScreen {
             if (UniqueRuneInlineTabs.isButton(button.id) && button instanceof PanelButton)
                 ((PanelButton) button).setSelected(isUniqueCollectionSelected()
                         && UniqueRuneInlineTabs.index(button.id) == selectedUniqueCollection);
+        }
+        if (isUniqueCollectionSelected()) {
+            java.math.BigDecimal wallet = ClientPlayerStats.getCrystals();
+            if (observedCrystalWallet != null && wallet.compareTo(observedCrystalWallet) != 0)
+                ClientUniqueRunes.sync();
+            observedCrystalWallet = wallet;
         }
         updatePurchaseAvailability();
         super.drawScreen(mouseX, mouseY, partialTicks);
