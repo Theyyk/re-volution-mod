@@ -384,7 +384,9 @@ public final class ServerServices implements AutoCloseable {
         if (persistentGameplay) mobs.setConfigurationGuard(adminStageStore::recover);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
         adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements, sync);
+        adminOperations.bindOfferingsWallet(gods);
         adminQueries = new AdminQueryService(players, resources, mobRepository);
+        adminQueries.bindOfferingsWallet(gods);
         if (persistentGameplay) adminQueries.setConfigurationGuard(adminStageStore::recover);
         adminApi = new AdminApiServer(logger, adminOperations, adminQueries);
         AdminToolsService adminTools = new AdminToolsService(locationRepository, mobRepository, mobProgression);
