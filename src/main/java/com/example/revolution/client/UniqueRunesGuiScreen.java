@@ -3,6 +3,7 @@ package com.example.revolution.client;
 import com.example.revolution.client.ui.UiMenuSection;
 import com.example.revolution.network.UniqueRuneSnapshotPacket;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import net.minecraft.client.gui.GuiButton;
@@ -13,16 +14,23 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
     private static final String[] COLLECTIONS =
             {"CRYSTAL_COLLECTION", "DAILY_COLLECTION", "OFFERINGS_COLLECTION"};
     private static final int ACQUIRE = 520, AWAKEN = 521, ROLLBACK = 522;
+    /** E-menu tab preference lives only for the current client session. */
+    private static int sessionSelected;
     private int selected;
     private boolean rollbackArmed;
+    private BigDecimal previousWalletCrystals;
 
-    public UniqueRunesGuiScreen() { this(0); }
+
+    public UniqueRunesGuiScreen() { this(sessionSelected); }
+
+    static void resetSessionSelection() { sessionSelected = 0; }
 
     /** Open the specific special collection selected from the main rune strip. */
     public UniqueRunesGuiScreen(int selected) {
         if (selected < 0 || selected >= COLLECTIONS.length)
             throw new IllegalArgumentException("Unknown unique rune collection index: " + selected);
         this.selected = selected;
+        sessionSelected = selected;
     }
 
     @Override public void initGui() {
@@ -40,6 +48,7 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
             buttonList.add(new GuiControls.PanelButton(ACQUIRE + i,
                     left + i * (colWidth + 5), height - 32, colWidth, 22, ""));
         }
+        previousWalletCrystals = ClientPlayerStats.getCrystals();
         ClientUniqueRunes.sync();
     }
 
@@ -47,7 +56,8 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
         if (!button.enabled) return;
         if (UnifiedMainMenuChrome.handleNavigation(button.id, UiMenuSection.UNIQUE_RUNES, mc)) return;
         if (button.id >= 510 && button.id <= 512) {
-            selected = button.id - 510; rollbackArmed = false; return;
+            selected = button.id - 510; sessionSelected = selected;
+            rollbackArmed = false; return;
         }
         String collection = COLLECTIONS[selected];
         if (button.id == ACQUIRE) {
@@ -78,11 +88,17 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         UnifiedMainMenuChrome.draw(mc, width, height, mouseX, mouseY, "УНИКАЛЬНЫЕ РУНЫ");
         UnifiedMainMenuChrome.refreshNavigation(buttonList);
+        // Main wallet updates can arrive independently of Unique Rune snapshots.
+        // Re-request the authoritative snapshot when the displayed Crystal wallet changes.
+        BigDecimal wallet = ClientPlayerStats.getCrystals();
+        if (previousWalletCrystals != null && wallet.compareTo(previousWalletCrystals) != 0)
+            ClientUniqueRunes.sync();
+        previousWalletCrystals = wallet;
         UniqueRuneSnapshotPacket snapshot = ClientUniqueRunes.snapshot();
         String collection = COLLECTIONS[selected];
         UniqueRuneSnapshotPacket.Collection state = state(snapshot, collection);
         List<UniqueRuneSnapshotPacket.Entry> owned = ClientUniqueRunes.entriesFor(collection);
-        updateActionButtons(state, owned, collection);
+        updateActionButtons(snapshot, state, owned, collection);
         int left = left(), top = UnifiedMainMenuChrome.contentTop(width, height) + 28;
         if (state != null) {
             String status = state.unlocked ? "" : "  [ЗАКРЫТО]";
@@ -109,12 +125,16 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
 
         for (int slot = 0; slot < 26; slot++) {
             int x = slotX(slot), y = slotY(slot), size = slotSize();
-            GuiDrawing.drawSurface(x, y, size, size,
-                    GuiTheme.SLOT_BG_COLOR, GuiTheme.SLOT_BORDER_COLOR);
             UniqueRuneSnapshotPacket.Entry entry = runeAtSlot(owned, slot);
-            String text = entry == null ? "?" : entry.runeId.replaceFirst("^[^_]+_", "");
+            boolean lastRolled = "CRYSTAL_COLLECTION".equals(collection)
+                    && entry != null && entry.runeId.equals(snapshot.getLastCrystalRollId());
+            GuiDrawing.drawSurface(x, y, size, size,
+                    GuiTheme.SLOT_BG_COLOR, lastRolled ? GuiTheme.CRYSTAL_COLOR : GuiTheme.SLOT_BORDER_COLOR);
+            // Number every position so a C-14 roll is visibly in slot 14, not slot 2.
+            String text = String.format(java.util.Locale.ROOT, "%02d", slot + 1);
             fontRenderer.drawString(fontRenderer.trimStringToWidth(text, size-4),
-                    x + 2, y + Math.max(2, (size - fontRenderer.FONT_HEIGHT) / 2), GuiTheme.TEXT_COLOR);
+                    x + 2, y + Math.max(2, (size - fontRenderer.FONT_HEIGHT) / 2),
+                    entry == null ? GuiTheme.DISABLED_TEXT_COLOR : GuiTheme.TEXT_COLOR);
         }
         if (rollbackArmed) {
             fontRenderer.drawString(fontRenderer.trimStringToWidth(
@@ -160,12 +180,18 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
         }
     }
 
-    private void updateActionButtons(UniqueRuneSnapshotPacket.Collection state,
+    private void updateActionButtons(UniqueRuneSnapshotPacket snapshot,
+                                     UniqueRuneSnapshotPacket.Collection state,
                                      List<UniqueRuneSnapshotPacket.Entry> owned, String collection) {
         for (GuiButton button : buttonList) {
             if (button.id >= 510 && button.id <= 512) button.enabled = button.id != 510 + selected;
             if (button.id == ACQUIRE) {
-                button.enabled = state != null && state.unlocked;
+                boolean affordable = true;
+                if ("CRYSTAL_COLLECTION".equals(collection))
+                    affordable = hasEnough(ClientPlayerStats.getCrystals(), snapshot.getCrystalPurchaseCost());
+                else if ("OFFERINGS_COLLECTION".equals(collection))
+                    affordable = hasEnough(ClientPlayerStats.getOfferings(), snapshot.getOfferingsPurchaseCost());
+                button.enabled = state != null && state.unlocked && affordable;
                 button.displayString = "DAILY_COLLECTION".equals(collection) ? "Ежедневная награда" : "Купить руну";
             } else if (button.id == AWAKEN) {
                 button.enabled = state != null && state.unlocked && state.canAwaken && !owned.isEmpty();
@@ -175,6 +201,11 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
                 button.displayString = rollbackArmed ? "ПОДТВЕРДИТЬ ОТКАТ" : "Откат";
             }
         }
+    }
+
+    private static boolean hasEnough(BigDecimal balance, String cost) {
+        try { return balance.compareTo(new BigDecimal(cost)) >= 0; }
+        catch (RuntimeException invalidCost) { return false; }
     }
 
     /** Fixed numbered slots prevent newly acquired random runes from shifting existing slots. */
