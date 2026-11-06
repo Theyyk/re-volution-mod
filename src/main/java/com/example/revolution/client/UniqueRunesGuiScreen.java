@@ -101,12 +101,18 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
                 : "Цена: " + snapshot.getOfferingsPurchaseCost() + " подношений";
         fontRenderer.drawString(fontRenderer.trimStringToWidth(cost, right() - left),
                 left, top + 33, GuiTheme.DISABLED_TEXT_COLOR);
+        if ("CRYSTAL_COLLECTION".equals(collection)) {
+            String enhancementPrice = "Случайное усиление: " + snapshot.getCrystalEnhancementCost() + " жемчуг";
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(enhancementPrice, right() - left),
+                    left, top + 45, GuiTheme.DISABLED_TEXT_COLOR);
+        }
 
         for (int slot = 0; slot < 26; slot++) {
             int x = slotX(slot), y = slotY(slot), size = slotSize();
             GuiDrawing.drawSurface(x, y, size, size,
                     GuiTheme.SLOT_BG_COLOR, GuiTheme.SLOT_BORDER_COLOR);
-            String text = slot < owned.size() ? owned.get(slot).runeId.replaceFirst("^[^_]+_", "") : "?";
+            UniqueRuneSnapshotPacket.Entry entry = runeAtSlot(owned, slot);
+            String text = entry == null ? "?" : entry.runeId.replaceFirst("^[^_]+_", "");
             fontRenderer.drawString(fontRenderer.trimStringToWidth(text, size-4),
                     x + 2, y + Math.max(2, (size - fontRenderer.FONT_HEIGHT) / 2), GuiTheme.TEXT_COLOR);
         }
@@ -119,10 +125,10 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
                     left, height - 49, GuiTheme.DISABLED_TEXT_COLOR);
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
-        for (int slot = 0; slot < owned.size() && slot < 26; slot++) {
+        for (int slot = 0; slot < 26; slot++) {
             int x = slotX(slot), y = slotY(slot), size = slotSize();
-            if (mouseX >= x && mouseX < x+size && mouseY >= y && mouseY < y+size) {
-                UniqueRuneSnapshotPacket.Entry e = owned.get(slot);
+            UniqueRuneSnapshotPacket.Entry e = runeAtSlot(owned, slot);
+            if (e != null && mouseX >= x && mouseX < x+size && mouseY >= y && mouseY < y+size) {
                 drawHoveringText(Arrays.asList(e.name, e.rarity + " +" + e.enhancement,
                         e.effects, "ЛКМ: поделиться", "Shift+ЛКМ: усилить (кристаллы)"), mouseX, mouseY);
                 break;
@@ -135,10 +141,10 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
         if (mouseButton != 0) return;
         String collection = COLLECTIONS[selected];
         List<UniqueRuneSnapshotPacket.Entry> owned = ClientUniqueRunes.entriesFor(collection);
-        for (int slot = 0; slot < owned.size() && slot < 26; slot++) {
+        for (int slot = 0; slot < 26; slot++) {
             int x = slotX(slot), y = slotY(slot), size = slotSize();
-            if (mouseX >= x && mouseX < x+size && mouseY >= y && mouseY < y+size) {
-                UniqueRuneSnapshotPacket.Entry e = owned.get(slot);
+            UniqueRuneSnapshotPacket.Entry e = runeAtSlot(owned, slot);
+            if (e != null && mouseX >= x && mouseX < x+size && mouseY >= y && mouseY < y+size) {
                 rollbackArmed = false;
                 if (isShiftKeyDown() && "CRYSTAL_COLLECTION".equals(collection))
                     ClientUniqueRunes.action("enhance", collection, e.runeId, false);
@@ -163,6 +169,14 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
                 button.displayString = rollbackArmed ? "ПОДТВЕРДИТЬ ОТКАТ" : "Откат";
             }
         }
+    }
+
+    /** Fixed numbered slots prevent newly acquired random runes from shifting existing slots. */
+    private static UniqueRuneSnapshotPacket.Entry runeAtSlot(List<UniqueRuneSnapshotPacket.Entry> owned, int slot) {
+        String suffix = String.format(java.util.Locale.ROOT, "_%02d", slot + 1);
+        for (UniqueRuneSnapshotPacket.Entry entry : owned)
+            if (entry.runeId.endsWith(suffix)) return entry;
+        return null;
     }
 
     private static UniqueRuneSnapshotPacket.Collection state(UniqueRuneSnapshotPacket snapshot, String collection) {
