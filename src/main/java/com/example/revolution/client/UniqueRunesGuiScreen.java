@@ -121,7 +121,13 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
                     "Внимание: откат тратит кристаллы, компенсация не выдаётся. Повторите для подтверждения.",
                     Math.max(8, right()-left)), left, height - 49, 0xFFFF7777);
         } else {
-            fontRenderer.drawString("ZBT: " + snapshot.getZbtStatus(),
+            String purchaseResult = "ZBT: " + snapshot.getZbtStatus();
+            if ("CRYSTAL_COLLECTION".equals(collection) && !snapshot.getLastCrystalRollId().isEmpty()) {
+                purchaseResult = "Выпала: " + snapshot.getLastCrystalRollId().replace("crystal_", "");
+                if (snapshot.isLastCrystalRollDuplicate())
+                    purchaseResult += " (дубликат: +" + snapshot.getLastCrystalRollCompensation() + " жемчуг)";
+            }
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(purchaseResult, right() - left),
                     left, height - 49, GuiTheme.DISABLED_TEXT_COLOR);
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
