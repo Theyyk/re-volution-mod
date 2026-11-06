@@ -26,11 +26,14 @@ public class UniqueRuneSnapshotPacketUiTest {
         UniqueRuneSnapshotPacket sent = new UniqueRuneSnapshotPacket(
                 Arrays.asList(crystal), Arrays.asList(collection),
                 "1000", "5", "9", "10", "20", "draft", next);
+        sent.setDailyExtraReward("coins", "100");
         ByteBuf bytes = Unpooled.buffer();
         sent.toBytes(bytes);
         UniqueRuneSnapshotPacket received = new UniqueRuneSnapshotPacket();
         received.fromBytes(bytes);
         assertEquals(next, received.getDailyNextClaimMillis());
+        assertEquals("coins", received.getDailyExtraResource());
+        assertEquals("100", received.getDailyExtraAmount());
         assertEquals(crystal.enhancementPearlCost, received.getEntries().get(0).enhancementPearlCost);
         assertEquals("5", received.getCrystals());
         assertEquals("1000", received.getPearl());
