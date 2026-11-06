@@ -15,6 +15,16 @@ public class QuestPacketTest {
         assertEquals("entry-123", restored.getEntryId());
     }
 
+    @Test public void shareRoundTripCarriesOnlyServerResolvableEntryId() {
+        QuestActionPacket source = new QuestActionPacket("share", "owned-entry-7");
+        ByteBuf buffer = Unpooled.buffer();
+        source.toBytes(buffer);
+        QuestActionPacket restored = new QuestActionPacket();
+        restored.fromBytes(buffer);
+        assertEquals("share", restored.getAction());
+        assertEquals("owned-entry-7", restored.getEntryId());
+    }
+
     @Test public void snapshotRoundTripPreservesAuthoritativeBoardState() {
         QuestSnapshotPacket.Entry entry = new QuestSnapshotPacket.Entry(
                 "entry-123", "rune_enhance", "RUNE_ENHANCE_ANY", "4", "5", "COMPLETED", 3, 2);
