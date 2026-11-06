@@ -1,8 +1,8 @@
 package com.example.revolution.network;
 
 import java.util.UUID;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ShareChatDeliveryTest {
     @Test public void duplicateRequestsAreLimitedWithoutBlockingNormalUse() {
