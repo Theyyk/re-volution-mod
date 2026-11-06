@@ -3,12 +3,14 @@ package com.example.revolution.client;
 import com.example.revolution.RevolutionMod;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PingPacket;
+import com.example.revolution.network.UniqueRuneSnapshotPacket;
 import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.rune.definition.PrimaryRuneCatalog;
 import com.example.revolution.rune.state.RuneInventory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -68,6 +70,12 @@ public class RunesGuiScreen extends GuiScreen {
     private final List<String> collectionNames = new ArrayList<>();
 
     private int activeCollection = 0;
+    /** -1 = ordinary server-backed Rune collection; 0..2 = unique collection inline. */
+    private int selectedUniqueCollection = -1;
+    private boolean uniqueRollbackArmed;
+    private static final int UNIQUE_ACQUIRE_ID = 520;
+    private static final int UNIQUE_AWAKEN_ID = 521;
+    private static final int UNIQUE_ROLLBACK_ID = 522;
     private int buyAmount = 1;
     private static RenderItem renderItem;
 
@@ -78,6 +86,15 @@ public class RunesGuiScreen extends GuiScreen {
 
     private boolean matchesSearch(int slot) {
         if (searchField == null) return true;
+        if (isUniqueCollectionSelected()) {
+            List<UniqueRuneSnapshotPacket.Entry> entries = uniqueEntries();
+            if (slot < 0 || slot >= entries.size()) return false;
+            String query = searchField.getText().trim().toLowerCase(java.util.Locale.ROOT);
+            UniqueRuneSnapshotPacket.Entry rune = entries.get(slot);
+            return rune.name.toLowerCase(java.util.Locale.ROOT).contains(query)
+                    || rune.runeId.toLowerCase(java.util.Locale.ROOT).contains(query)
+                    || rune.effects.toLowerCase(java.util.Locale.ROOT).contains(query);
+        }
 
         String query = searchField.getText().trim().toLowerCase(java.util.Locale.ROOT);
         if (query.isEmpty()) return true;
@@ -109,12 +126,31 @@ public class RunesGuiScreen extends GuiScreen {
     }
 
     int awakeningRuneAt(int screenX, int screenY) {
+        if (isUniqueCollectionSelected()) return -1;
         return RuneAwakeningInput.runeAt(layout, inventory, activeCollection,
                 screenX, screenY, this::matchesSearch);
     }
 
     boolean runeMatchesSearch(int slot) {
-        return matchesSearch(slot);
+        return !isUniqueCollectionSelected() && matchesSearch(slot);
+    }
+
+    public boolean isUniqueCollectionSelected() {
+        return selectedUniqueCollection >= 0;
+    }
+
+    private String uniqueCollectionId() {
+        return UniqueRuneInlineTabs.collectionId(selectedUniqueCollection);
+    }
+
+    private List<UniqueRuneSnapshotPacket.Entry> uniqueEntries() {
+        return ClientUniqueRunes.entriesFor(uniqueCollectionId());
+    }
+
+    private UniqueRuneSnapshotPacket.Collection uniqueState() {
+        for (UniqueRuneSnapshotPacket.Collection state : ClientUniqueRunes.snapshot().getCollections())
+            if (uniqueCollectionId().equals(state.collectionId)) return state;
+        return null;
     }
 
     private void drawCanvasTooltip(List<String> lines, int x, int y) {
@@ -128,6 +164,7 @@ public class RunesGuiScreen extends GuiScreen {
     protected void mouseClicked(int x, int y, int button) throws IOException {
         x = layout.canvasMouseX(x);
         y = layout.canvasMouseY(y);
+        if (isUniqueCollectionSelected() && button == 0 && uniqueSlotClicked(x, y)) return;
         searchField.mouseClicked(x, y, button);
         super.mouseClicked(x, y, button);
     }
@@ -207,6 +244,13 @@ public class RunesGuiScreen extends GuiScreen {
         buttonList.add(upgrade);
         buttonList.add(new PanelButton(AMOUNT_BUTTON_START_ID, buttonX, amountY,
                 amountHeight, amountHeight, "x" + buyAmount));
+        int specialWidth = (buttonWidth - 12) / 3;
+        buttonList.add(new PanelButton(UNIQUE_ACQUIRE_ID, buttonX, buyY,
+                specialWidth, buyHeight, "Купить руну"));
+        buttonList.add(new PanelButton(UNIQUE_AWAKEN_ID, buttonX + specialWidth + 6, buyY,
+                specialWidth, buyHeight, "Пробудить"));
+        buttonList.add(new PanelButton(UNIQUE_ROLLBACK_ID, buttonX + (specialWidth + 6) * 2, buyY,
+                buttonWidth - 2 * (specialWidth + 6), buyHeight, "Откат"));
         String search = searchField == null ? "" : searchField.getText();
         searchField = new net.minecraft.client.gui.GuiTextField(400, fontRenderer,
                 layout.runePanelX + 16, layout.runePanelY + 30, layout.runePanelWidth - 32, 19);
@@ -272,6 +316,35 @@ public class RunesGuiScreen extends GuiScreen {
     }
 
     void updatePurchaseAvailability() {
+        if (isUniqueCollectionSelected()) {
+            UniqueRuneSnapshotPacket.Collection state = uniqueState();
+            boolean unlocked = state != null && state.unlocked
+                    && UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive();
+            for (GuiButton button : buttonList) {
+                if (button.id == BUY_BUTTON_ID || button.id == UPGRADE_PLACEHOLDER_ID
+                        || button.id == AMOUNT_BUTTON_START_ID || button.id == 3) {
+                    button.visible = false;
+                    button.enabled = false;
+                } else if (button.id >= UNIQUE_ACQUIRE_ID && button.id <= UNIQUE_ROLLBACK_ID) {
+                    button.visible = true;
+                    button.enabled = unlocked && (button.id == UNIQUE_ACQUIRE_ID
+                            || button.id == UNIQUE_AWAKEN_ID && state.canAwaken && !uniqueEntries().isEmpty()
+                            || button.id == UNIQUE_ROLLBACK_ID && state.canRollback);
+                    if (button.id == UNIQUE_ACQUIRE_ID)
+                        button.displayString = selectedUniqueCollection == 1 ? "Ежедневная награда" : "Купить руну";
+                    else if (button.id == UNIQUE_AWAKEN_ID) button.displayString = "Пробудить";
+                    else button.displayString = uniqueRollbackArmed ? "Подтвердить откат" : "Откат";
+                }
+            }
+            return;
+        }
+        for (GuiButton button : buttonList) {
+            if (button.id >= UNIQUE_ACQUIRE_ID && button.id <= UNIQUE_ROLLBACK_ID) {
+                button.visible = false;
+                button.enabled = false;
+            } else if (button.id == BUY_BUTTON_ID || button.id == UPGRADE_PLACEHOLDER_ID
+                    || button.id == AMOUNT_BUTTON_START_ID || button.id == 3) button.visible = true;
+        }
         boolean full = inventory.isPurchaseLimitReached();
 
         for (GuiButton button : buttonList) {
@@ -325,17 +398,28 @@ public class RunesGuiScreen extends GuiScreen {
         if (UniqueRuneInlineTabs.isButton(button.id)) {
             int index = UniqueRuneInlineTabs.index(button.id);
             if (UniqueRuneInlineTabs.state(index).isInteractive()) {
-                UnifiedMainMenuChrome.rememberRunes(this);
-                mc.displayGuiScreen(new UniqueRunesGuiScreen(index));
+                selectedUniqueCollection = index;
+                uniqueRollbackArmed = false;
+                searchField.setText("");
+                ClientUniqueRunes.sync();
+                updatePurchaseAvailability();
             }
             return;
         }
+        if (isUniqueCollectionSelected() && handleUniqueAction(button.id)) return;
 
         if (button.id >= ELEMENT_BUTTON_START_ID && button.id < ELEMENT_BUTTON_START_ID + MAX_ELEMENTS) {
             int targetCollection = button.id - ELEMENT_BUTTON_START_ID;
-            if (targetCollection >= 0 && targetCollection < collectionNames.size() && targetCollection != activeCollection) {
-                clearRunes();
-                NetworkHandler.INSTANCE.sendToServer(new PingPacket("switch_deck:" + targetCollection));
+            if (targetCollection >= 0 && targetCollection < collectionNames.size()) {
+                boolean returnFromUnique = isUniqueCollectionSelected();
+                selectedUniqueCollection = -1;
+                uniqueRollbackArmed = false;
+                if (returnFromUnique) searchField.setText("");
+                updatePurchaseAvailability();
+                if (targetCollection != activeCollection) {
+                    clearRunes();
+                    NetworkHandler.INSTANCE.sendToServer(new PingPacket("switch_deck:" + targetCollection));
+                } else if (returnFromUnique) NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_cards"));
             }
             return;
         }
@@ -564,6 +648,10 @@ public class RunesGuiScreen extends GuiScreen {
         int titleX = layout.runePanelX + pad;
         int titleY = layout.runePanelY + pad;
         drawHeadingString("РУНЫ", titleX, titleY, layout.runePanelWidth / 2, HEADING_TEXT_COLOR, true);
+        if (isUniqueCollectionSelected()) {
+            drawInlineUniqueCollection(mouseX, mouseY);
+            return;
+        }
         String count = activeCollection == 0
                 ? inventory.ownedCatalogSlotCount() + " из " + PrimaryRuneCatalog.size()
                 : inventory.occupiedTypeCount(VISIBLE_RUNE_SLOTS) + " из " + VISIBLE_RUNE_SLOTS;
@@ -587,6 +675,123 @@ public class RunesGuiScreen extends GuiScreen {
             int[] pos = getRuneSlotPosition(i);
             if (matchesSearch(i)) drawRuneSlot(pos[0], pos[1], i, mouseX, mouseY);
         }
+    }
+
+    /**
+     * Render unique collections inside the ORIGINAL Rune panel: same canvas, search,
+     * 26-slot grid and purchase footer. Never open a second GuiScreen.
+     */
+    private void drawInlineUniqueCollection(int mouseX, int mouseY) {
+        int pad = scaled(8, 4);
+        int x = layout.runePanelX + pad;
+        int y = layout.runePanelY;
+        List<UniqueRuneSnapshotPacket.Entry> entries = uniqueEntries();
+        UniqueRuneSnapshotPacket.Collection state = uniqueState();
+        String count = entries.size() + " из " + VISIBLE_RUNE_SLOTS;
+        fontRenderer.drawString(count,
+                layout.runePanelX + layout.runePanelWidth - pad - fontRenderer.getStringWidth(count),
+                y + pad, MUTED_TEXT_COLOR);
+        drawSurface(x, y + 30, layout.runePanelWidth - pad * 2, 19,
+                BUTTON_BG_COLOR, searchField.isFocused() ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(0, 4, 0);
+        searchField.drawTextBox();
+        GlStateManager.popMatrix();
+        if (searchField.getText().isEmpty() && !searchField.isFocused())
+            drawFittedString("Поиск...", x + 8, y + 34,
+                    layout.runePanelWidth - 24, MUTED_TEXT_COLOR, false);
+
+        for (int i = 0; i < VISIBLE_RUNE_SLOTS; i++) {
+            int[] pos = getRuneSlotPosition(i);
+            int sx = pos[0], sy = pos[1];
+            boolean hovered = mouseX >= sx && mouseX < sx + layout.runeSlotWidth
+                    && mouseY >= sy && mouseY < sy + layout.runeSlotHeight;
+            drawSurface(sx, sy, layout.runeSlotWidth, layout.runeSlotHeight,
+                    hovered ? RUNE_HOVER_BG_COLOR : SLOT_BG_COLOR,
+                    hovered ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
+            if (i >= entries.size()) continue;
+            UniqueRuneSnapshotPacket.Entry entry = entries.get(i);
+            if (!matchesSearch(i)) continue;
+            // Unique rune art is not supplied by the current server packet. Use
+            // its factual display name rather than inventing ordinary-rune icons.
+            String name = entry.name == null || entry.name.isEmpty() ? entry.runeId : entry.name;
+            String abbreviation = fontRenderer.trimStringToWidth(name, layout.runeSlotWidth - 6);
+            fontRenderer.drawString(abbreviation, sx + 3,
+                    sy + (layout.runeSlotHeight - fontRenderer.FONT_HEIGHT) / 2, TEXT_COLOR);
+            drawRankCorners(sx, sy, layout.runeSlotWidth, layout.runeSlotHeight,
+                    "MYTHIC".equals(entry.rarity) ? CRYSTAL_COLOR : GOLD_COLOR);
+        }
+        drawPanel(layout.runePanelX, layout.purchasePanelY,
+                layout.runePanelWidth, GuiLayout.PURCHASE_PANEL_HEIGHT);
+        drawHeadingString("УНИКАЛЬНЫЕ РУНЫ: " + UniqueRuneInlineTabs.label(selectedUniqueCollection),
+                x, layout.purchasePanelY + 8, layout.runePanelWidth - pad * 2, HEADING_TEXT_COLOR, false);
+        UniqueRuneSnapshotPacket snapshot = ClientUniqueRunes.snapshot();
+        String progress = state == null ? "Нет данных коллекции"
+                : "Редкость: " + state.rarity + "   Прогресс: " + state.progress + "/26"
+                + (state.unlocked ? "" : "   Закрыто");
+        fontRenderer.drawString(fontRenderer.trimStringToWidth(progress, layout.runePanelWidth - pad * 2),
+                x, layout.runePanelY + layout.runePanelHeight - 17, SILVER_COLOR);
+        String resources = "Кристаллы: " + snapshot.getCrystals() + " | Жемчуг: "
+                + snapshot.getPearl() + " | Подношения: " + snapshot.getOfferings();
+        fontRenderer.drawString(fontRenderer.trimStringToWidth(resources, layout.runePanelWidth - pad * 2),
+                x, layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT - 18, SILVER_COLOR);
+    }
+
+    private boolean uniqueSlotClicked(int x, int y) {
+        List<UniqueRuneSnapshotPacket.Entry> entries = uniqueEntries();
+        for (int slot = 0; slot < entries.size() && slot < VISIBLE_RUNE_SLOTS; slot++) {
+            int[] pos = getRuneSlotPosition(slot);
+            if (x < pos[0] || x >= pos[0] + layout.runeSlotWidth
+                    || y < pos[1] || y >= pos[1] + layout.runeSlotHeight) continue;
+            if (!matchesSearch(slot)) return true;
+            UniqueRuneSnapshotPacket.Entry rune = entries.get(slot);
+            uniqueRollbackArmed = false;
+            if (isShiftKeyDown() && selectedUniqueCollection == 0)
+                ClientUniqueRunes.action("enhance", uniqueCollectionId(), rune.runeId, false);
+            else ClientUniqueRunes.action("share", uniqueCollectionId(), rune.runeId, false);
+            return true;
+        }
+        return false;
+    }
+
+    private void drawInlineUniqueTooltip(int x, int y) {
+        List<UniqueRuneSnapshotPacket.Entry> entries = uniqueEntries();
+        for (int slot = 0; slot < entries.size() && slot < VISIBLE_RUNE_SLOTS; slot++) {
+            if (!matchesSearch(slot)) continue;
+            int[] pos = getRuneSlotPosition(slot);
+            if (x < pos[0] || x >= pos[0] + layout.runeSlotWidth
+                    || y < pos[1] || y >= pos[1] + layout.runeSlotHeight) continue;
+            UniqueRuneSnapshotPacket.Entry rune = entries.get(slot);
+            drawCanvasTooltip(Arrays.asList("§b" + rune.name, "§7" + rune.rarity
+                    + " +" + rune.enhancement, rune.effects,
+                    "§7ЛКМ: поделиться", "§7Shift+ЛКМ: усилить (кристаллы)"), x, y);
+            return;
+        }
+    }
+
+    private boolean handleUniqueAction(int id) {
+        if (id < UNIQUE_ACQUIRE_ID || id > UNIQUE_ROLLBACK_ID) return false;
+        UniqueRuneSnapshotPacket.Collection state = uniqueState();
+        if (state == null || !state.unlocked
+                || !UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive()) return true;
+        String collection = uniqueCollectionId();
+        if (id == UNIQUE_ACQUIRE_ID) {
+            uniqueRollbackArmed = false;
+            ClientUniqueRunes.action(selectedUniqueCollection == 0 ? "purchase_crystal"
+                    : selectedUniqueCollection == 1 ? "daily"
+                    : "purchase_offerings", collection, "", false);
+        } else if (id == UNIQUE_AWAKEN_ID) {
+            uniqueRollbackArmed = false;
+            if (state.canAwaken && !uniqueEntries().isEmpty())
+                ClientUniqueRunes.action("awaken", collection, uniqueEntries().get(0).runeId, false);
+        } else if (id == UNIQUE_ROLLBACK_ID && state.canRollback) {
+            if (!uniqueRollbackArmed) uniqueRollbackArmed = true;
+            else {
+                ClientUniqueRunes.action("rollback", collection, "", true);
+                uniqueRollbackArmed = false;
+            }
+        }
+        return true;
     }
 
     private void drawRuneActionHints(int x, int y, int availableWidth) {
@@ -855,11 +1060,18 @@ public class RunesGuiScreen extends GuiScreen {
         // Apply a fresh server Mechanic Unlock snapshot before button rendering.
         UnifiedMenuTabHandler.refreshButtons(buttonList);
         UniqueRuneInlineTabs.refresh(buttonList);
+        for (GuiButton button : buttonList) {
+            if (UniqueRuneInlineTabs.isButton(button.id) && button instanceof PanelButton)
+                ((PanelButton) button).setSelected(isUniqueCollectionSelected()
+                        && UniqueRuneInlineTabs.index(button.id) == selectedUniqueCollection);
+        }
+        updatePurchaseAvailability();
         super.drawScreen(mouseX, mouseY, partialTicks);
         drawElementTooltip(mouseX, mouseY);
         drawNavigationTooltip(mouseX, mouseY);
         drawUniqueRuneInlineTooltip(mouseX, mouseY);
-        drawRuneTooltip(mouseX, mouseY);
+        if (isUniqueCollectionSelected()) drawInlineUniqueTooltip(mouseX, mouseY);
+        else drawRuneTooltip(mouseX, mouseY);
         if (equipmentTooltip != null) drawCanvasTooltip(java.util.Collections.singletonList(equipmentTooltip), mouseX, mouseY);
         GlStateManager.popMatrix();
     }
