@@ -335,9 +335,7 @@ public class RunesGuiScreen extends GuiScreen {
                 } else if (button.id == UNIQUE_ACQUIRE_ID) {
                     int pad = scaled(7, 3);
                     button.x = layout.runePanelX + pad;
-                    button.width = selectedUniqueCollection == 0
-                            ? (layout.runePanelWidth - 2 * pad - 5) / 2
-                            : layout.runePanelWidth - 2 * pad;
+                    button.width = (layout.runePanelWidth - 2 * pad - 5) / 2;
                     button.visible = true;
                     button.enabled = unlocked && state.progress < VISIBLE_RUNE_SLOTS
                             && (selectedUniqueCollection != 1 || remaining <= 0L);
@@ -738,16 +736,15 @@ public class RunesGuiScreen extends GuiScreen {
             drawSurface(sx, sy, layout.runeSlotWidth, layout.runeSlotHeight,
                     hovered ? RUNE_HOVER_BG_COLOR : SLOT_BG_COLOR,
                     hovered ? SLOT_HOVER_COLOR : SLOT_BORDER_COLOR);
-            if (i < entries.size() && entries.get(i).runeId.equals(selectedUniqueRuneId))
-                drawSurface(sx, sy, layout.runeSlotWidth, layout.runeSlotHeight,
-                        0, SELECTED_COLOR);
             if (i >= entries.size()) continue;
             UniqueRuneSnapshotPacket.Entry entry = entries.get(i);
             if (!matchesSearch(i)) continue;
             // Unique rune art is not supplied by the current server packet. Use
             // its factual display name rather than inventing ordinary-rune icons.
             String name = entry.name == null || entry.name.isEmpty() ? entry.runeId : entry.name;
-            String abbreviation = fontRenderer.trimStringToWidth(name, layout.runeSlotWidth - 6);
+            String shortName = name.replace("Daily Rune ", "D-").replace("Crystal Rune ", "C-")
+                    .replace("Offerings Rune ", "O-");
+            String abbreviation = fontRenderer.trimStringToWidth(shortName, layout.runeSlotWidth - 6);
             fontRenderer.drawString(abbreviation, sx + 3,
                     sy + (layout.runeSlotHeight - fontRenderer.FONT_HEIGHT) / 2, TEXT_COLOR);
             drawRankCorners(sx, sy, layout.runeSlotWidth, layout.runeSlotHeight,
@@ -757,6 +754,22 @@ public class RunesGuiScreen extends GuiScreen {
                 layout.runePanelWidth, GuiLayout.PURCHASE_PANEL_HEIGHT);
         drawHeadingString("ПОКУПКА РУН", x, layout.purchasePanelY + 8,
                 300, HEADING_TEXT_COLOR, false);
+        if (selectedUniqueCollection == 1) {
+            int footerPad = scaled(7, 3);
+            int halfWidth = (layout.runePanelWidth - footerPad * 2 - 5) / 2;
+            int rewardX = layout.runePanelX + footerPad + halfWidth + 5;
+            int rewardWidth = layout.runePanelWidth - footerPad * 2 - halfWidth - 5;
+            drawSurface(rewardX, layout.purchaseTop, rewardWidth, 36,
+                    BUTTON_BG_COLOR, SLOT_BORDER_COLOR);
+            drawFittedString("Дополнительная награда", rewardX + 6, layout.purchaseTop + 7,
+                    rewardWidth - 12, MUTED_TEXT_COLOR, false);
+            UniqueRuneSnapshotPacket snapshot = ClientUniqueRunes.snapshot();
+            String resource = snapshot.getDailyExtraResource();
+            String resourceName = "coins".equals(resource) ? "монет" : resource;
+            drawFittedString(snapshot.getDailyExtraAmount() + " " + resourceName,
+                    rewardX + 6, layout.purchaseTop + 21,
+                    rewardWidth - 12, TEXT_COLOR, false);
+        }
         drawUniqueActionHints(x, layout.runePanelY + layout.runePanelHeight - 17,
                 layout.runePanelWidth - pad * 2);
         if (selectedUniqueCollection == 0 && !selectedUniqueRuneId.isEmpty()) {
@@ -802,7 +815,7 @@ public class RunesGuiScreen extends GuiScreen {
                 return true;
             }
             uniqueRollbackArmed = false;
-            selectedUniqueRuneId = rune.runeId;
+            selectedUniqueRuneId = selectedUniqueCollection == 0 ? rune.runeId : "";
             if (state.canAwaken) {
                 ClientUniqueRunes.action("awaken", uniqueCollectionId(), rune.runeId, false);
             }
@@ -836,7 +849,12 @@ public class RunesGuiScreen extends GuiScreen {
     }
 
     private void drawUniqueActionHints(int x, int y, int availableWidth) {
-        String[] labels = {"ЛКМ: пробудить / выбрать", "+ CTRL Поделиться", "CTRL+ПКМ Откат"};
+        UniqueRuneSnapshotPacket.Collection state = uniqueState();
+        List<String> hints = new ArrayList<>();
+        if (state != null && state.canAwaken) hints.add("ЛКМ: пробудить");
+        hints.add("CTRL+ЛКМ: поделиться");
+        if (state != null && state.canRollback) hints.add("CTRL+ПКМ: откат");
+        String[] labels = hints.toArray(new String[0]);
         int totalWidth = 0;
         for (String label : labels) totalWidth += 13 + fontRenderer.getStringWidth(label) + 10;
         float scale = Math.min(1.0F, availableWidth / (float) Math.max(1, totalWidth));
@@ -845,11 +863,36 @@ public class RunesGuiScreen extends GuiScreen {
         GlStateManager.scale(scale, scale, 1);
         int offset = 0;
         for (int i = 0; i < labels.length; i++) {
-            drawMouseHintIcon(offset, 0, i == 2 ? 1 : 0);
+            drawMouseHintIcon(offset, 0, labels[i].contains("ПКМ") ? 1 : 0);
             fontRenderer.drawString(labels[i], offset + 13, 0, ACTION_HINT_TEXT_COLOR);
             offset += 13 + fontRenderer.getStringWidth(labels[i]) + 10;
         }
         GlStateManager.popMatrix();
+    }
+
+    private static String localizeUniqueRuneName(String name) {
+        if (name == null) return "";
+        return name.replace("Daily Rune", "Ежедневная руна")
+                .replace("Crystal Rune", "Кристальная руна")
+                .replace("Offerings Rune", "Руна подношений");
+    }
+
+    private static String localizeUniqueEffects(String effects) {
+        if (effects == null) return "";
+        return effects.replace("CLICK_DAMAGE_MULTIPLIER", "Урон от клика")
+                .replace("POISON_DAMAGE_MULTIPLIER", "Урон ядом")
+                .replace("BURNING_DAMAGE_MULTIPLIER", "Урон горением")
+                .replace("BLEEDING_DAMAGE_MULTIPLIER", "Урон кровотечением")
+                .replace("CURSE_DAMAGE_MULTIPLIER", "Урон проклятием")
+                .replace("WITHER_DAMAGE_MULTIPLIER", "Урон иссушением")
+                .replace("DECAY_DAMAGE_MULTIPLIER", "Урон разложением")
+                .replace("ALL_DAMAGE_MULTIPLIER", "Весь урон")
+                .replace("COIN_REWARD_MULTIPLIER", "Получение монет")
+                .replace("RUNE_DUST_REWARD_MULTIPLIER", "Получение пыли рун")
+                .replace("RUNE_SHARDS_REWARD_MULTIPLIER", "Получение осколков рун")
+                .replace("RUNE_CORES_REWARD_MULTIPLIER", "Получение ядер рун")
+                .replace("VULNERABILITY_MULTIPLIER", "Уязвимость")
+                .replace("EFFECTIVENESS_MULTIPLIER", "Эффективность");
     }
 
     private void drawInlineUniqueTooltip(int x, int y) {
@@ -860,11 +903,16 @@ public class RunesGuiScreen extends GuiScreen {
             if (x < pos[0] || x >= pos[0] + layout.runeSlotWidth
                     || y < pos[1] || y >= pos[1] + layout.runeSlotHeight) continue;
             UniqueRuneSnapshotPacket.Entry rune = entries.get(slot);
-            drawCanvasTooltip(Arrays.asList("§b" + rune.name, "§7" + rune.rarity
-                    + " +" + rune.enhancement, rune.effects,
-                    "§7ЛКМ: выбрать / пробудить при готовности",
-                    "§7Ctrl+ЛКМ: поделиться", "§7Ctrl+ПКМ: откат"
-                    + (selectedUniqueCollection == 0 ? " (двойное подтверждение)" : "")), x, y);
+            List<String> tooltip = new ArrayList<>();
+            tooltip.add("§b" + localizeUniqueRuneName(rune.name));
+            tooltip.add("§7" + rune.rarity + " +" + rune.enhancement);
+            tooltip.add(localizeUniqueEffects(rune.effects));
+            UniqueRuneSnapshotPacket.Collection state = uniqueState();
+            if (state != null && state.canAwaken) tooltip.add("§7ЛКМ: пробудить");
+            tooltip.add("§7Ctrl+ЛКМ: поделиться в чат");
+            if (state != null && state.canRollback) tooltip.add("§7Ctrl+ПКМ: откат"
+                    + (selectedUniqueCollection == 0 ? " (двойное подтверждение)" : ""));
+            drawCanvasTooltip(tooltip, x, y);
             return;
         }
     }

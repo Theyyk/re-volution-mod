@@ -67,12 +67,15 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 entry.effects = effectText(payload.effects); entries.add(entry);
             }
         }
-        NetworkHandler.sendToClient(new UniqueRuneSnapshotPacket(entries, collections,
+        UniqueRuneSnapshotPacket snapshot = new UniqueRuneSnapshotPacket(entries, collections,
                 exact(services.uniqueRunes.pearlBalance(player.getUniqueID())), exact(services.uniqueRunes.crystalBalance(player.getUniqueID())),
                 exact(services.uniqueRunes.offeringsBalance(player.getUniqueID())), exact(services.uniqueRunePolicy.crystalPurchaseCost()),
                 exact(services.uniqueRunePolicy.offeringsPurchaseCost()), services.uniqueRunePolicy.zbtStatus(),
                 state.lastDailyClaimDay == System.currentTimeMillis() / 86400000L
-                        ? (state.lastDailyClaimDay + 1L) * 86400000L : 0L), player);
+                        ? (state.lastDailyClaimDay + 1L) * 86400000L : 0L);
+        snapshot.setDailyExtraReward(services.uniqueRunePolicy.dailyExtraResource(),
+                exact(services.uniqueRunePolicy.dailyExtraAmount()));
+        NetworkHandler.sendToClient(snapshot, player);
     }
 
     private static void share(EntityPlayerMP player, ServerServices services, UniqueRuneModel.CollectionId collection, String runeId) {
@@ -83,7 +86,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 + "\nEnhancement: +" + payload.enhancement + "\nEffects: " + effectText(payload.effects);
         tag.setStyle(new Style().setColor(TextFormatting.AQUA).setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TextComponentString(tooltipText))));
         TextComponentString message = new TextComponentString(player.getName() + " "); message.appendSibling(tag);
-        if (player.getServer() != null) player.getServer().getPlayerList().sendMessage(message);
+        if (player.getServer() != null) player.getServer().getPlayerList().sendMessage(message, false);
     }
 
     private static String effectText(Map<String, String> effects) { if (effects == null || effects.isEmpty()) return "none"; StringBuilder out = new StringBuilder(); for (Map.Entry<String, String> entry : effects.entrySet()) { if (out.length() > 0) out.append(", "); out.append(entry.getKey()).append(" +").append(entry.getValue()); } return out.toString(); }
