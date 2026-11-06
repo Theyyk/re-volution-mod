@@ -75,6 +75,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                         ? (state.lastDailyClaimDay + 1L) * 86400000L : 0L);
         snapshot.setDailyExtraReward(services.uniqueRunePolicy.dailyExtraResource(),
                 exact(services.uniqueRunePolicy.dailyExtraAmount()));
+        snapshot.setCrystalEnhancementCost(exact(services.uniqueRunePolicy.enhancementPearlCost("", 0)));
         NetworkHandler.sendToClient(snapshot, player);
     }
 
