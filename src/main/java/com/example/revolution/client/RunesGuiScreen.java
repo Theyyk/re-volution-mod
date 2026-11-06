@@ -815,7 +815,7 @@ public class RunesGuiScreen extends GuiScreen {
                 return true;
             }
             uniqueRollbackArmed = false;
-            selectedUniqueRuneId = rune.runeId;
+            selectedUniqueRuneId = selectedUniqueCollection == 0 ? rune.runeId : "";
             if (state.canAwaken) {
                 ClientUniqueRunes.action("awaken", uniqueCollectionId(), rune.runeId, false);
             }
@@ -863,11 +863,36 @@ public class RunesGuiScreen extends GuiScreen {
         GlStateManager.scale(scale, scale, 1);
         int offset = 0;
         for (int i = 0; i < labels.length; i++) {
-            drawMouseHintIcon(offset, 0, i == 2 ? 1 : 0);
+            drawMouseHintIcon(offset, 0, labels[i].contains("ПКМ") ? 1 : 0);
             fontRenderer.drawString(labels[i], offset + 13, 0, ACTION_HINT_TEXT_COLOR);
             offset += 13 + fontRenderer.getStringWidth(labels[i]) + 10;
         }
         GlStateManager.popMatrix();
+    }
+
+    private static String localizeUniqueRuneName(String name) {
+        if (name == null) return "";
+        return name.replace("Daily Rune", "Ежедневная руна")
+                .replace("Crystal Rune", "Кристальная руна")
+                .replace("Offerings Rune", "Руна подношений");
+    }
+
+    private static String localizeUniqueEffects(String effects) {
+        if (effects == null) return "";
+        return effects.replace("CLICK_DAMAGE_MULTIPLIER", "Урон от клика")
+                .replace("POISON_DAMAGE_MULTIPLIER", "Урон ядом")
+                .replace("BURNING_DAMAGE_MULTIPLIER", "Урон горением")
+                .replace("BLEEDING_DAMAGE_MULTIPLIER", "Урон кровотечением")
+                .replace("CURSE_DAMAGE_MULTIPLIER", "Урон проклятием")
+                .replace("WITHER_DAMAGE_MULTIPLIER", "Урон иссушением")
+                .replace("DECAY_DAMAGE_MULTIPLIER", "Урон разложением")
+                .replace("ALL_DAMAGE_MULTIPLIER", "Весь урон")
+                .replace("COIN_REWARD_MULTIPLIER", "Получение монет")
+                .replace("RUNE_DUST_REWARD_MULTIPLIER", "Получение пыли рун")
+                .replace("RUNE_SHARDS_REWARD_MULTIPLIER", "Получение осколков рун")
+                .replace("RUNE_CORES_REWARD_MULTIPLIER", "Получение ядер рун")
+                .replace("VULNERABILITY_MULTIPLIER", "Уязвимость")
+                .replace("EFFECTIVENESS_MULTIPLIER", "Эффективность");
     }
 
     private void drawInlineUniqueTooltip(int x, int y) {
@@ -879,9 +904,9 @@ public class RunesGuiScreen extends GuiScreen {
                     || y < pos[1] || y >= pos[1] + layout.runeSlotHeight) continue;
             UniqueRuneSnapshotPacket.Entry rune = entries.get(slot);
             List<String> tooltip = new ArrayList<>();
-            tooltip.add("§b" + rune.name);
+            tooltip.add("§b" + localizeUniqueRuneName(rune.name));
             tooltip.add("§7" + rune.rarity + " +" + rune.enhancement);
-            tooltip.add(rune.effects);
+            tooltip.add(localizeUniqueEffects(rune.effects));
             UniqueRuneSnapshotPacket.Collection state = uniqueState();
             if (state != null && state.canAwaken) tooltip.add("§7ЛКМ: пробудить");
             tooltip.add("§7Ctrl+ЛКМ: поделиться в чат");
