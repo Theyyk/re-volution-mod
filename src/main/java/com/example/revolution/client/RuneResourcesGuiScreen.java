@@ -52,10 +52,8 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         y += resourceLayout.scaled(21, 16);
         drawResourceLine(x, y, "Монеты", ClientPlayerStats.getCoins(), textWidth);
         y += resourceLayout.scaled(16, 12);
-        drawResourceLine(x, y, "Кристаллы", isUniqueCollectionSelected()
-                ? new BigDecimal(ClientUniqueRunes.snapshot().getCrystals())
-                : ClientPlayerStats.getCrystals(), textWidth);
-        int additionalHeight = isUniqueCollectionSelected() ? 38 : 0;
+        drawResourceLine(x, y, "Кристаллы", ClientPlayerStats.getCrystals(), textWidth);
+        int additionalHeight = 38;
         drawSurface(panelX, runeY, panelWidth, RUNE_PANEL_HEIGHT + additionalHeight,
                 PANEL_BG_COLOR, PANEL_BORDER_COLOR);
         y = runeY + pad;
@@ -66,12 +64,10 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         drawResourceLine(x, y, "Осколки рун", ClientPlayerStats.getRuneShards(), textWidth);
         y += resourceLayout.scaled(16, 12);
         drawResourceLine(x, y, "Ядра рун", ClientPlayerStats.getRuneCores(), textWidth);
-        if (isUniqueCollectionSelected()) {
-            y += resourceLayout.scaled(16, 12);
-            drawResourceLine(x, y, "Жемчуг", new BigDecimal(ClientUniqueRunes.snapshot().getPearl()), textWidth);
-            y += resourceLayout.scaled(16, 12);
-            drawResourceLine(x, y, "Подношения", new BigDecimal(ClientUniqueRunes.snapshot().getOfferings()), textWidth);
-        }
+        y += resourceLayout.scaled(16, 12);
+        drawResourceLine(x, y, "Жемчуг", ClientPlayerStats.getPearls(), textWidth);
+        y += resourceLayout.scaled(16, 12);
+        drawResourceLine(x, y, "Подношения", ClientPlayerStats.getOfferings(), textWidth);
     }
 
     private void drawResourceLine(int x, int y, String name, BigDecimal value, int availableWidth) {

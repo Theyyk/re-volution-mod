@@ -1,6 +1,7 @@
 package com.example.revolution.admin.service;
 
 import com.example.revolution.mob.definition.MobDefinition;
+import com.example.revolution.god.GodWorshipService;
 import com.example.revolution.mob.repository.MobRepository;
 import com.example.revolution.mob.service.ManagedMobService;
 import com.example.revolution.player.repository.PlayerRepository;
@@ -30,6 +31,13 @@ public final class AdminOperationsService {
     private final ManagedMobService mobs;
     private final RuneEnhancementRepository enhancements;
     private final RuneSyncService runeSync;
+    private GodWorshipService offeringsWallet;
+
+    public void bindOfferingsWallet(GodWorshipService wallet) {
+        if (wallet == null) throw new IllegalArgumentException("offerings wallet required");
+        if (offeringsWallet != null && offeringsWallet != wallet) throw new IllegalStateException("wallet already bound");
+        offeringsWallet = wallet;
+    }
 
     public AdminOperationsService(
             PlayerRepository players,
@@ -98,6 +106,9 @@ public final class AdminOperationsService {
 
     public boolean setResource(UUID uuid, EntityPlayerMP onlineTarget, String resource, BigDecimal value) {
         requireUuid(uuid);
+        if ("offerings".equals(ResourceDefinitions.normalize(resource))) {
+            return offeringsWallet != null && offeringsWallet.setOfferings(uuid, value);
+        }
         String canonical = ResourceDefinitions.findCanonicalName(resource);
         if (canonical == null || value == null || value.signum() < 0) return false;
         if (!resources.setPlayerResourceValue(uuid, canonical, value)) return false;
@@ -116,6 +127,9 @@ public final class AdminOperationsService {
 
     public boolean addResource(UUID uuid, EntityPlayerMP onlineTarget, String resource, BigDecimal amount) {
         requireUuid(uuid);
+        if ("offerings".equals(ResourceDefinitions.normalize(resource))) {
+            return offeringsWallet != null && offeringsWallet.addOfferings(uuid, amount);
+        }
         String canonical = ResourceDefinitions.findCanonicalName(resource);
         if (canonical == null || amount == null) return false;
         if (!resources.addPlayerResourceValue(uuid, canonical, amount)) return false;

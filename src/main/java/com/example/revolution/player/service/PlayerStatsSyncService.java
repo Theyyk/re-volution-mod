@@ -14,6 +14,7 @@ import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.service.RuneCombatService;
 import com.example.revolution.rune.service.RunePurchaseBalanceService;
 import com.example.revolution.rune.state.RuneInventory;
+import com.example.revolution.unique.UniqueRuneService;
 import java.math.BigDecimal;
 import java.util.UUID;
 import net.minecraft.entity.SharedMonsterAttributes;
@@ -25,6 +26,7 @@ public final class PlayerStatsSyncService {
     private final PlayerStatsService playerStats;
     private final RuneCombatService combat;
     private RunePurchaseBalanceService purchaseBalance;
+    private UniqueRuneService uniqueRunes;
 
     public PlayerStatsSyncService(
             PlayerRepository players,
@@ -44,6 +46,13 @@ public final class PlayerStatsSyncService {
             throw new IllegalStateException("purchase balance is already bound");
         }
         this.purchaseBalance = purchaseBalance;
+    }
+
+    /** The existing God Worship wallet stays authoritative and is read only for transport. */
+    public void bindUniqueRunes(UniqueRuneService service) {
+        if (service == null) throw new IllegalArgumentException("unique rune service required");
+        if (uniqueRunes != null && uniqueRunes != service) throw new IllegalStateException("unique rune service already bound");
+        uniqueRunes = service;
     }
 
     public void sendTo(EntityPlayerMP player) {
@@ -79,9 +88,12 @@ public final class PlayerStatsSyncService {
         int awakeningNormalCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.NORMAL_RANK);
         int awakeningImprovedCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.IMPROVED_RANK);
 
-        NetworkHandler.sendToClient(new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage,
+        PlayerStatsPacket snapshot = new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage,
                 statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost,
-                awakeningImprovedCost, resolvedClickDamage, resolvedPoisonDamage), player);
+                awakeningImprovedCost, resolvedClickDamage, resolvedPoisonDamage);
+        if (uniqueRunes != null) snapshot.setUniqueWalletBalances(
+                uniqueRunes.pearlBalance(uuid), uniqueRunes.offeringsBalance(uuid));
+        NetworkHandler.sendToClient(snapshot, player);
     }
 
     static int resolvePurchaseUnitCost(

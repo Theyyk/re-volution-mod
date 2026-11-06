@@ -1,6 +1,7 @@
 package com.example.revolution.admin.service;
 
 import com.example.revolution.admin.definition.AdminMobSnapshot;
+import com.example.revolution.god.GodWorshipService;
 import com.example.revolution.admin.definition.AdminPlayerSnapshot;
 import com.example.revolution.admin.definition.AdminRuneSnapshot;
 import com.example.revolution.effect.EffectResolver;
@@ -30,6 +31,13 @@ public final class AdminQueryService {
     private final PlayerRepository players;
     private final ResourceService resources;
     private final MobRepository mobs;
+    private GodWorshipService offeringsWallet;
+
+    public void bindOfferingsWallet(GodWorshipService wallet) {
+        if (wallet == null) throw new IllegalArgumentException("offerings wallet required");
+        if (offeringsWallet != null && offeringsWallet != wallet) throw new IllegalStateException("wallet already bound");
+        offeringsWallet = wallet;
+    }
 
     public AdminQueryService(PlayerRepository players, ResourceService resources, MobRepository mobs) {
         this.players = players;
@@ -43,7 +51,7 @@ public final class AdminQueryService {
 
     public List<AdminPlayerSnapshot> allPlayers(Iterable<EntityPlayerMP> online, Function<UUID, String> cachedName) {
         List<AdminPlayerSnapshot> snapshots = new ArrayList<>();
-        List<String> resourceNames = ResourceDefinitions.getResourceNames();
+        List<String> resourceNames = resourceNames();
         Map<UUID, EntityPlayerMP> live = new HashMap<>();
         for (EntityPlayerMP player : online) {
             live.put(player.getUniqueID(), player);
@@ -73,7 +81,8 @@ public final class AdminQueryService {
             }
             Map<String, String> balances = new LinkedHashMap<>();
             for (String resource : resourceNames) {
-                balances.put(resource, LargeNumbers.canonical(resources.getPlayerResourceValue(uuid, resource)));
+                balances.put(resource, LargeNumbers.canonical("offerings".equals(resource) && offeringsWallet != null
+                        ? offeringsWallet.offeringsBalance(uuid) : resources.getPlayerResourceValue(uuid, resource)));
             }
             String name = player == null ? identity.lastKnownName : player.getName();
             if ((name == null || name.trim().isEmpty()) && cachedName != null) name = cachedName.apply(uuid);
@@ -132,7 +141,9 @@ public final class AdminQueryService {
     }
 
     public List<String> resourceNames() {
-        return new ArrayList<>(ResourceDefinitions.getResourceNames());
+        List<String> names = new ArrayList<>(ResourceDefinitions.getResourceNames());
+        if (offeringsWallet != null && !names.contains("offerings")) names.add("offerings");
+        return names;
     }
 
     public BigDecimal resolvedEffectMultiplier(UUID playerUuid, EffectResolver.Stat stat) {

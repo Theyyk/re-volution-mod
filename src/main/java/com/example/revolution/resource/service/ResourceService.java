@@ -22,6 +22,14 @@ public final class ResourceService {
     private final ResourceRepository repository;
     private final EffectResolver effects;
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
+    private java.util.function.Consumer<UUID> changeListener = uuid -> { };
+
+    /** Invoked only after a successful authoritative write. */
+    public void setChangeListener(java.util.function.Consumer<UUID> listener) {
+        changeListener = listener == null ? uuid -> { } : listener;
+    }
+
+    private void notifyChanged(UUID uuid) { changeListener.accept(uuid); }
     private RewardMultiplier uniqueRuneRewardMultiplier = IDENTITY_REWARD;
     private RewardMultiplier achievementRewardMultiplier = IDENTITY_REWARD;
     private RewardMultiplier lateRewardMultiplier = IDENTITY_REWARD;
@@ -69,6 +77,7 @@ public final class ResourceService {
         if (amount.signum() == 0) return true;
         BigDecimal next = LargeNumbers.normalize(repository.getPlayerResourceValue(uuid, canonical).add(amount));
         repository.writePlayerResource(uuid, canonical, next);
+        notifyChanged(uuid);
         return true;
     }
 
@@ -88,6 +97,7 @@ public final class ResourceService {
         if (granted.signum() <= 0) return true;
         BigDecimal next = LargeNumbers.normalize(repository.getPlayerResourceValue(uuid, canonical).add(granted));
         repository.writePlayerResource(uuid, canonical, next);
+        notifyChanged(uuid);
         gameplayEvents.earnedResource(uuid, canonical, granted);
         return true;
     }
@@ -121,6 +131,7 @@ public final class ResourceService {
         BigDecimal current = repository.getPlayerResourceValue(uuid, canonical);
         if (current.compareTo(amount) < 0) return false;
         repository.writePlayerResource(uuid, canonical, LargeNumbers.normalize(current.subtract(amount)));
+        notifyChanged(uuid);
         return true;
     }
 
@@ -155,6 +166,7 @@ public final class ResourceService {
         String canonical = findCanonicalName(resource);
         if (canonical == null || uuid == null || value == null || value.signum() < 0) return false;
         repository.writePlayerResource(uuid, canonical, LargeNumbers.normalize(value));
+        notifyChanged(uuid);
         return true;
     }
 
@@ -164,6 +176,7 @@ public final class ResourceService {
         BigDecimal next = repository.getPlayerResourceValue(uuid, canonical).add(amount);
         if (next.signum() < 0) return false;
         repository.writePlayerResource(uuid, canonical, LargeNumbers.normalize(next));
+        notifyChanged(uuid);
         return true;
     }
 

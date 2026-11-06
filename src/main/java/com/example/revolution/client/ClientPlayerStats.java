@@ -12,6 +12,8 @@ public final class ClientPlayerStats {
     private static BigDecimal runeDust = BigDecimal.ZERO;
     private static BigDecimal runeShards = BigDecimal.ZERO;
     private static BigDecimal runeCores = BigDecimal.ZERO;
+    private static BigDecimal pearls = BigDecimal.ZERO;
+    private static BigDecimal offerings = BigDecimal.ZERO;
     private static int totalDamage;
     private static double resolvedClickDamage;
     private static double resolvedPoisonDamage;
@@ -34,6 +36,12 @@ public final class ClientPlayerStats {
         purchaseUnitCost = Math.max(1, newPurchaseUnitCost);
         awakeningResource = newAwakeningResource == null ? "" : ResourceDefinitions.normalize(newAwakeningResource);
         awakeningNormalCost = Math.max(0, newAwakeningNormalCost); awakeningImprovedCost = Math.max(0, newAwakeningImprovedCost);
+    }
+
+    /** Display-only mirror. Never predicts mutations. */
+    public static void setUniqueWalletBalances(BigDecimal newPearls, BigDecimal newOfferings) {
+        pearls = safe(newPearls);
+        offerings = safe(newOfferings);
     }
 
     public static void setResolvedCombat(double clickDamage, double poisonDamage) {
@@ -63,6 +71,8 @@ public final class ClientPlayerStats {
     public static BigDecimal getRuneDust() { return runeDust; }
     public static BigDecimal getRuneShards() { return runeShards; }
     public static BigDecimal getRuneCores() { return runeCores; }
+    public static BigDecimal getPearls() { return pearls; }
+    public static BigDecimal getOfferings() { return offerings; }
     public static int getTotalDamage() { return totalDamage; }
     public static double getResolvedClickDamage() { return resolvedClickDamage; }
     public static double getResolvedPoisonDamage() { return resolvedPoisonDamage; }
