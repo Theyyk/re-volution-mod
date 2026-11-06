@@ -287,7 +287,7 @@ public class RunesGuiScreen extends GuiScreen {
             buttonList.add(new ElementButton(
                     ELEMENT_BUTTON_START_ID + i,
                     x, y, buttonWidth, scaled(18, 15),
-                    name, i == activeCollection
+                    name, i == activeCollection && !isUniqueCollectionSelected()
             ));
             x += buttonWidth + gap;
         }
@@ -401,8 +401,8 @@ public class RunesGuiScreen extends GuiScreen {
                 selectedUniqueCollection = index;
                 uniqueRollbackArmed = false;
                 searchField.setText("");
+                rebuildControls();
                 ClientUniqueRunes.sync();
-                updatePurchaseAvailability();
             }
             return;
         }
@@ -414,7 +414,10 @@ public class RunesGuiScreen extends GuiScreen {
                 boolean returnFromUnique = isUniqueCollectionSelected();
                 selectedUniqueCollection = -1;
                 uniqueRollbackArmed = false;
-                if (returnFromUnique) searchField.setText("");
+                if (returnFromUnique) {
+                    searchField.setText("");
+                    rebuildControls();
+                }
                 updatePurchaseAvailability();
                 if (targetCollection != activeCollection) {
                     clearRunes();
