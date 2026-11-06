@@ -73,7 +73,6 @@ public class RunesGuiScreen extends GuiScreen {
     /** -1 = ordinary server-backed Rune collection; 0..2 = unique collection inline. */
     private int selectedUniqueCollection = -1;
     private boolean uniqueRollbackArmed;
-    private String selectedUniqueRuneId = "";
     private static final int UNIQUE_ACQUIRE_ID = 520;
     private static final int UNIQUE_AWAKEN_ID = 521;
     private static final int UNIQUE_ROLLBACK_ID = 522;
@@ -355,11 +354,13 @@ public class RunesGuiScreen extends GuiScreen {
                     }
                 } else if (button.id == UNIQUE_AWAKEN_ID) {
                     button.visible = selectedUniqueCollection == 0;
-                    UniqueRuneSnapshotPacket.Entry selected = selectedUniqueEntry();
-                    button.enabled = button.visible && unlocked && selected != null
-                            && canAffordPearl(selected.enhancementPearlCost, snapshot.getPearl());
-                    button.displayString = selected == null ? "Усилить руну:\nВыберите руну"
-                            : "Усилить руну:\n" + selected.enhancementPearlCost + " жемчуга";
+                    java.math.BigDecimal[] costs = uniqueEnhancementCostRange();
+                    button.enabled = button.visible && unlocked && costs != null
+                            && canAffordPearl(costs[0].toPlainString(), snapshot.getPearl());
+                    button.displayString = costs == null ? "Случ. усиление:\nНет открытых рун"
+                            : "Случ. усиление:\n" + costs[0].toPlainString()
+                                + (costs[0].compareTo(costs[1]) == 0 ? "" : "-" + costs[1].toPlainString())
+                                + " жемчуга";
                 }
             }
             return;
@@ -426,7 +427,6 @@ public class RunesGuiScreen extends GuiScreen {
             if (UniqueRuneInlineTabs.state(index).isInteractive()) {
                 selectedUniqueCollection = index;
                 uniqueRollbackArmed = false;
-                selectedUniqueRuneId = "";
                 searchField.setText("");
                 rebuildControls();
                 ClientUniqueRunes.sync();
@@ -441,7 +441,6 @@ public class RunesGuiScreen extends GuiScreen {
                 boolean returnFromUnique = isUniqueCollectionSelected();
                 selectedUniqueCollection = -1;
                 uniqueRollbackArmed = false;
-                selectedUniqueRuneId = "";
                 if (returnFromUnique) {
                     searchField.setText("");
                     rebuildControls();
@@ -776,13 +775,6 @@ public class RunesGuiScreen extends GuiScreen {
         }
         drawUniqueActionHints(x, layout.runePanelY + layout.runePanelHeight - 17,
                 layout.runePanelWidth - pad * 2);
-        if (selectedUniqueCollection == 0 && !selectedUniqueRuneId.isEmpty()) {
-            fontRenderer.drawString(fontRenderer.trimStringToWidth(
-                    "Для усиления выбрана руна: " + selectedUniqueRuneId,
-                    layout.runePanelWidth - pad * 2),
-                    x, layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT - 18,
-                    SILVER_COLOR);
-        }
         if (uniqueRollbackArmed) {
             fontRenderer.drawString("Повторите Ctrl+ПКМ для подтверждения отката",
                     x, layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT - 18, 0xFFFF7777);
@@ -819,7 +811,6 @@ public class RunesGuiScreen extends GuiScreen {
                 return true;
             }
             uniqueRollbackArmed = false;
-            selectedUniqueRuneId = selectedUniqueCollection == 0 ? rune.runeId : "";
             if (state.canAwaken) {
                 ClientUniqueRunes.action("awaken", uniqueCollectionId(), rune.runeId, false);
             }
@@ -830,11 +821,22 @@ public class RunesGuiScreen extends GuiScreen {
         return false;
     }
 
-    private UniqueRuneSnapshotPacket.Entry selectedUniqueEntry() {
+    /** Cost range is derived only from server-synced, owned Crystal runes. */
+    private java.math.BigDecimal[] uniqueEnhancementCostRange() {
         if (!isUniqueCollectionSelected() || selectedUniqueCollection != 0) return null;
-        for (UniqueRuneSnapshotPacket.Entry rune : uniqueEntries())
-            if (rune.runeId.equals(selectedUniqueRuneId)) return rune;
-        return null;
+        java.math.BigDecimal min = null;
+        java.math.BigDecimal max = null;
+        for (UniqueRuneSnapshotPacket.Entry rune : uniqueEntries()) {
+            try {
+                java.math.BigDecimal cost = new java.math.BigDecimal(rune.enhancementPearlCost);
+                if (cost.signum() < 0) continue;
+                if (min == null || cost.compareTo(min) < 0) min = cost;
+                if (max == null || cost.compareTo(max) > 0) max = cost;
+            } catch (NumberFormatException invalidCost) {
+                return null;
+            }
+        }
+        return min == null ? null : new java.math.BigDecimal[] { min, max };
     }
 
     private static boolean canAffordPearl(String cost, String balance) {
@@ -940,11 +942,11 @@ public class RunesGuiScreen extends GuiScreen {
                         : selectedUniqueCollection == 1 ? "daily"
                         : "purchase_offerings", uniqueCollectionId(), "", false);
         } else if (id == UNIQUE_AWAKEN_ID && selectedUniqueCollection == 0) {
-            UniqueRuneSnapshotPacket.Entry rune = selectedUniqueEntry();
-            if (rune != null && canAffordPearl(rune.enhancementPearlCost,
+            java.math.BigDecimal[] costs = uniqueEnhancementCostRange();
+            if (costs != null && canAffordPearl(costs[0].toPlainString(),
                     ClientUniqueRunes.snapshot().getPearl())) {
                 uniqueRollbackArmed = false;
-                ClientUniqueRunes.action("enhance", uniqueCollectionId(), rune.runeId, false);
+                ClientUniqueRunes.action("enhance", uniqueCollectionId(), "", false);
             }
         }
         return true;
