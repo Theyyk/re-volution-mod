@@ -33,7 +33,8 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         String action = request.getAction();
         if ("sync".equals(action)) { sendSnapshot(player, services); return; }
         UniqueRuneModel.CollectionId collection = collection(request.getCollectionId());
-        if ("purchase_crystal".equals(action)) services.uniqueRunes.purchaseCrystal(player.getUniqueID(), request.getRequestNonce());
+        UniqueRuneService.Result crystalRoll = null;
+        if ("purchase_crystal".equals(action)) crystalRoll = services.uniqueRunes.purchaseCrystal(player.getUniqueID(), request.getRequestNonce());
         else if ("purchase_offerings".equals(action)) services.uniqueRunes.purchaseOfferings(player.getUniqueID(), request.getRequestNonce());
         else if ("daily".equals(action)) services.uniqueRunes.claimDaily(player.getUniqueID(), System.currentTimeMillis() / 86400000L, request.getRequestNonce());
         else if ("enhance".equals(action)) services.uniqueRunes.enhance(player.getUniqueID(), request.getRequestNonce());
@@ -41,10 +42,14 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         else if ("rollback".equals(action) && collection != null) services.uniqueRunes.rollback(player.getUniqueID(), collection, request.isConfirmed(), request.getRequestNonce());
         else if ("share".equals(action) && collection != null) { share(player, services, collection, request.getRuneId()); return; }
         else return;
-        sendSnapshot(player, services);
+        sendSnapshot(player, services, crystalRoll);
     }
 
     public static void sendSnapshot(EntityPlayerMP player, ServerServices services) {
+        sendSnapshot(player, services, null);
+    }
+
+    private static void sendSnapshot(EntityPlayerMP player, ServerServices services, UniqueRuneService.Result crystalRoll) {
         if (!services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS)) return;
         UniqueRuneModel.PlayerState state = services.uniqueRunes.snapshot(player.getUniqueID());
         List<UniqueRuneSnapshotPacket.Collection> collections = new ArrayList<>();
@@ -76,6 +81,8 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         snapshot.setDailyExtraReward(services.uniqueRunePolicy.dailyExtraResource(),
                 exact(services.uniqueRunePolicy.dailyExtraAmount()));
         snapshot.setCrystalEnhancementCost(exact(services.uniqueRunePolicy.enhancementPearlCost("", 0)));
+        if (crystalRoll != null && crystalRoll.ok())
+            snapshot.setLastCrystalRoll(crystalRoll.runeId, crystalRoll.duplicate, exact(crystalRoll.compensation));
         NetworkHandler.sendToClient(snapshot, player);
     }
 
