@@ -64,6 +64,11 @@ public final class RuneSyncService {
         if (collectionId != null) sendEnhancements(player, collectionIndex);
     }
 
+    /** Authoritative level for a rune that has already passed ownership validation. */
+    public int enhancementLevel(java.util.UUID playerId, int collectionIndex, int runeIndex) {
+        return enhancements.getLevel(playerId, collectionIndex, runeIndex);
+    }
+
     public void sendEnhancements(EntityPlayerMP player, int collectionIndex) {
         RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
         if (collectionId == null) return;

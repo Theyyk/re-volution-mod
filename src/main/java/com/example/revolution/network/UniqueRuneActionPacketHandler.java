@@ -10,10 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.text.Style;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextFormatting;
-import net.minecraft.util.text.event.HoverEvent;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
@@ -89,12 +85,9 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
     private static void share(EntityPlayerMP player, ServerServices services, UniqueRuneModel.CollectionId collection, String runeId) {
         UniqueRuneService.SharePayload payload = services.uniqueRunes.share(player.getUniqueID(), collection, runeId); if (payload == null) return;
         UniqueRuneModel.RuneDefinition definition = services.uniqueRunePolicy.definition(collection).rune(runeId); if (definition == null) return;
-        TextComponentString tag = new TextComponentString("[Unique Rune: " + definition.displayName + "]");
         String tooltipText = definition.displayName + "\nCollection: " + collection.name() + "\nRarity: " + payload.rarity.name()
                 + "\nEnhancement: +" + payload.enhancement + "\nEffects: " + effectText(payload.effects);
-        tag.setStyle(new Style().setColor(TextFormatting.AQUA).setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TextComponentString(tooltipText))));
-        TextComponentString message = new TextComponentString(player.getName() + " "); message.appendSibling(tag);
-        if (player.getServer() != null) player.getServer().getPlayerList().sendMessage(message, false);
+        ShareChatDelivery.send(player, "Unique Rune: " + definition.displayName, tooltipText);
     }
 
     private static String effectText(Map<String, String> effects) { if (effects == null || effects.isEmpty()) return "none"; StringBuilder out = new StringBuilder(); for (Map.Entry<String, String> entry : effects.entrySet()) { if (out.length() > 0) out.append(", "); out.append(entry.getKey()).append(" +").append(entry.getValue()); } return out.toString(); }

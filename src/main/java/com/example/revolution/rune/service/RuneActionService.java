@@ -4,6 +4,13 @@ import com.example.revolution.RevolutionMod;
 import com.example.revolution.mechanic.MechanicUnlockService;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PongPacket;
+import com.example.revolution.network.ShareChatDelivery;
+import com.example.revolution.rune.definition.PrimaryRuneCatalog;
+import com.example.revolution.rune.definition.RuneTechnicalCatalog;
+import com.example.revolution.rune.definition.RuneStat;
+import com.example.revolution.rune.definition.RuneTargetedPower;
+import com.example.revolution.rune.definition.RuneCompositeEffect;
+import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.rune.definition.RuneCollectionId;
@@ -159,6 +166,12 @@ public final class RuneActionService {
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНекорректная руна."));
             }
+        } else if (action.startsWith("share_rune:")) {
+            try {
+                shareRune(player, collectionIndex, Integer.parseInt(action.substring("share_rune:".length())));
+            } catch (NumberFormatException ignored) {
+                // Invalid client identifier: no chat message and no gameplay mutation.
+            }
         } else if (action.equals("get_player_stats")) {
             stats.sendTo(player);
         } else if (action.equals("get_balance")) {
@@ -195,6 +208,42 @@ public final class RuneActionService {
                 player.sendMessage(new TextComponentString("§cНекорректный номер коллекции."));
             }
         }
+    }
+
+    private void shareRune(EntityPlayerMP player, int collectionIndex, int runeIndex) {
+        RuneCollectionId collection = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (collection == null || runeIndex < 0 || runeIndex >= 26
+                || !isCollectionUnlocked(player, collectionIndex)) return;
+        RuneRecord owned = null;
+        for (RuneRecord record : players.getRunesInCollection(player.getUniqueID(), collectionIndex)) {
+            if (record.runeIndex == runeIndex && (owned == null || record.layer > owned.layer)) owned = record;
+        }
+        if (owned == null) return;
+
+        int rank = owned.layer;
+        int enhancement = sync.enhancementLevel(player.getUniqueID(), collectionIndex, runeIndex);
+        String name;
+        StringBuilder details = new StringBuilder();
+        if (collectionIndex == 0) {
+            PrimaryRuneCatalog.Definition rune = PrimaryRuneCatalog.at(runeIndex);
+            if (rune == null) return;
+            name = rune.name;
+            details.append("Type: ").append(rune.type);
+            for (RuneStat stat : rune.stats) details.append("\nEffect: ").append(stat.type.name());
+            for (RuneTargetedPower power : rune.targetedPowers)
+                details.append("\nTarget: ").append(power.targetDisplayName);
+            for (RuneCompositeEffect effect : rune.compositeEffects)
+                details.append("\nEffect: ").append(effect.kind.name());
+        } else {
+            name = "Rune " + (runeIndex + 1);
+            for (RuneTechnicalCatalog.EffectLabel effect : RuneTechnicalCatalog.effects(collection, runeIndex)) {
+                details.append(details.length() == 0 ? "" : "\n").append("Effect: ")
+                        .append(effect.type).append(effect.channel == null ? "" : " (" + effect.channel.name() + ")");
+            }
+        }
+        String tooltip = name + "\nCollection: " + collection.id() + "\nRank: " + rank
+                + "\nEnhancement: +" + enhancement + (details.length() == 0 ? "" : "\n" + details);
+        ShareChatDelivery.send(player, "Rune: " + name, tooltip);
     }
 
     private boolean isCollectionUnlocked(EntityPlayerMP player, int collectionIndex) {

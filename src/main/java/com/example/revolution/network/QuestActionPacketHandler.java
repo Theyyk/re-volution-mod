@@ -25,8 +25,24 @@ public final class QuestActionPacketHandler implements IMessageHandler<QuestActi
         String action = request.getAction();
         if ("claim".equals(action)) services.quests.claim(player.getUniqueID(), request.getEntryId());
         else if ("reroll".equals(action)) services.quests.reroll(player.getUniqueID());
+        else if ("share".equals(action)) { share(player, services, request.getEntryId()); return; }
         else if (!"sync".equals(action)) return;
         sendSnapshot(player, services);
+    }
+
+    private static void share(EntityPlayerMP player, ServerServices services, String entryId) {
+        if (entryId == null || entryId.isEmpty() || entryId.length() > 100) return;
+        QuestPlayerState state = services.quests.state(player.getUniqueID());
+        for (QuestEntry entry : state.boardEntries) {
+            if (!entryId.equals(entry.entryId) || entry.templateId == null) continue;
+            String details = "Quest: " + entry.templateId
+                    + "\nState: " + (entry.state == null ? "ACTIVE" : entry.state.name())
+                    + "\nProgress: " + exact(entry.progress) + " / " + exact(entry.target)
+                    + "\nReward: " + entry.crystalReward + " crystals"
+                    + "\nTier: " + entry.difficultyTier;
+            ShareChatDelivery.send(player, "Quest: " + entry.templateId, details);
+            return;
+        }
     }
 
     public static void sendSnapshot(EntityPlayerMP player, ServerServices services) {

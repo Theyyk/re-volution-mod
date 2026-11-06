@@ -178,6 +178,19 @@ public class RunesGuiScreen extends GuiScreen {
         y = layout.canvasMouseY(y);
         if (isUniqueCollectionSelected() && (button == 0 || button == 1)
                 && uniqueSlotClicked(x, y, button)) return;
+        if (!isUniqueCollectionSelected() && button == 0 && isCtrlKeyDown()) {
+            for (int slot = 0; slot < VISIBLE_RUNE_SLOTS; slot++) {
+                int[] pos = getRuneSlotPosition(slot);
+                if (x < pos[0] || x >= pos[0] + layout.runeSlotWidth
+                        || y < pos[1] || y >= pos[1] + layout.runeSlotHeight) continue;
+                if (matchesSearch(slot)) {
+                    RuneInventory.Entry owned = getRuneForVisualSlot(slot);
+                    if (owned != null) NetworkHandler.INSTANCE.sendToServer(
+                            new PingPacket("share_rune:" + owned.runeIndex));
+                }
+                return;
+            }
+        }
         searchField.mouseClicked(x, y, button);
         super.mouseClicked(x, y, button);
     }
