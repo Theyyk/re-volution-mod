@@ -95,7 +95,38 @@ final class UniqueRuneServiceTest {
         state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_01", Rarity.COMMON);
         f.unique.save(PLAYER, state);
         assertNotNull(f.service.share(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01"));
-        assertEquals(UniqueRuneService.ResultCode.INVALID, f.service.enhance(PLAYER, "daily_01", 1L).code);
+        assertEquals(UniqueRuneService.ResultCode.INSUFFICIENT_RESOURCE, f.service.enhance(PLAYER, 1L).code);
+    }
+
+    @Test void randomEnhancementTargetsOnlyOwnedCrystalRunesAndChargesActualCost() {
+        Fixture f = new Fixture(true);
+        PlayerState state = f.unique.load(PLAYER);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_01", Rarity.COMMON);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_22", Rarity.COMMON);
+        f.unique.save(PLAYER, state);
+        f.resources.setPlayerResourceValue(PLAYER, "pearl", new BigDecimal("1000"));
+        BigDecimal cost = f.policy.enhancementPearlCost("crystal_22", 0);
+
+        UniqueRuneService.Result result = f.service.enhance(PLAYER, 1L);
+        assertEquals(UniqueRuneService.ResultCode.OK, result.code);
+        assertEquals("crystal_22", result.runeId);
+        PlayerState updated = f.unique.load(PLAYER);
+        assertEquals(0, updated.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
+        assertEquals(1, updated.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_22"));
+        assertEquals(0, new BigDecimal("1000").subtract(cost)
+                .compareTo(f.resources.getPlayerResourceValue(PLAYER, "pearl")));
+        assertEquals(UniqueRuneService.ResultCode.REPLAYED, f.service.enhance(PLAYER, 1L).code);
+    }
+
+    @Test void randomEnhancementRequiresOwnedRuneAndAffordablePearls() {
+        Fixture f = new Fixture();
+        assertEquals(UniqueRuneService.ResultCode.INVALID, f.service.enhance(PLAYER, 1L).code);
+        PlayerState state = f.unique.load(PLAYER);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_03", Rarity.COMMON);
+        f.unique.save(PLAYER, state);
+        assertEquals(UniqueRuneService.ResultCode.INSUFFICIENT_RESOURCE, f.service.enhance(PLAYER, 2L).code);
+        assertEquals(0, f.unique.load(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_03"));
+        assertEquals(BigDecimal.ZERO, f.resources.getPlayerResourceValue(PLAYER, "pearl"));
     }
 
     private static final class Fixture {
@@ -106,7 +137,8 @@ final class UniqueRuneServiceTest {
         BigDecimal offerings = BigDecimal.ZERO;
         final UniqueRuneService service;
 
-        Fixture() {
+        Fixture() { this(false); }
+        Fixture(boolean chooseLast) {
             service = new UniqueRuneService(unique, policy, resources, uuid -> Long.MAX_VALUE, uuid -> true,
                     new UniqueRuneService.OfferingsWallet() {
                         @Override public BigDecimal balance(UUID uuid) { return offerings; }
@@ -114,7 +146,7 @@ final class UniqueRuneServiceTest {
                             if (offerings.compareTo(amount) < 0) return false;
                             offerings = offerings.subtract(amount); return true;
                         }
-                    }, bound -> 0);
+                    }, bound -> chooseLast ? bound - 1 : 0);
         }
     }
 
