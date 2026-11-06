@@ -25,9 +25,23 @@ public final class NetworkWireContractTest {
             ByteBufUtils.writeUTF8String(expected, "coins"); expected.writeInt(100);
             ByteBufUtils.writeUTF8String(expected, "rune_dust"); expected.writeInt(40).writeInt(80);
             expected.writeDouble(12.5D).writeDouble(3.25D);
+            ByteBufUtils.writeUTF8String(expected, "0"); ByteBufUtils.writeUTF8String(expected, "0");
             verify(new PlayerStatsPacket(new BigDecimal("1E20"), BigDecimal.valueOf(2), BigDecimal.valueOf(3),
                     BigDecimal.valueOf(4), BigDecimal.valueOf(5), 6, 1, "coins", 100, "rune_dust", 40, 80, 12.5D, 3.25D),
                     new PlayerStatsPacket(), expected);
+
+            // Extended authoritative wallet fields must round-trip exact large-number values.
+            PlayerStatsPacket wallet = new PlayerStatsPacket(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO, 0, 1, "coins", 1, "rune_dust", 0, 0, 0.0D, 0.0D);
+            wallet.setUniqueWalletBalances(new BigDecimal("12345678901234567890"), new BigDecimal("9876543210000"));
+            for (int i = 0; i < 5; i++) ByteBufUtils.writeUTF8String(expected, "0");
+            expected.writeInt(0).writeInt(1);
+            ByteBufUtils.writeUTF8String(expected, "coins"); expected.writeInt(1);
+            ByteBufUtils.writeUTF8String(expected, "rune_dust"); expected.writeInt(0).writeInt(0);
+            expected.writeDouble(0.0D).writeDouble(0.0D);
+            ByteBufUtils.writeUTF8String(expected, "12345678901234567890");
+            ByteBufUtils.writeUTF8String(expected, "9876543210000");
+            verify(wallet, new PlayerStatsPacket(), expected);
 
             expected.writeInt(1); ByteBufUtils.writeUTF8String(expected, "rune_dust"); expected.writeDouble(0.1D).writeInt(26);
             for (int rune = 0; rune < 26; rune++) {
