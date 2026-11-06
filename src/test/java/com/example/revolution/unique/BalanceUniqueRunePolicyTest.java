@@ -27,9 +27,12 @@ final class BalanceUniqueRunePolicyTest {
         assertFalse(Rarity.ANCIENT.gameplayEnabled);
     }
 
-    @Test void crystalEnhancementCurvesAreRuneSpecificAndUnlimitedByDefault() {
+    @Test void crystalEnhancementCostIsOnePearlRegardlessOfRuneOrLevel() {
         BalanceUniqueRunePolicy policy = new BalanceUniqueRunePolicy(BalanceBootstrap.activateBundledDefaults());
-        assertNotEquals(policy.enhancementPearlCost("crystal_01", 4), policy.enhancementPearlCost("crystal_04", 4));
-        assertTrue(policy.enhancementPearlCost("crystal_26", 100).signum() > 0);
+        for (String id : new String[]{"crystal_01", "crystal_04", "crystal_26"}) {
+            for (int level : new int[]{0, 4, 100}) {
+                assertEquals(0, java.math.BigDecimal.ONE.compareTo(policy.enhancementPearlCost(id, level)));
+            }
+        }
     }
 }
