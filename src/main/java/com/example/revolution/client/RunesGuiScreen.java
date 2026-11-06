@@ -74,7 +74,7 @@ public class RunesGuiScreen extends GuiScreen {
     private int selectedUniqueCollection = ClientUniqueRunes.selectedCollectionIndex();
     private java.math.BigDecimal observedCrystalWallet;
 
-    private boolean uniqueRollbackArmed;
+    private final UniqueRollbackConfirmation uniqueRollbackConfirmation = new UniqueRollbackConfirmation();
     private static final int UNIQUE_ACQUIRE_ID = 520;
     private static final int UNIQUE_AWAKEN_ID = 521;
     private static final int UNIQUE_ROLLBACK_ID = 522;
@@ -451,7 +451,7 @@ public class RunesGuiScreen extends GuiScreen {
             if (UniqueRuneInlineTabs.state(index).isInteractive()) {
                 selectedUniqueCollection = index;
                 ClientUniqueRunes.selectCollectionIndex(index);
-                uniqueRollbackArmed = false;
+                uniqueRollbackConfirmation.cancel();
                 searchField.setText("");
                 rebuildControls();
                 ClientUniqueRunes.sync();
@@ -466,7 +466,7 @@ public class RunesGuiScreen extends GuiScreen {
                 boolean returnFromUnique = isUniqueCollectionSelected();
                 selectedUniqueCollection = -1;
                 ClientUniqueRunes.selectCollectionIndex(-1);
-                uniqueRollbackArmed = false;
+                uniqueRollbackConfirmation.cancel();
                 if (returnFromUnique) {
                     searchField.setText("");
                     rebuildControls();
@@ -800,8 +800,8 @@ public class RunesGuiScreen extends GuiScreen {
         }
         drawUniqueActionHints(x, layout.runePanelY + layout.runePanelHeight - 17,
                 layout.runePanelWidth - pad * 2);
-        if (uniqueRollbackArmed) {
-            fontRenderer.drawString("Повторите Ctrl+ПКМ для подтверждения отката",
+        if (uniqueRollbackConfirmation.isArmed()) {
+            fontRenderer.drawString("Повторите Ctrl+ПКМ на той же руне",
                     x, layout.purchasePanelY + GuiLayout.PURCHASE_PANEL_HEIGHT - 18, 0xFFFF7777);
         }
     }
@@ -820,29 +820,26 @@ public class RunesGuiScreen extends GuiScreen {
             if (!unlocked) return true;
             if (RuneRankRevertInput.isRevertGesture(mouseButton, isCtrlKeyDown())) {
                 if (!state.canRollback) return true;
-                // Crystal collection rollback is intentionally a TWO-GESTURE confirmation.
-                if (selectedUniqueCollection == 0 && !uniqueRollbackArmed) {
-                    uniqueRollbackArmed = true;
-                } else {
-                    ClientUniqueRunes.action("rollback", uniqueCollectionId(), "", true);
-                    uniqueRollbackArmed = false;
+                // Two gestures on the EXACT same owned rune; a different target only re-arms.
+                if (uniqueRollbackConfirmation.confirmOrArm(uniqueCollectionId(), rune.runeId)) {
+                    ClientUniqueRunes.action("rollback", uniqueCollectionId(), rune.runeId, true);
                 }
                 return true;
             }
             if (mouseButton != 0) return true;
             if (isCtrlKeyDown()) {
-                uniqueRollbackArmed = false;
+                uniqueRollbackConfirmation.cancel();
                 ClientUniqueRunes.action("share", uniqueCollectionId(), rune.runeId, false);
                 return true;
             }
-            uniqueRollbackArmed = false;
+            uniqueRollbackConfirmation.cancel();
             if (state.canAwaken) {
                 ClientUniqueRunes.action("awaken", uniqueCollectionId(), rune.runeId, false);
             }
             return true;
         }
         // Clicking outside the rune grid cancels a pending dangerous rollback.
-        if (uniqueRollbackArmed) uniqueRollbackArmed = false;
+        if (uniqueRollbackConfirmation.isArmed()) uniqueRollbackConfirmation.cancel();
         return false;
     }
 
@@ -941,7 +938,7 @@ public class RunesGuiScreen extends GuiScreen {
             if (state != null && state.canAwaken) tooltip.add("§7ЛКМ: пробудить");
             tooltip.add("§7Ctrl+ЛКМ: поделиться в чат");
             if (state != null && state.canRollback) tooltip.add("§7Ctrl+ПКМ: откат"
-                    + (selectedUniqueCollection == 0 ? " (двойное подтверждение)" : ""));
+                    + " (повторить на той же руне)");
             drawCanvasTooltip(tooltip, x, y);
             return;
         }
@@ -953,7 +950,7 @@ public class RunesGuiScreen extends GuiScreen {
         if (state == null || !state.unlocked
                 || !UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive()) return true;
         if (id == UNIQUE_ACQUIRE_ID) {
-            uniqueRollbackArmed = false;
+            uniqueRollbackConfirmation.cancel();
             UniqueRuneSnapshotPacket snapshot = ClientUniqueRunes.snapshot();
             boolean enoughCurrency = uniquePurchaseAffordable(snapshot);
             if (enoughCurrency && state.progress < VISIBLE_RUNE_SLOTS
@@ -966,7 +963,7 @@ public class RunesGuiScreen extends GuiScreen {
             java.math.BigDecimal[] costs = uniqueEnhancementCostRange();
             if (costs != null && canAffordPearl(costs[0].toPlainString(),
                     ClientUniqueRunes.snapshot().getPearl())) {
-                uniqueRollbackArmed = false;
+                uniqueRollbackConfirmation.cancel();
                 ClientUniqueRunes.action("enhance", uniqueCollectionId(), "", false);
             }
         }
