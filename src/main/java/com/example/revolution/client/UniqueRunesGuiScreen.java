@@ -130,7 +130,7 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
             UniqueRuneSnapshotPacket.Entry e = runeAtSlot(owned, slot);
             if (e != null && mouseX >= x && mouseX < x+size && mouseY >= y && mouseY < y+size) {
                 drawHoveringText(Arrays.asList(e.name, e.rarity + " +" + e.enhancement,
-                        e.effects, "ЛКМ: поделиться", "Shift+ЛКМ: усилить (кристаллы)"), mouseX, mouseY);
+                        e.effects, "ЛКМ: поделиться", "Shift+ЛКМ: случайное усиление"), mouseX, mouseY);
                 break;
             }
         }
@@ -147,7 +147,7 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
             if (e != null && mouseX >= x && mouseX < x+size && mouseY >= y && mouseY < y+size) {
                 rollbackArmed = false;
                 if (isShiftKeyDown() && "CRYSTAL_COLLECTION".equals(collection))
-                    ClientUniqueRunes.action("enhance", collection, e.runeId, false);
+                    ClientUniqueRunes.action("enhance", collection, "", false);
                 else ClientUniqueRunes.action("share", collection, e.runeId, false);
                 return;
             }
