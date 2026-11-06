@@ -8,6 +8,7 @@ import com.example.revolution.god.GodWorshipModel.GodId;
 import com.example.revolution.god.GodWorshipModel.Phase;
 import com.example.revolution.god.GodWorshipModel.State;
 import com.example.revolution.resource.service.ResourceService;
+import com.example.revolution.number.LargeNumbers;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -119,6 +120,35 @@ public final class GodWorshipService {
             changed |= before != state.phase || beforeBuff != state.buffActiveUntilMillis;
         }
         if (changed) repository.saveRunState(playerUuid, run); return run;
+    }
+
+    /** Explicit administrative wallet operation; never uses the ordinary ResourceRepository. */
+    public synchronized boolean setOfferings(UUID playerUuid, BigDecimal value) {
+        if (playerUuid == null || value == null || value.signum() < 0
+                || value.precision() > 100 || Math.abs((long) value.scale()) > 10000L) return false;
+        GodWorshipModel.PersistentState state = repository.loadPersistentState(playerUuid);
+        state.offerings = LargeNumbers.normalize(value);
+        repository.savePersistentState(playerUuid, state);
+        return true;
+    }
+
+    /** Rejects negative resulting balances without clamping or hidden gameplay multipliers. */
+    public synchronized boolean addOfferings(UUID playerUuid, BigDecimal delta) {
+        if (playerUuid == null || delta == null || delta.precision() > 100
+                || Math.abs((long) delta.scale()) > 10000L) return false;
+        GodWorshipModel.PersistentState state = repository.loadPersistentState(playerUuid);
+        BigDecimal previous = state.offerings == null ? BigDecimal.ZERO : state.offerings;
+        BigDecimal next = previous.add(delta);
+        if (next.signum() < 0 || next.precision() > 100) return false;
+        state.offerings = LargeNumbers.normalize(next);
+        repository.savePersistentState(playerUuid, state);
+        return true;
+    }
+
+    public synchronized BigDecimal offeringsBalance(UUID playerUuid) {
+        if (playerUuid == null) throw new IllegalArgumentException("playerUuid is required");
+        BigDecimal current = repository.loadPersistentState(playerUuid).offerings;
+        return current == null ? BigDecimal.ZERO : current;
     }
 
     public synchronized GodWorshipModel.RunState runState(UUID playerUuid) { return repository.loadRunState(playerUuid); }
