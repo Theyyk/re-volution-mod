@@ -53,7 +53,9 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         drawResourceLine(x, y, "Монеты", ClientPlayerStats.getCoins(), textWidth);
         y += resourceLayout.scaled(16, 12);
         drawResourceLine(x, y, "Кристаллы", ClientPlayerStats.getCrystals(), textWidth);
-        drawSurface(panelX, runeY, panelWidth, RUNE_PANEL_HEIGHT, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
+        int additionalHeight = isUniqueCollectionSelected() ? 38 : 0;
+        drawSurface(panelX, runeY, panelWidth, RUNE_PANEL_HEIGHT + additionalHeight,
+                PANEL_BG_COLOR, PANEL_BORDER_COLOR);
         y = runeY + pad;
         GuiFontRenderer.heading(mc).drawStringWithShadow("РЕСУРСЫ РУН", x, y, HEADING_TEXT_COLOR);
         y += resourceLayout.scaled(21, 16);
@@ -62,6 +64,12 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         drawResourceLine(x, y, "Осколки рун", ClientPlayerStats.getRuneShards(), textWidth);
         y += resourceLayout.scaled(16, 12);
         drawResourceLine(x, y, "Ядра рун", ClientPlayerStats.getRuneCores(), textWidth);
+        if (isUniqueCollectionSelected()) {
+            y += resourceLayout.scaled(16, 12);
+            drawResourceLine(x, y, "Жемчуг", new BigDecimal(ClientUniqueRunes.snapshot().getPearl()), textWidth);
+            y += resourceLayout.scaled(16, 12);
+            drawResourceLine(x, y, "Подношения", new BigDecimal(ClientUniqueRunes.snapshot().getOfferings()), textWidth);
+        }
     }
 
     private void drawResourceLine(int x, int y, String name, BigDecimal value, int availableWidth) {
@@ -92,6 +100,13 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
     private void drawResourceIcon(int x, int y, String name) {
         if ("Монеты".equals(name)) { drawRect(x + 2, y + 1, x + 8, y + 10, COIN_COLOR); drawRect(x + 1, y + 3, x + 9, y + 8, COIN_COLOR); drawRect(x + 3, y + 3, x + 5, y + 7, COIN_HIGHLIGHT_COLOR); return; }
         if ("Кристаллы".equals(name)) { drawRect(x + 3, y + 1, x + 7, y + 10, CRYSTAL_COLOR); drawRect(x + 1, y + 4, x + 9, y + 7, CRYSTAL_COLOR); drawRect(x + 2, y + 2, x + 8, y + 9, CRYSTAL_COLOR); drawRect(x + 3, y + 2, x + 5, y + 6, CRYSTAL_HIGHLIGHT_COLOR); return; }
+        if ("Жемчуг".equals(name)) {
+            drawRect(x + 2, y + 3, x + 9, y + 8, CRYSTAL_HIGHLIGHT_COLOR);
+            drawRect(x + 4, y + 1, x + 7, y + 10, CRYSTAL_COLOR); return;
+        }
+        if ("Подношения".equals(name)) {
+            drawRect(x + 2, y + 2, x + 8, y + 9, GOLD_COLOR); return;
+        }
         if ("Пыль рун".equals(name)) { drawRect(x + 1, y + 6, x + 4, y + 9, POISON_TYPE_COLOR); drawRect(x + 5, y + 2, x + 7, y + 4, POISON_TYPE_COLOR); drawRect(x + 7, y + 6, x + 9, y + 8, CRYSTAL_HIGHLIGHT_COLOR); drawRect(x + 3, y + 4, x + 5, y + 6, BOOST_TYPE_COLOR); return; }
         if ("Осколки рун".equals(name)) { drawRect(x + 4, y + 1, x + 7, y + 4, CRYSTAL_COLOR); drawRect(x + 3, y + 3, x + 8, y + 7, CRYSTAL_COLOR); drawRect(x + 2, y + 6, x + 5, y + 10, BOOST_TYPE_COLOR); drawRect(x + 6, y + 5, x + 9, y + 9, CRYSTAL_HIGHLIGHT_COLOR); return; }
         if ("Ядра рун".equals(name)) { drawRect(x + 2, y + 2, x + 8, y + 9, POISON_TYPE_COLOR); drawRect(x + 1, y + 4, x + 9, y + 7, POISON_TYPE_COLOR); drawRect(x + 4, y + 3, x + 6, y + 8, TYPE_BADGE_BG_COLOR); drawRect(x + 3, y + 5, x + 7, y + 7, TYPE_BADGE_BG_COLOR); drawRect(x + 4, y + 4, x + 6, y + 6, CRYSTAL_HIGHLIGHT_COLOR); }
