@@ -46,6 +46,7 @@ public final class RuneUxUiHandler {
         if (!(event.getGui() instanceof RunesGuiScreen)) return;
         if (!RuneStatusConfig.isRuneStatus(ClientPlayerStats.getActiveRuneStatusId())) return;
         RunesGuiScreen screen = (RunesGuiScreen) event.getGui();
+        if (screen.isUniqueCollectionSelected()) return;
         GuiLayout layout = new GuiLayout(RuneInventory.BOOST_TYPE_COUNT); layout.update(screen.width, screen.height);
         drawSlotEffects(layout); overlayWhiteCtrlHints(layout); drawFinalStatTooltip(screen, layout, event.getMouseX(), event.getMouseY());
     }
