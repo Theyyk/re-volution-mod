@@ -101,7 +101,7 @@ final class UniqueRuneServiceTest {
 
     @Test void awakeningAndRollbackAffectOnlySelectedRuneAcrossMixedRarities() {
         Fixture f = new Fixture();
-        assertEquals(UniqueRuneService.ResultCode.NOT_READY,
+        assertEquals(UniqueRuneService.ResultCode.INVALID,
                 f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 1L).code);
         PlayerState state = f.unique.load(PLAYER);
         for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.CRYSTAL_COLLECTION).runes)
