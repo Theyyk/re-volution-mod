@@ -121,7 +121,7 @@ public final class UniqueRuneService {
         BigDecimal cost = policy.offeringsPurchaseCost(); if (!offerings.spend(playerUuid, cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
         RuneDefinition rune = roll(policy.definition(CollectionId.OFFERINGS_COLLECTION).runes);
         boolean duplicate = collection.ownsAtCurrent(rune.runeId);
-        if (!duplicate) collection.owned.put(rune.runeId, collection.currentRarity);
+        if (!duplicate) collection.owned.put(rune.runeId, Rarity.COMMON);
         repository.save(playerUuid, state);
         factual(playerUuid, duplicate ? GameplayEventType.UNIQUE_RUNE_DUPLICATE : GameplayEventType.UNIQUE_RUNE_OBTAINED,
                 CollectionId.OFFERINGS_COLLECTION, rune.runeId);
@@ -178,13 +178,10 @@ public final class UniqueRuneService {
         Rarity previous = collection.owned.get(promotedRuneId);
         Rarity next = previous.nextGameplay();
         if (next == previous) return Result.of(ResultCode.MAX_RARITY);
-        collection.runeRollback.put(promotedRuneId, previous);
-        // Offerings uses a collection-tier cycle: the 26 runes of the completed lower
-        // tier are consumed when one chosen rune is promoted to the new tier.
-        // Crystal and Daily retain independent ownership with no collection-wide wipe.
-        if (id == CollectionId.OFFERINGS_COLLECTION) {
-            // Consume only the completed rank. Independently promoted runes
-            // at other ranks remain owned and retain their rollback history.
+        // Crystal and Offerings consume the completed lower-rarity cohort.
+        // Keep any rune with a different factual rank, plus its enhancement
+        // and rollback history. Daily continues to use independent ownership.
+        if (id == CollectionId.CRYSTAL_COLLECTION || id == CollectionId.OFFERINGS_COLLECTION) {
             List<String> consumed = new ArrayList<>();
             for (Map.Entry<String, Rarity> owned : collection.owned.entrySet())
                 if (owned.getValue() == previous) consumed.add(owned.getKey());
@@ -192,10 +189,11 @@ public final class UniqueRuneService {
                 collection.owned.remove(runeId);
                 collection.runeRollback.remove(runeId);
             }
-            if (collection.currentRarity.persistentId < next.persistentId)
-                collection.currentRarity = next;
-            collection.runeRollback.put(promotedRuneId, previous);
+            // Acquisition always starts from COMMON after a tier is consumed.
+            // Do not promote the legacy acquisition tier to MYTHIC.
+            collection.currentRarity = Rarity.COMMON;
         }
+        collection.runeRollback.put(promotedRuneId, previous);
         collection.owned.put(promotedRuneId, next);
         repository.save(playerUuid, state); factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_AWAKENED, id, promotedRuneId); return Result.grant(promotedRuneId);
     }
