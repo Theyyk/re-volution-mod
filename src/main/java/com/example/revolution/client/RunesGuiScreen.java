@@ -819,7 +819,7 @@ public class RunesGuiScreen extends GuiScreen {
                     && UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive();
             if (!unlocked) return true;
             if (RuneRankRevertInput.isRevertGesture(mouseButton, isCtrlKeyDown())) {
-                if (!state.canRollback) return true;
+                if (!rune.canRollback) return true;
                 // Two gestures on the EXACT same owned rune; a different target only re-arms.
                 if (uniqueRollbackConfirmation.confirmOrArm(uniqueCollectionId(), rune.runeId)) {
                     ClientUniqueRunes.action("rollback", uniqueCollectionId(), rune.runeId, true);
@@ -833,7 +833,7 @@ public class RunesGuiScreen extends GuiScreen {
                 return true;
             }
             uniqueRollbackConfirmation.cancel();
-            if (state.canAwaken) {
+            if (rune.canAwaken) {
                 ClientUniqueRunes.action("awaken", uniqueCollectionId(), rune.runeId, false);
             }
             return true;

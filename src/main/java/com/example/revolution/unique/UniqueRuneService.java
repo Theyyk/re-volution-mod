@@ -172,24 +172,36 @@ public final class UniqueRuneService {
         if (!isUnlocked(playerUuid, id)) return Result.of(ResultCode.LOCKED);
         CollectionDefinition definition = policy.definition(id); if (definition == null || definition.rune(promotedRuneId) == null) return Result.of(ResultCode.INVALID);
         PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(id);
+        if (!collection.owned.containsKey(promotedRuneId)) return Result.of(ResultCode.INVALID);
         if (collection.progress() < UniqueRuneModel.RUNES_PER_COLLECTION) return Result.of(ResultCode.NOT_READY);
-        Rarity next = collection.currentRarity.nextGameplay(); if (next == collection.currentRarity) return Result.of(ResultCode.MAX_RARITY);
-        if (!collection.ownsAtCurrent(promotedRuneId)) return Result.of(ResultCode.INVALID);
-        collection.rollbackRarity = collection.currentRarity; collection.rollbackOwned.clear(); collection.rollbackOwned.putAll(collection.owned);
-        collection.owned.clear(); collection.currentRarity = next; collection.owned.put(promotedRuneId, next);
+        Rarity previous = collection.owned.get(promotedRuneId);
+        Rarity next = previous.nextGameplay();
+        if (next == previous) return Result.of(ResultCode.MAX_RARITY);
+        // One rune's change must never clear/repopulate another rune's ownership or enhancement.
+        collection.runeRollback.put(promotedRuneId, previous);
+        collection.owned.put(promotedRuneId, next);
         repository.save(playerUuid, state); factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_AWAKENED, id, promotedRuneId); return Result.grant(promotedRuneId);
     }
 
-    public synchronized Result rollback(UUID playerUuid, CollectionId id, boolean confirmed, long requestNonce) {
+    /** Targeted rollback: never interprets a legacy collection-wide rollback snapshot as per-rune history. */
+    public synchronized Result rollback(UUID playerUuid, CollectionId id, String runeId, boolean confirmed, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!confirmed) return Result.of(ResultCode.CONFIRMATION_REQUIRED);
         if (!isUnlocked(playerUuid, id)) return Result.of(ResultCode.LOCKED);
+        CollectionDefinition definition = policy.definition(id);
+        if (definition == null || definition.rune(runeId) == null) return Result.of(ResultCode.INVALID);
         PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(id);
-        if (collection.rollbackRarity == null) return Result.of(ResultCode.NO_ROLLBACK);
-        BigDecimal cost = policy.rollbackCrystalCost(id); if (!resources.spendPlayerResource(playerUuid, "crystals", cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
-        collection.currentRarity = collection.rollbackRarity; collection.owned.clear(); collection.owned.putAll(collection.rollbackOwned);
-        collection.rollbackRarity = null; collection.rollbackOwned.clear(); repository.save(playerUuid, state);
-        factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_ROLLED_BACK, id, ""); return Result.of(ResultCode.OK);
+        Rarity current = collection.owned.get(runeId);
+        if (current == null) return Result.of(ResultCode.INVALID);
+        Rarity previous = collection.runeRollback.get(runeId);
+        if (previous == null || current.previous() != previous) return Result.of(ResultCode.NO_ROLLBACK);
+        BigDecimal cost = policy.rollbackCrystalCost(id);
+        if (!resources.spendPlayerResource(playerUuid, "crystals", cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
+        collection.owned.put(runeId, previous);
+        collection.runeRollback.remove(runeId);
+        repository.save(playerUuid, state);
+        factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_ROLLED_BACK, id, runeId);
+        return Result.grant(runeId);
     }
 
     public SharePayload share(UUID playerUuid, CollectionId id, String runeId) {

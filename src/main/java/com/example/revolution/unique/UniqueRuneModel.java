@@ -123,17 +123,19 @@ public final class UniqueRuneModel {
         public final Map<String, Integer> enhancement = new LinkedHashMap<>();
         public Rarity rollbackRarity;
         public final Map<String, Rarity> rollbackOwned = new LinkedHashMap<>();
+        /** v2: authoritative previous rank, scoped to the rune which was individually awakened. */
+        public final Map<String, Rarity> runeRollback = new LinkedHashMap<>();
+        /** Exact original v1 collection document, retained for diagnostics without restoring its history. */
+        public String legacyV1SnapshotJson;
 
-        public int progress() {
-            int result = 0;
-            for (Rarity rarity : owned.values()) if (rarity == currentRarity) result++;
-            return result;
-        }
-        public boolean ownsAtCurrent(String runeId) { return currentRarity == owned.get(runeId); }
+        public int progress() { return owned.size(); }
+        public boolean ownsAtCurrent(String runeId) { return owned.containsKey(runeId); }
+        public boolean canAwaken(String runeId) { Rarity rarity = owned.get(runeId); return rarity != null && rarity.nextGameplay() != rarity && progress() == RUNES_PER_COLLECTION; }
+        public boolean canRollback(String runeId) { return owned.containsKey(runeId) && runeRollback.containsKey(runeId); }
         public int enhancement(String runeId) { Integer value = enhancement.get(runeId); return value == null ? 0 : Math.max(0, value); }
         public CollectionState copy() {
             CollectionState copy = new CollectionState(); copy.currentRarity = currentRarity;
-            copy.owned.putAll(owned); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); return copy;
+            copy.owned.putAll(owned); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); copy.runeRollback.putAll(runeRollback); copy.legacyV1SnapshotJson = legacyV1SnapshotJson; return copy;
         }
     }
 
