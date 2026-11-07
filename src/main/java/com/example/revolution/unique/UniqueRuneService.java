@@ -131,7 +131,8 @@ public final class UniqueRuneService {
     public synchronized Result claimDaily(UUID playerUuid, long epochDay, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.DAILY_COLLECTION)) return Result.of(ResultCode.LOCKED);
-        PlayerState state = repository.load(playerUuid); if (state.lastDailyClaimDay == epochDay) return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
+        PlayerState state = repository.load(playerUuid); // Never permit a second grant when the clock moves backwards or the request day is replayed.
+        if (state.lastDailyClaimDay >= epochDay) return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
         CollectionState collection = state.collection(CollectionId.DAILY_COLLECTION);
         List<RuneDefinition> eligible = new ArrayList<>();
         for (RuneDefinition rune : policy.definition(CollectionId.DAILY_COLLECTION).runes) if (!collection.ownsAtCurrent(rune.runeId)) eligible.add(rune);
