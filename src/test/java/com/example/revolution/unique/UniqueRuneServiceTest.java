@@ -147,17 +147,19 @@ final class UniqueRuneServiceTest {
         assertEquals(Rarity.IMPROVED, awakened.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
         assertFalse(awakened.collection(CollectionId.CRYSTAL_COLLECTION).owned.containsKey("crystal_02"));
         assertEquals(5, awakened.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_02"));
-        assertTrue(awakened.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_01"));
+        assertFalse(awakened.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_01"));
         assertFalse(awakened.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_02"));
         assertEquals(UniqueRuneService.ResultCode.INVALID,
                 f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_02", true, 3L).code);
         assertEquals(UniqueRuneService.ResultCode.CONFIRMATION_REQUIRED,
                 f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", false, 4L).code);
         f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
-        assertEquals(UniqueRuneService.ResultCode.OK,
+        BigDecimal walletBefore = f.resources.getPlayerResourceValue(PLAYER, "crystals");
+        assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
                 f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", true, 5L).code);
+        assertEquals(walletBefore, f.resources.getPlayerResourceValue(PLAYER, "crystals"));
         PlayerState restored = f.unique.load(PLAYER);
-        assertEquals(Rarity.COMMON, restored.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
+        assertEquals(Rarity.IMPROVED, restored.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
         assertFalse(restored.collection(CollectionId.CRYSTAL_COLLECTION).owned.containsKey("crystal_02"));
         assertEquals(1, restored.collection(CollectionId.CRYSTAL_COLLECTION).progress());
         assertEquals(7, restored.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
@@ -165,6 +167,58 @@ final class UniqueRuneServiceTest {
         assertFalse(restored.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_01"));
         assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
                 f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", true, 6L).code);
+    }
+
+    @Test void legacyOfferingsMythicAt24Of26CanRollbackWithoutHistory() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        for (int i = 1; i <= 24; i++)
+            state.collection(CollectionId.OFFERINGS_COLLECTION).owned.put(
+                    String.format("offerings_%02d", i), Rarity.MYTHIC);
+        state.collection(CollectionId.OFFERINGS_COLLECTION).currentRarity = Rarity.MYTHIC;
+        state.collection(CollectionId.OFFERINGS_COLLECTION).rollbackOwned.put("offerings_26", Rarity.COMMON);
+        f.unique.save(PLAYER, state);
+        assertTrue(f.service.snapshot(PLAYER).collection(CollectionId.OFFERINGS_COLLECTION).canRollback("offerings_10"));
+        assertEquals(UniqueRuneService.ResultCode.CONFIRMATION_REQUIRED,
+                f.service.rollback(PLAYER, CollectionId.OFFERINGS_COLLECTION, "offerings_10", false, 1L).code);
+        assertEquals(UniqueRuneService.ResultCode.INSUFFICIENT_RESOURCE,
+                f.service.rollback(PLAYER, CollectionId.OFFERINGS_COLLECTION, "offerings_10", true, 2L).code);
+        f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.rollback(PLAYER, CollectionId.OFFERINGS_COLLECTION, "offerings_10", true, 3L).code);
+        PlayerState after = f.unique.load(PLAYER);
+        assertEquals(Rarity.ADVANCED, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_10"));
+        assertEquals(Rarity.MYTHIC, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_11"));
+        assertFalse(after.collection(CollectionId.OFFERINGS_COLLECTION).owned.containsKey("offerings_26"));
+        assertEquals(24, after.collection(CollectionId.OFFERINGS_COLLECTION).progress());
+        assertEquals(UniqueRuneService.ResultCode.REPLAYED,
+                f.service.rollback(PLAYER, CollectionId.OFFERINGS_COLLECTION, "offerings_10", true, 3L).code);
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.rollback(PLAYER, CollectionId.OFFERINGS_COLLECTION, "offerings_10", true, 4L).code);
+        assertEquals(Rarity.IMPROVED,
+                f.unique.load(PLAYER).collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_10"));
+        BigDecimal afterPaid = f.resources.getPlayerResourceValue(PLAYER, "crystals");
+        assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
+                f.service.rollback(PLAYER, CollectionId.OFFERINGS_COLLECTION, "offerings_10", true, 5L).code);
+        assertEquals(afterPaid, f.resources.getPlayerResourceValue(PLAYER, "crystals"));
+    }
+
+    @Test void rarityOneAndTwoNeverRollbackEvenWithHistoricalEntries() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_01", Rarity.COMMON);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_02", Rarity.IMPROVED);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).runeRollback.put("crystal_02", Rarity.COMMON);
+        f.unique.save(PLAYER, state);
+        f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
+        assertFalse(f.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_01"));
+        assertFalse(f.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_02"));
+        BigDecimal before = f.resources.getPlayerResourceValue(PLAYER, "crystals");
+        assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
+                f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", true, 1L).code);
+        assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
+                f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_02", true, 2L).code);
+        assertEquals(before, f.resources.getPlayerResourceValue(PLAYER, "crystals"));
     }
 
     @Test void offeringsAwakenConsumesCommonTierAndPromotesOnlyChosenRune() {
@@ -181,7 +235,7 @@ final class UniqueRuneServiceTest {
         assertEquals(Rarity.IMPROVED, promoted.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_05"));
         assertFalse(promoted.collection(CollectionId.OFFERINGS_COLLECTION).owned.containsKey("offerings_04"));
         assertEquals(Rarity.COMMON, promoted.collection(CollectionId.OFFERINGS_COLLECTION).currentRarity);
-        assertTrue(promoted.collection(CollectionId.OFFERINGS_COLLECTION).canRollback("offerings_05"));
+        assertFalse(promoted.collection(CollectionId.OFFERINGS_COLLECTION).canRollback("offerings_05"));
 
         f.offerings = new BigDecimal("1000");
         assertEquals(UniqueRuneService.ResultCode.OK,
@@ -190,10 +244,10 @@ final class UniqueRuneServiceTest {
                 f.unique.load(PLAYER).collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
 
         f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
-        assertEquals(UniqueRuneService.ResultCode.OK,
+        assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
                 f.service.rollback(PLAYER, CollectionId.OFFERINGS_COLLECTION, "offerings_05", true, 3L).code);
         PlayerState rolled = f.unique.load(PLAYER);
-        assertEquals(Rarity.COMMON, rolled.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_05"));
+        assertEquals(Rarity.IMPROVED, rolled.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_05"));
         assertEquals(Rarity.COMMON, rolled.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
         assertEquals(2, rolled.collection(CollectionId.OFFERINGS_COLLECTION).progress());
     }

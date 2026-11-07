@@ -227,15 +227,12 @@ public final class UniqueRuneService {
         PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(id);
         Rarity current = collection.owned.get(runeId);
         if (current == null) return Result.of(ResultCode.INVALID);
-        Rarity previous = collection.runeRollback.get(runeId);
-        // A deliberate Crystal-only reset is available at the MYTHIC cap even for
-        // migrated v1 saves without per-rune history. This is a NEW downgrade,
-        // not a reconstruction of ambiguous legacy rollbackOwned data.
-        boolean crystalMythicReset = id == CollectionId.CRYSTAL_COLLECTION
-                && current == Rarity.MYTHIC && previous == null
-                && collection.progress() == UniqueRuneModel.RUNES_PER_COLLECTION;
-        if (crystalMythicReset) previous = Rarity.ADVANCED;
-        if (previous == null || current.previous() != previous) return Result.of(ResultCode.NO_ROLLBACK);
+        // Rollback is a NEW explicitly confirmed paid downgrade of this rune's
+        // factual rarity, not a reconstruction of collection-wide legacy data.
+        // No history is needed for old ADVANCED or MYTHIC runes, and ranks 1/2
+        // can never be rolled back even if stale runeRollback data exists.
+        if (!collection.canRollback(runeId)) return Result.of(ResultCode.NO_ROLLBACK);
+        Rarity previous = current.previous();
         BigDecimal cost = policy.rollbackCrystalCost(id);
         if (!resources.spendPlayerResource(playerUuid, "crystals", cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
         collection.owned.put(runeId, previous);
