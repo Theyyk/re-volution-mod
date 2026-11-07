@@ -17,6 +17,8 @@ public class UniqueRuneSnapshotPacketUiTest {
         crystal.enhancement = 5;
         crystal.enhancementPearlCost = "12345678901234567890.5";
         crystal.effects = "CLICK +10";
+        crystal.canAwaken = true;
+        crystal.canRollback = true;
         UniqueRuneSnapshotPacket.Collection collection = new UniqueRuneSnapshotPacket.Collection();
         collection.collectionId = crystal.collectionId;
         collection.rarity = "IMPROVED";
@@ -41,6 +43,8 @@ public class UniqueRuneSnapshotPacketUiTest {
         assertTrue(received.isLastCrystalRollDuplicate());
         assertEquals("3", received.getLastCrystalRollCompensation());
         assertEquals(crystal.enhancementPearlCost, received.getEntries().get(0).enhancementPearlCost);
+        assertTrue(received.getEntries().get(0).canAwaken);
+        assertTrue(received.getEntries().get(0).canRollback);
         assertEquals("5", received.getCrystals());
         assertEquals("1000", received.getPearl());
         assertEquals("9", received.getOfferings());
