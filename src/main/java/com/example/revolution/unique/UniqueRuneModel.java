@@ -131,7 +131,8 @@ public final class UniqueRuneModel {
         public int progress() { return owned.size(); }
         public boolean ownsAtCurrent(String runeId) { return owned.containsKey(runeId); }
         public boolean canAwaken(String runeId) { Rarity rarity = owned.get(runeId); return rarity != null && rarity.nextGameplay() != rarity && progress() == RUNES_PER_COLLECTION; }
-        public boolean canRollback(String runeId) { return owned.containsKey(runeId) && runeRollback.containsKey(runeId); }
+        /** Rollback is a paid, confirmed rank downgrade available only from ADVANCED (#3). */
+        public boolean canRollback(String runeId) { Rarity rarity = owned.get(runeId); return rarity == Rarity.ADVANCED || rarity == Rarity.MYTHIC; }
         public int enhancement(String runeId) { Integer value = enhancement.get(runeId); return value == null ? 0 : Math.max(0, value); }
         public CollectionState copy() {
             CollectionState copy = new CollectionState(); copy.currentRarity = currentRarity;
