@@ -48,7 +48,7 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
             List<Document> individualRollback = new ArrayList<>();
             for (Map.Entry<String, UniqueRuneModel.Rarity> entry : collection.runeRollback.entrySet())
                 individualRollback.add(new Document("runeId", entry.getKey()).append("previousRarity", entry.getValue().name()));
-            Document collectionDocument = new Document("currentRarity", collection.currentRarity.name()
+            Document collectionDocument = new Document("currentRarity", collection.currentRarity.name())
                     .append("owned", owned).append("enhancement", enhancement)
                     .append("rollbackRarity", collection.rollbackRarity == null ? null : collection.rollbackRarity.name())
                     .append("rollbackOwned", rollbackOwned)
