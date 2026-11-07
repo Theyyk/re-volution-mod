@@ -943,8 +943,8 @@ public class RunesGuiScreen extends GuiScreen {
             tooltip.add("§7Ctrl+ЛКМ: поделиться в чат");
             if (rune.canRollback) tooltip.add("§7Ctrl+ПКМ: откат"
                     + " (повторить на той же руне)");
-            else if ("MYTHIC".equals(rune.rarity))
-                tooltip.add("§8Откат недоступен: нет истории этой руны");
+            else if ("COMMON".equals(rune.rarity) || "IMPROVED".equals(rune.rarity))
+                tooltip.add("§8Откат доступен только с ADVANCED (3-й ранг)");
             drawCanvasTooltip(tooltip, x, y);
             return;
         }
