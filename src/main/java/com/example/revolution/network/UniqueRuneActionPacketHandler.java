@@ -94,10 +94,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
 
     private static boolean canRollback(UniqueRuneModel.CollectionId id,
                                        UniqueRuneModel.CollectionState collection, String runeId) {
-        return collection.canRollback(runeId)
-                || (id == UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION
-                    && collection.progress() == UniqueRuneModel.RUNES_PER_COLLECTION
-                    && collection.owned.get(runeId) == UniqueRuneModel.Rarity.MYTHIC);
+        return collection.canRollback(runeId);
     }
 
     private static void share(EntityPlayerMP player, ServerServices services, UniqueRuneModel.CollectionId collection, String runeId) {
