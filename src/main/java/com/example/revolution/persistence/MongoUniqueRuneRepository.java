@@ -58,7 +58,8 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
             collections.append(id.name(), collectionDocument);
         }
         return new Document("schemaVersion", SCHEMA_VERSION).append("collections", collections)
-                .append("lastDailyClaimDay", state.lastDailyClaimDay);
+                .append("lastDailyClaimDay", state.lastDailyClaimDay)
+                .append("lastDailyClaimMillis", state.lastDailyClaimMillis);
     }
 
     @SuppressWarnings("unchecked")
@@ -111,6 +112,8 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
         }
         Object lastDaily = root.get("lastDailyClaimDay");
         state.lastDailyClaimDay = lastDaily instanceof Number ? ((Number) lastDaily).longValue() : Long.MIN_VALUE;
+        Object lastDailyMillis = root.get("lastDailyClaimMillis");
+        state.lastDailyClaimMillis = lastDailyMillis instanceof Number ? ((Number) lastDailyMillis).longValue() : Long.MIN_VALUE;
         return state;
     }
 }
