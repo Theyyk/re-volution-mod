@@ -17,6 +17,8 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
         public int enhancement;
         public String enhancementPearlCost = "0";
         public String effects = "";
+        public boolean canAwaken;
+        public boolean canRollback;
     }
     public static final class Collection {
         public String collectionId = "";
@@ -88,7 +90,7 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
         int collectionCount = Math.max(0, Math.min(3, buf.readInt()));
         for (int i = 0; i < collectionCount; i++) { Collection c = new Collection(); c.collectionId = ByteBufUtils.readUTF8String(buf); c.rarity = ByteBufUtils.readUTF8String(buf); c.progress = Math.max(0, Math.min(26, buf.readInt())); c.unlocked = buf.readBoolean(); c.canAwaken = buf.readBoolean(); c.canRollback = buf.readBoolean(); collections.add(c); }
         int count = Math.max(0, Math.min(78, buf.readInt()));
-        for (int i = 0; i < count; i++) { Entry e = new Entry(); e.collectionId = ByteBufUtils.readUTF8String(buf); e.runeId = ByteBufUtils.readUTF8String(buf); e.name = ByteBufUtils.readUTF8String(buf); e.rarity = ByteBufUtils.readUTF8String(buf); e.enhancement = Math.max(0, buf.readInt()); e.enhancementPearlCost = ByteBufUtils.readUTF8String(buf); e.effects = ByteBufUtils.readUTF8String(buf); entries.add(e); }
+        for (int i = 0; i < count; i++) { Entry e = new Entry(); e.collectionId = ByteBufUtils.readUTF8String(buf); e.runeId = ByteBufUtils.readUTF8String(buf); e.name = ByteBufUtils.readUTF8String(buf); e.rarity = ByteBufUtils.readUTF8String(buf); e.enhancement = Math.max(0, buf.readInt()); e.enhancementPearlCost = ByteBufUtils.readUTF8String(buf); e.effects = ByteBufUtils.readUTF8String(buf); e.canAwaken = buf.readBoolean(); e.canRollback = buf.readBoolean(); entries.add(e); }
         pearl = ByteBufUtils.readUTF8String(buf); crystals = ByteBufUtils.readUTF8String(buf); offerings = ByteBufUtils.readUTF8String(buf);
         crystalPurchaseCost = ByteBufUtils.readUTF8String(buf); offeringsPurchaseCost = ByteBufUtils.readUTF8String(buf); zbtStatus = ByteBufUtils.readUTF8String(buf); dailyNextClaimMillis = Math.max(0L, buf.readLong());
         dailyExtraResource = ByteBufUtils.readUTF8String(buf);
@@ -102,7 +104,7 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
         int collectionCount = Math.min(3, collections.size()); buf.writeInt(collectionCount);
         for (int i = 0; i < collectionCount; i++) { Collection c = collections.get(i); ByteBufUtils.writeUTF8String(buf, safe(c.collectionId)); ByteBufUtils.writeUTF8String(buf, safe(c.rarity)); buf.writeInt(Math.max(0, Math.min(26, c.progress))); buf.writeBoolean(c.unlocked); buf.writeBoolean(c.canAwaken); buf.writeBoolean(c.canRollback); }
         int count = Math.min(78, entries.size()); buf.writeInt(count);
-        for (int i = 0; i < count; i++) { Entry e = entries.get(i); ByteBufUtils.writeUTF8String(buf, safe(e.collectionId)); ByteBufUtils.writeUTF8String(buf, safe(e.runeId)); ByteBufUtils.writeUTF8String(buf, safe(e.name)); ByteBufUtils.writeUTF8String(buf, safe(e.rarity)); buf.writeInt(Math.max(0, e.enhancement)); ByteBufUtils.writeUTF8String(buf, safe(e.enhancementPearlCost)); ByteBufUtils.writeUTF8String(buf, safe(e.effects)); }
+        for (int i = 0; i < count; i++) { Entry e = entries.get(i); ByteBufUtils.writeUTF8String(buf, safe(e.collectionId)); ByteBufUtils.writeUTF8String(buf, safe(e.runeId)); ByteBufUtils.writeUTF8String(buf, safe(e.name)); ByteBufUtils.writeUTF8String(buf, safe(e.rarity)); buf.writeInt(Math.max(0, e.enhancement)); ByteBufUtils.writeUTF8String(buf, safe(e.enhancementPearlCost)); ByteBufUtils.writeUTF8String(buf, safe(e.effects)); buf.writeBoolean(e.canAwaken); buf.writeBoolean(e.canRollback); }
         ByteBufUtils.writeUTF8String(buf, safe(pearl)); ByteBufUtils.writeUTF8String(buf, safe(crystals)); ByteBufUtils.writeUTF8String(buf, safe(offerings));
         ByteBufUtils.writeUTF8String(buf, safe(crystalPurchaseCost)); ByteBufUtils.writeUTF8String(buf, safe(offeringsPurchaseCost)); ByteBufUtils.writeUTF8String(buf, safe(zbtStatus)); buf.writeLong(Math.max(0L, dailyNextClaimMillis));
         ByteBufUtils.writeUTF8String(buf, safe(dailyExtraResource));
