@@ -35,3 +35,13 @@ Fixtures and tests, exact-head CI, ordinary merge, post-merge CI and DEV publica
 - **Crystal MYTHIC legacy reset:** MYTHIC remains maximum tier, so awakening cannot exceed MYTHIC. When all 26 Crystal runes are owned and a MYTHIC rune has no individual rollback history, a confirmed Ctrl+right-click is a **new explicit paid reset** to ADVANCED for that rune only. The operation does not claim to reconstruct historical v1 `rollbackOwned`, which remains diagnostic only. The owner can then reawaken that rune to MYTHIC. Other rune rarities and enhancements remain intact. No such fallback is allowed for Daily/Offerings.
 - **Daily UTC guard:** same or earlier `epochDay` is blocked; reconnect and clock reversal must not issue a duplicate.
 - All behaviors require exact-head automated tests and post-publication Minecraft Manual QA. Existing v1/v2 data under PROD remains untouched.
+
+## R3 manual-QA correction — tier consumption and confirmed Daily reset
+
+R2 candidate `dev-candidate-42397141112-1-42397247601-1`: 6 PASS, 4 FAIL. In the revised gameplay contract, **both Crystal and Offerings** awakening consume other owned runes of the selected target's prior rarity (while preserving other rarities and enhancements). A rune of another rank is not consumed; therefore the original R1 'all B unchanged' invariant no longer applies to same-tier runes. For example, 26 ADVANCED Crystal runes -> awaken A -> only A MYTHIC, all other ADVANCED ownership is consumed. This consumes factual ownership, not enhancement metadata.
+
+New Offerings purchases always start at COMMON. Legacy `currentRarity=MYTHIC` does not cause new acquisitions to start at MYTHIC. On awakening, reset that legacy acquisition field to COMMON. A previously acquired high-rank rune survives independently until its rank's cohort is explicitly consumed.
+
+New successful Daily rewards persist `lastDailyClaimMillis` at the server-confirmed grant moment and use a rolling 24-hour cooldown. The old `lastDailyClaimDay` is retained for backwards-clock protection and for legacy saves: when a timestamp is missing, an already-claimed UTC day stays blocked until its next UTC boundary. New saves preserve both fields. No reward or timer starts merely by opening the menu.
+
+These changes deliberately supersede contradictory intermediate R1/R2 mechanics. They are DEV-only and require new manual QA on the exact published SHA; no PROD promotion or final handoff before QA PASS.
