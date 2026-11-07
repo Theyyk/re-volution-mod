@@ -128,16 +128,35 @@ public final class UniqueRuneService {
         return duplicate ? Result.duplicate(rune.runeId, BigDecimal.ZERO) : Result.grant(rune.runeId);
     }
 
+    /** Production grants use exact server time, not time elapsed since page open. */
+    public synchronized Result claimDailyAtMillis(UUID playerUuid, long nowMillis, long requestNonce) {
+        if (nowMillis < 0L) return Result.of(ResultCode.INVALID);
+        return claimDailyInternal(playerUuid, Math.floorDiv(nowMillis, 86400000L), nowMillis, requestNonce);
+    }
+
+    /** UTC-day compatibility entry point used by historic callers and fixtures. */
     public synchronized Result claimDaily(UUID playerUuid, long epochDay, long requestNonce) {
+        return claimDailyInternal(playerUuid, epochDay, epochDay * 86400000L, requestNonce);
+    }
+
+    private Result claimDailyInternal(UUID playerUuid, long epochDay, long nowMillis, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.DAILY_COLLECTION)) return Result.of(ResultCode.LOCKED);
-        PlayerState state = repository.load(playerUuid); // Never permit a second grant when the clock moves backwards or the request day is replayed.
+        PlayerState state = repository.load(playerUuid);
+        // Older data has only a UTC day; do not grant twice on that same day.
         if (state.lastDailyClaimDay >= epochDay) return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
+        if (state.lastDailyClaimMillis != Long.MIN_VALUE
+                && nowMillis - state.lastDailyClaimMillis < 86400000L)
+            return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
         CollectionState collection = state.collection(CollectionId.DAILY_COLLECTION);
         List<RuneDefinition> eligible = new ArrayList<>();
-        for (RuneDefinition rune : policy.definition(CollectionId.DAILY_COLLECTION).runes) if (!collection.ownsAtCurrent(rune.runeId)) eligible.add(rune);
+        for (RuneDefinition rune : policy.definition(CollectionId.DAILY_COLLECTION).runes)
+            if (!collection.ownsAtCurrent(rune.runeId)) eligible.add(rune);
         if (eligible.isEmpty()) return Result.of(ResultCode.COMPLETE);
-        RuneDefinition rune = roll(eligible); collection.owned.put(rune.runeId, collection.currentRarity); state.lastDailyClaimDay = epochDay;
+        RuneDefinition rune = roll(eligible);
+        collection.owned.put(rune.runeId, collection.currentRarity);
+        state.lastDailyClaimDay = epochDay;
+        state.lastDailyClaimMillis = nowMillis; // commit only after actual successful reward selection
         repository.save(playerUuid, state);
         resources.grantEarnedPlayerResource(playerUuid, policy.dailyExtraResource(), policy.dailyExtraAmount());
         factual(playerUuid, GameplayEventType.UNIQUE_RUNE_OBTAINED, CollectionId.DAILY_COLLECTION, rune.runeId);
