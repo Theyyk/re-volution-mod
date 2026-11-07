@@ -45,3 +45,14 @@ New Offerings purchases always start at COMMON. Legacy `currentRarity=MYTHIC` do
 New successful Daily rewards persist `lastDailyClaimMillis` at the server-confirmed grant moment and use a rolling 24-hour cooldown. The old `lastDailyClaimDay` is retained for backwards-clock protection and for legacy saves: when a timestamp is missing, an already-claimed UTC day stays blocked until its next UTC boundary. New saves preserve both fields. No reward or timer starts merely by opening the menu.
 
 These changes deliberately supersede contradictory intermediate R1/R2 mechanics. They are DEV-only and require new manual QA on the exact published SHA; no PROD promotion or final handoff before QA PASS.
+
+## R4 owner clarification — rollback available from rank 3 only
+
+Minecraft screenshot in the Offerings tab showed **MYTHIC** with `Откат недоступен: нет истории этой руны` on a partial 24/26 collection. The user requires server-authoritative **paid, confirmed per-rune rollback only from ADVANCED (#3) and MYTHIC (#4)**. COMMON (#1) and IMPROVED (#2) cannot roll back, even if a stale per-rune history entry exists.
+
+- ADVANCED → IMPROVED, MYTHIC → ADVANCED, always targeted, requiring same-rune double Ctrl+right-click and crystals; a replay nonce cannot spend twice.
+- Existing v1/v2 records without individual history remain eligible at rank >=3, regardless of collection progress or acquisition type; no inference from `rollbackOwned` and no collection-wide restore. A successful operation consumes any stale per-rune history for that rune.
+- Other rune ranks, enhancements, purchases and player data are not modified. UI flags and tooltip follow the same rank gate.
+- This R4 rule explicitly supersedes any earlier R1–R3 text requiring individual history to roll back or providing a Crystal-only MYTHIC exception.
+
+Manual Minecraft QA on the exact new DEV candidate is required. PROD untouched.
