@@ -87,6 +87,20 @@ final class UniqueRuneServiceTest {
         assertEquals(2, f.unique.load(PLAYER).collection(CollectionId.DAILY_COLLECTION).progress());
     }
 
+    @Test void dailyCannotClaimAgainWhenDayMovesBackwards() {
+        Fixture f = new Fixture();
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.claimDaily(PLAYER, 220L, 1L).code);
+        int before = f.unique.load(PLAYER).collection(CollectionId.DAILY_COLLECTION).progress();
+        assertEquals(UniqueRuneService.ResultCode.DAILY_ALREADY_CLAIMED,
+                f.service.claimDaily(PLAYER, 219L, 2L).code);
+        assertEquals(UniqueRuneService.ResultCode.DAILY_ALREADY_CLAIMED,
+                f.service.claimDaily(PLAYER, 220L, 3L).code);
+        assertEquals(before, f.unique.load(PLAYER).collection(CollectionId.DAILY_COLLECTION).progress());
+        assertEquals(220L, f.unique.load(PLAYER).lastDailyClaimDay);
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.claimDaily(PLAYER, 221L, 4L).code);
+    }
+
     @Test void offeringsDuplicateHasNoPearlCompensation() {
         Fixture f = new Fixture();
         f.offerings = new BigDecimal("1000");
