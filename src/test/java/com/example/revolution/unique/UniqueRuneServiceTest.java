@@ -113,7 +113,7 @@ final class UniqueRuneServiceTest {
         assertTrue(f.offerings.compareTo(afterFirst) < 0);
     }
 
-    @Test void awakeningAndRollbackAffectOnlySelectedRuneAcrossMixedRarities() {
+    @Test void crystalAwakenConsumesPriorTierAndRetainsEnhancement() {
         Fixture f = new Fixture();
         assertEquals(UniqueRuneService.ResultCode.INVALID,
                 f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 1L).code);
@@ -127,13 +127,13 @@ final class UniqueRuneServiceTest {
         assertEquals(UniqueRuneService.ResultCode.OK,
                 f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 2L).code);
         PlayerState awakened = f.unique.load(PLAYER);
-        assertEquals(26, awakened.collection(CollectionId.CRYSTAL_COLLECTION).progress());
+        assertEquals(1, awakened.collection(CollectionId.CRYSTAL_COLLECTION).progress());
         assertEquals(Rarity.IMPROVED, awakened.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
-        assertEquals(Rarity.COMMON, awakened.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_02"));
+        assertFalse(awakened.collection(CollectionId.CRYSTAL_COLLECTION).owned.containsKey("crystal_02"));
         assertEquals(5, awakened.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_02"));
         assertTrue(awakened.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_01"));
         assertFalse(awakened.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_02"));
-        assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
+        assertEquals(UniqueRuneService.ResultCode.INVALID,
                 f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_02", true, 3L).code);
         assertEquals(UniqueRuneService.ResultCode.CONFIRMATION_REQUIRED,
                 f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", false, 4L).code);
@@ -142,8 +142,8 @@ final class UniqueRuneServiceTest {
                 f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", true, 5L).code);
         PlayerState restored = f.unique.load(PLAYER);
         assertEquals(Rarity.COMMON, restored.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
-        assertEquals(Rarity.COMMON, restored.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_02"));
-        assertEquals(26, restored.collection(CollectionId.CRYSTAL_COLLECTION).progress());
+        assertFalse(restored.collection(CollectionId.CRYSTAL_COLLECTION).owned.containsKey("crystal_02"));
+        assertEquals(1, restored.collection(CollectionId.CRYSTAL_COLLECTION).progress());
         assertEquals(7, restored.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
         assertEquals(5, restored.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_02"));
         assertFalse(restored.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_01"));
@@ -164,13 +164,13 @@ final class UniqueRuneServiceTest {
         assertEquals(1, promoted.collection(CollectionId.OFFERINGS_COLLECTION).progress());
         assertEquals(Rarity.IMPROVED, promoted.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_05"));
         assertFalse(promoted.collection(CollectionId.OFFERINGS_COLLECTION).owned.containsKey("offerings_04"));
-        assertEquals(Rarity.IMPROVED, promoted.collection(CollectionId.OFFERINGS_COLLECTION).currentRarity);
+        assertEquals(Rarity.COMMON, promoted.collection(CollectionId.OFFERINGS_COLLECTION).currentRarity);
         assertTrue(promoted.collection(CollectionId.OFFERINGS_COLLECTION).canRollback("offerings_05"));
 
         f.offerings = new BigDecimal("1000");
         assertEquals(UniqueRuneService.ResultCode.OK,
                 f.service.purchaseOfferings(PLAYER, 2L).code);
-        assertEquals(Rarity.IMPROVED,
+        assertEquals(Rarity.COMMON,
                 f.unique.load(PLAYER).collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
 
         f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
@@ -178,7 +178,7 @@ final class UniqueRuneServiceTest {
                 f.service.rollback(PLAYER, CollectionId.OFFERINGS_COLLECTION, "offerings_05", true, 3L).code);
         PlayerState rolled = f.unique.load(PLAYER);
         assertEquals(Rarity.COMMON, rolled.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_05"));
-        assertEquals(Rarity.IMPROVED, rolled.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
+        assertEquals(Rarity.COMMON, rolled.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
         assertEquals(2, rolled.collection(CollectionId.OFFERINGS_COLLECTION).progress());
     }
 
@@ -200,6 +200,20 @@ final class UniqueRuneServiceTest {
         assertFalse(after.collection(CollectionId.OFFERINGS_COLLECTION).owned.containsKey("offerings_03"));
         assertEquals(Rarity.COMMON, after.collection(CollectionId.OFFERINGS_COLLECTION).runeRollback.get("offerings_02"));
         assertEquals(Rarity.COMMON, after.collection(CollectionId.OFFERINGS_COLLECTION).runeRollback.get("offerings_01"));
+    }
+
+    @Test void offeringsLegacyMythicAcquisitionTierDoesNotGrantNewMythicRuna() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        state.collection(CollectionId.OFFERINGS_COLLECTION).currentRarity = Rarity.MYTHIC;
+        state.collection(CollectionId.OFFERINGS_COLLECTION).owned.put("offerings_26", Rarity.MYTHIC);
+        f.unique.save(PLAYER, state);
+        f.offerings = new BigDecimal("1000");
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.purchaseOfferings(PLAYER, 1L).code);
+        PlayerState after = f.unique.load(PLAYER);
+        assertEquals(Rarity.COMMON, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
+        assertEquals(Rarity.MYTHIC, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_26"));
     }
 
     @Test void crystalFullMythicWithoutLegacyIndividualHistoryCanBeManuallyReset() {
