@@ -99,34 +99,78 @@ final class UniqueRuneServiceTest {
         assertTrue(f.offerings.compareTo(afterFirst) < 0);
     }
 
-    @Test void awakeningRequiresFullCollectionAndRollbackRestoresExactPriorState() {
+    @Test void awakeningAndRollbackAffectOnlySelectedRuneAcrossMixedRarities() {
         Fixture f = new Fixture();
         assertEquals(UniqueRuneService.ResultCode.NOT_READY,
                 f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 1L).code);
-
         PlayerState state = f.unique.load(PLAYER);
         for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.CRYSTAL_COLLECTION).runes)
             state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
         state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_01", 7);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_02", 5);
         f.unique.save(PLAYER, state);
 
         assertEquals(UniqueRuneService.ResultCode.OK,
                 f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 2L).code);
         PlayerState awakened = f.unique.load(PLAYER);
-        assertEquals(Rarity.IMPROVED, awakened.collection(CollectionId.CRYSTAL_COLLECTION).currentRarity);
-        assertEquals(1, awakened.collection(CollectionId.CRYSTAL_COLLECTION).progress());
-        assertEquals(7, awakened.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
-
+        assertEquals(26, awakened.collection(CollectionId.CRYSTAL_COLLECTION).progress());
+        assertEquals(Rarity.IMPROVED, awakened.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
+        assertEquals(Rarity.COMMON, awakened.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_02"));
+        assertEquals(5, awakened.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_02"));
+        assertTrue(awakened.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_01"));
+        assertFalse(awakened.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_02"));
+        assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
+                f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_02", true, 3L).code);
         assertEquals(UniqueRuneService.ResultCode.CONFIRMATION_REQUIRED,
-                f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, false, 3L).code);
+                f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", false, 4L).code);
         f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
         assertEquals(UniqueRuneService.ResultCode.OK,
-                f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, true, 4L).code);
+                f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", true, 5L).code);
         PlayerState restored = f.unique.load(PLAYER);
-        assertEquals(Rarity.COMMON, restored.collection(CollectionId.CRYSTAL_COLLECTION).currentRarity);
+        assertEquals(Rarity.COMMON, restored.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
+        assertEquals(Rarity.COMMON, restored.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_02"));
         assertEquals(26, restored.collection(CollectionId.CRYSTAL_COLLECTION).progress());
         assertEquals(7, restored.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
-        assertNull(restored.collection(CollectionId.CRYSTAL_COLLECTION).rollbackRarity);
+        assertEquals(5, restored.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_02"));
+        assertFalse(restored.collection(CollectionId.CRYSTAL_COLLECTION).canRollback("crystal_01"));
+        assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
+                f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", true, 6L).code);
+    }
+
+    @Test void legacyCollectionRollbackIsNeverAppliedToAnIndividualRune() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        state.collection(CollectionId.DAILY_COLLECTION).owned.put("daily_01", Rarity.IMPROVED);
+        state.collection(CollectionId.DAILY_COLLECTION).rollbackRarity = Rarity.COMMON;
+        state.collection(CollectionId.DAILY_COLLECTION).rollbackOwned.put("daily_01", Rarity.COMMON);
+        state.collection(CollectionId.DAILY_COLLECTION).rollbackOwned.put("daily_02", Rarity.COMMON);
+        f.unique.save(PLAYER, state);
+        f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
+        BigDecimal before = f.resources.getPlayerResourceValue(PLAYER, "crystals");
+        assertEquals(UniqueRuneService.ResultCode.NO_ROLLBACK,
+                f.service.rollback(PLAYER, CollectionId.DAILY_COLLECTION, "daily_01", true, 1L).code);
+        assertEquals(before, f.resources.getPlayerResourceValue(PLAYER, "crystals"));
+        assertEquals(1, f.unique.load(PLAYER).collection(CollectionId.DAILY_COLLECTION).owned.size());
+        assertFalse(f.unique.load(PLAYER).collection(CollectionId.DAILY_COLLECTION).owned.containsKey("daily_02"));
+    }
+
+    @Test void independentPlayersAndNonceIsolation() {
+        Fixture f = new Fixture();
+        UUID second = UUID.fromString("00000000-0000-0000-0000-000000000212");
+        for (UUID player : new UUID[]{PLAYER, second}) {
+            PlayerState state = f.unique.load(player);
+            for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.DAILY_COLLECTION).runes)
+                state.collection(CollectionId.DAILY_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+            f.unique.save(player, state);
+        }
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.awaken(PLAYER, CollectionId.DAILY_COLLECTION, "daily_01", 1L).code);
+        assertEquals(UniqueRuneService.ResultCode.REPLAYED,
+                f.service.awaken(PLAYER, CollectionId.DAILY_COLLECTION, "daily_02", 1L).code);
+        assertEquals(Rarity.IMPROVED, f.unique.load(PLAYER).collection(CollectionId.DAILY_COLLECTION).owned.get("daily_01"));
+        assertEquals(Rarity.COMMON, f.unique.load(second).collection(CollectionId.DAILY_COLLECTION).owned.get("daily_01"));
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.awaken(second, CollectionId.DAILY_COLLECTION, "daily_02", 1L).code);
     }
 
     @Test void onlyOwnedRuneCanBeSharedAndEnhancementIsCrystalOnly() {
