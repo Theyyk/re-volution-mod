@@ -178,8 +178,17 @@ public final class UniqueRuneService {
         Rarity previous = collection.owned.get(promotedRuneId);
         Rarity next = previous.nextGameplay();
         if (next == previous) return Result.of(ResultCode.MAX_RARITY);
-        // One rune's change must never clear/repopulate another rune's ownership or enhancement.
         collection.runeRollback.put(promotedRuneId, previous);
+        // Offerings uses a collection-tier cycle: the 26 runes of the completed lower
+        // tier are consumed when one chosen rune is promoted to the new tier.
+        // Crystal and Daily retain independent ownership with no collection-wide wipe.
+        if (id == CollectionId.OFFERINGS_COLLECTION) {
+            collection.owned.clear();
+            collection.currentRarity = next;
+            // An older tier's per-rune rollback entries no longer point to owned runes.
+            collection.runeRollback.clear();
+            collection.runeRollback.put(promotedRuneId, previous);
+        }
         collection.owned.put(promotedRuneId, next);
         repository.save(playerUuid, state); factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_AWAKENED, id, promotedRuneId); return Result.grant(promotedRuneId);
     }
@@ -195,6 +204,13 @@ public final class UniqueRuneService {
         Rarity current = collection.owned.get(runeId);
         if (current == null) return Result.of(ResultCode.INVALID);
         Rarity previous = collection.runeRollback.get(runeId);
+        // A deliberate Crystal-only reset is available at the MYTHIC cap even for
+        // migrated v1 saves without per-rune history. This is a NEW downgrade,
+        // not a reconstruction of ambiguous legacy rollbackOwned data.
+        boolean crystalMythicReset = id == CollectionId.CRYSTAL_COLLECTION
+                && current == Rarity.MYTHIC && previous == null
+                && collection.progress() == UniqueRuneModel.RUNES_PER_COLLECTION;
+        if (crystalMythicReset) previous = Rarity.ADVANCED;
         if (previous == null || current.previous() != previous) return Result.of(ResultCode.NO_ROLLBACK);
         BigDecimal cost = policy.rollbackCrystalCost(id);
         if (!resources.spendPlayerResource(playerUuid, "crystals", cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
