@@ -183,10 +183,17 @@ public final class UniqueRuneService {
         // tier are consumed when one chosen rune is promoted to the new tier.
         // Crystal and Daily retain independent ownership with no collection-wide wipe.
         if (id == CollectionId.OFFERINGS_COLLECTION) {
-            collection.owned.clear();
-            collection.currentRarity = next;
-            // An older tier's per-rune rollback entries no longer point to owned runes.
-            collection.runeRollback.clear();
+            // Consume only the completed rank. Independently promoted runes
+            // at other ranks remain owned and retain their rollback history.
+            List<String> consumed = new ArrayList<>();
+            for (Map.Entry<String, Rarity> owned : collection.owned.entrySet())
+                if (owned.getValue() == previous) consumed.add(owned.getKey());
+            for (String runeId : consumed) {
+                collection.owned.remove(runeId);
+                collection.runeRollback.remove(runeId);
+            }
+            if (collection.currentRarity.persistentId < next.persistentId)
+                collection.currentRarity = next;
             collection.runeRollback.put(promotedRuneId, previous);
         }
         collection.owned.put(promotedRuneId, next);
