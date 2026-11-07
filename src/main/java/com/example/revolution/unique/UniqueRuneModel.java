@@ -142,12 +142,14 @@ public final class UniqueRuneModel {
     public static final class PlayerState {
         public final Map<CollectionId, CollectionState> collections = new EnumMap<>(CollectionId.class);
         public long lastDailyClaimDay = Long.MIN_VALUE;
+        /** UTC epoch millis of a confirmed successful daily grant; absent for legacy saves. */
+        public long lastDailyClaimMillis = Long.MIN_VALUE;
         public PlayerState() { for (CollectionId id : CollectionId.values()) collections.put(id, new CollectionState()); }
         public CollectionState collection(CollectionId id) { return collections.get(id); }
         public PlayerState copy() {
             PlayerState copy = new PlayerState(); copy.collections.clear();
             for (Map.Entry<CollectionId, CollectionState> entry : collections.entrySet()) copy.collections.put(entry.getKey(), entry.getValue().copy());
-            copy.lastDailyClaimDay = lastDailyClaimDay; return copy;
+            copy.lastDailyClaimDay = lastDailyClaimDay; copy.lastDailyClaimMillis = lastDailyClaimMillis; return copy;
         }
     }
 
