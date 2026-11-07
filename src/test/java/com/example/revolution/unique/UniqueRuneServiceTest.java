@@ -182,6 +182,26 @@ final class UniqueRuneServiceTest {
         assertEquals(2, rolled.collection(CollectionId.OFFERINGS_COLLECTION).progress());
     }
 
+    @Test void offeringsTierConsumptionPreservesOtherRankAndTargetedHistory() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.OFFERINGS_COLLECTION).runes)
+            state.collection(CollectionId.OFFERINGS_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+        state.collection(CollectionId.OFFERINGS_COLLECTION).owned.put("offerings_02", Rarity.IMPROVED);
+        state.collection(CollectionId.OFFERINGS_COLLECTION).runeRollback.put("offerings_02", Rarity.COMMON);
+        f.unique.save(PLAYER, state);
+
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.awaken(PLAYER, CollectionId.OFFERINGS_COLLECTION, "offerings_01", 1L).code);
+        PlayerState after = f.unique.load(PLAYER);
+        assertEquals(2, after.collection(CollectionId.OFFERINGS_COLLECTION).progress());
+        assertEquals(Rarity.IMPROVED, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
+        assertEquals(Rarity.IMPROVED, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_02"));
+        assertFalse(after.collection(CollectionId.OFFERINGS_COLLECTION).owned.containsKey("offerings_03"));
+        assertEquals(Rarity.COMMON, after.collection(CollectionId.OFFERINGS_COLLECTION).runeRollback.get("offerings_02"));
+        assertEquals(Rarity.COMMON, after.collection(CollectionId.OFFERINGS_COLLECTION).runeRollback.get("offerings_01"));
+    }
+
     @Test void crystalFullMythicWithoutLegacyIndividualHistoryCanBeManuallyReset() {
         Fixture f = new Fixture();
         PlayerState state = f.unique.load(PLAYER);
