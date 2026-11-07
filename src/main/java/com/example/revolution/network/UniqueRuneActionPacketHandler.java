@@ -35,7 +35,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         else if ("daily".equals(action)) services.uniqueRunes.claimDaily(player.getUniqueID(), System.currentTimeMillis() / 86400000L, request.getRequestNonce());
         else if ("enhance".equals(action)) services.uniqueRunes.enhance(player.getUniqueID(), request.getRequestNonce());
         else if ("awaken".equals(action) && collection != null) services.uniqueRunes.awaken(player.getUniqueID(), collection, request.getRuneId(), request.getRequestNonce());
-        else if ("rollback".equals(action) && collection != null) services.uniqueRunes.rollback(player.getUniqueID(), collection, request.isConfirmed(), request.getRequestNonce());
+        else if ("rollback".equals(action) && collection != null) services.uniqueRunes.rollback(player.getUniqueID(), collection, request.getRuneId(), request.isConfirmed(), request.getRequestNonce());
         else if ("share".equals(action) && collection != null) { share(player, services, collection, request.getRuneId()); return; }
         else return;
         sendSnapshot(player, services, crystalRoll);
@@ -55,14 +55,20 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
             UniqueRuneSnapshotPacket.Collection out = new UniqueRuneSnapshotPacket.Collection();
             out.collectionId = id.name(); out.rarity = collection.currentRarity.name(); out.progress = collection.progress();
             out.unlocked = services.uniqueRunes.isUnlocked(player.getUniqueID(), id);
-            out.canAwaken = collection.progress() == UniqueRuneModel.RUNES_PER_COLLECTION && collection.currentRarity != UniqueRuneModel.Rarity.MYTHIC;
-            out.canRollback = collection.rollbackRarity != null; collections.add(out);
+            out.canAwaken = false; out.canRollback = false;
+            for (String ownedId : collection.owned.keySet()) {
+                out.canAwaken |= collection.canAwaken(ownedId);
+                out.canRollback |= collection.canRollback(ownedId);
+            }
+            collections.add(out);
             UniqueRuneModel.CollectionDefinition definition = services.uniqueRunePolicy.definition(id);
             for (Map.Entry<String, UniqueRuneModel.Rarity> owned : collection.owned.entrySet()) {
                 UniqueRuneModel.RuneDefinition rune = definition.rune(owned.getKey()); if (rune == null) continue;
                 UniqueRuneService.SharePayload payload = services.uniqueRunes.share(player.getUniqueID(), id, rune.runeId); if (payload == null) continue;
                 UniqueRuneSnapshotPacket.Entry entry = new UniqueRuneSnapshotPacket.Entry(); entry.collectionId = id.name(); entry.runeId = rune.runeId;
                 entry.name = rune.displayName; entry.rarity = owned.getValue().name(); entry.enhancement = payload.enhancement;
+                entry.canAwaken = collection.canAwaken(rune.runeId) && out.unlocked;
+                entry.canRollback = collection.canRollback(rune.runeId) && out.unlocked;
                 entry.enhancementPearlCost = id == UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION
                         ? exact(services.uniqueRunePolicy.enhancementPearlCost(rune.runeId, payload.enhancement)) : "0";
                 entry.effects = effectText(payload.effects); entries.add(entry);
