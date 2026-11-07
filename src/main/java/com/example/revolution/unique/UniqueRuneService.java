@@ -121,23 +121,42 @@ public final class UniqueRuneService {
         BigDecimal cost = policy.offeringsPurchaseCost(); if (!offerings.spend(playerUuid, cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
         RuneDefinition rune = roll(policy.definition(CollectionId.OFFERINGS_COLLECTION).runes);
         boolean duplicate = collection.ownsAtCurrent(rune.runeId);
-        if (!duplicate) collection.owned.put(rune.runeId, collection.currentRarity);
+        if (!duplicate) collection.owned.put(rune.runeId, Rarity.COMMON);
         repository.save(playerUuid, state);
         factual(playerUuid, duplicate ? GameplayEventType.UNIQUE_RUNE_DUPLICATE : GameplayEventType.UNIQUE_RUNE_OBTAINED,
                 CollectionId.OFFERINGS_COLLECTION, rune.runeId);
         return duplicate ? Result.duplicate(rune.runeId, BigDecimal.ZERO) : Result.grant(rune.runeId);
     }
 
+    /** Production grants use exact server time, not time elapsed since page open. */
+    public synchronized Result claimDailyAtMillis(UUID playerUuid, long nowMillis, long requestNonce) {
+        if (nowMillis < 0L) return Result.of(ResultCode.INVALID);
+        return claimDailyInternal(playerUuid, Math.floorDiv(nowMillis, 86400000L), nowMillis, requestNonce);
+    }
+
+    /** UTC-day compatibility entry point used by historic callers and fixtures. */
     public synchronized Result claimDaily(UUID playerUuid, long epochDay, long requestNonce) {
+        return claimDailyInternal(playerUuid, epochDay, epochDay * 86400000L, requestNonce);
+    }
+
+    private Result claimDailyInternal(UUID playerUuid, long epochDay, long nowMillis, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.DAILY_COLLECTION)) return Result.of(ResultCode.LOCKED);
-        PlayerState state = repository.load(playerUuid); // Never permit a second grant when the clock moves backwards or the request day is replayed.
+        PlayerState state = repository.load(playerUuid);
+        // Older data has only a UTC day; do not grant twice on that same day.
         if (state.lastDailyClaimDay >= epochDay) return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
+        if (state.lastDailyClaimMillis != Long.MIN_VALUE
+                && nowMillis - state.lastDailyClaimMillis < 86400000L)
+            return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
         CollectionState collection = state.collection(CollectionId.DAILY_COLLECTION);
         List<RuneDefinition> eligible = new ArrayList<>();
-        for (RuneDefinition rune : policy.definition(CollectionId.DAILY_COLLECTION).runes) if (!collection.ownsAtCurrent(rune.runeId)) eligible.add(rune);
+        for (RuneDefinition rune : policy.definition(CollectionId.DAILY_COLLECTION).runes)
+            if (!collection.ownsAtCurrent(rune.runeId)) eligible.add(rune);
         if (eligible.isEmpty()) return Result.of(ResultCode.COMPLETE);
-        RuneDefinition rune = roll(eligible); collection.owned.put(rune.runeId, collection.currentRarity); state.lastDailyClaimDay = epochDay;
+        RuneDefinition rune = roll(eligible);
+        collection.owned.put(rune.runeId, collection.currentRarity);
+        state.lastDailyClaimDay = epochDay;
+        state.lastDailyClaimMillis = nowMillis; // commit only after actual successful reward selection
         repository.save(playerUuid, state);
         resources.grantEarnedPlayerResource(playerUuid, policy.dailyExtraResource(), policy.dailyExtraAmount());
         factual(playerUuid, GameplayEventType.UNIQUE_RUNE_OBTAINED, CollectionId.DAILY_COLLECTION, rune.runeId);
@@ -178,13 +197,10 @@ public final class UniqueRuneService {
         Rarity previous = collection.owned.get(promotedRuneId);
         Rarity next = previous.nextGameplay();
         if (next == previous) return Result.of(ResultCode.MAX_RARITY);
-        collection.runeRollback.put(promotedRuneId, previous);
-        // Offerings uses a collection-tier cycle: the 26 runes of the completed lower
-        // tier are consumed when one chosen rune is promoted to the new tier.
-        // Crystal and Daily retain independent ownership with no collection-wide wipe.
-        if (id == CollectionId.OFFERINGS_COLLECTION) {
-            // Consume only the completed rank. Independently promoted runes
-            // at other ranks remain owned and retain their rollback history.
+        // Crystal and Offerings consume the completed lower-rarity cohort.
+        // Keep any rune with a different factual rank, plus its enhancement
+        // and rollback history. Daily continues to use independent ownership.
+        if (id == CollectionId.CRYSTAL_COLLECTION || id == CollectionId.OFFERINGS_COLLECTION) {
             List<String> consumed = new ArrayList<>();
             for (Map.Entry<String, Rarity> owned : collection.owned.entrySet())
                 if (owned.getValue() == previous) consumed.add(owned.getKey());
@@ -192,10 +208,11 @@ public final class UniqueRuneService {
                 collection.owned.remove(runeId);
                 collection.runeRollback.remove(runeId);
             }
-            if (collection.currentRarity.persistentId < next.persistentId)
-                collection.currentRarity = next;
-            collection.runeRollback.put(promotedRuneId, previous);
+            // Acquisition always starts from COMMON after a tier is consumed.
+            // Do not promote the legacy acquisition tier to MYTHIC.
+            collection.currentRarity = Rarity.COMMON;
         }
+        collection.runeRollback.put(promotedRuneId, previous);
         collection.owned.put(promotedRuneId, next);
         repository.save(playerUuid, state); factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_AWAKENED, id, promotedRuneId); return Result.grant(promotedRuneId);
     }

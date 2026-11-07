@@ -32,7 +32,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         UniqueRuneService.Result crystalRoll = null;
         if ("purchase_crystal".equals(action)) crystalRoll = services.uniqueRunes.purchaseCrystal(player.getUniqueID(), request.getRequestNonce());
         else if ("purchase_offerings".equals(action)) services.uniqueRunes.purchaseOfferings(player.getUniqueID(), request.getRequestNonce());
-        else if ("daily".equals(action)) services.uniqueRunes.claimDaily(player.getUniqueID(), System.currentTimeMillis() / 86400000L, request.getRequestNonce());
+        else if ("daily".equals(action)) services.uniqueRunes.claimDailyAtMillis(player.getUniqueID(), System.currentTimeMillis(), request.getRequestNonce());
         else if ("enhance".equals(action)) services.uniqueRunes.enhance(player.getUniqueID(), request.getRequestNonce());
         else if ("awaken".equals(action) && collection != null) services.uniqueRunes.awaken(player.getUniqueID(), collection, request.getRuneId(), request.getRequestNonce());
         else if ("rollback".equals(action) && collection != null) services.uniqueRunes.rollback(player.getUniqueID(), collection, request.getRuneId(), request.isConfirmed(), request.getRequestNonce());
@@ -74,12 +74,16 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 entry.effects = effectText(payload.effects); entries.add(entry);
             }
         }
+        long nowMillis = System.currentTimeMillis();
+        long nextDaily = state.lastDailyClaimMillis != Long.MIN_VALUE
+                ? state.lastDailyClaimMillis + 86400000L
+                : state.lastDailyClaimDay >= nowMillis / 86400000L
+                        ? (state.lastDailyClaimDay + 1L) * 86400000L : 0L;
         UniqueRuneSnapshotPacket snapshot = new UniqueRuneSnapshotPacket(entries, collections,
                 exact(services.uniqueRunes.pearlBalance(player.getUniqueID())), exact(services.uniqueRunes.crystalBalance(player.getUniqueID())),
                 exact(services.uniqueRunes.offeringsBalance(player.getUniqueID())), exact(services.uniqueRunePolicy.crystalPurchaseCost()),
                 exact(services.uniqueRunePolicy.offeringsPurchaseCost()), services.uniqueRunePolicy.zbtStatus(),
-                state.lastDailyClaimDay >= System.currentTimeMillis() / 86400000L
-                        ? (state.lastDailyClaimDay + 1L) * 86400000L : 0L);
+                nextDaily > nowMillis ? nextDaily : 0L);
         snapshot.setDailyExtraReward(services.uniqueRunePolicy.dailyExtraResource(),
                 exact(services.uniqueRunePolicy.dailyExtraAmount()));
         snapshot.setCrystalEnhancementCost(exact(services.uniqueRunePolicy.enhancementPearlCost("", 0)));

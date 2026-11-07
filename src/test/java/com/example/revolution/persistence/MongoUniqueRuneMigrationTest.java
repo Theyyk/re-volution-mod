@@ -77,6 +77,21 @@ final class MongoUniqueRuneMigrationTest {
         assertEquals(Rarity.ADVANCED, loaded.collection(CollectionId.DAILY_COLLECTION).owned.get("daily_02"));
     }
 
+    @Test void confirmedDailyTimestampRoundTripsAndLegacyDayRemainsReadable() {
+        UniqueRuneModel.PlayerState state = new UniqueRuneModel.PlayerState();
+        state.lastDailyClaimDay = 30001L;
+        state.lastDailyClaimMillis = 30001L * 86400000L + 43200000L;
+        Document encoded = MongoUniqueRuneRepository.encode(state);
+        UniqueRuneModel.PlayerState restored = MongoUniqueRuneRepository.decode(encoded);
+        assertEquals(state.lastDailyClaimDay, restored.lastDailyClaimDay);
+        assertEquals(state.lastDailyClaimMillis, restored.lastDailyClaimMillis);
+        assertEquals(encoded, MongoUniqueRuneRepository.encode(restored));
+
+        UniqueRuneModel.PlayerState legacy = MongoUniqueRuneRepository.decode(v1(1, "COMMON", false));
+        assertEquals(12345L, legacy.lastDailyClaimDay);
+        assertEquals(Long.MIN_VALUE, legacy.lastDailyClaimMillis);
+    }
+
     @Test void futureSchemaAndDuplicateOwnershipFailClosed() {
         Document future = v1(1, "COMMON", false).append("schemaVersion", 999);
         assertThrows(IllegalStateException.class, () -> MongoUniqueRuneRepository.decode(future));
