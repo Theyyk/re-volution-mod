@@ -101,6 +101,22 @@ final class UniqueRuneServiceTest {
                 f.service.claimDaily(PLAYER, 221L, 4L).code);
     }
 
+    @Test void dailyCooldownStartsOnConfirmedGrantNotAtUtcReset() {
+        Fixture f = new Fixture();
+        long first = 150L * 86400000L + 23L * 3600000L;
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.claimDailyAtMillis(PLAYER, first, 1L).code);
+        assertEquals(first, f.unique.load(PLAYER).lastDailyClaimMillis);
+        assertEquals(UniqueRuneService.ResultCode.DAILY_ALREADY_CLAIMED,
+                f.service.claimDailyAtMillis(PLAYER, first + 2L * 3600000L, 2L).code);
+        assertEquals(1, f.unique.load(PLAYER).collection(CollectionId.DAILY_COLLECTION).progress());
+        assertEquals(UniqueRuneService.ResultCode.DAILY_ALREADY_CLAIMED,
+                f.service.claimDailyAtMillis(PLAYER, first + 86399999L, 3L).code);
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.claimDailyAtMillis(PLAYER, first + 86400000L, 4L).code);
+        assertEquals(first + 86400000L, f.unique.load(PLAYER).lastDailyClaimMillis);
+    }
+
     @Test void offeringsDuplicateHasNoPearlCompensation() {
         Fixture f = new Fixture();
         f.offerings = new BigDecimal("1000");
