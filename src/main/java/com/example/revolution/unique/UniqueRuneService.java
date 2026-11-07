@@ -131,7 +131,8 @@ public final class UniqueRuneService {
     public synchronized Result claimDaily(UUID playerUuid, long epochDay, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.DAILY_COLLECTION)) return Result.of(ResultCode.LOCKED);
-        PlayerState state = repository.load(playerUuid); if (state.lastDailyClaimDay == epochDay) return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
+        PlayerState state = repository.load(playerUuid); // Never permit a second grant when the clock moves backwards or the request day is replayed.
+        if (state.lastDailyClaimDay >= epochDay) return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
         CollectionState collection = state.collection(CollectionId.DAILY_COLLECTION);
         List<RuneDefinition> eligible = new ArrayList<>();
         for (RuneDefinition rune : policy.definition(CollectionId.DAILY_COLLECTION).runes) if (!collection.ownsAtCurrent(rune.runeId)) eligible.add(rune);
@@ -177,8 +178,24 @@ public final class UniqueRuneService {
         Rarity previous = collection.owned.get(promotedRuneId);
         Rarity next = previous.nextGameplay();
         if (next == previous) return Result.of(ResultCode.MAX_RARITY);
-        // One rune's change must never clear/repopulate another rune's ownership or enhancement.
         collection.runeRollback.put(promotedRuneId, previous);
+        // Offerings uses a collection-tier cycle: the 26 runes of the completed lower
+        // tier are consumed when one chosen rune is promoted to the new tier.
+        // Crystal and Daily retain independent ownership with no collection-wide wipe.
+        if (id == CollectionId.OFFERINGS_COLLECTION) {
+            // Consume only the completed rank. Independently promoted runes
+            // at other ranks remain owned and retain their rollback history.
+            List<String> consumed = new ArrayList<>();
+            for (Map.Entry<String, Rarity> owned : collection.owned.entrySet())
+                if (owned.getValue() == previous) consumed.add(owned.getKey());
+            for (String runeId : consumed) {
+                collection.owned.remove(runeId);
+                collection.runeRollback.remove(runeId);
+            }
+            if (collection.currentRarity.persistentId < next.persistentId)
+                collection.currentRarity = next;
+            collection.runeRollback.put(promotedRuneId, previous);
+        }
         collection.owned.put(promotedRuneId, next);
         repository.save(playerUuid, state); factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_AWAKENED, id, promotedRuneId); return Result.grant(promotedRuneId);
     }
@@ -194,6 +211,13 @@ public final class UniqueRuneService {
         Rarity current = collection.owned.get(runeId);
         if (current == null) return Result.of(ResultCode.INVALID);
         Rarity previous = collection.runeRollback.get(runeId);
+        // A deliberate Crystal-only reset is available at the MYTHIC cap even for
+        // migrated v1 saves without per-rune history. This is a NEW downgrade,
+        // not a reconstruction of ambiguous legacy rollbackOwned data.
+        boolean crystalMythicReset = id == CollectionId.CRYSTAL_COLLECTION
+                && current == Rarity.MYTHIC && previous == null
+                && collection.progress() == UniqueRuneModel.RUNES_PER_COLLECTION;
+        if (crystalMythicReset) previous = Rarity.ADVANCED;
         if (previous == null || current.previous() != previous) return Result.of(ResultCode.NO_ROLLBACK);
         BigDecimal cost = policy.rollbackCrystalCost(id);
         if (!resources.spendPlayerResource(playerUuid, "crystals", cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);

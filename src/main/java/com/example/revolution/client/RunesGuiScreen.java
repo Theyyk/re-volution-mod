@@ -935,10 +935,16 @@ public class RunesGuiScreen extends GuiScreen {
             tooltip.add("§7" + rune.rarity + " +" + rune.enhancement);
             tooltip.add(localizeUniqueEffects(rune.effects));
             UniqueRuneSnapshotPacket.Collection state = uniqueState();
-            if (state != null && state.canAwaken) tooltip.add("§7ЛКМ: пробудить");
+            if (rune.canAwaken) tooltip.add("§7ЛКМ: пробудить");
+            else if ("MYTHIC".equals(rune.rarity))
+                tooltip.add("§8MYTHIC — максимальный доступный ранг");
+            else if (state != null && state.progress < VISIBLE_RUNE_SLOTS)
+                tooltip.add("§8Пробуждение: требуется 26/26 рун");
             tooltip.add("§7Ctrl+ЛКМ: поделиться в чат");
-            if (state != null && state.canRollback) tooltip.add("§7Ctrl+ПКМ: откат"
+            if (rune.canRollback) tooltip.add("§7Ctrl+ПКМ: откат"
                     + " (повторить на той же руне)");
+            else if ("MYTHIC".equals(rune.rarity))
+                tooltip.add("§8Откат недоступен: нет истории этой руны");
             drawCanvasTooltip(tooltip, x, y);
             return;
         }

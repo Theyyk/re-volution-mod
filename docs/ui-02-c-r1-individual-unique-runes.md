@@ -27,3 +27,11 @@ Scope: Issue #314, branch `feature/v2.13.0-ui-02-c-r1-individual-unique-runes`. 
 
 ## Release gates
 Fixtures and tests, exact-head CI, ordinary merge, post-merge CI and DEV publication are separate checks. Legacy DEV data backup/readability and copy-test are hard blockers before any real-data migration. Minecraft Manual QA on the published DEV build remains a separate required gate; NOT TESTED is not PASS. No final handoff until manual PASS.
+
+## QA follow-up R2 — owner-approved DEV rules (2026-11-07)
+- DEV save backup requirement waived by owner. No PROD operations.
+- **Offerings collection tier cycle:** after acquiring all 26 at a tier, clicking one rune to awaken consumes that tier's owned set and leaves the selected rune alone at the next tier. The next purchases use `currentRarity` (the newly promoted tier). Previous lower-tier runes are not active/owned afterward. This is an explicit owner change from the initial R1 non-destructive invariant, scoped **only to Offerings**, not Crystal or Daily.
+- **Offerings targeted rollback:** only the selected newly awakened rune moves one rank down; it does NOT restore the 25 consumed runes, and the acquisition tier stays at its promoted tier. Mixed owned rarities are possible afterward. Confirm in Manual QA.
+- **Crystal MYTHIC legacy reset:** MYTHIC remains maximum tier, so awakening cannot exceed MYTHIC. When all 26 Crystal runes are owned and a MYTHIC rune has no individual rollback history, a confirmed Ctrl+right-click is a **new explicit paid reset** to ADVANCED for that rune only. The operation does not claim to reconstruct historical v1 `rollbackOwned`, which remains diagnostic only. The owner can then reawaken that rune to MYTHIC. Other rune rarities and enhancements remain intact. No such fallback is allowed for Daily/Offerings.
+- **Daily UTC guard:** same or earlier `epochDay` is blocked; reconnect and clock reversal must not issue a duplicate.
+- All behaviors require exact-head automated tests and post-publication Minecraft Manual QA. Existing v1/v2 data under PROD remains untouched.

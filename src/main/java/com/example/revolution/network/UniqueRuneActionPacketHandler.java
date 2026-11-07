@@ -58,7 +58,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
             out.canAwaken = false; out.canRollback = false;
             for (String ownedId : collection.owned.keySet()) {
                 out.canAwaken |= collection.canAwaken(ownedId);
-                out.canRollback |= collection.canRollback(ownedId);
+                out.canRollback |= canRollback(id, collection, ownedId);
             }
             collections.add(out);
             UniqueRuneModel.CollectionDefinition definition = services.uniqueRunePolicy.definition(id);
@@ -68,7 +68,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 UniqueRuneSnapshotPacket.Entry entry = new UniqueRuneSnapshotPacket.Entry(); entry.collectionId = id.name(); entry.runeId = rune.runeId;
                 entry.name = rune.displayName; entry.rarity = owned.getValue().name(); entry.enhancement = payload.enhancement;
                 entry.canAwaken = collection.canAwaken(rune.runeId) && out.unlocked;
-                entry.canRollback = collection.canRollback(rune.runeId) && out.unlocked;
+                entry.canRollback = canRollback(id, collection, rune.runeId) && out.unlocked;
                 entry.enhancementPearlCost = id == UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION
                         ? exact(services.uniqueRunePolicy.enhancementPearlCost(rune.runeId, payload.enhancement)) : "0";
                 entry.effects = effectText(payload.effects); entries.add(entry);
@@ -78,7 +78,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 exact(services.uniqueRunes.pearlBalance(player.getUniqueID())), exact(services.uniqueRunes.crystalBalance(player.getUniqueID())),
                 exact(services.uniqueRunes.offeringsBalance(player.getUniqueID())), exact(services.uniqueRunePolicy.crystalPurchaseCost()),
                 exact(services.uniqueRunePolicy.offeringsPurchaseCost()), services.uniqueRunePolicy.zbtStatus(),
-                state.lastDailyClaimDay == System.currentTimeMillis() / 86400000L
+                state.lastDailyClaimDay >= System.currentTimeMillis() / 86400000L
                         ? (state.lastDailyClaimDay + 1L) * 86400000L : 0L);
         snapshot.setDailyExtraReward(services.uniqueRunePolicy.dailyExtraResource(),
                 exact(services.uniqueRunePolicy.dailyExtraAmount()));
@@ -86,6 +86,14 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         if (crystalRoll != null && crystalRoll.ok())
             snapshot.setLastCrystalRoll(crystalRoll.runeId, crystalRoll.duplicate, exact(crystalRoll.compensation));
         NetworkHandler.sendToClient(snapshot, player);
+    }
+
+    private static boolean canRollback(UniqueRuneModel.CollectionId id,
+                                       UniqueRuneModel.CollectionState collection, String runeId) {
+        return collection.canRollback(runeId)
+                || (id == UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION
+                    && collection.progress() == UniqueRuneModel.RUNES_PER_COLLECTION
+                    && collection.owned.get(runeId) == UniqueRuneModel.Rarity.MYTHIC);
     }
 
     private static void share(EntityPlayerMP player, ServerServices services, UniqueRuneModel.CollectionId collection, String runeId) {
