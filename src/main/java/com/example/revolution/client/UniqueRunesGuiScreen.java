@@ -70,10 +70,10 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
         } else if (button.id == AWAKEN) {
             rollbackArmed = false;
             List<UniqueRuneSnapshotPacket.Entry> entries = ClientUniqueRunes.entriesFor(collection);
-            if (!entries.isEmpty()) ClientUniqueRunes.action("awaken", collection, entries.get(0).runeId, false);
+            // No implicit first-rune awakening in this alternate UI: E-menu handles explicit selected runes.
         } else if (button.id == ROLLBACK) {
             if (!rollbackArmed) { rollbackArmed = true; return; }
-            ClientUniqueRunes.action("rollback", collection, "", true);
+            // Never emit an untargeted rollback; E-menu enforces two gestures on the same tile.
             rollbackArmed = false;
         }
     }
@@ -194,10 +194,10 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
                 button.enabled = state != null && state.unlocked && affordable;
                 button.displayString = "DAILY_COLLECTION".equals(collection) ? "Ежедневная награда" : "Купить руну";
             } else if (button.id == AWAKEN) {
-                button.enabled = state != null && state.unlocked && state.canAwaken && !owned.isEmpty();
+                button.enabled = false; // Targeted awakening is available through RunesGuiScreen only.
                 button.displayString = "Пробудить";
             } else if (button.id == ROLLBACK) {
-                button.enabled = state != null && state.unlocked && state.canRollback;
+                button.enabled = false; // Targeted rollback is available through RunesGuiScreen only.
                 button.displayString = rollbackArmed ? "ПОДТВЕРДИТЬ ОТКАТ" : "Откат";
             }
         }
