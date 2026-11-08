@@ -34,7 +34,25 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         else if ("purchase_offerings".equals(action)) services.uniqueRunes.purchaseOfferings(player.getUniqueID(), request.getRequestNonce());
         else if ("daily".equals(action)) services.uniqueRunes.claimDailyAtMillis(player.getUniqueID(), System.currentTimeMillis(), request.getRequestNonce());
         else if ("enhance".equals(action)) services.uniqueRunes.enhance(player.getUniqueID(), request.getRequestNonce());
-        else if ("awaken".equals(action) && collection != null) services.uniqueRunes.awaken(player.getUniqueID(), collection, request.getRuneId(), request.getRequestNonce());
+        else if ("awaken".equals(action) && collection != null) {
+            UniqueRuneService.Result result = services.uniqueRunes.awaken(
+                    player.getUniqueID(), collection, request.getRuneId(), request.getRequestNonce());
+            // Crystal awakening consumes a completed tier. Give a factual server
+            // acknowledgement naming the selected rune, rather than a silent
+            // failure or a client-predicted success for a stale snapshot.
+            if (collection == UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION) {
+                String feedback;
+                if (result.ok())
+                    feedback = "Пробуждена кристальная руна №" + result.runeId.substring("crystal_".length());
+                else if (result.code == UniqueRuneService.ResultCode.NOT_READY)
+                    feedback = "Пробуждение: нужно собрать 26/26 рун";
+                else if (result.code == UniqueRuneService.ResultCode.MAX_RARITY)
+                    feedback = "Пробуждение: достигнута максимальная редкость";
+                else
+                    feedback = "Пробуждение не выполнено: " + result.code.name();
+                player.sendStatusMessage(new net.minecraft.util.text.TextComponentString(feedback), true);
+            }
+        }
         else if ("rollback".equals(action) && collection != null) services.uniqueRunes.rollback(player.getUniqueID(), collection, request.getRuneId(), request.isConfirmed(), request.getRequestNonce());
         else if ("share".equals(action) && collection != null) { share(player, services, collection, request.getRuneId()); return; }
         else return;

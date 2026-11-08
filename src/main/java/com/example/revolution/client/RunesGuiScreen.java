@@ -807,40 +807,39 @@ public class RunesGuiScreen extends GuiScreen {
     }
 
     private boolean uniqueSlotClicked(int x, int y, int mouseButton) {
-        for (int slot = 0; slot < VISIBLE_RUNE_SLOTS; slot++) {
-            UniqueRuneSnapshotPacket.Entry rune = uniqueEntryAtSlot(slot);
-            if (rune == null) continue;
-            int[] pos = getRuneSlotPosition(slot);
-            if (x < pos[0] || x >= pos[0] + layout.runeSlotWidth
-                    || y < pos[1] || y >= pos[1] + layout.runeSlotHeight) continue;
-            if (!matchesSearch(slot)) return true;
-            UniqueRuneSnapshotPacket.Collection state = uniqueState();
-            boolean unlocked = state != null && state.unlocked
-                    && UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive();
-            if (!unlocked) return true;
-            if (RuneRankRevertInput.isRevertGesture(mouseButton, isCtrlKeyDown())) {
-                if (!rune.canRollback) return true;
-                // Two gestures on the EXACT same owned rune; a different target only re-arms.
-                if (uniqueRollbackConfirmation.confirmOrArm(uniqueCollectionId(), rune.runeId)) {
-                    ClientUniqueRunes.action("rollback", uniqueCollectionId(), rune.runeId, true);
-                }
-                return true;
-            }
-            if (mouseButton != 0) return true;
-            if (isCtrlKeyDown()) {
-                uniqueRollbackConfirmation.cancel();
-                ClientUniqueRunes.action("share", uniqueCollectionId(), rune.runeId, false);
-                return true;
-            }
-            uniqueRollbackConfirmation.cancel();
-            if (rune.canAwaken) {
-                ClientUniqueRunes.action("awaken", uniqueCollectionId(), rune.runeId, false);
+        // The same logical-canvas hit test drives the hover tooltip and actions.
+        // Never resolve by acquisition order or by a separately inferred rune number.
+        int slot = UniqueRuneInlineLayout.slotAtCanvasPoint(layout, x, y);
+        if (slot < 0) {
+            if (uniqueRollbackConfirmation.isArmed()) uniqueRollbackConfirmation.cancel();
+            return false;
+        }
+        UniqueRuneSnapshotPacket.Entry rune = uniqueEntryAtSlot(slot);
+        if (rune == null || !matchesSearch(slot)) return true;
+        UniqueRuneSnapshotPacket.Collection state = uniqueState();
+        boolean unlocked = state != null && state.unlocked
+                && UniqueRuneInlineTabs.state(selectedUniqueCollection).isInteractive();
+        if (!unlocked) return true;
+        if (RuneRankRevertInput.isRevertGesture(mouseButton, isCtrlKeyDown())) {
+            if (!rune.canRollback) return true;
+            // Two gestures on the EXACT same owned rune; a different target only re-arms.
+            if (uniqueRollbackConfirmation.confirmOrArm(uniqueCollectionId(), rune.runeId)) {
+                ClientUniqueRunes.action("rollback", uniqueCollectionId(), rune.runeId, true);
             }
             return true;
         }
-        // Clicking outside the rune grid cancels a pending dangerous rollback.
-        if (uniqueRollbackConfirmation.isArmed()) uniqueRollbackConfirmation.cancel();
-        return false;
+        if (mouseButton != 0) return true;
+        if (isCtrlKeyDown()) {
+            uniqueRollbackConfirmation.cancel();
+            ClientUniqueRunes.action("share", uniqueCollectionId(), rune.runeId, false);
+            return true;
+        }
+        uniqueRollbackConfirmation.cancel();
+        if (rune.canAwaken) {
+            // Action uses the exact canonical runeId of the tile under the cursor.
+            ClientUniqueRunes.action("awaken", uniqueCollectionId(), rune.runeId, false);
+        }
+        return true;
     }
 
     /** Cost range is derived only from server-synced, owned Crystal runes. */
@@ -924,30 +923,26 @@ public class RunesGuiScreen extends GuiScreen {
     }
 
     private void drawInlineUniqueTooltip(int x, int y) {
-        for (int slot = 0; slot < VISIBLE_RUNE_SLOTS; slot++) {
-            UniqueRuneSnapshotPacket.Entry rune = uniqueEntryAtSlot(slot);
-            if (rune == null || !matchesSearch(slot)) continue;
-            int[] pos = getRuneSlotPosition(slot);
-            if (x < pos[0] || x >= pos[0] + layout.runeSlotWidth
-                    || y < pos[1] || y >= pos[1] + layout.runeSlotHeight) continue;
-            List<String> tooltip = new ArrayList<>();
-            tooltip.add("§b" + localizeUniqueRuneName(rune.name));
-            tooltip.add("§7" + rune.rarity + " +" + rune.enhancement);
-            tooltip.add(localizeUniqueEffects(rune.effects));
-            UniqueRuneSnapshotPacket.Collection state = uniqueState();
-            if (rune.canAwaken) tooltip.add("§7ЛКМ: пробудить");
-            else if ("MYTHIC".equals(rune.rarity))
-                tooltip.add("§8MYTHIC — максимальный доступный ранг");
-            else if (state != null && state.progress < VISIBLE_RUNE_SLOTS)
-                tooltip.add("§8Пробуждение: требуется 26/26 рун");
-            tooltip.add("§7Ctrl+ЛКМ: поделиться в чат");
-            if (rune.canRollback) tooltip.add("§7Ctrl+ПКМ: откат"
-                    + " (повторить на той же руне)");
-            else if ("COMMON".equals(rune.rarity) || "IMPROVED".equals(rune.rarity))
-                tooltip.add("§8Откат доступен только с ADVANCED (3-й ранг)");
-            drawCanvasTooltip(tooltip, x, y);
-            return;
-        }
+        int slot = UniqueRuneInlineLayout.slotAtCanvasPoint(layout, x, y);
+        if (slot < 0 || !matchesSearch(slot)) return;
+        UniqueRuneSnapshotPacket.Entry rune = uniqueEntryAtSlot(slot);
+        if (rune == null) return;
+        List<String> tooltip = new ArrayList<>();
+        tooltip.add("§b" + localizeUniqueRuneName(rune.name) + " [#" + (slot + 1) + "]");
+        tooltip.add("§7" + rune.rarity + " +" + rune.enhancement);
+        tooltip.add(localizeUniqueEffects(rune.effects));
+        UniqueRuneSnapshotPacket.Collection state = uniqueState();
+        if (rune.canAwaken) tooltip.add("§7ЛКМ: пробудить именно руну #" + (slot + 1));
+        else if ("MYTHIC".equals(rune.rarity))
+            tooltip.add("§8MYTHIC — максимальный доступный ранг");
+        else if (state != null && state.progress < VISIBLE_RUNE_SLOTS)
+            tooltip.add("§8Пробуждение: требуется 26/26 рун");
+        tooltip.add("§7Ctrl+ЛКМ: поделиться в чат");
+        if (rune.canRollback) tooltip.add("§7Ctrl+ПКМ: откат"
+                + " (повторить на той же руне)");
+        else if ("COMMON".equals(rune.rarity) || "IMPROVED".equals(rune.rarity))
+            tooltip.add("§8Откат доступен только с ADVANCED (3-й ранг)");
+        drawCanvasTooltip(tooltip, x, y);
     }
 
     private boolean handleUniqueAction(int id) {

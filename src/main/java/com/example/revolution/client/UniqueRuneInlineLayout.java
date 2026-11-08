@@ -17,6 +17,29 @@ final class UniqueRuneInlineLayout {
         return null;
     }
 
+    /**
+     * Single authority for the tile hit target used by clicking and hover text.
+     * The input here is already converted into logical canvas coordinates.
+     * A gap between tiles must never be interpreted as the neighbouring rune.
+     */
+    static UniqueRuneSnapshotPacket.Entry entryAtCanvasPoint(
+            List<UniqueRuneSnapshotPacket.Entry> entries, String collectionId,
+            GuiLayout layout, int canvasX, int canvasY) {
+        return entryAtSlot(entries, collectionId, slotAtCanvasPoint(layout, canvasX, canvasY));
+    }
+
+    /** Deterministic tile number, -1 for gaps or points outside the grid. */
+    static int slotAtCanvasPoint(GuiLayout layout, int canvasX, int canvasY) {
+        if (layout == null) return -1;
+        for (int slot = 0; slot < 26; slot++) {
+            int[] bounds = layout.runeSlotPosition(slot);
+            if (canvasX >= bounds[0] && canvasX < bounds[0] + layout.runeSlotWidth
+                    && canvasY >= bounds[1] && canvasY < bounds[1] + layout.runeSlotHeight)
+                return slot;
+        }
+        return -1;
+    }
+
     private static String runePrefix(String collectionId) {
         switch (collectionId) {
             case "CRYSTAL_COLLECTION": return "crystal_";
