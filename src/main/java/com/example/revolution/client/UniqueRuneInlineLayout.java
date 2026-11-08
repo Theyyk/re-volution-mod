@@ -25,15 +25,19 @@ final class UniqueRuneInlineLayout {
     static UniqueRuneSnapshotPacket.Entry entryAtCanvasPoint(
             List<UniqueRuneSnapshotPacket.Entry> entries, String collectionId,
             GuiLayout layout, int canvasX, int canvasY) {
-        if (layout == null) return null;
+        return entryAtSlot(entries, collectionId, slotAtCanvasPoint(layout, canvasX, canvasY));
+    }
+
+    /** Deterministic tile number, -1 for gaps or points outside the grid. */
+    static int slotAtCanvasPoint(GuiLayout layout, int canvasX, int canvasY) {
+        if (layout == null) return -1;
         for (int slot = 0; slot < 26; slot++) {
             int[] bounds = layout.runeSlotPosition(slot);
-            if (canvasX < bounds[0] || canvasX >= bounds[0] + layout.runeSlotWidth
-                    || canvasY < bounds[1] || canvasY >= bounds[1] + layout.runeSlotHeight)
-                continue;
-            return entryAtSlot(entries, collectionId, slot);
+            if (canvasX >= bounds[0] && canvasX < bounds[0] + layout.runeSlotWidth
+                    && canvasY >= bounds[1] && canvasY < bounds[1] + layout.runeSlotHeight)
+                return slot;
         }
-        return null;
+        return -1;
     }
 
     private static String runePrefix(String collectionId) {
