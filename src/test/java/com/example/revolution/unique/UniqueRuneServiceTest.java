@@ -129,6 +129,29 @@ final class UniqueRuneServiceTest {
         assertTrue(f.offerings.compareTo(afterFirst) < 0);
     }
 
+    @Test void everyCrystalCommonCanBeTheExactAwakeningTarget() {
+        for (int selected = 1; selected <= 26; selected++) {
+            Fixture f = new Fixture();
+            PlayerState state = f.unique.load(PLAYER);
+            for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.CRYSTAL_COLLECTION).runes)
+                state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+            f.unique.save(PLAYER, state);
+            String target = String.format(java.util.Locale.ROOT, "crystal_%02d", selected);
+            assertTrue(f.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).canAwaken(target));
+            assertEquals(UniqueRuneService.ResultCode.OK,
+                    f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, target, 1L).code,
+                    "failed selected Crystal #" + selected);
+            PlayerState after = f.unique.load(PLAYER);
+            assertEquals(1, after.collection(CollectionId.CRYSTAL_COLLECTION).progress());
+            assertEquals(Rarity.IMPROVED, after.collection(CollectionId.CRYSTAL_COLLECTION).owned.get(target));
+            for (int other = 1; other <= 26; other++) {
+                String otherId = String.format(java.util.Locale.ROOT, "crystal_%02d", other);
+                if (other != selected) assertFalse(after.collection(CollectionId.CRYSTAL_COLLECTION).owned.containsKey(otherId),
+                        "wrong Crystal was promoted instead of #" + selected);
+            }
+        }
+    }
+
     @Test void crystalAwakenConsumesPriorTierAndRetainsEnhancement() {
         Fixture f = new Fixture();
         assertEquals(UniqueRuneService.ResultCode.INVALID,
