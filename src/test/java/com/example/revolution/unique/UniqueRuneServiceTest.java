@@ -416,6 +416,29 @@ final class UniqueRuneServiceTest {
         assertEquals(BigDecimal.ZERO, f.resources.getPlayerResourceValue(PLAYER, "pearl"));
     }
 
+    @Test void snapshotShareReusesLoadedStateWithoutPerRuneRepositoryReads() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.CRYSTAL_COLLECTION).runes)
+            state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_06", 4);
+        f.unique.save(PLAYER, state);
+        PlayerState snapshot = f.service.snapshot(PLAYER);
+        int readsBefore = f.unique.loads;
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.CRYSTAL_COLLECTION).runes) {
+            UniqueRuneService.SharePayload payload =
+                    f.service.shareFromSnapshot(snapshot, CollectionId.CRYSTAL_COLLECTION, rune.runeId);
+            assertNotNull(payload);
+            assertEquals(Rarity.COMMON, payload.rarity);
+            assertEquals(rune.runeId.equals("crystal_06") ? 4 : 0, payload.enhancement);
+        }
+        assertEquals(readsBefore, f.unique.loads, "serialization must not reload once per rune");
+        assertNull(f.service.shareFromSnapshot(snapshot, CollectionId.CRYSTAL_COLLECTION, "not_owned"));
+        assertEquals(readsBefore, f.unique.loads);
+        assertEquals(4, f.service.share(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_06").enhancement);
+        assertEquals(readsBefore + 1, f.unique.loads, "existing Share API still loads current state");
+    }
+
     private static final class Fixture {
         final MemUniqueRepository unique = new MemUniqueRepository();
         final MemResourceRepository resourceRepo = new MemResourceRepository();
@@ -439,7 +462,8 @@ final class UniqueRuneServiceTest {
 
     private static final class MemUniqueRepository implements UniqueRuneRepository {
         private final Map<UUID, PlayerState> states = new HashMap<>();
-        @Override public PlayerState load(UUID uuid) { return states.computeIfAbsent(uuid, key -> new PlayerState()).copy(); }
+        int loads;
+        @Override public PlayerState load(UUID uuid) { loads++; return states.computeIfAbsent(uuid, key -> new PlayerState()).copy(); }
         @Override public void save(UUID uuid, PlayerState state) { states.put(uuid, state.copy()); }
     }
 
