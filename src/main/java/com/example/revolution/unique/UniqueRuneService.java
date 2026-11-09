@@ -244,7 +244,13 @@ public final class UniqueRuneService {
 
     public SharePayload share(UUID playerUuid, CollectionId id, String runeId) {
         if (playerUuid == null || id == null || runeId == null) return null;
-        PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(id); Rarity rarity = collection.owned.get(runeId);
+        return shareFromSnapshot(repository.load(playerUuid), id, runeId);
+    }
+
+    /** Reuse the already loaded authoritative snapshot when serializing many owned runes. */
+    public SharePayload shareFromSnapshot(PlayerState state, CollectionId id, String runeId) {
+        if (state == null || id == null || runeId == null) return null;
+        CollectionState collection = state.collection(id); Rarity rarity = collection.owned.get(runeId);
         RuneDefinition rune = policy.definition(id).rune(runeId); if (rarity == null || rune == null) return null;
         Map<String, String> effects = new HashMap<>(); int enhancement = id == CollectionId.CRYSTAL_COLLECTION ? collection.enhancement(runeId) : 0;
         for (UniqueRuneModel.Effect effect : rune.effects) if (effect.stat != null)
