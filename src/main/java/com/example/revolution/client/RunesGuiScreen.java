@@ -412,9 +412,22 @@ public class RunesGuiScreen extends GuiScreen {
                 button.enabled = !full;
 
                 if (full) {
-                    button.displayString = collectionRank >= RuneInventory.MYTHIC_RANK
-                            ? "Максимальный ранг"
-                            : "Пробудить руну";
+                    if (collectionRank >= RuneInventory.MYTHIC_RANK) {
+                        button.displayString = "Максимальный ранг";
+                    } else {
+                        int normalCost = ClientPlayerStats.getAwakeningNormalCost();
+                        int improvedCost = ClientPlayerStats.getAwakeningImprovedCost();
+                        String resource = ClientPlayerStats.getAwakeningResource();
+                        if (normalCost > 0 && improvedCost > 0 && resource != null && !resource.trim().isEmpty()) {
+                            int min = Math.min(normalCost, improvedCost);
+                            int max = Math.max(normalCost, improvedCost);
+                            button.displayString = "Пробудить руну:\n" + min
+                                    + (min == max ? "" : "–" + max) + " "
+                                    + com.example.revolution.resource.definition.ResourceDefinitions.getDisplayName(resource);
+                        } else {
+                            button.displayString = "Пробудить руну:\nСтоимость не получена";
+                        }
+                    }
                 } else {
                     button.displayString = "Купить руну:\n"
                             + (RUNE_UNIT_PRICE * buyAmount)
