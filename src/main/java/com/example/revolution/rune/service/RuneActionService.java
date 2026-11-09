@@ -222,6 +222,7 @@ public final class RuneActionService {
 
         int rank = owned.layer;
         int enhancement = sync.enhancementLevel(player.getUniqueID(), collectionIndex, runeIndex);
+        double enhancementMultiplier = sync.enhancementMultiplier(collection, enhancement);
         String name;
         StringBuilder details = new StringBuilder();
         if (collectionIndex == 0) {
@@ -229,11 +230,14 @@ public final class RuneActionService {
             if (rune == null) return;
             name = rune.name;
             details.append("Type: ").append(rune.type);
-            for (RuneStat stat : rune.stats) details.append("\nEffect: ").append(stat.type.name());
+            for (RuneStat stat : rune.stats)
+                details.append("\nEffect: ").append(stat.type.displayName).append(" ")
+                        .append(stat.type.format(stat.resolve(rank, enhancementMultiplier).finalValue));
             for (RuneTargetedPower power : rune.targetedPowers)
-                details.append("\nTarget: ").append(power.targetDisplayName);
+                details.append("\nTarget: ").append(power.tooltipLine(rank, enhancementMultiplier));
             for (RuneCompositeEffect effect : rune.compositeEffects)
-                details.append("\nEffect: ").append(effect.kind.name());
+                for (String line : effect.tooltipLines(rank, enhancementMultiplier))
+                    details.append("\nEffect: ").append(line);
         } else {
             name = "Rune " + (runeIndex + 1);
             for (RuneTechnicalCatalog.EffectLabel effect : RuneTechnicalCatalog.effects(collection, runeIndex)) {
