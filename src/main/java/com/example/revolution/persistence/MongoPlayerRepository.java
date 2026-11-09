@@ -150,9 +150,8 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
         List<Document> collections = (List<Document>) doc.get("decks");
         if (collections == null) collections = new ArrayList<>();
         collections.add(new Document("name", name).append("cards", new ArrayList<Document>()));
-        RunePurchaseProfiling.mongoWrite(() -> connection.collection("players").updateOne(
-                new Document("_id", uuid.toString()),
-                new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true)));
+        connection.collection("players").updateOne(new Document("_id", uuid.toString()),
+                new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
         RevolutionMod.logger.info("addCollection: added collection '" + name + "', total collections: " + collections.size());
     }
 
@@ -208,8 +207,9 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
         runes.add(rune);
         collection.put("cards", runes);
         collections.set(0, collection);
-        connection.collection("players").updateOne(new Document("_id", uuid.toString()),
-                new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
+        RunePurchaseProfiling.mongoWrite(() -> connection.collection("players").updateOne(
+                new Document("_id", uuid.toString()),
+                new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true)));
         RevolutionMod.logger.debug("addRuneToCollection: added rune to legacy collection 0 (total=" + runes.size() + ", slot=" + slot + ")");
     }
 
