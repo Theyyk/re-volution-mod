@@ -82,7 +82,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
             UniqueRuneModel.CollectionDefinition definition = services.uniqueRunePolicy.definition(id);
             for (Map.Entry<String, UniqueRuneModel.Rarity> owned : collection.owned.entrySet()) {
                 UniqueRuneModel.RuneDefinition rune = definition.rune(owned.getKey()); if (rune == null) continue;
-                UniqueRuneService.SharePayload payload = services.uniqueRunes.share(player.getUniqueID(), id, rune.runeId); if (payload == null) continue;
+                UniqueRuneService.SharePayload payload = services.uniqueRunes.shareFromSnapshot(state, id, rune.runeId); if (payload == null) continue;
                 UniqueRuneSnapshotPacket.Entry entry = new UniqueRuneSnapshotPacket.Entry(); entry.collectionId = id.name(); entry.runeId = rune.runeId;
                 entry.name = rune.displayName; entry.rarity = owned.getValue().name(); entry.enhancement = payload.enhancement;
                 entry.canAwaken = collection.canAwaken(rune.runeId) && out.unlocked;
