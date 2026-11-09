@@ -1,6 +1,7 @@
 package com.example.revolution.persistence;
 
 import com.example.revolution.RevolutionMod;
+import com.example.revolution.rune.service.RunePurchaseProfiling;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.repository.PlayerIdentity;
 import com.example.revolution.rune.definition.RuneCollectionId;
@@ -179,17 +180,18 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
         Document rune = runeDocument(slot, runeIndex, layer, level);
         if (isAdditiveFixedCollection(collectionIndex)) {
             String path = fixedSlotsPath(collectionIndex);
-            connection.collection("players").updateOne(
+            RunePurchaseProfiling.mongoWrite(() -> connection.collection("players").updateOne(
                     new Document("_id", uuid.toString()),
                     new Document("$push", new Document(path, rune))
                             .append("$setOnInsert", new Document("activeDeck", 0)),
-                    new UpdateOptions().upsert(true));
+                    new UpdateOptions().upsert(true)));
             RevolutionMod.logger.debug("addRuneToCollection: added rune to fixed collection " + collectionIndex + ", slot=" + slot);
             return;
         }
         if (collectionIndex != 0) return;
 
-        Document doc = connection.collection("players").find(new Document("_id", uuid.toString())).first();
+        Document doc = RunePurchaseProfiling.mongoRead(() -> connection.collection("players")
+                .find(new Document("_id", uuid.toString())).first());
         if (doc == null) {
             RevolutionMod.logger.warn("addRuneToCollection: player document not found for " + uuid);
             return;
@@ -205,8 +207,9 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
         runes.add(rune);
         collection.put("cards", runes);
         collections.set(0, collection);
-        connection.collection("players").updateOne(new Document("_id", uuid.toString()),
-                new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true));
+        RunePurchaseProfiling.mongoWrite(() -> connection.collection("players").updateOne(
+                new Document("_id", uuid.toString()),
+                new Document("$set", new Document("decks", collections)), new UpdateOptions().upsert(true)));
         RevolutionMod.logger.debug("addRuneToCollection: added rune to legacy collection 0 (total=" + runes.size() + ", slot=" + slot + ")");
     }
 

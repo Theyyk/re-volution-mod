@@ -1,6 +1,7 @@
 package com.example.revolution.persistence;
 
 import com.example.revolution.unique.UniqueRuneModel;
+import com.example.revolution.rune.service.RunePurchaseProfiling;
 import com.example.revolution.unique.UniqueRuneRepository;
 import com.mongodb.client.model.UpdateOptions;
 import java.util.ArrayList;
@@ -21,15 +22,18 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
 
     @Override public UniqueRuneModel.PlayerState load(UUID playerUuid) {
         if (playerUuid == null || !enabled || !connection.isConnected()) return new UniqueRuneModel.PlayerState();
-        Document player = connection.collection("players").find(new Document("_id", playerUuid.toString())).first();
+        Document player = RunePurchaseProfiling.mongoRead(() -> connection.collection("players")
+                .find(new Document("_id", playerUuid.toString())).first());
         if (player == null) return new UniqueRuneModel.PlayerState();
         return decode(player.get("uniqueRuneState", Document.class));
     }
 
     @Override public void save(UUID playerUuid, UniqueRuneModel.PlayerState state) {
         if (playerUuid == null || state == null || !enabled || !connection.isConnected()) return;
-        connection.collection("players").updateOne(new Document("_id", playerUuid.toString()),
-                new Document("$set", new Document("uniqueRuneState", encode(state))), new UpdateOptions().upsert(true));
+        RunePurchaseProfiling.mongoWrite(() -> connection.collection("players").updateOne(
+                new Document("_id", playerUuid.toString()),
+                new Document("$set", new Document("uniqueRuneState", encode(state))),
+                new UpdateOptions().upsert(true)));
     }
 
     static Document encode(UniqueRuneModel.PlayerState state) {

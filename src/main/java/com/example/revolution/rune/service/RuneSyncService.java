@@ -69,6 +69,12 @@ public final class RuneSyncService {
         return enhancements.getLevel(playerId, collectionIndex, runeIndex);
     }
 
+    /** Use the same Balance Core power step as the client rune tooltip. */
+    public double enhancementMultiplier(RuneCollectionId collection, int level) {
+        return collection == null ? 1.0D
+                : 1.0D + Math.max(0, level) * enhancementBalance.powerStep(collection);
+    }
+
     public void sendEnhancements(EntityPlayerMP player, int collectionIndex) {
         RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
         if (collectionId == null) return;

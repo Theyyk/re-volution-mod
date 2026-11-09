@@ -1,6 +1,7 @@
 package com.example.revolution.network;
 
 import com.example.revolution.lifecycle.ServerLifecycle;
+import com.example.revolution.rune.service.RunePurchaseProfiling;
 import com.example.revolution.lifecycle.ServerServices;
 import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.unique.UniqueRuneModel;
@@ -19,7 +20,14 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
     @Override public IMessage onMessage(UniqueRuneActionPacket message, MessageContext ctx) {
         EntityPlayerMP player = ctx.getServerHandler().player;
         if (player == null || message == null) return null;
-        player.getServerWorld().addScheduledTask(() -> handle(player, message));
+        if ("purchase_crystal".equals(message.getAction())) {
+            long enqueuedAt = System.nanoTime();
+            RunePurchaseProfiling.queued("crystal");
+            player.getServerWorld().addScheduledTask(() -> RunePurchaseProfiling.process(
+                    "crystal", enqueuedAt, () -> handle(player, message)));
+        } else {
+            player.getServerWorld().addScheduledTask(() -> handle(player, message));
+        }
         return null;
     }
 
