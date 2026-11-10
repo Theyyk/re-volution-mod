@@ -121,6 +121,11 @@ public final class UniqueRuneModel {
         public final Map<String, Rarity> owned = new LinkedHashMap<>();
         /** V3: COMMON acquisition cohort independent of highest factual rune ownership. */
         public final Set<String> acquisitionCommon = new LinkedHashSet<>();
+        /** V3 independent paid/earned cohort, not derived from highest rune ownership. */
+        public final Set<String> acquisitionImproved = new LinkedHashSet<>();
+        public final Set<String> acquisitionAdvanced = new LinkedHashSet<>();
+        /** An explicitly paid rollback can restore only the same rune's pre-rollback rarity. */
+        public final Map<String, Rarity> rollbackRestore = new LinkedHashMap<>();
         /** Enhancement survives awaken/rollback and is meaningful only for Crystal collection. */
         public final Map<String, Integer> enhancement = new LinkedHashMap<>();
         public Rarity rollbackRarity;
@@ -131,14 +136,36 @@ public final class UniqueRuneModel {
         public String legacyV1SnapshotJson;
 
         public int progress() { return owned.size(); }
-        public boolean ownsAtCurrent(String runeId) { return owned.containsKey(runeId); }
-        public boolean canAwaken(String runeId) { Rarity rarity = owned.get(runeId); return rarity != null && rarity.nextGameplay() != rarity && progress() == RUNES_PER_COLLECTION; }
+        public Set<String> cohort(Rarity rarity) {
+            if (rarity == Rarity.COMMON) return acquisitionCommon;
+            if (rarity == Rarity.IMPROVED) return acquisitionImproved;
+            if (rarity == Rarity.ADVANCED) return acquisitionAdvanced;
+            return Collections.emptySet();
+        }
+        /** The purchase/claim lane is always COMMON; higher cohorts remain independent. */
+        public int acquisitionProgress() { return acquisitionCommon.size(); }
+        public boolean ownsAtCurrent(String runeId) { return acquisitionCommon.contains(runeId); }
+        public Rarity readyToAwaken() {
+            if (acquisitionAdvanced.size() == RUNES_PER_COLLECTION) return Rarity.ADVANCED;
+            if (acquisitionImproved.size() == RUNES_PER_COLLECTION) return Rarity.IMPROVED;
+            if (acquisitionCommon.size() == RUNES_PER_COLLECTION) return Rarity.COMMON;
+            return null;
+        }
+        public boolean canAwaken(String runeId) {
+            Rarity existing = owned.get(runeId);
+            if (existing == null) return false;
+            if (rollbackRestore.containsKey(runeId)
+                    && existing.nextGameplay() == rollbackRestore.get(runeId)) return true;
+            Rarity ready = readyToAwaken();
+            return ready != null && !cohort(ready.nextGameplay()).contains(runeId)
+                    && (existing.persistentId >= ready.persistentId);
+        }
         /** Rollback is a paid, confirmed rank downgrade available only from ADVANCED (#3). */
         public boolean canRollback(String runeId) { Rarity rarity = owned.get(runeId); return rarity == Rarity.ADVANCED || rarity == Rarity.MYTHIC; }
         public int enhancement(String runeId) { Integer value = enhancement.get(runeId); return value == null ? 0 : Math.max(0, value); }
         public CollectionState copy() {
             CollectionState copy = new CollectionState(); copy.currentRarity = currentRarity;
-            copy.owned.putAll(owned); copy.acquisitionCommon.addAll(acquisitionCommon); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); copy.runeRollback.putAll(runeRollback); copy.legacyV1SnapshotJson = legacyV1SnapshotJson; return copy;
+            copy.owned.putAll(owned); copy.acquisitionCommon.addAll(acquisitionCommon); copy.acquisitionImproved.addAll(acquisitionImproved); copy.acquisitionAdvanced.addAll(acquisitionAdvanced); copy.rollbackRestore.putAll(rollbackRestore); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); copy.runeRollback.putAll(runeRollback); copy.legacyV1SnapshotJson = legacyV1SnapshotJson; return copy;
         }
     }
 
