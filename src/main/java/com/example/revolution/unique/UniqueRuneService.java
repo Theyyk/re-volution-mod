@@ -94,6 +94,29 @@ public final class UniqueRuneService {
         return milestones.milestone(playerUuid) >= policy.unlockMilestone(id);
     }
 
+    /**
+     * Resolve collection access once for a single authoritative UI snapshot.
+     * Crystal and Daily share the same milestone source. Offerings keeps its
+     * independent God-access gate. No access result is cached across requests.
+     */
+    public java.util.Set<CollectionId> unlockedCollections(UUID playerUuid) {
+        java.util.EnumSet<CollectionId> unlocked = java.util.EnumSet.noneOf(CollectionId.class);
+        if (playerUuid == null) return unlocked;
+        boolean crystal = policy.collectionEnabled(CollectionId.CRYSTAL_COLLECTION);
+        boolean daily = policy.collectionEnabled(CollectionId.DAILY_COLLECTION);
+        if (crystal || daily) {
+            long reached = milestones.milestone(playerUuid);
+            if (crystal && reached >= policy.unlockMilestone(CollectionId.CRYSTAL_COLLECTION))
+                unlocked.add(CollectionId.CRYSTAL_COLLECTION);
+            if (daily && reached >= policy.unlockMilestone(CollectionId.DAILY_COLLECTION))
+                unlocked.add(CollectionId.DAILY_COLLECTION);
+        }
+        if (policy.collectionEnabled(CollectionId.OFFERINGS_COLLECTION)
+                && godAccess.unlocked(playerUuid))
+            unlocked.add(CollectionId.OFFERINGS_COLLECTION);
+        return unlocked;
+    }
+
     public synchronized Result purchaseCrystal(UUID playerUuid, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.CRYSTAL_COLLECTION)) return Result.of(ResultCode.LOCKED);

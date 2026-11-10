@@ -17,6 +17,27 @@ import static org.junit.jupiter.api.Assertions.*;
 final class UniqueRuneServiceTest {
     private static final UUID PLAYER = UUID.fromString("00000000-0000-0000-0000-000000000211");
 
+    @Test void snapshotAccessReadsMilestoneOnceForCrystalAndDaily() {
+        final int[] milestoneReads = {0}, godReads = {0};
+        Fixture f = new Fixture();
+        UniqueRuneService service = new UniqueRuneService(
+                f.unique, f.policy, f.resources,
+                player -> { milestoneReads[0]++; return Long.MAX_VALUE; },
+                player -> { godReads[0]++; return true; },
+                new UniqueRuneService.OfferingsWallet() {
+                    @Override public BigDecimal balance(UUID uuid) { return BigDecimal.ZERO; }
+                    @Override public boolean spend(UUID uuid, BigDecimal amount) { return false; }
+                });
+        java.util.Set<CollectionId> access = service.unlockedCollections(PLAYER);
+        assertEquals(1, milestoneReads[0], "Crystal and Daily must share one milestone lookup");
+        assertTrue(access.contains(CollectionId.CRYSTAL_COLLECTION));
+        assertTrue(access.contains(CollectionId.DAILY_COLLECTION));
+        assertTrue(access.contains(CollectionId.OFFERINGS_COLLECTION));
+        assertEquals(1, godReads[0]);
+        service.unlockedCollections(PLAYER);
+        assertEquals(2, milestoneReads[0], "access must not persist a stale cache across snapshots");
+    }
+
     @Test void crystalDuplicateGrantsPearlOnceAndReplayCannotDoubleSpend() {
         Fixture f = new Fixture();
         f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));

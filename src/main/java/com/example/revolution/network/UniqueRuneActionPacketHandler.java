@@ -74,13 +74,15 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
     private static void sendSnapshot(EntityPlayerMP player, ServerServices services, UniqueRuneService.Result crystalRoll) {
         if (!services.mechanicUnlocks.isUnlocked(player.getUniqueID(), BalanceMechanicUnlockPolicy.UNIQUE_RUNE_COLLECTIONS)) return;
         UniqueRuneModel.PlayerState state = services.uniqueRunes.snapshot(player.getUniqueID());
+        java.util.Set<UniqueRuneModel.CollectionId> unlockedCollections =
+                services.uniqueRunes.unlockedCollections(player.getUniqueID());
         List<UniqueRuneSnapshotPacket.Collection> collections = new ArrayList<>();
         List<UniqueRuneSnapshotPacket.Entry> entries = new ArrayList<>();
         for (UniqueRuneModel.CollectionId id : UniqueRuneModel.CollectionId.values()) {
             UniqueRuneModel.CollectionState collection = state.collection(id);
             UniqueRuneSnapshotPacket.Collection out = new UniqueRuneSnapshotPacket.Collection();
             out.collectionId = id.name(); out.rarity = collection.currentRarity.name(); out.progress = collection.progress();
-            out.unlocked = services.uniqueRunes.isUnlocked(player.getUniqueID(), id);
+            out.unlocked = unlockedCollections.contains(id);
             out.canAwaken = false; out.canRollback = false;
             for (String ownedId : collection.owned.keySet()) {
                 out.canAwaken |= collection.canAwaken(ownedId);
