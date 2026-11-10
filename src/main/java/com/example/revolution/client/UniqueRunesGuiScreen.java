@@ -141,6 +141,11 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
             fontRenderer.drawString(fontRenderer.trimStringToWidth(text, size-4),
                     x + 2, y + Math.max(2, (size - fontRenderer.FONT_HEIGHT) / 2),
                     entry == null ? GuiTheme.DISABLED_TEXT_COLOR : GuiTheme.TEXT_COLOR);
+            // A slot may contain a permanent ADVANCED/MYTHIC rune but still
+            // lack the current COMMON acquisition. Mark only factual cohort
+            // ownership so "all 26 tiles occupied" never implies 26/26 buys.
+            if (entry != null && entry.acquiredCommon)
+                fontRenderer.drawString("C", x + size - 9, y + size - 11, GuiTheme.CRYSTAL_COLOR);
         }
         if (rollbackArmed) {
             fontRenderer.drawString(fontRenderer.trimStringToWidth(
@@ -162,7 +167,9 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
             UniqueRuneSnapshotPacket.Entry e = runeAtSlot(owned, slot);
             if (e != null && mouseX >= x && mouseX < x+size && mouseY >= y && mouseY < y+size) {
                 drawHoveringText(Arrays.asList(e.name, e.rarity + " +" + e.enhancement,
-                        e.effects, "ЛКМ: поделиться", "Shift+ЛКМ: случайное усиление"), mouseX, mouseY);
+                        e.effects,
+                        e.acquiredCommon ? "COMMON-набор: получена" : "COMMON-набор: ещё не получена",
+                        "ЛКМ: поделиться", "Shift+ЛКМ: случайное усиление"), mouseX, mouseY);
                 break;
             }
         }
@@ -197,7 +204,10 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
                     affordable = hasEnough(ClientPlayerStats.getCrystals(), snapshot.getCrystalPurchaseCost());
                 else if ("OFFERINGS_COLLECTION".equals(collection))
                     affordable = hasEnough(ClientPlayerStats.getOfferings(), snapshot.getOfferingsPurchaseCost());
-                button.enabled = state != null && state.unlocked && affordable;
+                button.enabled = state != null && state.unlocked && affordable
+                        && state.progress < 26
+                        && (!"DAILY_COLLECTION".equals(collection)
+                            || snapshot.getDailyNextClaimMillis() == 0L);
                 button.displayString = "DAILY_COLLECTION".equals(collection) ? "Ежедневная награда" : "Купить руну";
             } else if (button.id == AWAKEN) {
                 button.enabled = false; // Targeted awakening is available through RunesGuiScreen only.

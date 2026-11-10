@@ -101,6 +101,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 entry.name = rune.displayName; entry.rarity = owned.getValue().name(); entry.enhancement = payload.enhancement;
                 entry.canAwaken = collection.canAwaken(rune.runeId) && out.unlocked;
                 entry.canRollback = canRollback(id, collection, rune.runeId) && out.unlocked;
+                entry.acquiredCommon = collection.acquisitionCommon.contains(rune.runeId);
                 entry.enhancementPearlCost = id == UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION
                         ? exact(services.uniqueRunePolicy.enhancementPearlCost(rune.runeId, payload.enhancement)) : "0";
                 entry.effects = effectText(payload.effects); entries.add(entry);

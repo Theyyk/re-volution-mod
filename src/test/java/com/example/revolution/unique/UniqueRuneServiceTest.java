@@ -608,6 +608,80 @@ final class UniqueRuneServiceTest {
         assertEquals(1, after.collection(CollectionId.OFFERINGS_COLLECTION).acquisitionCommon.size());
         assertEquals(BigDecimal.ZERO, f.resources.getPlayerResourceValue(PLAYER, "pearl"));
     }
+
+    @Test void r8FullCommonCannotPromoteImprovedOrAdvancedOrConsumeWrongCohort() {
+        for (CollectionId id : new CollectionId[]{CollectionId.CRYSTAL_COLLECTION, CollectionId.OFFERINGS_COLLECTION}) {
+            for (Rarity higher : new Rarity[]{Rarity.IMPROVED, Rarity.ADVANCED}) {
+                Fixture f = new Fixture();
+                PlayerState state = f.unique.load(PLAYER);
+                for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes) {
+                    state.collection(id).acquisitionCommon.add(rune.runeId);
+                    state.collection(id).owned.put(rune.runeId, Rarity.COMMON);
+                }
+                String target = id == CollectionId.CRYSTAL_COLLECTION ? "crystal_01" : "offerings_01";
+                String other = id == CollectionId.CRYSTAL_COLLECTION ? "crystal_02" : "offerings_02";
+                state.collection(id).owned.put(target, higher);
+                state.collection(id).enhancement.put(target, 9);
+                f.unique.save(PLAYER, state);
+                assertFalse(f.unique.load(PLAYER).collection(id).canAwaken(target),
+                        "full COMMON must not make " + higher + " target eligible");
+                assertTrue(f.unique.load(PLAYER).collection(id).canAwaken(other));
+                assertEquals(UniqueRuneService.ResultCode.NOT_READY,
+                        f.service.awaken(PLAYER, id, target, 1L).code);
+                PlayerState unchanged = f.unique.load(PLAYER);
+                assertEquals(26, unchanged.collection(id).acquisitionCommon.size());
+                assertEquals(higher, unchanged.collection(id).owned.get(target));
+                assertEquals(9, unchanged.collection(id).enhancement(target));
+                assertEquals(0, unchanged.collection(id).acquisitionImproved.size());
+                assertEquals(0, unchanged.collection(id).acquisitionAdvanced.size());
+                assertEquals(UniqueRuneService.ResultCode.OK,
+                        f.service.awaken(PLAYER, id, other, 2L).code);
+                PlayerState promoted = f.unique.load(PLAYER);
+                assertEquals(Rarity.IMPROVED, promoted.collection(id).owned.get(other));
+                assertEquals(higher, promoted.collection(id).owned.get(target));
+                assertEquals(0, promoted.collection(id).acquisitionCommon.size());
+            }
+        }
+    }
+
+    @Test void r8FullImprovedCannotPromoteAdvancedAndMustNotClearCompletedImproved() {
+        Fixture f = new Fixture();
+        CollectionId id = CollectionId.CRYSTAL_COLLECTION;
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes) {
+            state.collection(id).acquisitionImproved.add(rune.runeId);
+            state.collection(id).owned.put(rune.runeId, Rarity.IMPROVED);
+        }
+        state.collection(id).owned.put("crystal_01", Rarity.ADVANCED);
+        f.unique.save(PLAYER, state);
+        assertFalse(f.unique.load(PLAYER).collection(id).canAwaken("crystal_01"));
+        assertEquals(UniqueRuneService.ResultCode.NOT_READY,
+                f.service.awaken(PLAYER, id, "crystal_01", 1L).code);
+        assertEquals(26, f.unique.load(PLAYER).collection(id).acquisitionImproved.size());
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.awaken(PLAYER, id, "crystal_02", 2L).code);
+        assertEquals(Rarity.ADVANCED, f.unique.load(PLAYER).collection(id).owned.get("crystal_02"));
+    }
+
+    @Test void r8DailyFullCommonCannotPrematurelyPromoteImproved() {
+        Fixture f = new Fixture();
+        CollectionId id = CollectionId.DAILY_COLLECTION;
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes) {
+            state.collection(id).acquisitionCommon.add(rune.runeId);
+            state.collection(id).owned.put(rune.runeId, Rarity.COMMON);
+        }
+        state.collection(id).owned.put("daily_01", Rarity.IMPROVED);
+        f.unique.save(PLAYER, state);
+        assertFalse(f.unique.load(PLAYER).collection(id).canAwaken("daily_01"));
+        assertEquals(UniqueRuneService.ResultCode.NOT_READY,
+                f.service.awaken(PLAYER, id, "daily_01", 1L).code);
+        assertEquals(26, f.unique.load(PLAYER).collection(id).acquisitionCommon.size());
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.awaken(PLAYER, id, "daily_02", 2L).code);
+        assertEquals(Rarity.IMPROVED, f.unique.load(PLAYER).collection(id).owned.get("daily_02"));
+        assertEquals(Rarity.IMPROVED, f.unique.load(PLAYER).collection(id).owned.get("daily_01"));
+    }
     private static final class Fixture {
         final MemUniqueRepository unique = new MemUniqueRepository();
         final MemResourceRepository resourceRepo = new MemResourceRepository();
