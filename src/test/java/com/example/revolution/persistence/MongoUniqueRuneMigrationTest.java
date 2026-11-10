@@ -129,6 +129,55 @@ final class MongoUniqueRuneMigrationTest {
                 state.copy().collection(CollectionId.CRYSTAL_COLLECTION).acquisitionCommon);
     }
 
+    @Test void v2RanksSeedOnlyTheirOwnProvenCohorts() {
+        Document source = v1(26, "COMMON", false).append("schemaVersion", 2);
+        List<Document> owned = source.get("collections", Document.class)
+                .get(CollectionId.CRYSTAL_COLLECTION.name(), Document.class).getList("owned", Document.class);
+        owned.get(0).put("rarity", "IMPROVED");
+        owned.get(1).put("rarity", "ADVANCED");
+        owned.get(2).put("rarity", "MYTHIC");
+        UniqueRuneModel.CollectionState result = MongoUniqueRuneRepository.decode(source)
+                .collection(CollectionId.CRYSTAL_COLLECTION);
+        assertEquals(23, result.acquisitionCommon.size());
+        assertEquals(1, result.acquisitionImproved.size());
+        assertEquals(1, result.acquisitionAdvanced.size());
+        assertFalse(result.acquisitionCommon.contains("crystal_03"));
+        assertFalse(result.acquisitionAdvanced.contains("crystal_03"));
+        assertEquals(Rarity.MYTHIC, result.owned.get("crystal_03"));
+    }
+
+    @Test void v3PersistsIndependentTierCohortsAndExactRestore() {
+        UniqueRuneModel.PlayerState state = new UniqueRuneModel.PlayerState();
+        UniqueRuneModel.CollectionState crystal = state.collection(CollectionId.CRYSTAL_COLLECTION);
+        crystal.owned.put("crystal_01", Rarity.ADVANCED);
+        crystal.enhancement.put("crystal_01", 18);
+        crystal.acquisitionCommon.add("crystal_01");
+        crystal.acquisitionImproved.add("crystal_01");
+        crystal.acquisitionImproved.add("crystal_02");
+        crystal.acquisitionAdvanced.add("crystal_01");
+        crystal.rollbackRestore.put("crystal_01", Rarity.MYTHIC);
+        Document encoded = MongoUniqueRuneRepository.encode(state);
+        UniqueRuneModel.CollectionState loaded = MongoUniqueRuneRepository.decode(encoded)
+                .collection(CollectionId.CRYSTAL_COLLECTION);
+        assertEquals(Rarity.ADVANCED, loaded.owned.get("crystal_01"));
+        assertEquals(18, loaded.enhancement("crystal_01"));
+        assertEquals(crystal.acquisitionCommon, loaded.acquisitionCommon);
+        assertEquals(crystal.acquisitionImproved, loaded.acquisitionImproved);
+        assertEquals(crystal.acquisitionAdvanced, loaded.acquisitionAdvanced);
+        assertEquals(crystal.rollbackRestore, loaded.rollbackRestore);
+        assertEquals(encoded, MongoUniqueRuneRepository.encode(MongoUniqueRuneRepository.decode(encoded)));
+    }
+
+    @Test void v3RejectsBadCrossCollectionAndDuplicatedAdvancedCohort() {
+        Document source = MongoUniqueRuneRepository.encode(new UniqueRuneModel.PlayerState());
+        Document crystal = source.get("collections", Document.class)
+                .get(CollectionId.CRYSTAL_COLLECTION.name(), Document.class);
+        crystal.put("acquisitionAdvanced", java.util.Arrays.asList("crystal_04", "crystal_04"));
+        assertThrows(IllegalStateException.class, () -> MongoUniqueRuneRepository.decode(source));
+        crystal.put("acquisitionAdvanced", java.util.Collections.singletonList("daily_04"));
+        assertThrows(IllegalStateException.class, () -> MongoUniqueRuneRepository.decode(source));
+    }
+
     @Test void malformedV3CohortFailsClosed() {
         Document source = MongoUniqueRuneRepository.encode(new UniqueRuneModel.PlayerState());
         Document crystal = source.get("collections", Document.class)
