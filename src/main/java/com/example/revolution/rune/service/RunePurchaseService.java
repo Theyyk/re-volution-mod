@@ -1,5 +1,6 @@
 package com.example.revolution.rune.service;
 
+import com.example.revolution.lifecycle.ResourceSyncCoalescer;
 import com.example.revolution.gameplay.GameplayEvent;
 import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.gameplay.GameplayEventType;
@@ -30,6 +31,7 @@ public final class RunePurchaseService {
     private final ResourceService resources;
     private final PlayerStatsSyncService stats;
     private final RunePurchaseBalanceService purchaseBalance;
+    private final ResourceSyncCoalescer purchaseStatsRefreshes = new ResourceSyncCoalescer();
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public RunePurchaseService(
@@ -263,7 +265,17 @@ public final class RunePurchaseService {
     }
 
     private void syncPurchaseBalance(EntityPlayerMP player, String resource, int balance) {
-        stats.sendTo(player);
+        // Burst purchases already commit sequentially and emit RuneSlotPackets.
+        // Building a full PlayerStatsPacket synchronously after *each* click
+        // performs repeat multi-collection/Mongo reads on the server thread.
+        // Queue only the latest-state UI refresh once per pending player. No
+        // purchase, charge, reward or receipt is deferred or coalesced.
+        UUID uuid = player.getUniqueID();
+        purchaseStatsRefreshes.request(uuid,
+                task -> player.getServerWorld().addScheduledTask(task),
+                () -> {
+                    stats.sendTo(player);
+                });
         if ("coins".equals(ResourceDefinitions.normalize(resource))) NetworkHandler.sendToClient(new PongPacket(balance), player);
     }
 
