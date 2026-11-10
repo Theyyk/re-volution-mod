@@ -7,6 +7,12 @@ import java.util.List;
 final class UniqueRuneInlineLayout {
     private UniqueRuneInlineLayout() {}
 
+    /** Owned slots and COMMON acquisitions are separate facts for legacy upgraded runes. */
+    static String acquisitionCounter(int commonAcquired, int ownedCount) {
+        String common = commonAcquired < 0 ? "?" : String.valueOf(commonAcquired);
+        return "COMMON " + common + "/26 | Занято " + ownedCount + "/26";
+    }
+
     static UniqueRuneSnapshotPacket.Entry entryAtSlot(
             List<UniqueRuneSnapshotPacket.Entry> entries, String collectionId, int slot) {
         if (entries == null || collectionId == null || slot < 0 || slot >= 26) return null;
