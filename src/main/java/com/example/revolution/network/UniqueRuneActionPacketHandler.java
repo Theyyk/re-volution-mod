@@ -82,7 +82,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         for (UniqueRuneModel.CollectionId id : UniqueRuneModel.CollectionId.values()) {
             UniqueRuneModel.CollectionState collection = state.collection(id);
             UniqueRuneSnapshotPacket.Collection out = new UniqueRuneSnapshotPacket.Collection();
-            out.collectionId = id.name(); out.rarity = collection.currentRarity.name(); out.progress = collection.acquisitionProgress();
+            out.collectionId = id.name(); out.rarity = collection.purchaseRarity().name(); out.progress = collection.acquisitionProgress();
             out.improvedProgress = collection.acquisitionImproved.size();
             out.advancedProgress = collection.acquisitionAdvanced.size();
             out.mythicProgress = collection.acquisitionMythic.size();
@@ -101,7 +101,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 entry.name = rune.displayName; entry.rarity = owned.getValue().name(); entry.enhancement = payload.enhancement;
                 entry.canAwaken = collection.canAwaken(rune.runeId) && out.unlocked;
                 entry.canRollback = canRollback(id, collection, rune.runeId) && out.unlocked;
-                entry.acquiredCommon = collection.acquisitionCommon.contains(rune.runeId);
+                entry.acquiredCommon = collection.ownsAtCurrent(rune.runeId);
                 entry.enhancementPearlCost = id == UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION
                         ? exact(services.uniqueRunePolicy.enhancementPearlCost(rune.runeId, payload.enhancement)) : "0";
                 entry.effects = effectText(payload.effects); entries.add(entry);
