@@ -156,6 +156,7 @@ final class UniqueRuneServiceTest {
             PlayerState state = f.unique.load(PLAYER);
             for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.CRYSTAL_COLLECTION).runes)
                 state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+                state.collection(CollectionId.CRYSTAL_COLLECTION).acquisitionCommon.add(rune.runeId);
             f.unique.save(PLAYER, state);
             String target = String.format(java.util.Locale.ROOT, "crystal_%02d", selected);
             assertTrue(f.service.snapshot(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).canAwaken(target));
@@ -180,6 +181,7 @@ final class UniqueRuneServiceTest {
         PlayerState state = f.unique.load(PLAYER);
         for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.CRYSTAL_COLLECTION).runes)
             state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+                state.collection(CollectionId.CRYSTAL_COLLECTION).acquisitionCommon.add(rune.runeId);
         state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_01", 7);
         state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_02", 5);
         f.unique.save(PLAYER, state);
@@ -270,6 +272,7 @@ final class UniqueRuneServiceTest {
         PlayerState state = f.unique.load(PLAYER);
         for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.OFFERINGS_COLLECTION).runes)
             state.collection(CollectionId.OFFERINGS_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+                state.collection(CollectionId.OFFERINGS_COLLECTION).acquisitionCommon.add(rune.runeId);
         f.unique.save(PLAYER, state);
 
         assertEquals(UniqueRuneService.ResultCode.OK,
@@ -301,6 +304,7 @@ final class UniqueRuneServiceTest {
         PlayerState state = f.unique.load(PLAYER);
         for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.OFFERINGS_COLLECTION).runes)
             state.collection(CollectionId.OFFERINGS_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+                state.collection(CollectionId.OFFERINGS_COLLECTION).acquisitionCommon.add(rune.runeId);
         state.collection(CollectionId.OFFERINGS_COLLECTION).owned.put("offerings_02", Rarity.IMPROVED);
         state.collection(CollectionId.OFFERINGS_COLLECTION).runeRollback.put("offerings_02", Rarity.COMMON);
         f.unique.save(PLAYER, state);
@@ -384,6 +388,7 @@ final class UniqueRuneServiceTest {
             PlayerState state = f.unique.load(player);
             for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.DAILY_COLLECTION).runes)
                 state.collection(CollectionId.DAILY_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+                state.collection(CollectionId.DAILY_COLLECTION).acquisitionCommon.add(rune.runeId);
             f.unique.save(player, state);
         }
         assertEquals(UniqueRuneService.ResultCode.OK,
@@ -442,6 +447,7 @@ final class UniqueRuneServiceTest {
         PlayerState state = f.unique.load(PLAYER);
         for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.CRYSTAL_COLLECTION).runes)
             state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+                state.collection(CollectionId.CRYSTAL_COLLECTION).acquisitionCommon.add(rune.runeId);
         state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_06", 4);
         f.unique.save(PLAYER, state);
         PlayerState snapshot = f.service.snapshot(PLAYER);
@@ -458,6 +464,85 @@ final class UniqueRuneServiceTest {
         assertEquals(readsBefore, f.unique.loads);
         assertEquals(4, f.service.share(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_06").enhancement);
         assertEquals(readsBefore + 1, f.unique.loads, "existing Share API still loads current state");
+    }
+
+
+    @Test void stageProgressionRequiresAll26OfEachRarityWithoutLosingHigherRune() {
+        Fixture f = new Fixture();
+        CollectionId id = CollectionId.CRYSTAL_COLLECTION;
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes) {
+            state.collection(id).acquisitionCommon.add(rune.runeId);
+            state.collection(id).owned.put(rune.runeId, Rarity.COMMON);
+        }
+        state.collection(id).enhancement.put("crystal_01", 13);
+        f.unique.save(PLAYER, state);
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.awaken(PLAYER, id, "crystal_01", 1L).code);
+        assertEquals(UniqueRuneService.ResultCode.NOT_READY, f.service.awaken(PLAYER, id, "crystal_01", 2L).code,
+                "One improved rune cannot be immediately advanced");
+
+        // Each new 26-COMMON acquisition cohort produces one improved token,
+        // even when a higher individual rune already occupies the same id.
+        for (int i = 2; i <= 26; i++) {
+            PlayerState cycle = f.unique.load(PLAYER);
+            for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes) {
+                cycle.collection(id).acquisitionCommon.add(rune.runeId);
+                cycle.collection(id).owned.putIfAbsent(rune.runeId, Rarity.COMMON);
+            }
+            f.unique.save(PLAYER, cycle);
+            String target = String.format(java.util.Locale.ROOT, "crystal_%02d", i);
+            assertEquals(UniqueRuneService.ResultCode.OK, f.service.awaken(PLAYER, id, target, i + 1L).code);
+        }
+        PlayerState improved = f.unique.load(PLAYER);
+        assertEquals(26, improved.collection(id).acquisitionImproved.size());
+        assertEquals(0, improved.collection(id).acquisitionCommon.size());
+        assertTrue(improved.collection(id).canAwaken("crystal_01"));
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.awaken(PLAYER, id, "crystal_01", 28L).code);
+        PlayerState advanced = f.unique.load(PLAYER);
+        assertEquals(Rarity.ADVANCED, advanced.collection(id).owned.get("crystal_01"));
+        assertEquals(13, advanced.collection(id).enhancement("crystal_01"));
+        assertEquals(0, advanced.collection(id).acquisitionImproved.size());
+        assertEquals(1, advanced.collection(id).acquisitionAdvanced.size());
+        assertEquals(UniqueRuneService.ResultCode.NOT_READY, f.service.awaken(PLAYER, id, "crystal_01", 29L).code,
+                "One advanced rune cannot be immediately mythic");
+    }
+
+    @Test void cohortIsIndependentOfHigherOwnedRuneAndDuplicateIsOnlyWithinCurrentStage() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_01", Rarity.MYTHIC);
+        state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_01", 7);
+        f.unique.save(PLAYER, state);
+        f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.purchaseCrystal(PLAYER, 1L).code);
+        PlayerState after = f.unique.load(PLAYER);
+        assertEquals(Rarity.MYTHIC, after.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
+        assertTrue(after.collection(CollectionId.CRYSTAL_COLLECTION).acquisitionCommon.contains("crystal_01"));
+        assertEquals(7, after.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
+        assertEquals(UniqueRuneService.ResultCode.DUPLICATE, f.service.purchaseCrystal(PLAYER, 2L).code);
+        assertEquals(1, f.unique.load(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).acquisitionProgress());
+    }
+
+    @Test void dailyReacquiresCommonWithoutOverwritingIndividuallyImprovedRune() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.DAILY_COLLECTION).runes) {
+            state.collection(CollectionId.DAILY_COLLECTION).owned.put(rune.runeId, Rarity.COMMON);
+            state.collection(CollectionId.DAILY_COLLECTION).acquisitionCommon.add(rune.runeId);
+        }
+        f.unique.save(PLAYER, state);
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.awaken(PLAYER, CollectionId.DAILY_COLLECTION, "daily_01", 1L).code);
+        assertEquals(UniqueRuneService.ResultCode.NOT_READY,
+                f.service.awaken(PLAYER, CollectionId.DAILY_COLLECTION, "daily_01", 2L).code);
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.claimDaily(PLAYER, 100L, 3L).code);
+        PlayerState after = f.unique.load(PLAYER);
+        assertEquals(Rarity.IMPROVED, after.collection(CollectionId.DAILY_COLLECTION).owned.get("daily_01"));
+        assertEquals(1, after.collection(CollectionId.DAILY_COLLECTION).acquisitionCommon.size());
+        assertEquals(1, after.collection(CollectionId.DAILY_COLLECTION).acquisitionImproved.size());
+        assertEquals(100L, after.lastDailyClaimDay);
+        assertEquals(UniqueRuneService.ResultCode.DAILY_ALREADY_CLAIMED,
+                f.service.claimDaily(PLAYER, 100L, 4L).code);
     }
 
     private static final class Fixture {
