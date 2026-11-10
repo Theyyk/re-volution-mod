@@ -27,6 +27,7 @@ import com.example.revolution.network.GodWorshipRequestLimiter;
 import com.example.revolution.network.MechanicUnlockActionPacketHandler;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.RateLimitedPingPacketHandler;
+import com.example.revolution.network.RunePurchaseRequestLimiter;
 import com.example.revolution.pet.event.PetRuntimeHandler;
 import com.example.revolution.player.event.PlayerJoinHandler;
 import com.example.revolution.player.event.RpgSurvivalGuard;
@@ -155,6 +156,7 @@ public final class ServerLifecycle {
         ServerServices stopping = current;
         current = null;
         RateLimitedPingPacketHandler.reset();
+        RunePurchaseRequestLimiter.reset();
         GodWorshipRequestLimiter.reset();
         AuraRequestLimiter.reset();
         AchievementRequestLimiter.reset();
