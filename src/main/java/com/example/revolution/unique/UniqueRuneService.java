@@ -126,8 +126,10 @@ public final class UniqueRuneService {
         RuneDefinition rune = roll(policy.definition(CollectionId.CRYSTAL_COLLECTION).runes);
         boolean duplicate = collection.ownsAtCurrent(rune.runeId);
         if (!duplicate) {
-            collection.acquisitionCommon.add(rune.runeId);
-            collection.owned.putIfAbsent(rune.runeId, Rarity.COMMON);
+            Rarity purchaseRank = collection.purchaseRarity();
+            collection.cohort(purchaseRank).add(rune.runeId);
+            collection.owned.put(rune.runeId, purchaseRank);
+            collection.rollbackRestore.remove(rune.runeId);
         }
         repository.save(playerUuid, state);
         if (duplicate) {
@@ -148,8 +150,10 @@ public final class UniqueRuneService {
         RuneDefinition rune = roll(policy.definition(CollectionId.OFFERINGS_COLLECTION).runes);
         boolean duplicate = collection.ownsAtCurrent(rune.runeId);
         if (!duplicate) {
-            collection.acquisitionCommon.add(rune.runeId);
-            collection.owned.putIfAbsent(rune.runeId, Rarity.COMMON);
+            Rarity purchaseRank = collection.purchaseRarity();
+            collection.cohort(purchaseRank).add(rune.runeId);
+            collection.owned.put(rune.runeId, purchaseRank);
+            collection.rollbackRestore.remove(rune.runeId);
         }
         repository.save(playerUuid, state);
         factual(playerUuid, duplicate ? GameplayEventType.UNIQUE_RUNE_DUPLICATE : GameplayEventType.UNIQUE_RUNE_OBTAINED,
@@ -183,8 +187,10 @@ public final class UniqueRuneService {
             if (!collection.ownsAtCurrent(rune.runeId)) eligible.add(rune);
         if (eligible.isEmpty()) return Result.of(ResultCode.COMPLETE);
         RuneDefinition rune = roll(eligible);
-        collection.acquisitionCommon.add(rune.runeId);
-        collection.owned.putIfAbsent(rune.runeId, Rarity.COMMON);
+        Rarity purchaseRank = collection.purchaseRarity();
+        collection.cohort(purchaseRank).add(rune.runeId);
+        collection.owned.put(rune.runeId, purchaseRank);
+        collection.rollbackRestore.remove(rune.runeId);
         state.lastDailyClaimDay = epochDay;
         state.lastDailyClaimMillis = nowMillis; // commit only after actual successful reward selection
         repository.save(playerUuid, state);
@@ -234,28 +240,26 @@ public final class UniqueRuneService {
             collection.rollbackRestore.remove(promotedRuneId);
             collection.runeRollback.put(promotedRuneId, factual);
         } else {
-            // Never choose the source tier from an unrelated completed
-            // cohort. A selected IMPROVED rune requires 26 IMPROVED entries,
-            // regardless of whether COMMON is 26/26.
+            // Same as ordinary RuneAwakeningService: all 26 slots must have
+            // factual ranks at or above this target's current rank.
             if (!collection.canAwaken(promotedRuneId))
                 return Result.of(ResultCode.NOT_READY);
             Rarity source = factual;
             Rarity next = source.nextGameplay();
             if (next == source) return Result.of(ResultCode.MAX_RARITY);
-            // The completed lower-rank set is consumed as a *cohort*, without
-            // deleting a higher-rank rune or its enhancement/history.
-            // Daily also resets its 26-item claim cohort while keeping owned.
+            // Ordinary rank-up clears every OTHER slot at or below the
+            // source rank while preserving higher runes and enhancements.
+            // Daily uses the same rank progression, with its cooldown intact.
             collection.cohort(source).clear();
-            if (id != CollectionId.DAILY_COLLECTION) {
-                List<String> consumed = new ArrayList<>();
-                for (Map.Entry<String, Rarity> entry : collection.owned.entrySet())
-                    if (entry.getValue() == source && !entry.getKey().equals(promotedRuneId))
-                        consumed.add(entry.getKey());
-                for (String consumedId : consumed) {
-                    collection.owned.remove(consumedId);
-                    collection.runeRollback.remove(consumedId);
-                    collection.rollbackRestore.remove(consumedId);
-                }
+            List<String> consumed = new ArrayList<>();
+            for (Map.Entry<String, Rarity> entry : collection.owned.entrySet())
+                if (entry.getValue().persistentId <= source.persistentId
+                        && !entry.getKey().equals(promotedRuneId))
+                    consumed.add(entry.getKey());
+            for (String consumedId : consumed) {
+                collection.owned.remove(consumedId);
+                collection.runeRollback.remove(consumedId);
+                collection.rollbackRestore.remove(consumedId);
             }
             collection.cohort(next).add(promotedRuneId);
             // Already-higher individual rune remains intact while its
