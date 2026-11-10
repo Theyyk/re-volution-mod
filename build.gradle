@@ -149,6 +149,7 @@ def regressionTests = [
     runeCollectionMetadataPacketRegression: 'com.example.revolution.network.RuneCollectionMetadataPacketTest',
     runeStatusDamageRuntimeRegression: 'com.example.revolution.rune.service.RuneStatusDamageRuntimeTest',
     enhancementRateLimitRegression: 'com.example.revolution.network.EnhancementRequestLimiterTest',
+    runePurchaseRateLimitRegression: 'com.example.revolution.network.RunePurchaseRequestLimiterTest',
     networkWireContractRegression: 'com.example.revolution.network.NetworkWireContractTest',
     achievementNetworkPacketRegression: 'com.example.revolution.network.AchievementNetworkPacketTest',
     achievementRequestLimiterRegression: 'com.example.revolution.network.AchievementRequestLimiterTest',
