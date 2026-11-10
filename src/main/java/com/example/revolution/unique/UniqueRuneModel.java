@@ -160,6 +160,9 @@ public final class UniqueRuneModel {
             if (rollbackRestore.containsKey(runeId)
                     && existing.nextGameplay() == rollbackRestore.get(runeId)) return true;
             Rarity ready = readyToAwaken();
+            // At the terminal tier, an already-MYTHIC rune cannot consume a
+            // complete ADVANCED cohort without any actual rank promotion.
+            if (ready == Rarity.ADVANCED && existing == Rarity.MYTHIC) return false;
             return ready != null && !cohort(ready.nextGameplay()).contains(runeId)
                     && (existing.persistentId >= ready.persistentId);
         }
