@@ -334,7 +334,7 @@ final class UniqueRuneServiceTest {
         assertEquals(UniqueRuneService.ResultCode.OK,
                 f.service.purchaseOfferings(PLAYER, 1L).code);
         PlayerState after = f.unique.load(PLAYER);
-        assertEquals(Rarity.COMMON, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
+        assertEquals(Rarity.ADVANCED, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
         assertEquals(Rarity.MYTHIC, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_26"));
     }
 
@@ -520,10 +520,10 @@ final class UniqueRuneServiceTest {
         state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_01", 7);
         f.unique.save(PLAYER, state);
         f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
-        assertEquals(UniqueRuneService.ResultCode.OK, f.service.purchaseCrystal(PLAYER, 1L).code);
+        assertEquals(UniqueRuneService.ResultCode.DUPLICATE, f.service.purchaseCrystal(PLAYER, 1L).code);
         PlayerState after = f.unique.load(PLAYER);
         assertEquals(Rarity.MYTHIC, after.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
-        assertTrue(after.collection(CollectionId.CRYSTAL_COLLECTION).acquisitionCommon.contains("crystal_01"));
+        assertFalse(after.collection(CollectionId.CRYSTAL_COLLECTION).acquisitionCommon.contains("crystal_01"));
         assertEquals(7, after.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
         assertEquals(UniqueRuneService.ResultCode.DUPLICATE, f.service.purchaseCrystal(PLAYER, 2L).code);
         assertEquals(1, f.unique.load(PLAYER).collection(CollectionId.CRYSTAL_COLLECTION).acquisitionProgress());
@@ -601,11 +601,11 @@ final class UniqueRuneServiceTest {
         initial.collection(CollectionId.OFFERINGS_COLLECTION).owned.put("offerings_01", Rarity.MYTHIC);
         f.unique.save(PLAYER, initial);
         f.offerings = new BigDecimal("1000");
-        assertEquals(UniqueRuneService.ResultCode.OK, f.service.purchaseOfferings(PLAYER, 1L).code);
+        assertEquals(UniqueRuneService.ResultCode.DUPLICATE, f.service.purchaseOfferings(PLAYER, 1L).code);
         assertEquals(UniqueRuneService.ResultCode.DUPLICATE, f.service.purchaseOfferings(PLAYER, 2L).code);
         PlayerState after = f.unique.load(PLAYER);
         assertEquals(Rarity.MYTHIC, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
-        assertEquals(1, after.collection(CollectionId.OFFERINGS_COLLECTION).acquisitionCommon.size());
+        assertEquals(0, after.collection(CollectionId.OFFERINGS_COLLECTION).acquisitionCommon.size());
         assertEquals(BigDecimal.ZERO, f.resources.getPlayerResourceValue(PLAYER, "pearl"));
     }
 
