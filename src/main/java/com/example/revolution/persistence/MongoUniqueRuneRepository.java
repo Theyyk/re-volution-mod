@@ -57,6 +57,7 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
                     .append("acquisitionCommon", new ArrayList<>(collection.acquisitionCommon))
                     .append("acquisitionImproved", new ArrayList<>(collection.acquisitionImproved))
                     .append("acquisitionAdvanced", new ArrayList<>(collection.acquisitionAdvanced))
+                    .append("acquisitionMythic", new ArrayList<>(collection.acquisitionMythic))
                     .append("rollbackRestore", encodeRarityMap(collection.rollbackRestore))
                     .append("enhancement", enhancement)
                     .append("rollbackRarity", collection.rollbackRarity == null ? null : collection.rollbackRarity.name())
@@ -100,6 +101,7 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
                 decodeCohort(stored, "acquisitionCommon", id, target.acquisitionCommon);
                 decodeCohort(stored, "acquisitionImproved", id, target.acquisitionImproved);
                 decodeCohort(stored, "acquisitionAdvanced", id, target.acquisitionAdvanced);
+                decodeCohort(stored, "acquisitionMythic", id, target.acquisitionMythic);
             } else {
                 // Legacy v1/v2 only proves the *factual* tier of each owned rune.
                 // Never fabricate lost lower-tier history underneath a higher rune.
@@ -108,6 +110,7 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
                         case COMMON: target.acquisitionCommon.add(entry.getKey()); break;
                         case IMPROVED: target.acquisitionImproved.add(entry.getKey()); break;
                         case ADVANCED: target.acquisitionAdvanced.add(entry.getKey()); break;
+                        case MYTHIC: target.acquisitionMythic.add(entry.getKey()); break;
                         default: break;
                     }
                 }
