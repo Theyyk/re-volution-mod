@@ -102,8 +102,11 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
         int left = left(), top = UnifiedMainMenuChrome.contentTop(width, height) + 28;
         if (state != null) {
             String status = state.unlocked ? "" : "  [ЗАКРЫТО]";
-            fontRenderer.drawString("Редкость: " + state.rarity + "   Прогресс: "
-                    + state.progress + "/26" + status, left, top, GuiTheme.TEXT_COLOR);
+            String stages = "COMMON " + state.progress + "/26"
+                    + "   IMPROVED " + state.improvedProgress + "/26"
+                    + "   ADVANCED " + state.advancedProgress + "/26";
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(stages + status, right() - left),
+                    left, top, GuiTheme.TEXT_COLOR);
         }
         String resources = "Кристаллы: " + snapshot.getCrystals()
                 + "   Жемчуг: " + snapshot.getPearl()
