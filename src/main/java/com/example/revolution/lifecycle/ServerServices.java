@@ -310,6 +310,7 @@ public final class ServerServices implements AutoCloseable {
         RuneEnhancementBalanceService enhancementBalance = new RuneEnhancementBalanceService(balance);
         RuneEnhancementPlanningService enhancementPlanning = new RuneEnhancementPlanningService(enhancementBalance);
         RuneRankUpBalanceService rankUpBalance = new RuneRankUpBalanceService(balance);
+        stats.bindRankUpBalance(rankUpBalance);
         RuneSyncService sync = new RuneSyncService(players, enhancements, enhancementBalance);
         RunePurchaseService runePurchase = new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance));
         RuneEnhancementService runeEnhancement = new RuneEnhancementService(players, resources, stats, enhancements, sync, enhancementPlanning);

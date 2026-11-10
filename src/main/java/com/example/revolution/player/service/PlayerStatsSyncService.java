@@ -7,12 +7,15 @@ import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.config.RuneEconomyConfig;
 import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneCollectionProgression;
 import com.example.revolution.rune.rules.RuneCombatMath;
 import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.service.RuneCombatService;
 import com.example.revolution.rune.service.RunePurchaseBalanceService;
+import com.example.revolution.rune.service.RuneRankUpBalanceService;
+import com.example.revolution.rune.definition.RuneRankUpRule;
 import com.example.revolution.rune.state.RuneInventory;
 import com.example.revolution.unique.UniqueRuneService;
 import java.math.BigDecimal;
@@ -26,6 +29,7 @@ public final class PlayerStatsSyncService {
     private final PlayerStatsService playerStats;
     private final RuneCombatService combat;
     private RunePurchaseBalanceService purchaseBalance;
+    private RuneRankUpBalanceService rankUpBalance;
     private UniqueRuneService uniqueRunes;
 
     public PlayerStatsSyncService(
@@ -46,6 +50,14 @@ public final class PlayerStatsSyncService {
             throw new IllegalStateException("purchase balance is already bound");
         }
         this.purchaseBalance = purchaseBalance;
+    }
+
+    /** Use the same live Balance Core rank-up rules as RuneAwakeningService. */
+    public void bindRankUpBalance(RuneRankUpBalanceService rankUpBalance) {
+        if (rankUpBalance == null) throw new IllegalArgumentException("rank-up balance is required");
+        if (this.rankUpBalance != null && this.rankUpBalance != rankUpBalance)
+            throw new IllegalStateException("rank-up balance is already bound");
+        this.rankUpBalance = rankUpBalance;
     }
 
     /** The existing God Worship wallet stays authoritative and is read only for transport. */
@@ -76,10 +88,15 @@ public final class PlayerStatsSyncService {
         String canonicalPurchaseResource = ResourceDefinitions.findCanonicalName(purchaseResource);
         if (canonicalPurchaseResource == null) canonicalPurchaseResource = "coins";
         int purchaseUnitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
-        if (purchaseBalance != null && RuneStatusConfig.isRuneStatus(statusId)) {
-            RuneCollectionProgression progression = purchaseProgression(uuid, activeCollection);
-            canonicalPurchaseResource = purchaseBalance.purchaseResource(statusId);
-            purchaseUnitCost = resolvePurchaseUnitCost(purchaseBalance, statusId, progression);
+        int[] bestRanks = null;
+        RuneCollectionId fixedCollection = RuneCollectionId.fromLegacyIndex(activeCollection);
+        if (fixedCollection != null && RuneStatusConfig.isRuneStatus(statusId)) {
+            bestRanks = loadBestRanks(uuid, activeCollection);
+            if (purchaseBalance != null) {
+                RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(bestRanks);
+                canonicalPurchaseResource = purchaseBalance.purchaseResource(statusId);
+                purchaseUnitCost = resolvePurchaseUnitCost(purchaseBalance, statusId, progression);
+            }
         }
 
         String awakeningResource = RuneEconomyConfig.awakeningResourceForStatus(statusId);
@@ -87,6 +104,18 @@ public final class PlayerStatsSyncService {
         if (canonicalAwakeningResource == null) canonicalAwakeningResource = awakeningResource;
         int awakeningNormalCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.NORMAL_RANK);
         int awakeningImprovedCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.IMPROVED_RANK);
+        if (bestRanks != null && rankUpBalance != null) {
+            RuneRankUpRule currentRule = currentAwakeningRule(rankUpBalance, fixedCollection, bestRanks);
+            if (currentRule != null) {
+                canonicalAwakeningResource = currentRule.resource;
+                awakeningNormalCost = currentRule.cost;
+                awakeningImprovedCost = currentRule.cost;
+            } else {
+                // Do not advertise an obsolete legacy cost for an unavailable rank-up.
+                canonicalAwakeningResource = "";
+                awakeningNormalCost = awakeningImprovedCost = 0;
+            }
+        }
 
         PlayerStatsPacket snapshot = new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage,
                 statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost,
@@ -110,13 +139,34 @@ public final class PlayerStatsSyncService {
                 progression.higherRuneCount());
     }
 
-    private RuneCollectionProgression purchaseProgression(UUID uuid, int collectionIndex) {
+    /**
+     * The collection-wide awakening button describes the lowest owned rank
+     * in a complete 26-slot cohort. This matches the next valid source tier
+     * rather than legacy RuneEconomyConfig pricing.
+     * An individual target is still validated and charged server-side.
+     */
+    static RuneRankUpRule currentAwakeningRule(
+            RuneRankUpBalanceService rules, RuneCollectionId collection, int[] ranks) {
+        if (rules == null || collection == null || ranks == null || ranks.length < RuneInventory.BOOST_TYPE_COUNT)
+            return null;
+        int sourceRank = Integer.MAX_VALUE;
+        for (int rank : ranks) {
+            if (rank <= 0) return null;
+            sourceRank = Math.min(sourceRank, RuneProgression.clampRank(rank));
+        }
+        if (RuneProgression.isMaximumRank(sourceRank)) return null;
+        int higherCount = 0;
+        for (int rank : ranks) if (RuneProgression.clampRank(rank) > sourceRank) higherCount++;
+        return rules.rule(collection, sourceRank, higherCount);
+    }
+
+    private int[] loadBestRanks(UUID uuid, int collectionIndex) {
         int[] bestRanks = new int[RuneInventory.BOOST_TYPE_COUNT];
         for (RuneRecord rune : players.getRunesInCollection(uuid, collectionIndex)) {
             if (rune.runeIndex < 0 || rune.runeIndex >= RuneInventory.BOOST_TYPE_COUNT) continue;
             bestRanks[rune.runeIndex] = Math.max(
                     bestRanks[rune.runeIndex], RuneProgression.clampRank(rune.layer));
         }
-        return RuneCollectionProgression.fromBestRanks(bestRanks);
+        return bestRanks;
     }
 }
