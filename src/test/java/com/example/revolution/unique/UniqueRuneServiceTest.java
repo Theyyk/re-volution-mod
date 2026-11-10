@@ -682,6 +682,85 @@ final class UniqueRuneServiceTest {
         assertEquals(Rarity.IMPROVED, f.unique.load(PLAYER).collection(id).owned.get("daily_02"));
         assertEquals(Rarity.IMPROVED, f.unique.load(PLAYER).collection(id).owned.get("daily_01"));
     }
+    @Test void r10LegacyOwned26CannotBuyMissingHistoricalCommonCohort() {
+        Fixture f = new Fixture();
+        CollectionId id = CollectionId.CRYSTAL_COLLECTION;
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes)
+            state.collection(id).owned.put(rune.runeId, Rarity.COMMON);
+        state.collection(id).owned.put("crystal_06", Rarity.IMPROVED);
+        state.collection(id).owned.put("crystal_10", Rarity.IMPROVED);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes)
+            if (!rune.runeId.equals("crystal_06") && !rune.runeId.equals("crystal_10"))
+                state.collection(id).acquisitionCommon.add(rune.runeId);
+        f.unique.save(PLAYER, state);
+        f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
+
+        assertEquals(26, state.collection(id).progress());
+        assertEquals(24, state.collection(id).acquisitionCommon.size());
+        assertEquals(26, state.collection(id).acquisitionProgress(), "higher factual ranks cover ordinary COMMON");
+        assertTrue(state.collection(id).canAwaken("crystal_01"));
+        BigDecimal before = f.resources.getPlayerResourceValue(PLAYER, "crystals");
+        assertEquals(UniqueRuneService.ResultCode.COMPLETE, f.service.purchaseCrystal(PLAYER, 1L).code);
+        assertEquals(before, f.resources.getPlayerResourceValue(PLAYER, "crystals"));
+        assertEquals(26, f.unique.load(PLAYER).collection(id).progress());
+    }
+
+    @Test void r10OfferingsOwned26BlocksPurchaseWithoutChargeEvenIfCohortMissing() {
+        Fixture f = new Fixture();
+        CollectionId id = CollectionId.OFFERINGS_COLLECTION;
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes)
+            state.collection(id).owned.put(rune.runeId, Rarity.COMMON);
+        for (int i = 1; i <= 7; i++)
+            state.collection(id).owned.put(String.format(java.util.Locale.ROOT, "offerings_%02d", i), Rarity.IMPROVED);
+        f.unique.save(PLAYER, state);
+        f.offerings = new BigDecimal("1000");
+
+        assertEquals(26, state.collection(id).acquisitionProgress());
+        assertEquals(0, state.collection(id).acquisitionCommon.size());
+        assertEquals(UniqueRuneService.ResultCode.COMPLETE, f.service.purchaseOfferings(PLAYER, 1L).code);
+        assertEquals(new BigDecimal("1000"), f.offerings);
+    }
+
+    @Test void r10OrdinaryRankStagesRequireAllImprovedBeforeAdvanced() {
+        Fixture f = new Fixture(true);
+        CollectionId id = CollectionId.CRYSTAL_COLLECTION;
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes)
+            state.collection(id).owned.put(rune.runeId, Rarity.IMPROVED);
+        f.unique.save(PLAYER, state);
+        assertEquals(Rarity.IMPROVED, state.collection(id).purchaseRarity());
+        assertEquals(26, state.collection(id).acquisitionProgress());
+        assertTrue(state.collection(id).canAwaken("crystal_01"));
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.awaken(PLAYER, id, "crystal_01", 1L).code);
+        UniqueRuneModel.CollectionState advanced = f.unique.load(PLAYER).collection(id);
+        assertEquals(Rarity.ADVANCED, advanced.owned.get("crystal_01"));
+        assertEquals(1, advanced.owned.size());
+        assertEquals(Rarity.IMPROVED, advanced.purchaseRarity());
+        assertEquals(1, advanced.acquisitionProgress());
+        assertFalse(advanced.canAwaken("crystal_01"));
+
+        f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.purchaseCrystal(PLAYER, 2L).code);
+        assertEquals(Rarity.IMPROVED, f.unique.load(PLAYER).collection(id).owned.get("crystal_26"));
+    }
+
+    @Test void r10NoPromotionBasedOnlyOnHistoricalAcquisitionCohorts() {
+        Fixture f = new Fixture();
+        CollectionId id = CollectionId.CRYSTAL_COLLECTION;
+        PlayerState state = f.unique.load(PLAYER);
+        state.collection(id).owned.put("crystal_01", Rarity.IMPROVED);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(id).runes) {
+            state.collection(id).acquisitionCommon.add(rune.runeId);
+            state.collection(id).acquisitionImproved.add(rune.runeId);
+        }
+        f.unique.save(PLAYER, state);
+        assertFalse(state.collection(id).canAwaken("crystal_01"));
+        assertEquals(UniqueRuneService.ResultCode.NOT_READY, f.service.awaken(PLAYER, id, "crystal_01", 1L).code);
+        assertEquals(1, f.unique.load(PLAYER).collection(id).progress());
+    }
+
     private static final class Fixture {
         final MemUniqueRepository unique = new MemUniqueRepository();
         final MemResourceRepository resourceRepo = new MemResourceRepository();
