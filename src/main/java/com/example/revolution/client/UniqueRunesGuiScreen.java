@@ -141,11 +141,9 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
             fontRenderer.drawString(fontRenderer.trimStringToWidth(text, size-4),
                     x + 2, y + Math.max(2, (size - fontRenderer.FONT_HEIGHT) / 2),
                     entry == null ? GuiTheme.DISABLED_TEXT_COLOR : GuiTheme.TEXT_COLOR);
-            // A slot may contain a permanent ADVANCED/MYTHIC rune but still
-            // lack the current COMMON acquisition. Mark only factual cohort
-            // ownership so "all 26 tiles occupied" never implies 26/26 buys.
+            // '+' means this factual rank covers the current purchase stage.
             if (entry != null && entry.acquiredCommon)
-                fontRenderer.drawString("C", x + size - 9, y + size - 11, GuiTheme.CRYSTAL_COLOR);
+                fontRenderer.drawString("+", x + size - 9, y + size - 11, GuiTheme.CRYSTAL_COLOR);
         }
         if (rollbackArmed) {
             fontRenderer.drawString(fontRenderer.trimStringToWidth(
