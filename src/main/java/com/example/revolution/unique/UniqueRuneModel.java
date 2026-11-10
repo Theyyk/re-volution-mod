@@ -1,6 +1,7 @@
 package com.example.revolution.unique;
 
 import com.example.revolution.effect.EffectResolver;
+import com.example.revolution.rune.rules.RuneCollectionProgression;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -145,13 +146,36 @@ public final class UniqueRuneModel {
             if (rarity == Rarity.MYTHIC) return acquisitionMythic;
             return Collections.emptySet();
         }
-        /** The purchase/claim lane is always COMMON; higher cohorts remain independent. */
-        public int acquisitionProgress() { return acquisitionCommon.size(); }
-        public boolean ownsAtCurrent(String runeId) { return acquisitionCommon.contains(runeId); }
+        /** Shared ordinary-rune rank progression: factual owned ranks decide purchase coverage. */
+        private RuneCollectionProgression stageProgression() {
+            int[] ranks = new int[RUNES_PER_COLLECTION];
+            for (Map.Entry<String, Rarity> entry : owned.entrySet()) {
+                String id = entry.getKey();
+                if (id == null || id.length() < 2) continue;
+                try {
+                    int slot = Integer.parseInt(id.substring(id.length() - 2));
+                    if (slot >= 1 && slot <= RUNES_PER_COLLECTION)
+                        ranks[slot - 1] = Math.max(ranks[slot - 1], entry.getValue().persistentId);
+                } catch (NumberFormatException ignored) { }
+            }
+            return RuneCollectionProgression.fromBestRanks(ranks);
+        }
+        public Rarity purchaseRarity() {
+            return Rarity.values()[stageProgression().stageRank() - 1];
+        }
+        /** Number of factual slots at or above the current purchase stage. */
+        public int acquisitionProgress() { return stageProgression().coveredCount(); }
+        public boolean ownsAtCurrent(String runeId) {
+            Rarity rank = owned.get(runeId);
+            return rank != null && rank.persistentId >= purchaseRarity().persistentId;
+        }
         public Rarity readyToAwaken() {
-            if (acquisitionAdvanced.size() == RUNES_PER_COLLECTION) return Rarity.ADVANCED;
-            if (acquisitionImproved.size() == RUNES_PER_COLLECTION) return Rarity.IMPROVED;
-            if (acquisitionCommon.size() == RUNES_PER_COLLECTION) return Rarity.COMMON;
+            for (Rarity rank : new Rarity[]{Rarity.ADVANCED, Rarity.IMPROVED, Rarity.COMMON}) {
+                int covered = 0;
+                for (Rarity ownedRank : owned.values())
+                    if (ownedRank.persistentId >= rank.persistentId) covered++;
+                if (covered >= RUNES_PER_COLLECTION) return rank;
+            }
             return null;
         }
         public boolean canAwaken(String runeId) {
@@ -159,14 +183,13 @@ public final class UniqueRuneModel {
             if (existing == null) return false;
             if (rollbackRestore.containsKey(runeId)
                     && existing.nextGameplay() == rollbackRestore.get(runeId)) return true;
-            // A full COMMON cohort cannot awaken an already-IMPROVED/ADVANCED
-            // rune. Each target must spend the full cohort of its *own* rarity.
-            // Otherwise the operation consumes COMMON without changing the
-            // target's factual rank, creating false successes / tier skipping.
+            // Same authoritative rule as ordinary runes: all 26 factual slots
+            // must be at least the target rune's current rank. Higher ranks count.
             if (existing == Rarity.MYTHIC) return false;
-            return cohort(existing).size() == RUNES_PER_COLLECTION
-                    && cohort(existing).contains(runeId)
-                    && !cohort(existing.nextGameplay()).contains(runeId);
+            int covered = 0;
+            for (Rarity rank : owned.values())
+                if (rank.persistentId >= existing.persistentId) covered++;
+            return covered >= RUNES_PER_COLLECTION;
         }
         /** Rollback is a paid, confirmed rank downgrade available only from ADVANCED (#3). */
         public boolean canRollback(String runeId) { Rarity rarity = owned.get(runeId); return rarity == Rarity.ADVANCED || rarity == Rarity.MYTHIC; }
