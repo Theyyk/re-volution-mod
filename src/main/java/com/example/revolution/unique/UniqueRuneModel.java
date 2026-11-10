@@ -124,6 +124,8 @@ public final class UniqueRuneModel {
         /** V3 independent paid/earned cohort, not derived from highest rune ownership. */
         public final Set<String> acquisitionImproved = new LinkedHashSet<>();
         public final Set<String> acquisitionAdvanced = new LinkedHashSet<>();
+        /** Terminal rank provenance: no ANCIENT gameplay advancement. */
+        public final Set<String> acquisitionMythic = new LinkedHashSet<>();
         /** An explicitly paid rollback can restore only the same rune's pre-rollback rarity. */
         public final Map<String, Rarity> rollbackRestore = new LinkedHashMap<>();
         /** Enhancement survives awaken/rollback and is meaningful only for Crystal collection. */
@@ -140,6 +142,7 @@ public final class UniqueRuneModel {
             if (rarity == Rarity.COMMON) return acquisitionCommon;
             if (rarity == Rarity.IMPROVED) return acquisitionImproved;
             if (rarity == Rarity.ADVANCED) return acquisitionAdvanced;
+            if (rarity == Rarity.MYTHIC) return acquisitionMythic;
             return Collections.emptySet();
         }
         /** The purchase/claim lane is always COMMON; higher cohorts remain independent. */
@@ -165,7 +168,7 @@ public final class UniqueRuneModel {
         public int enhancement(String runeId) { Integer value = enhancement.get(runeId); return value == null ? 0 : Math.max(0, value); }
         public CollectionState copy() {
             CollectionState copy = new CollectionState(); copy.currentRarity = currentRarity;
-            copy.owned.putAll(owned); copy.acquisitionCommon.addAll(acquisitionCommon); copy.acquisitionImproved.addAll(acquisitionImproved); copy.acquisitionAdvanced.addAll(acquisitionAdvanced); copy.rollbackRestore.putAll(rollbackRestore); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); copy.runeRollback.putAll(runeRollback); copy.legacyV1SnapshotJson = legacyV1SnapshotJson; return copy;
+            copy.owned.putAll(owned); copy.acquisitionCommon.addAll(acquisitionCommon); copy.acquisitionImproved.addAll(acquisitionImproved); copy.acquisitionAdvanced.addAll(acquisitionAdvanced); copy.acquisitionMythic.addAll(acquisitionMythic); copy.rollbackRestore.putAll(rollbackRestore); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); copy.runeRollback.putAll(runeRollback); copy.legacyV1SnapshotJson = legacyV1SnapshotJson; return copy;
         }
     }
 
