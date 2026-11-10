@@ -28,6 +28,7 @@ public final class RuneActionService {
     private final RuneSyncService sync;
     private final RuneCollectionUnlockService collectionUnlocks;
     private final MechanicUnlockService mechanicUnlocks;
+    private final RuneProgressRefreshCoalescer mechanicProgressRefreshes = new RuneProgressRefreshCoalescer();
 
     public RuneActionService(
             PlayerRepository players,
@@ -265,7 +266,14 @@ public final class RuneActionService {
     }
 
     private void refreshMechanicProgress(EntityPlayerMP player) {
-        if (mechanicUnlocks != null) mechanicUnlocks.refreshRuneProgress(player.getUniqueID());
+        if (mechanicUnlocks == null) return;
+        // MechanicUnlockService.refreshRuneProgress reads all seven rune
+        // collections. Consecutive purchases still mutate synchronously and
+        // in order; only their redundant derived progress refreshes are merged.
+        java.util.UUID playerId = player.getUniqueID();
+        mechanicProgressRefreshes.request(playerId,
+                task -> player.getServerWorld().addScheduledTask(task),
+                () -> mechanicUnlocks.refreshRuneProgress(playerId));
     }
 
     private static boolean isImportantPlayerAction(String action) {
