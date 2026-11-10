@@ -119,6 +119,8 @@ public final class UniqueRuneModel {
         public Rarity currentRarity = Rarity.COMMON;
         /** Rune id -> factual owned rarity in the current cycle. */
         public final Map<String, Rarity> owned = new LinkedHashMap<>();
+        /** V3: COMMON acquisition cohort independent of highest factual rune ownership. */
+        public final Set<String> acquisitionCommon = new LinkedHashSet<>();
         /** Enhancement survives awaken/rollback and is meaningful only for Crystal collection. */
         public final Map<String, Integer> enhancement = new LinkedHashMap<>();
         public Rarity rollbackRarity;
@@ -136,7 +138,7 @@ public final class UniqueRuneModel {
         public int enhancement(String runeId) { Integer value = enhancement.get(runeId); return value == null ? 0 : Math.max(0, value); }
         public CollectionState copy() {
             CollectionState copy = new CollectionState(); copy.currentRarity = currentRarity;
-            copy.owned.putAll(owned); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); copy.runeRollback.putAll(runeRollback); copy.legacyV1SnapshotJson = legacyV1SnapshotJson; return copy;
+            copy.owned.putAll(owned); copy.acquisitionCommon.addAll(acquisitionCommon); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); copy.runeRollback.putAll(runeRollback); copy.legacyV1SnapshotJson = legacyV1SnapshotJson; return copy;
         }
     }
 
