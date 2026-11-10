@@ -84,6 +84,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
             out.collectionId = id.name(); out.rarity = collection.currentRarity.name(); out.progress = collection.acquisitionProgress();
             out.improvedProgress = collection.acquisitionImproved.size();
             out.advancedProgress = collection.acquisitionAdvanced.size();
+            out.mythicProgress = collection.acquisitionMythic.size();
             out.unlocked = unlockedCollections.contains(id);
             out.canAwaken = false; out.canRollback = false;
             for (String ownedId : collection.owned.keySet()) {
