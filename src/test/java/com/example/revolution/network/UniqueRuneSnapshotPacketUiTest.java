@@ -21,7 +21,11 @@ public class UniqueRuneSnapshotPacketUiTest {
         crystal.canRollback = true;
         UniqueRuneSnapshotPacket.Collection collection = new UniqueRuneSnapshotPacket.Collection();
         collection.collectionId = crystal.collectionId;
-        collection.rarity = "IMPROVED";
+        collection.rarity = "COMMON";
+        collection.progress = 12;
+        collection.improvedProgress = 25;
+        collection.advancedProgress = 1;
+        collection.mythicProgress = 3;
         collection.unlocked = true;
         collection.canRollback = true;
         long next = 1794096000000L;
@@ -49,5 +53,9 @@ public class UniqueRuneSnapshotPacketUiTest {
         assertEquals("1000", received.getPearl());
         assertEquals("9", received.getOfferings());
         assertTrue(received.getCollections().get(0).unlocked);
+        assertEquals(12, received.getCollections().get(0).progress);
+        assertEquals(25, received.getCollections().get(0).improvedProgress);
+        assertEquals(1, received.getCollections().get(0).advancedProgress);
+        assertEquals(3, received.getCollections().get(0).mythicProgress);
     }
 }
