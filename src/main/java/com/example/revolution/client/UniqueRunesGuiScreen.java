@@ -102,7 +102,7 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
         int left = left(), top = UnifiedMainMenuChrome.contentTop(width, height) + 28;
         if (state != null) {
             String status = state.unlocked ? "" : "  [ЗАКРЫТО]";
-            String lower = "COMMON " + state.progress + "/26"
+            String lower = state.rarity + " " + state.progress + "/26"
                     + "   IMPROVED " + state.improvedProgress + "/26";
             String upper = "ADVANCED " + state.advancedProgress + "/26"
                     + "   MYTHIC " + state.mythicProgress + "/26";
@@ -168,7 +168,7 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
             if (e != null && mouseX >= x && mouseX < x+size && mouseY >= y && mouseY < y+size) {
                 drawHoveringText(Arrays.asList(e.name, e.rarity + " +" + e.enhancement,
                         e.effects,
-                        e.acquiredCommon ? "COMMON-набор: получена" : "COMMON-набор: ещё не получена",
+                        e.acquiredCommon ? "Текущий ранг: зачтена" : "Текущий ранг: не зачтена",
                         "ЛКМ: поделиться", "Shift+ЛКМ: случайное усиление"), mouseX, mouseY);
                 break;
             }
