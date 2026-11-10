@@ -247,7 +247,9 @@ public final class RunePurchaseService {
             int duplicates,
             int spent) {
         int newBalance = resources.addPlayerResource(player.getUniqueID(), purchaseResource, -spent);
-        stats.sendTo(player);
+        // syncPurchaseBalance already sends the authoritative PlayerStatsPacket.
+        // Repeating sendTo here doubles expensive rune/combat/resource resolution
+        // on every ordinary purchase, worsening server-thread burst stalls.
         syncPurchaseBalance(player, purchaseResource, newBalance);
         String resourceName = ResourceDefinitions.getDisplayName(purchaseResource);
         String duplicateText = duplicates > 0 ? " §7Дубликаты: §e" + duplicates + "§7." : "";
