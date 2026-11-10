@@ -584,7 +584,7 @@ final class UniqueRuneServiceTest {
                 f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", true, 1L).code);
         assertEquals(Rarity.MYTHIC, f.unique.load(PLAYER)
                 .collection(CollectionId.CRYSTAL_COLLECTION).rollbackRestore.get("crystal_01"));
-        assertEquals(UniqueRuneService.ResultCode.NOT_READY,
+        assertEquals(UniqueRuneService.ResultCode.MAX_RARITY,
                 f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_02", 2L).code);
         assertEquals(UniqueRuneService.ResultCode.OK,
                 f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 3L).code);
