@@ -551,6 +551,63 @@ final class UniqueRuneServiceTest {
                 f.service.claimDaily(PLAYER, 100L, 4L).code);
     }
 
+
+    @Test void fullAdvancedCohortPromotesExactlyOneMythicAndNeverAncient() {
+        Fixture f = new Fixture();
+        PlayerState state = f.unique.load(PLAYER);
+        for (UniqueRuneModel.RuneDefinition rune : f.policy.definition(CollectionId.CRYSTAL_COLLECTION).runes) {
+            state.collection(CollectionId.CRYSTAL_COLLECTION).owned.put(rune.runeId, Rarity.ADVANCED);
+            state.collection(CollectionId.CRYSTAL_COLLECTION).acquisitionAdvanced.add(rune.runeId);
+        }
+        state.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_01", 8);
+        f.unique.save(PLAYER, state);
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 1L).code);
+        PlayerState after = f.unique.load(PLAYER);
+        assertEquals(Rarity.MYTHIC, after.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
+        assertEquals(1, after.collection(CollectionId.CRYSTAL_COLLECTION).acquisitionMythic.size());
+        assertEquals(0, after.collection(CollectionId.CRYSTAL_COLLECTION).acquisitionAdvanced.size());
+        assertEquals(8, after.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
+        assertEquals(UniqueRuneService.ResultCode.MAX_RARITY,
+                f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 2L).code);
+    }
+
+    @Test void paidRollbackCanRestoreOnlyTheSameRuneWithoutConsumingAnotherCohort() {
+        Fixture f = new Fixture();
+        PlayerState initial = f.unique.load(PLAYER);
+        initial.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_01", Rarity.MYTHIC);
+        initial.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_02", Rarity.MYTHIC);
+        initial.collection(CollectionId.CRYSTAL_COLLECTION).enhancement.put("crystal_01", 12);
+        f.unique.save(PLAYER, initial);
+        f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", true, 1L).code);
+        assertEquals(Rarity.MYTHIC, f.unique.load(PLAYER)
+                .collection(CollectionId.CRYSTAL_COLLECTION).rollbackRestore.get("crystal_01"));
+        assertEquals(UniqueRuneService.ResultCode.NOT_READY,
+                f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_02", 2L).code);
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 3L).code);
+        PlayerState after = f.unique.load(PLAYER);
+        assertEquals(Rarity.MYTHIC, after.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
+        assertEquals(Rarity.MYTHIC, after.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_02"));
+        assertTrue(after.collection(CollectionId.CRYSTAL_COLLECTION).rollbackRestore.isEmpty());
+        assertEquals(12, after.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
+    }
+
+    @Test void offeringsStageCohortIsIndependentOfAHighRankAndDoesNotOverwriteIt() {
+        Fixture f = new Fixture();
+        PlayerState initial = f.unique.load(PLAYER);
+        initial.collection(CollectionId.OFFERINGS_COLLECTION).owned.put("offerings_01", Rarity.MYTHIC);
+        f.unique.save(PLAYER, initial);
+        f.offerings = new BigDecimal("1000");
+        assertEquals(UniqueRuneService.ResultCode.OK, f.service.purchaseOfferings(PLAYER, 1L).code);
+        assertEquals(UniqueRuneService.ResultCode.DUPLICATE, f.service.purchaseOfferings(PLAYER, 2L).code);
+        PlayerState after = f.unique.load(PLAYER);
+        assertEquals(Rarity.MYTHIC, after.collection(CollectionId.OFFERINGS_COLLECTION).owned.get("offerings_01"));
+        assertEquals(1, after.collection(CollectionId.OFFERINGS_COLLECTION).acquisitionCommon.size());
+        assertEquals(BigDecimal.ZERO, f.resources.getPlayerResourceValue(PLAYER, "pearl"));
+    }
     private static final class Fixture {
         final MemUniqueRepository unique = new MemUniqueRepository();
         final MemResourceRepository resourceRepo = new MemResourceRepository();
