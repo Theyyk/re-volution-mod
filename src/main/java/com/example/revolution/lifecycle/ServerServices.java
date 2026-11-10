@@ -143,6 +143,7 @@ public final class ServerServices implements AutoCloseable {
     private final MongoAdminStageStore adminStageStore;
     private final boolean persistentGameplay;
     private volatile MinecraftServer liveServer;
+    private final ResourceSyncCoalescer resourceSyncCoalescer = new ResourceSyncCoalescer();
     public final PlayerStatsSyncService statsSync;
     public final AdminAccessService adminAccess = new AdminAccessService(new FileAdminWhitelistRepository());
     public final BalanceService balance;
@@ -412,11 +413,12 @@ public final class ServerServices implements AutoCloseable {
         adminApi.start(server, configDirectory);
     }
 
-    /** Server-thread push after persistence: always re-read the most recent wallet snapshot. */
+    /** Coalesce only redundant UI refresh tasks; every resource write stays authoritative. */
     private void scheduleResourceSync(UUID uuid) {
         MinecraftServer server = liveServer;
         if (uuid == null || server == null) return;
-        server.addScheduledTask(() -> {
+        resourceSyncCoalescer.request(uuid, task -> server.addScheduledTask(task), () -> {
+            if (liveServer != server) return;
             EntityPlayerMP online = server.getPlayerList().getPlayerByUUID(uuid);
             if (online != null) statsSync.sendTo(online);
         });
@@ -424,6 +426,7 @@ public final class ServerServices implements AutoCloseable {
 
     @Override public void close() {
         liveServer = null;
+        resourceSyncCoalescer.clear();
         adminApi.close();
         achievements.flushAll();
         runeTransientEffects.clear();
