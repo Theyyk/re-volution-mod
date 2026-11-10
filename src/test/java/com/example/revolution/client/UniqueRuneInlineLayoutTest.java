@@ -15,6 +15,14 @@ public class UniqueRuneInlineLayoutTest {
     }
 
     @Test
+    void acquisitionCounterDoesNotConfuseOwnedWithCommon() {
+        assertEquals("COMMON 24/26 | Занято 26/26", UniqueRuneInlineLayout.acquisitionCounter(24, 26));
+        assertEquals("COMMON 18/26 | Занято 26/26", UniqueRuneInlineLayout.acquisitionCounter(18, 26));
+        assertEquals("COMMON 26/26 | Занято 26/26", UniqueRuneInlineLayout.acquisitionCounter(26, 26));
+        assertEquals("COMMON ?/26 | Занято 26/26", UniqueRuneInlineLayout.acquisitionCounter(-1, 26));
+    }
+
+    @Test
     void randomlyAcquiredRunesStayInTheirNumberedSlots() {
         List<UniqueRuneSnapshotPacket.Entry> owned = Arrays.asList(
             entry("crystal_21", "CRYSTAL_COLLECTION"),
