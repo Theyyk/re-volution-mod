@@ -21,6 +21,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         EntityPlayerMP player = ctx.getServerHandler().player;
         if (player == null || message == null) return null;
         if ("purchase_crystal".equals(message.getAction())) {
+            if (!RunePurchaseRequestLimiter.tryAcquire(player.getUniqueID())) return null;
             long enqueuedAt = System.nanoTime();
             RunePurchaseProfiling.queued("crystal");
             player.getServerWorld().addScheduledTask(() -> RunePurchaseProfiling.process(
