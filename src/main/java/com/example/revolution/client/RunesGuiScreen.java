@@ -793,8 +793,9 @@ public class RunesGuiScreen extends GuiScreen {
         }
         drawPanel(layout.runePanelX, layout.purchasePanelY,
                 layout.runePanelWidth, GuiLayout.PURCHASE_PANEL_HEIGHT);
-        drawHeadingString("ПОКУПКА РУН", x, layout.purchasePanelY + 8,
-                300, HEADING_TEXT_COLOR, false);
+        drawHeadingString("ПОКУПКА РУН"
+                + (state == null ? "" : "  " + state.rarity + " " + state.progress + "/26"),
+                x, layout.purchasePanelY + 8, 450, HEADING_TEXT_COLOR, false);
         if (selectedUniqueCollection == 1) {
             int footerPad = scaled(7, 3);
             int halfWidth = (layout.runePanelWidth - footerPad * 2 - 5) / 2;
@@ -949,7 +950,7 @@ public class RunesGuiScreen extends GuiScreen {
         else if ("MYTHIC".equals(rune.rarity))
             tooltip.add("§8MYTHIC — максимальный доступный ранг");
         else if (state != null && state.progress < VISIBLE_RUNE_SLOTS)
-            tooltip.add("§8Пробуждение: требуется 26/26 рун");
+            tooltip.add("§8Пробуждение: нужны 26 рун не ниже выбранного ранга");
         tooltip.add("§7Ctrl+ЛКМ: поделиться в чат");
         if (rune.canRollback) tooltip.add("§7Ctrl+ПКМ: откат"
                 + " (повторить на той же руне)");
