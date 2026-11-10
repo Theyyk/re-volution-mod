@@ -102,28 +102,31 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
         int left = left(), top = UnifiedMainMenuChrome.contentTop(width, height) + 28;
         if (state != null) {
             String status = state.unlocked ? "" : "  [ЗАКРЫТО]";
-            String stages = "COMMON " + state.progress + "/26"
-                    + "   IMPROVED " + state.improvedProgress + "/26"
-                    + "   ADVANCED " + state.advancedProgress + "/26";
-            fontRenderer.drawString(fontRenderer.trimStringToWidth(stages + status, right() - left),
+            String lower = "COMMON " + state.progress + "/26"
+                    + "   IMPROVED " + state.improvedProgress + "/26";
+            String upper = "ADVANCED " + state.advancedProgress + "/26"
+                    + "   MYTHIC " + state.mythicProgress + "/26";
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(lower + status, right() - left),
                     left, top, GuiTheme.TEXT_COLOR);
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(upper, right() - left),
+                    left, top + 12, GuiTheme.TEXT_COLOR);
         }
         String resources = "Кристаллы: " + snapshot.getCrystals()
                 + "   Жемчуг: " + snapshot.getPearl()
                 + "   Подношения: " + snapshot.getOfferings();
         fontRenderer.drawString(fontRenderer.trimStringToWidth(resources, right() - left),
-                left, top + 16, GuiTheme.SILVER_COLOR);
+                left, top + 27, GuiTheme.SILVER_COLOR);
         String cost = "CRYSTAL_COLLECTION".equals(collection)
                 ? "Цена: " + snapshot.getCrystalPurchaseCost() + " кристаллов"
                 : "DAILY_COLLECTION".equals(collection)
                 ? "Ежедневно: уникальная руна и дополнительная награда"
                 : "Цена: " + snapshot.getOfferingsPurchaseCost() + " подношений";
         fontRenderer.drawString(fontRenderer.trimStringToWidth(cost, right() - left),
-                left, top + 33, GuiTheme.DISABLED_TEXT_COLOR);
+                left, top + 44, GuiTheme.DISABLED_TEXT_COLOR);
         if ("CRYSTAL_COLLECTION".equals(collection)) {
             String enhancementPrice = "Случайное усиление: " + snapshot.getCrystalEnhancementCost() + " жемчуг";
             fontRenderer.drawString(fontRenderer.trimStringToWidth(enhancementPrice, right() - left),
-                    left, top + 45, GuiTheme.DISABLED_TEXT_COLOR);
+                    left, top + 56, GuiTheme.DISABLED_TEXT_COLOR);
         }
 
         for (int slot = 0; slot < 26; slot++) {
