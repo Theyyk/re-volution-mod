@@ -19,14 +19,14 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
         public String effects = "";
         public boolean canAwaken;
         public boolean canRollback;
-        /** Acquired in the currently active COMMON purchase/claim cohort. */
+        /** Factual rune slot covered at or above current purchase stage (wire-compatible field). */
         public boolean acquiredCommon;
     }
     public static final class Collection {
         public String collectionId = "";
         public String rarity = "COMMON";
         public int progress;
-        /** Authoritative independent next-tier acquisition progress. */
+        /** Historical cohort telemetry; actual purchase-stage progress is in progress. */
         public int improvedProgress;
         public int advancedProgress;
         public int mythicProgress;
