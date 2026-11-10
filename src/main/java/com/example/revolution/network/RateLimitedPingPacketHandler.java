@@ -22,6 +22,12 @@ public final class RateLimitedPingPacketHandler implements IMessageHandler<PingP
             EntityPlayerMP player = ctx.getServerHandler().player;
             if (player == null || !ENHANCEMENT_LIMITER.tryAcquire(player.getUniqueID())) return null;
         }
+        // Enforce the shared ordinary/Crystal cooldown before scheduling any work.
+        // Buy-all is one accepted packet; rejected clicks have no game-side effects.
+        if ("buy_card".equals(action) || (action != null && action.startsWith("buy_cards:"))) {
+            EntityPlayerMP player = ctx.getServerHandler().player;
+            if (player == null || !RunePurchaseRequestLimiter.tryAcquire(player.getUniqueID())) return null;
+        }
         return delegate.onMessage(message, ctx);
     }
 }
