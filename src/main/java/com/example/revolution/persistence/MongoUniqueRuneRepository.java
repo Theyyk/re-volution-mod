@@ -12,7 +12,7 @@ import org.bson.Document;
 
 /** v2.11.0 permanent Unique Rune state embedded in the existing players document. */
 public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
-    private static final int SCHEMA_VERSION = 2;
+    private static final int SCHEMA_VERSION = 3;
     private final MongoConnection connection;
     private final boolean enabled;
 
@@ -53,7 +53,9 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
             for (Map.Entry<String, UniqueRuneModel.Rarity> entry : collection.runeRollback.entrySet())
                 individualRollback.add(new Document("runeId", entry.getKey()).append("previousRarity", entry.getValue().name()));
             Document collectionDocument = new Document("currentRarity", collection.currentRarity.name())
-                    .append("owned", owned).append("enhancement", enhancement)
+                    .append("owned", owned)
+                    .append("acquisitionCommon", new ArrayList<>(collection.acquisitionCommon))
+                    .append("enhancement", enhancement)
                     .append("rollbackRarity", collection.rollbackRarity == null ? null : collection.rollbackRarity.name())
                     .append("rollbackOwned", rollbackOwned)
                     .append("runeRollback", individualRollback);
@@ -91,6 +93,23 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
                 if (runeId == null || !rarity.gameplayEnabled || target.owned.putIfAbsent(runeId, rarity) != null)
                     throw new IllegalStateException("Invalid or duplicate persisted Unique Rune ownership");
             } catch (IllegalStateException error) { throw error; } catch (RuntimeException error) { throw new IllegalStateException("Invalid persisted Unique Rune ownership", error); }
+            if (version >= 3) {
+                Object raw = stored.get("acquisitionCommon");
+                if (!(raw instanceof List))
+                    throw new IllegalStateException("Missing v3 acquisitionCommon cohort");
+                for (Object idValue : (List<?>) raw) {
+                    if (!(idValue instanceof String)
+                            || !validCohortId(id, (String) idValue)
+                            || !target.acquisitionCommon.add((String) idValue))
+                        throw new IllegalStateException("Invalid/duplicate v3 acquisition cohort rune");
+                }
+            } else {
+                // Reconstruct only known COMMON ownership. Never invent lost
+                // acquisitions beneath an independently promoted rune.
+                for (Map.Entry<String, UniqueRuneModel.Rarity> entry : target.owned.entrySet())
+                    if (entry.getValue() == UniqueRuneModel.Rarity.COMMON)
+                        target.acquisitionCommon.add(entry.getKey());
+            }
             List<Document> enhancement = (List<Document>) stored.get("enhancement");
             if (enhancement != null) for (Document item : enhancement) {
                 String runeId = item.getString("runeId"); Object level = item.get("level");
@@ -120,4 +139,22 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
         state.lastDailyClaimMillis = lastDailyMillis instanceof Number ? ((Number) lastDailyMillis).longValue() : Long.MIN_VALUE;
         return state;
     }
+    private static boolean validCohortId(UniqueRuneModel.CollectionId collection, String runeId) {
+        if (runeId == null) return false;
+        String prefix;
+        switch (collection) {
+            case CRYSTAL_COLLECTION: prefix = "crystal_"; break;
+            case DAILY_COLLECTION: prefix = "daily_"; break;
+            case OFFERINGS_COLLECTION: prefix = "offerings_"; break;
+            default: return false;
+        }
+        if (!runeId.startsWith(prefix) || runeId.length() != prefix.length() + 2) return false;
+        try {
+            int n = Integer.parseInt(runeId.substring(prefix.length()));
+            return n >= 1 && n <= UniqueRuneModel.RUNES_PER_COLLECTION
+                    && String.format(java.util.Locale.ROOT, "%02d", n)
+                            .equals(runeId.substring(prefix.length()));
+        } catch (NumberFormatException invalid) { return false; }
+    }
+
 }
