@@ -1,6 +1,5 @@
 package com.example.revolution.rune.service;
 
-import com.example.revolution.lifecycle.ResourceSyncCoalescer;
 import com.example.revolution.gameplay.GameplayEvent;
 import com.example.revolution.gameplay.GameplayEventSink;
 import com.example.revolution.gameplay.GameplayEventType;
@@ -31,7 +30,7 @@ public final class RunePurchaseService {
     private final ResourceService resources;
     private final PlayerStatsSyncService stats;
     private final RunePurchaseBalanceService purchaseBalance;
-    private final ResourceSyncCoalescer purchaseStatsRefreshes = new ResourceSyncCoalescer();
+    private final RuneProgressRefreshCoalescer purchaseStatsRefreshes = new RuneProgressRefreshCoalescer();
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public RunePurchaseService(
