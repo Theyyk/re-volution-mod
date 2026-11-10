@@ -59,6 +59,26 @@ public final class ResourceServiceTest {
         service.setPlayerResource(player, "rune_dust", 50);
         RuneAwakeningPaymentService.Result result = payment.charge(player, paidRule);
         check(result.allowed && result.paid && result.cost == 40 && result.balance == 10, "awakening charge contract");
+        // R2-A05: verify that normal/improved rank-up currencies really change
+        // in the persistence port, independently from client resource rendering.
+        for (String awakeningCurrency : new String[]{
+                ResourceDefinitions.RUNE_SHARDS, ResourceDefinitions.RUNE_CORES}) {
+            RuneRankUpRule resourceRule = new RuneRankUpRule(
+                    2, 3, 26, awakeningCurrency, 17,
+                    RuneRankUpRule.ClearMode.AT_OR_BELOW_SOURCE, true);
+            service.setPlayerResource(player, awakeningCurrency, 100);
+            RuneAwakeningPaymentService.Result charged = payment.charge(player, resourceRule);
+            check(charged.allowed && charged.paid && charged.cost == 17 && charged.balance == 83,
+                    "authoritative rank-up payment for " + awakeningCurrency);
+            check(service.getPlayerResource(player, awakeningCurrency) == 83,
+                    "persisted rank-up deduction for " + awakeningCurrency);
+            check(!payment.charge(player, new RuneRankUpRule(
+                    2, 3, 26, awakeningCurrency, 100,
+                    RuneRankUpRule.ClearMode.AT_OR_BELOW_SOURCE, true)).allowed,
+                    "reject insufficient rank-up funds for " + awakeningCurrency);
+            check(service.getPlayerResource(player, awakeningCurrency) == 83,
+                    "rejected payment does not alter funds for " + awakeningCurrency);
+        }
         RuneRankUpRule invalidRule = new RuneRankUpRule(
                 1,
                 2,

@@ -119,8 +119,11 @@ public final class RuneAwakeningService {
                 player.getUniqueID(), GameplayEventType.RUNE_AWAKEN_ANY, BigDecimal.ONE,
                 Collections.singletonMap("collection", collectionId.name()), "rune_awakening"));
 
+        // Explicit authoritative post-charge balance helps distinguish a missing
+        // deduction from UI refresh/rounding of the wrong resource.
         String paymentText = payment.paid ? " §7Стоимость: §e" + payment.cost + " §f"
-                + ResourceDefinitions.getDisplayName(payment.resource) + "§7." : "";
+                + ResourceDefinitions.getDisplayName(payment.resource)
+                + "§7. Остаток: §e" + payment.balance + "§7." : "";
         player.sendMessage(new TextComponentString("§aРуна пробуждена: §f" + RuneProgression.rankName(rule.sourceRank)
                 + " §7→ §f" + RuneProgression.rankName(rule.targetRank) + "§a. Руны ранга «"
                 + RuneProgression.rankName(rule.sourceRank)
