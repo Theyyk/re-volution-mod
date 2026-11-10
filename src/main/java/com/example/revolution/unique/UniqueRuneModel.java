@@ -159,12 +159,14 @@ public final class UniqueRuneModel {
             if (existing == null) return false;
             if (rollbackRestore.containsKey(runeId)
                     && existing.nextGameplay() == rollbackRestore.get(runeId)) return true;
-            Rarity ready = readyToAwaken();
-            // At the terminal tier, an already-MYTHIC rune cannot consume a
-            // complete ADVANCED cohort without any actual rank promotion.
-            if (ready == Rarity.ADVANCED && existing == Rarity.MYTHIC) return false;
-            return ready != null && !cohort(ready.nextGameplay()).contains(runeId)
-                    && (existing.persistentId >= ready.persistentId);
+            // A full COMMON cohort cannot awaken an already-IMPROVED/ADVANCED
+            // rune. Each target must spend the full cohort of its *own* rarity.
+            // Otherwise the operation consumes COMMON without changing the
+            // target's factual rank, creating false successes / tier skipping.
+            if (existing == Rarity.MYTHIC) return false;
+            return cohort(existing).size() == RUNES_PER_COLLECTION
+                    && cohort(existing).contains(runeId)
+                    && !cohort(existing.nextGameplay()).contains(runeId);
         }
         /** Rollback is a paid, confirmed rank downgrade available only from ADVANCED (#3). */
         public boolean canRollback(String runeId) { Rarity rarity = owned.get(runeId); return rarity == Rarity.ADVANCED || rarity == Rarity.MYTHIC; }
