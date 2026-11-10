@@ -7,6 +7,7 @@ import com.example.revolution.resource.definition.ResourceDefinitions;
 import com.example.revolution.resource.service.ResourceService;
 import com.example.revolution.rune.config.RuneEconomyConfig;
 import com.example.revolution.rune.config.RuneStatusConfig;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.rune.rules.RuneCollectionProgression;
 import com.example.revolution.rune.rules.RuneCombatMath;
