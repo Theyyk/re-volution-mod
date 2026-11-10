@@ -756,7 +756,7 @@ public class RunesGuiScreen extends GuiScreen {
         int y = layout.runePanelY;
         List<UniqueRuneSnapshotPacket.Entry> entries = uniqueEntries();
         UniqueRuneSnapshotPacket.Collection state = uniqueState();
-        String count = entries.size() + " из " + VISIBLE_RUNE_SLOTS;
+        String count = UniqueRuneInlineLayout.acquisitionCounter(state == null ? -1 : state.progress, entries.size());
         fontRenderer.drawString(count,
                 layout.runePanelX + layout.runePanelWidth - pad - fontRenderer.getStringWidth(count),
                 y + pad, MUTED_TEXT_COLOR);
@@ -790,6 +790,10 @@ public class RunesGuiScreen extends GuiScreen {
                     sy + (layout.runeSlotHeight - fontRenderer.FONT_HEIGHT) / 2, TEXT_COLOR);
             drawRankCorners(sx, sy, layout.runeSlotWidth, layout.runeSlotHeight,
                     "MYTHIC".equals(entry.rarity) ? CRYSTAL_COLOR : GOLD_COLOR);
+            // A visible owned tile is not proof of acquisition in this COMMON cycle.
+            if (entry.acquiredCommon)
+                fontRenderer.drawString("C", sx + 4,
+                        sy + layout.runeSlotHeight - fontRenderer.FONT_HEIGHT - 4, 0xFF55DD77);
         }
         drawPanel(layout.runePanelX, layout.purchasePanelY,
                 layout.runePanelWidth, GuiLayout.PURCHASE_PANEL_HEIGHT);
@@ -943,6 +947,9 @@ public class RunesGuiScreen extends GuiScreen {
         List<String> tooltip = new ArrayList<>();
         tooltip.add("§b" + localizeUniqueRuneName(rune.name) + " [#" + (slot + 1) + "]");
         tooltip.add("§7" + rune.rarity + " +" + rune.enhancement);
+        tooltip.add(rune.acquiredCommon
+                ? "§aCOMMON-набор: получена (C)"
+                : "§eCOMMON-набор: ещё не получена");
         tooltip.add(localizeUniqueEffects(rune.effects));
         UniqueRuneSnapshotPacket.Collection state = uniqueState();
         if (rune.canAwaken) tooltip.add("§7ЛКМ: пробудить именно руну #" + (slot + 1));
