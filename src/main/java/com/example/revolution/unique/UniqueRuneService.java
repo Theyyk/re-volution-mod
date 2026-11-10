@@ -234,9 +234,12 @@ public final class UniqueRuneService {
             collection.rollbackRestore.remove(promotedRuneId);
             collection.runeRollback.put(promotedRuneId, factual);
         } else {
-            Rarity source = collection.readyToAwaken();
-            if (source == null || !collection.canAwaken(promotedRuneId))
+            // Never choose the source tier from an unrelated completed
+            // cohort. A selected IMPROVED rune requires 26 IMPROVED entries,
+            // regardless of whether COMMON is 26/26.
+            if (!collection.canAwaken(promotedRuneId))
                 return Result.of(ResultCode.NOT_READY);
+            Rarity source = factual;
             Rarity next = source.nextGameplay();
             if (next == source) return Result.of(ResultCode.MAX_RARITY);
             // The completed lower-rank set is consumed as a *cohort*, without
