@@ -1,6 +1,7 @@
 package com.example.revolution.rune.service;
 
-import com.example.revolution.RevolutionMod;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 /** Applies the Prestige selective-wipe policy to factual rune state. */
 public final class RunePrestigeResetService {
+    private static final Logger LOG = LogManager.getLogger(RunePrestigeResetService.class);
     private final PlayerRepository players;
     private final RuneEnhancementRepository enhancements;
 
@@ -37,9 +39,9 @@ public final class RunePrestigeResetService {
             eligible += audit[0];
             failures += audit[1];
         }
-        RevolutionMod.logger.info("Mastery rune reset audit: owned=" + owned +
+        LOG.info("Mastery rune reset audit: owned=" + owned +
                 ", eligible=" + eligible + ", verificationFailures=" + failures);
-        if (failures != 0) RevolutionMod.logger.error(
+        if (failures != 0) LOG.error(
                 "Mastery rune reset incomplete: " + failures + " persisted rune(s) still violate reset policy");
     }
 
@@ -59,7 +61,7 @@ public final class RunePrestigeResetService {
             int enhancement = enhancements.getLevel(playerUuid, collectionIndex, record.runeIndex);
             if (after != RunePrestigeResetRules.rankAfterReset(originalRank) || enhancement != 0) {
                 failures++;
-                RevolutionMod.logger.error("Mastery rune reset verification failed: collection=" +
+                LOG.error("Mastery rune reset verification failed: collection=" +
                         collectionIndex + ", rune=" + record.runeIndex + ", beforeRank=" + originalRank +
                         ", afterRank=" + after + ", enhancement=" + enhancement);
             }
