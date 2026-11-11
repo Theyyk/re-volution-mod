@@ -30,13 +30,13 @@ public final class PetsGuiScreen extends GuiScreen {
         int y = Math.max(28, UnifiedMainMenuChrome.contentTop(width, height) - 23);
         buttonList.add(new GuiControls.PanelButton(
                 BUY_NORMAL_SLOT, left, y, btn, 20,
-                PrestigeRunResources.FRAGMENT_OF_KNOWLEDGE_PLURAL + ": " + ClientPets.nextNormalSlotCost()));
+                "Слот: " + ClientPets.nextNormalSlotCost()));
         GuiButton premium = new GuiControls.PanelButton(
-                BUY_PREMIUM_SLOT, left + btn + 7, y, btn, 20, "Премиум-слот");
+                BUY_PREMIUM_SLOT, left + btn + 7, y, btn, 20, "Премиум");
         premium.enabled = ClientPets.premiumSlots() < 2;
         buttonList.add(premium);
         buttonList.add(new GuiControls.PanelButton(
-                COLLECT, left + (btn + 7) * 2, y, btn, 20, "Собрать: " + ClientPets.petPendingFragments()));
+                COLLECT, left + (btn + 7) * 2, y, btn, 20, "Собрать"));
         buttonList.add(new GuiControls.PanelButton(
                 PREV_PAGE, Math.max(left, right - 126), height - 30, 56, 20, "<"));
         buttonList.add(new GuiControls.PanelButton(
