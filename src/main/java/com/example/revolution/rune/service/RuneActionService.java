@@ -86,6 +86,25 @@ public final class RuneActionService {
                 : null;
     }
 
+    /**
+     * UI-03-M: a successful Mastery reset mutates stored rune ranks and enhancements
+     * outside the normal rune action pipeline. Publish the authoritative projection
+     * immediately, so reopening the E-menu never shows pre-reset client caches.
+     * This is only called for a server-confirmed reset that actually wipes runes.
+     */
+    public void refreshAfterPrestigeReset(EntityPlayerMP player) {
+        if (player == null) return;
+        int collectionIndex = players.getActiveCollection(player.getUniqueID());
+        RuneCollectionId collection = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (collection == null || !isCollectionUnlocked(player, collectionIndex)) {
+            collectionIndex = 0;
+        }
+        sync.sendCollectionState(player);
+        sync.sendRunes(player, collectionIndex);
+        stats.sendTo(player);
+        if (mechanicUnlocks != null) mechanicUnlocks.refreshRuneProgress(player.getUniqueID());
+    }
+
     public void handle(EntityPlayerMP player, String action) {
         if (action == null) return;
 
