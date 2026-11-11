@@ -572,7 +572,7 @@ final class UniqueRuneServiceTest {
                 f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 2L).code);
     }
 
-    @Test void paidRollbackCanRestoreOnlyTheSameRuneWithoutConsumingAnotherCohort() {
+    @Test void r11PaidRollbackCannotReawakenWithoutFullAdvancedCohort() {
         Fixture f = new Fixture();
         PlayerState initial = f.unique.load(PLAYER);
         initial.collection(CollectionId.CRYSTAL_COLLECTION).owned.put("crystal_01", Rarity.MYTHIC);
@@ -582,17 +582,67 @@ final class UniqueRuneServiceTest {
         f.resources.setPlayerResourceValue(PLAYER, "crystals", new BigDecimal("1000"));
         assertEquals(UniqueRuneService.ResultCode.OK,
                 f.service.rollback(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", true, 1L).code);
-        assertEquals(Rarity.MYTHIC, f.unique.load(PLAYER)
-                .collection(CollectionId.CRYSTAL_COLLECTION).rollbackRestore.get("crystal_01"));
-        assertEquals(UniqueRuneService.ResultCode.MAX_RARITY,
-                f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_02", 2L).code);
-        assertEquals(UniqueRuneService.ResultCode.OK,
-                f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 3L).code);
+        PlayerState downgraded = f.unique.load(PLAYER);
+        assertEquals(Rarity.ADVANCED, downgraded.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
+        assertFalse(downgraded.collection(CollectionId.CRYSTAL_COLLECTION).canAwaken("crystal_01"));
+        assertTrue(downgraded.collection(CollectionId.CRYSTAL_COLLECTION).rollbackRestore.isEmpty());
+        BigDecimal walletAfterPaid = f.resources.getPlayerResourceValue(PLAYER, "crystals");
+        assertEquals(UniqueRuneService.ResultCode.NOT_READY,
+                f.service.awaken(PLAYER, CollectionId.CRYSTAL_COLLECTION, "crystal_01", 2L).code);
         PlayerState after = f.unique.load(PLAYER);
-        assertEquals(Rarity.MYTHIC, after.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
+        assertEquals(Rarity.ADVANCED, after.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_01"));
         assertEquals(Rarity.MYTHIC, after.collection(CollectionId.CRYSTAL_COLLECTION).owned.get("crystal_02"));
-        assertTrue(after.collection(CollectionId.CRYSTAL_COLLECTION).rollbackRestore.isEmpty());
         assertEquals(12, after.collection(CollectionId.CRYSTAL_COLLECTION).enhancement("crystal_01"));
+        assertEquals(walletAfterPaid, f.resources.getPlayerResourceValue(PLAYER, "crystals"));
+    }
+
+    @Test void r11LegacyRestoreRecordsCannotBypassImprovedOrAdvancedRequirements() {
+        for (CollectionId id : new CollectionId[]{CollectionId.CRYSTAL_COLLECTION, CollectionId.OFFERINGS_COLLECTION}) {
+            String prefix = id == CollectionId.CRYSTAL_COLLECTION ? "crystal_" : "offerings_";
+            for (Rarity source : new Rarity[]{Rarity.IMPROVED, Rarity.ADVANCED}) {
+                Fixture f = new Fixture();
+                PlayerState state = f.unique.load(PLAYER);
+                UniqueRuneModel.CollectionState collection = state.collection(id);
+                for (int i = 1; i <= 26; i++) {
+                    String runeId = prefix + String.format(java.util.Locale.ROOT, "%02d", i);
+                    collection.owned.put(runeId, Rarity.COMMON);
+                }
+                String target = prefix + "01";
+                collection.owned.put(target, source);
+                collection.rollbackRestore.put(target, source.nextGameplay());
+                if (id == CollectionId.CRYSTAL_COLLECTION) collection.enhancement.put(target, 11);
+                f.unique.save(PLAYER, state);
+
+                assertEquals(26, collection.progress());
+                assertFalse(f.service.snapshot(PLAYER).collection(id).canAwaken(target));
+                assertEquals(UniqueRuneService.ResultCode.NOT_READY,
+                        f.service.awaken(PLAYER, id, target, 1L).code);
+                UniqueRuneModel.CollectionState after = f.unique.load(PLAYER).collection(id);
+                assertEquals(source, after.owned.get(target));
+                assertEquals(source.nextGameplay(), after.rollbackRestore.get(target),
+                        "rejected operation must not silently mutate historical Mongo v3 data");
+                if (id == CollectionId.CRYSTAL_COLLECTION)
+                    assertEquals(11, after.enhancement(target));
+            }
+        }
+    }
+
+    @Test void r11LegacyRestoreRecordClearsOnlyAfterValidTwentySixRuneAwakening() {
+        Fixture f = new Fixture();
+        CollectionId id = CollectionId.OFFERINGS_COLLECTION;
+        PlayerState state = f.unique.load(PLAYER);
+        UniqueRuneModel.CollectionState collection = state.collection(id);
+        for (int i = 1; i <= 26; i++)
+            collection.owned.put(String.format(java.util.Locale.ROOT, "offerings_%02d", i), Rarity.IMPROVED);
+        collection.rollbackRestore.put("offerings_01", Rarity.ADVANCED);
+        f.unique.save(PLAYER, state);
+        assertTrue(f.service.snapshot(PLAYER).collection(id).canAwaken("offerings_01"));
+        assertEquals(UniqueRuneService.ResultCode.OK,
+                f.service.awaken(PLAYER, id, "offerings_01", 1L).code);
+        UniqueRuneModel.CollectionState after = f.unique.load(PLAYER).collection(id);
+        assertEquals(Rarity.ADVANCED, after.owned.get("offerings_01"));
+        assertEquals(1, after.progress());
+        assertFalse(after.rollbackRestore.containsKey("offerings_01"));
     }
 
     @Test void offeringsStageCohortIsIndependentOfAHighRankAndDoesNotOverwriteIt() {
