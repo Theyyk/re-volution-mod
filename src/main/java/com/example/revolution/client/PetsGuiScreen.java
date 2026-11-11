@@ -86,6 +86,9 @@ public final class PetsGuiScreen extends GuiScreen {
     }
 
     private void send(String action, String petId) {
+        // A missing Mastery run is a server restriction, not an invitation to
+        // fabricate gameplay state on the client. Premium-slot purchase remains allowed.
+        if (ClientPets.runId().isEmpty() && !"purchase_premium_slot".equals(action)) return;
         // A single screen keeps at most one gameplay mutation in flight.
         // It is released only by the next server Pets snapshot, not a local click.
         long currentRevision = ClientPets.revision();
@@ -163,6 +166,11 @@ public final class PetsGuiScreen extends GuiScreen {
                 + "  |  Готово к сбору: " + ClientPets.petPendingFragments();
         fontRenderer.drawString(fontRenderer.trimStringToWidth(info, Math.max(10, right-left)),
                 left, contextTop() - 13, GuiTheme.MUTED_TEXT_COLOR);
+        if (ClientPets.runId().isEmpty()) {
+            String hint = "Нет активного Mastery-run: выбор и покупка питомцев недоступны";
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(hint, Math.max(10, right - left)),
+                    left, contextTop() + contextSlots().height() + 3, 0xFFFFAA55);
+        }
 
         List<PetSnapshotPacket.Entry> entries = ClientPets.entries();
         PetContextSlotLayout context = contextSlots();
@@ -183,15 +191,15 @@ public final class PetsGuiScreen extends GuiScreen {
                     : unlocked ? GuiTheme.PANEL_BG_SOFT : 0xAA292929;
             int border = focused ? 0xFF99C9FF : hovered ? GuiTheme.SLOT_HOVER_COLOR
                     : GuiTheme.PANEL_BORDER_COLOR;
-            GuiDrawing.drawSurface(context.x(i), context.y(), context.width(), context.height(), bg, border);
+            GuiDrawing.drawSurface(context.x(i), context.y(i), context.width(), context.cellHeight(), bg, border);
             String title = assigned == null ? (unlocked ? "+" : "X") : assigned.petId;
             fontRenderer.drawString(fontRenderer.trimStringToWidth(title, Math.max(1, context.width() - 6)),
-                    context.x(i) + 3, context.y() + 5,
+                    context.x(i) + 3, context.y(i) + 3,
                     unlocked ? GuiTheme.TEXT_COLOR : GuiTheme.DISABLED_TEXT_COLOR);
-            String sub = assigned == null ? (unlocked ? "EMPTY" : "LOCK")
-                    : (assigned.premiumSlot ? "ACTIVE P" : "ACTIVE");
+            String sub = assigned == null ? (unlocked ? "ПУСТО" : "ЗАКР.")
+                    : (assigned.premiumSlot ? "АКТ. [P]" : "АКТИВЕН");
             fontRenderer.drawString(fontRenderer.trimStringToWidth(sub, Math.max(1, context.width() - 6)),
-                    context.x(i) + 3, context.y() + Math.min(context.height() - 9, 20),
+                    context.x(i) + 3, context.y(i) + Math.min(context.cellHeight() - 9, 16),
                     assigned != null ? 0xA8E6B8 : GuiTheme.DISABLED_TEXT_COLOR);
         }
         page = Math.min(page, lastPage());
@@ -229,6 +237,8 @@ public final class PetsGuiScreen extends GuiScreen {
         for (GuiButton b : buttonList) {
             if (b.id == PREV_PAGE) b.enabled = page > 0;
             if (b.id == NEXT_PAGE) b.enabled = page < lastPage();
+            if (b.id == BUY_NORMAL_SLOT || b.id == COLLECT)
+                b.enabled = !ClientPets.runId().isEmpty();
             if (b.id == BUY_PREMIUM_SLOT) b.enabled = ClientPets.premiumSlots() < 2;
             if (b.id == COLLECT) b.displayString = "Собрать: " + ClientPets.petPendingFragments();
             if (b.id == BUY_NORMAL_SLOT) b.displayString = PrestigeRunResources.FRAGMENT_OF_KNOWLEDGE_PLURAL
