@@ -67,20 +67,23 @@ public final class RuneRankRevertTest {
     private static void progressionIsAlwaysDerivedFromActualRanks() {
         int[] ranks = full(RuneProgression.ADVANCED_RANK);
         RuneCollectionProgression before = RuneCollectionProgression.fromBestRanks(ranks);
-        check(before.stageRank() == RuneProgression.ADVANCED_RANK, "full advanced collection must use advanced purchase stage");
-        check(before.lowerProgress() == RuneInventory.BOOST_TYPE_COUNT, "full advanced stage must contain all slots");
+        check(before.stageRank() == RuneProgression.ORDINARY_RANK,
+                "even full advanced collection must only allow COMMON purchases");
+        check(before.lowerProgress() == 0, "no owned rune is COMMON");
+        check(before.higherRuneCount() == RuneInventory.BOOST_TYPE_COUNT,
+                "all 26 higher-rank runes cover COMMON slots");
 
         RuneRankRevertDecision decision = RuneRankRevertDecision.evaluate(ranks, 3);
         ranks[3] = decision.targetRank;
         RuneCollectionProgression after = RuneCollectionProgression.fromBestRanks(ranks);
-        check(after.stageRank() == RuneProgression.IMPROVED_RANK,
-                "revert from full advanced must expose the nested improved stage");
-        check(after.lowerProgress() == 1, "the reverted rune is the one factual improved rune");
-        check(after.higherRuneCount() == RuneInventory.BOOST_TYPE_COUNT - 1,
-                "the other advanced runes apply higher-rank purchase pressure");
+        check(after.stageRank() == RuneProgression.ORDINARY_RANK,
+                "revert never unlocks purchases above COMMON");
+        check(after.lowerProgress() == 0, "IMPROVED rune still covers a COMMON slot");
+        check(after.higherRuneCount() == RuneInventory.BOOST_TYPE_COUNT,
+                "all 26 runes remain above COMMON after revert");
         check(after.coveredCount() == RuneInventory.BOOST_TYPE_COUNT,
-                "revert does not open a free purchase slot; the cycle remains fully covered");
-        check(after.isOwnedAtStage(3), "the reverted improved rune remains owned at the improved stage");
+                "revert does not open a free purchase slot");
+        check(after.isOwnedAtStage(3), "the reverted IMPROVED rune still occupies its factual slot");
     }
 
     private static void repeatedRevertRestoreCycleHasNoHiddenProgressionCounter() {
@@ -89,25 +92,29 @@ public final class RuneRankRevertTest {
         RuneRankRevertDecision first = RuneRankRevertDecision.evaluate(ranks, 11);
         ranks[11] = first.targetRank;
         RuneCollectionProgression reverted = RuneCollectionProgression.fromBestRanks(ranks);
-        check(reverted.stageRank() == RuneProgression.IMPROVED_RANK, "first revert must derive improved stage");
-        check(reverted.lowerProgress() == 1, "first revert must derive one improved rune");
-        check(reverted.higherRuneCount() == RuneInventory.BOOST_TYPE_COUNT - 1,
-                "first revert must derive 25 higher-rank runes");
+        check(reverted.stageRank() == RuneProgression.ORDINARY_RANK,
+                "first revert must still grant only COMMON purchases");
+        check(reverted.lowerProgress() == 0,
+                "no COMMON rune appears merely by reverting ADVANCED to IMPROVED");
+        check(reverted.higherRuneCount() == RuneInventory.BOOST_TYPE_COUNT,
+                "all factual runes continue to cover their COMMON slots");
 
         ranks[11] = RuneProgression.ADVANCED_RANK;
         RuneCollectionProgression restored = RuneCollectionProgression.fromBestRanks(ranks);
-        check(restored.stageRank() == RuneProgression.ADVANCED_RANK, "restored collection returns to advanced stage");
-        check(restored.lowerProgress() == RuneInventory.BOOST_TYPE_COUNT,
-                "restoring the factual rank derives the full advanced stage again");
+        check(restored.stageRank() == RuneProgression.ORDINARY_RANK,
+                "restored collection still grants COMMON only");
+        check(restored.coveredCount() == RuneInventory.BOOST_TYPE_COUNT,
+                "restoring does not change occupied slot count");
 
         RuneRankRevertDecision second = RuneRankRevertDecision.evaluate(ranks, 11);
         ranks[11] = second.targetRank;
         RuneCollectionProgression revertedAgain = RuneCollectionProgression.fromBestRanks(ranks);
-        check(revertedAgain.stageRank() == reverted.stageRank(), "repeated cycle must keep the same factual stage");
+        check(revertedAgain.stageRank() == reverted.stageRank(),
+                "repeated cycle retains COMMON-only purchases");
         check(revertedAgain.lowerProgress() == reverted.lowerProgress(),
-                "repeated cycle must keep the same factual lower progress");
+                "repeated cycle does not invent COMMON runes");
         check(revertedAgain.higherRuneCount() == reverted.higherRuneCount(),
-                "repeated cycle must keep the same factual higher-rank pressure");
+                "repeated cycle retains factual slot coverage");
     }
 
     private static int[] full(int rank) {
