@@ -51,54 +51,54 @@ public final class RuneCollectionProgressionTest {
     }
 
     @Test
-    void fullImprovedCollectionMovesPurchaseStageToImproved() {
+    void fullImprovedCollectionStillOnlyPurchasesOrdinary() {
         int[] ranks = new int[RuneInventory.BOOST_TYPE_COUNT];
         Arrays.fill(ranks, RuneProgression.IMPROVED_RANK);
 
         RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(ranks);
 
-        assertEquals(RuneProgression.IMPROVED_RANK, progression.stageRank());
-        assertEquals(26, progression.lowerProgress());
-        assertEquals(0, progression.higherRuneCount());
+        assertEquals(RuneProgression.ORDINARY_RANK, progression.stageRank());
+        assertEquals(0, progression.lowerProgress());
+        assertEquals(26, progression.higherRuneCount());
         assertEquals(26, progression.coveredCount());
     }
 
     @Test
-    void oneAdvancedRuneRestartsImprovedCollectionFromZero() {
+    void oneAdvancedRuneCoversOneOrdinarySlot() {
         int[] ranks = new int[RuneInventory.BOOST_TYPE_COUNT];
         ranks[5] = RuneProgression.ADVANCED_RANK;
 
         RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(ranks);
 
-        assertEquals(RuneProgression.IMPROVED_RANK, progression.stageRank());
+        assertEquals(RuneProgression.ORDINARY_RANK, progression.stageRank());
         assertEquals(0, progression.lowerProgress());
         assertEquals(1, progression.higherRuneCount());
         assertEquals(1, progression.coveredCount());
     }
 
     @Test
-    void oneMythicRuneRestartsAdvancedCollectionFromZero() {
+    void oneMythicRuneCoversOneOrdinarySlot() {
         int[] ranks = new int[RuneInventory.BOOST_TYPE_COUNT];
         ranks[5] = RuneProgression.MYTHIC_RANK;
 
         RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(ranks);
 
-        assertEquals(RuneProgression.ADVANCED_RANK, progression.stageRank());
+        assertEquals(RuneProgression.ORDINARY_RANK, progression.stageRank());
         assertEquals(0, progression.lowerProgress());
         assertEquals(1, progression.higherRuneCount());
         assertEquals(1, progression.coveredCount());
     }
 
     @Test
-    void fullMythicCollectionUsesMythicStage() {
+    void fullMythicCollectionBlocksOrdinaryPurchases() {
         int[] ranks = new int[RuneInventory.BOOST_TYPE_COUNT];
         Arrays.fill(ranks, RuneProgression.MYTHIC_RANK);
 
         RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(ranks);
 
-        assertEquals(RuneProgression.MYTHIC_RANK, progression.stageRank());
-        assertEquals(26, progression.lowerProgress());
-        assertEquals(0, progression.higherRuneCount());
+        assertEquals(RuneProgression.ORDINARY_RANK, progression.stageRank());
+        assertEquals(0, progression.lowerProgress());
+        assertEquals(26, progression.higherRuneCount());
         assertTrue(progression.isComplete());
     }
 
@@ -110,9 +110,9 @@ public final class RuneCollectionProgressionTest {
 
         RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(ranks);
 
-        assertEquals(RuneProgression.IMPROVED_RANK, progression.stageRank());
-        assertEquals(1, progression.lowerProgress());
-        assertEquals(25, progression.higherRuneCount());
+        assertEquals(RuneProgression.ORDINARY_RANK, progression.stageRank());
+        assertEquals(0, progression.lowerProgress());
+        assertEquals(26, progression.higherRuneCount());
         assertEquals(26, progression.coveredCount());
         assertTrue(progression.isComplete());
         assertTrue(progression.isOwnedAtStage(7));

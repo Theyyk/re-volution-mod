@@ -28,6 +28,7 @@ public final class RuneRankRevertPricingTest {
                 + "\"runes.poison.purchase.higher_rank_multiplier\":\"1.15\","
                 + "\"runes.poison.duplicate.resource\":\"rune_dust\","
                 + "\"runes.poison.duplicate.rate\":\"0.0003\"},\"curves\":{"
+                + "\"runes.poison.purchase.rank.1\":{\"mode\":\"TABLE\",\"values\":[\"20\",\"40\"]},"
                 + "\"runes.poison.purchase.rank.2\":{\"mode\":\"TABLE\",\"values\":[\"20\",\"40\"]}}}");
         RunePurchaseBalanceService purchase = new RunePurchaseBalanceService(balance);
 
@@ -37,9 +38,9 @@ public final class RuneRankRevertPricingTest {
         ranks[4] = first.targetRank;
 
         RuneCollectionProgression after = RuneCollectionProgression.fromBestRanks(ranks);
-        assertEquals(RuneProgression.IMPROVED_RANK, after.stageRank());
-        assertEquals(1, after.lowerProgress());
-        assertEquals(25, after.higherRuneCount());
+        assertEquals(RuneProgression.ORDINARY_RANK, after.stageRank());
+        assertEquals(0, after.lowerProgress());
+        assertEquals(26, after.higherRuneCount());
         assertEquals(26, after.coveredCount());
         assertTrue(after.isComplete(), "revert must not create a purchase-farm slot");
         int factualPricePoint = purchase.purchaseCost(
