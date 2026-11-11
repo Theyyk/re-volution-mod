@@ -10,6 +10,8 @@ import com.example.revolution.network.GodWorshipSnapshotPacket;
 import com.example.revolution.network.MobZoneOverlayPacket;
 import com.example.revolution.network.MobZoneOverlayRequestPacket;
 import com.example.revolution.network.NetworkHandler;
+import com.example.revolution.network.MasteryActionPacket;
+import com.example.revolution.network.MasterySnapshotPacket;
 import com.example.revolution.network.PetActionPacket;
 import com.example.revolution.network.PetSnapshotPacket;
 import com.example.revolution.network.PingPacket;
@@ -57,5 +59,7 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneActionPacketClientHandler.class, UniqueRuneActionPacket.class, 25, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneSnapshotPacketHandler.class, UniqueRuneSnapshotPacket.class, 26, Side.CLIENT);
         MechanicUnlockClientNetworkRegistration.register();
+        NetworkHandler.INSTANCE.registerMessage(MasteryActionPacketClientHandler.class, MasteryActionPacket.class, 29, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(MasterySnapshotPacketHandler.class, MasterySnapshotPacket.class, 30, Side.CLIENT);
     }
 }

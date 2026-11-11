@@ -1,6 +1,8 @@
 package com.example.revolution.client.hud;
 
 import com.example.revolution.client.input.KeyInputHandler;
+import com.example.revolution.client.mechanic.ClientMechanicUnlocks;
+import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.client.settings.SettingsKeyHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -41,6 +43,14 @@ public final class RealmHudRenderer {
         drawHint(font, keyName(SettingsKeyHandler.keyOpenSettings), "Формат чисел", right, y);
         y -= lineStep;
         drawHint(font, keyName(KeyInputHandler.keyOpenMenu), "Меню", right, y);
+
+        // Reuse the existing control-hint renderer; keep the left legend above vanilla chat.
+        int chatOffset = minecraft.ingameGUI.getChatGUI().getChatOpen() ? 225 : 160;
+        int masteryY = Math.max(10, resolution.getScaledHeight() - chatOffset);
+        String masteryAction = ClientMechanicUnlocks.isUnlocked(BalanceMechanicUnlockPolicy.ARTS)
+                ? "Мастерство" : "Мастерство (закрыто)";
+        font.drawStringWithShadow("§f[" + keyName(KeyInputHandler.keyOpenMastery) + "] §7" + masteryAction,
+                MARGIN, masteryY, HINT_COLOR);
     }
 
     static int reservedBottomPixels(FontRenderer font) {
