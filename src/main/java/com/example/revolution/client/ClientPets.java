@@ -7,6 +7,7 @@ import java.util.List;
 
 /** Read-only client mirror of the last server Pet snapshot. */
 public final class ClientPets {
+    private static long revision;
     private static int normalSlots;
     private static int premiumSlots;
     private static String nextNormalSlotCost = "0";
@@ -21,7 +22,9 @@ public final class ClientPets {
         nextNormalSlotCost = packet.getNextNormalSlotCost(); runId = packet.getRunId();
         fragments = packet.getFragments(); petPendingFragments = packet.getPetPendingFragments();
         entries = new ArrayList<>(packet.getEntries());
+        revision++;
     }
+    public static synchronized long revision() { return revision; }
     public static synchronized int normalSlots() { return normalSlots; }
     public static synchronized int premiumSlots() { return premiumSlots; }
     public static synchronized String nextNormalSlotCost() { return nextNormalSlotCost; }

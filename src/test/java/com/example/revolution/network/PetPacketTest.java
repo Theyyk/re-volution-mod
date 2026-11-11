@@ -19,7 +19,7 @@ public class PetPacketTest {
     @Test public void snapshotRoundTripPreservesAuthoritativePetState() {
         PetSnapshotPacket.Entry entry = new PetSnapshotPacket.Entry(
                 "pet_03", "ADVANCED", "12345678901234567890", "142.75", "100", true,
-                true, true, true, 123456789L, "350", "DAMAGE_MULTIPLIER[CLICK]=0.2");
+                true, true, true, 123456789L, "350", "DAMAGE_MULTIPLIER[CLICK]=0.2", 8);
         PetSnapshotPacket source = new PetSnapshotPacket(8, 2, "17", "run-123", "40", "25", Arrays.asList(entry));
         ByteBuf buffer = Unpooled.buffer(); source.toBytes(buffer);
         PetSnapshotPacket restored = new PetSnapshotPacket(); restored.fromBytes(buffer);
@@ -33,5 +33,6 @@ public class PetPacketTest {
         assertTrue(actual.owned); assertTrue(actual.selected); assertTrue(actual.premiumSlot);
         assertEquals(123456789L, actual.cooldownUntil); assertEquals("350", actual.purchaseCost);
         assertEquals("DAMAGE_MULTIPLIER[CLICK]=0.2", actual.effects);
+        assertEquals(8, actual.slotIndex);
     }
 }

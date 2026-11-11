@@ -13,6 +13,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.UUID;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
@@ -66,6 +68,15 @@ public final class PetActionPacketHandler implements IMessageHandler<PetActionPa
         PetPlayerState state = services.pets.snapshot(id); PetPlayerState.RunState run = state.run;
         PrestigeState.RunState masteryRun = services.prestige.activeRun(id);
         List<PetSnapshotPacket.Entry> entries = new ArrayList<>(); long now = System.currentTimeMillis();
+        // Derive physical cell positions from the server's normalized selection board.
+        // Normal cells occupy 0..7, premium cells occupy 8..9; no persistent data changes.
+        Map<String, Integer> assignedSlots = new HashMap<>();
+        int normalIndex = 0, premiumIndex = 8;
+        if (run != null) for (PetPlayerState.SelectedPet selection : run.selectedPets) {
+            if (selection.premiumSlot) {
+                if (premiumIndex < 10) assignedSlots.put(selection.petId, premiumIndex++);
+            } else if (normalIndex < 8) assignedSlots.put(selection.petId, normalIndex++);
+        }
         for (PetDefinition pet : services.pets.catalog()) {
             PetPlayerState.PetProgress progress = state.pets.get(pet.petId); PetPlayerState.SelectedPet selected = null;
             if (run != null) for (PetPlayerState.SelectedPet candidate : run.selectedPets) if (pet.petId.equals(candidate.petId)) { selected = candidate; break; }
@@ -77,7 +88,8 @@ public final class PetActionPacketHandler implements IMessageHandler<PetActionPa
             boolean levelUpReady = selected != null && progress != null && threshold.signum() > 0 && progress.xp.compareTo(threshold) >= 0;
             entries.add(new PetSnapshotPacket.Entry(pet.petId, progress == null ? "ORDINARY" : progress.rank.name(), progress == null ? "1" : progress.level.toString(),
                     progress == null ? "0" : progress.xp.stripTrailingZeros().toPlainString(), threshold.stripTrailingZeros().toPlainString(), levelUpReady,
-                    owned, selected != null, selected != null && selected.premiumSlot, cooldown, services.balance.getActiveValue(pet.purchaseCostValueId), effects.toString()));
+                    owned, selected != null, selected != null && selected.premiumSlot, cooldown, services.balance.getActiveValue(pet.purchaseCostValueId), effects.toString(),
+                    assignedSlots.containsKey(pet.petId) ? assignedSlots.get(pet.petId) : -1));
         }
         int normal = run == null ? 0 : run.normalSlotsUnlockedThisRun; String nextCost = services.pets.nextNormalSlotCost(id).stripTrailingZeros().toPlainString();
         String runId = masteryRun == null ? "" : masteryRun.runId;
