@@ -232,44 +232,33 @@ public final class UniqueRuneService {
         if (factual == null) return Result.of(ResultCode.INVALID);
         if (factual == Rarity.MYTHIC && !collection.canAwaken(promotedRuneId))
             return Result.of(ResultCode.MAX_RARITY);
-        // A paid, targeted rollback can be reversed only for that same rune.
-        // It must never grant a fresh upper-tier cohort or affect another rune.
-        Rarity restoration = collection.rollbackRestore.get(promotedRuneId);
-        if (restoration != null && factual.nextGameplay() == restoration) {
-            collection.owned.put(promotedRuneId, restoration);
-            collection.rollbackRestore.remove(promotedRuneId);
-            collection.runeRollback.put(promotedRuneId, factual);
-        } else {
-            // Same as ordinary RuneAwakeningService: all 26 slots must have
-            // factual ranks at or above this target's current rank.
-            if (!collection.canAwaken(promotedRuneId))
-                return Result.of(ResultCode.NOT_READY);
-            Rarity source = factual;
-            Rarity next = source.nextGameplay();
-            if (next == source) return Result.of(ResultCode.MAX_RARITY);
-            // Ordinary rank-up clears every OTHER slot at or below the
-            // source rank while preserving higher runes and enhancements.
-            // Daily uses the same rank progression, with its cooldown intact.
-            collection.cohort(source).clear();
-            List<String> consumed = new ArrayList<>();
-            for (Map.Entry<String, Rarity> entry : collection.owned.entrySet())
-                if (entry.getValue().persistentId <= source.persistentId
-                        && !entry.getKey().equals(promotedRuneId))
-                    consumed.add(entry.getKey());
-            for (String consumedId : consumed) {
-                collection.owned.remove(consumedId);
-                collection.runeRollback.remove(consumedId);
-                collection.rollbackRestore.remove(consumedId);
-            }
-            collection.cohort(next).add(promotedRuneId);
-            // Already-higher individual rune remains intact while its
-            // independent lower-tier acquisition receives factual credit.
-            if (factual.persistentId < next.persistentId) {
-                collection.owned.put(promotedRuneId, next);
-                collection.runeRollback.put(promotedRuneId, factual);
-            }
-            collection.currentRarity = Rarity.COMMON;
+        // Historical rollbackRestore records must never bypass a full factual
+        // cohort. The same 26/26 rank guard applies to legacy and new runes.
+        if (!collection.canAwaken(promotedRuneId))
+            return Result.of(ResultCode.NOT_READY);
+        Rarity source = factual;
+        Rarity next = source.nextGameplay();
+        if (next == source) return Result.of(ResultCode.MAX_RARITY);
+        // Ordinary rank-up clears every OTHER slot at or below the source
+        // rank while retaining higher runes, enhancements and independent sets.
+        collection.cohort(source).clear();
+        List<String> consumed = new ArrayList<>();
+        for (Map.Entry<String, Rarity> entry : collection.owned.entrySet())
+            if (entry.getValue().persistentId <= source.persistentId
+                    && !entry.getKey().equals(promotedRuneId))
+                consumed.add(entry.getKey());
+        for (String consumedId : consumed) {
+            collection.owned.remove(consumedId);
+            collection.runeRollback.remove(consumedId);
+            collection.rollbackRestore.remove(consumedId);
         }
+        collection.cohort(next).add(promotedRuneId);
+        collection.owned.put(promotedRuneId, next);
+        collection.runeRollback.put(promotedRuneId, factual);
+        // Clear only selected rune's stale legacy entitlement after a legal
+        // awakening. No bulk save migration or unrelated player mutation.
+        collection.rollbackRestore.remove(promotedRuneId);
+        collection.currentRarity = Rarity.COMMON;
         repository.save(playerUuid, state); factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_AWAKENED, id, promotedRuneId); return Result.grant(promotedRuneId);
     }
 
@@ -293,9 +282,9 @@ public final class UniqueRuneService {
         if (!resources.spendPlayerResource(playerUuid, "crystals", cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
         collection.owned.put(runeId, previous);
         collection.runeRollback.remove(runeId);
-        // Only this player/rune may immediately restore the paid downgrade.
-        // Repeated rollbacks retain at most the most recent rank entitlement.
-        collection.rollbackRestore.put(runeId, current);
+        // Paid rollback is a real downgrade, not a free re-awakening credit.
+        // Invalidate an old legacy entitlement for this rune only.
+        collection.rollbackRestore.remove(runeId);
         repository.save(playerUuid, state);
         factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_ROLLED_BACK, id, runeId);
         return Result.grant(runeId);
