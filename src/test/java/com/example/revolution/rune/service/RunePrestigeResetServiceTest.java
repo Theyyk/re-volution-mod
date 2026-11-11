@@ -1,6 +1,12 @@
 package com.example.revolution.rune.service;
 
 import com.example.revolution.player.repository.PlayerIdentity;
+import com.example.revolution.prestige.PrestigeBranch;
+import com.example.revolution.prestige.PrestigeBranchRegistry;
+import com.example.revolution.prestige.PrestigeRepository;
+import com.example.revolution.prestige.PrestigeResetService;
+import com.example.revolution.prestige.PrestigeService;
+import com.example.revolution.prestige.PrestigeState;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
@@ -12,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,6 +62,51 @@ public final class RunePrestigeResetServiceTest {
         new RunePrestigeResetService(players, enhancements).reset(playerUuid);
 
         assertEquals(25, enhancements.getLevel(playerUuid, 0, 5));
+    }
+
+    @Test
+    void successfulPrestigeResetInvokesRuneWipeExactlyOnceButDuplicateDoesNot() {
+        UUID playerId = UUID.randomUUID();
+        FakePlayerRepository players = new FakePlayerRepository();
+        FakeEnhancementRepository enhancements = new FakeEnhancementRepository();
+        players.addRune(0, RuneProgression.IMPROVED_RANK);
+        players.addRune(1, RuneProgression.ADVANCED_RANK);
+        enhancements.levels.put(0, 9);
+        enhancements.levels.put(1, 11);
+
+        RunePrestigeResetService wipe = new RunePrestigeResetService(players, enhancements);
+        AtomicInteger applied = new AtomicInteger();
+        MemoryPrestigeRepository repository = new MemoryPrestigeRepository();
+        PrestigeBranchRegistry branches = new PrestigeBranchRegistry();
+        PrestigeService service = new PrestigeService(repository, branches,
+                (uuid, branch) -> branches.get(branch).defaultSaveMultiplier,
+                uuid -> { applied.incrementAndGet(); wipe.reset(uuid); });
+        String runId = service.startRun(playerId, PrestigeBranch.CLICK).runId;
+        assertEquals(PrestigeResetService.ResetResult.APPLIED, service.reset(playerId, runId));
+        assertEquals(1, applied.get());
+        assertEquals(RuneProgression.ORDINARY_RANK, players.rank(0));
+        assertEquals(RuneProgression.ADVANCED_RANK, players.rank(1));
+        assertEquals(0, enhancements.getLevel(playerId, 0, 0));
+        assertEquals(11, enhancements.getLevel(playerId, 0, 1));
+        assertEquals(PrestigeResetService.ResetResult.DUPLICATE, service.reset(playerId, runId));
+        assertEquals(1, applied.get());
+    }
+
+    private static final class MemoryPrestigeRepository implements PrestigeRepository {
+        private final Map<UUID, PrestigeState> stored = new HashMap<>();
+        @Override public PrestigeState load(UUID uuid) {
+            PrestigeState state = stored.get(uuid);
+            return state == null ? new PrestigeState() : state.copy();
+        }
+        @Override public void save(UUID uuid, PrestigeState next) { stored.put(uuid, next.copy()); }
+        @Override public ResetCommitResult commitReset(UUID uuid, String expectedRunId, PrestigeState next) {
+            PrestigeState old = load(uuid);
+            if (old.activeRun == null)
+                return expectedRunId.equals(old.lastResetRunId) ? ResetCommitResult.DUPLICATE : ResetCommitResult.STALE;
+            if (!expectedRunId.equals(old.activeRun.runId)) return ResetCommitResult.STALE;
+            save(uuid, next);
+            return ResetCommitResult.APPLIED;
+        }
     }
 
     private static final class FakePlayerRepository implements PlayerRepository {

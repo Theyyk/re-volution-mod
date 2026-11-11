@@ -68,7 +68,10 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                                 " | Meta: +" + preview.metaLevelGainPerRun +
                                 " | Ранги: " + preview.ranksUpgraded;
                     } else if ("reset".equals(action)) {
-                        response = "RESET_" + services.prestige.reset(playerId, expected).name();
+                        PrestigeResetService.ResetResult result = services.prestige.reset(playerId, expected);
+                        response = "RESET_" + result.name();
+                        if (result == PrestigeResetService.ResetResult.APPLIED)
+                            services.runeActions.refreshAfterPrestigeReset(player);
                     } else if ("preview_mastery".equals(action)) {
                         PrestigeResetService.MasteryResetPreview preview = services.prestige.previewMasteryReset(playerId, expected);
                         previewKind = "mastery";
@@ -76,7 +79,11 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                                 " | Meta cap " + preview.currentRankMetaLevelCap + " -> " + preview.nextRankMetaLevelCap +
                                 " | Сброс рун и питомцев по правилам сервера";
                     } else if ("mastery".equals(action)) {
-                        response = "MASTERY_" + services.prestige.masteryReset(playerId, expected, MasteryResetMode.NORMAL).name();
+                        PrestigeResetService.MasteryResetResult result =
+                                services.prestige.masteryReset(playerId, expected, MasteryResetMode.NORMAL);
+                        response = "MASTERY_" + result.name();
+                        if (result == PrestigeResetService.MasteryResetResult.APPLIED)
+                            services.runeActions.refreshAfterPrestigeReset(player);
                     } else if ("preview_premium".equals(action)) {
                         PrestigeResetService.MasteryResetPreview preview = services.prestige.previewMasteryReset(playerId, expected);
                         if (!preview.premiumPreserveEnabled) throw new IllegalStateException("OPTION_UNAVAILABLE");
@@ -86,7 +93,13 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                                 " | Сохранить руны: " + preview.premiumPreserveRunes +
                                 " | питомцев: " + preview.premiumPreservePets;
                     } else if ("premium".equals(action)) {
-                        response = "PREMIUM_" + services.prestige.masteryReset(playerId, expected, MasteryResetMode.PREMIUM_PRESERVE).name();
+                        PrestigeResetService.MasteryResetPreview preview =
+                                services.prestige.previewMasteryReset(playerId, expected);
+                        PrestigeResetService.MasteryResetResult result =
+                                services.prestige.masteryReset(playerId, expected, MasteryResetMode.PREMIUM_PRESERVE);
+                        response = "PREMIUM_" + result.name();
+                        if (result == PrestigeResetService.MasteryResetResult.APPLIED && !preview.premiumPreserveRunes)
+                            services.runeActions.refreshAfterPrestigeReset(player);
                     }
                 }
             } catch (IllegalArgumentException invalid) {
