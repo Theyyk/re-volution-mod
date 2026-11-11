@@ -53,6 +53,30 @@ public final class RunePrestigeResetServiceTest {
     }
 
     @Test
+    void resetProcessesPersistedFixedCollectionsEvenWithoutUnlockMetadata() {
+        UUID playerId = UUID.randomUUID();
+        FakePlayerRepository players = new FakePlayerRepository();
+        FakeEnhancementRepository enhancements = new FakeEnhancementRepository();
+        // This simulates a migrated save with factual fixed collections 2/3 and no
+        // reliable unlockedCollections metadata. Such records must not be skipped.
+        players.addRuneInCollection(1, 5, RuneProgression.IMPROVED_RANK);
+        players.addRuneInCollection(2, 6, RuneProgression.ORDINARY_RANK);
+        players.addRuneInCollection(2, 7, RuneProgression.ADVANCED_RANK);
+        enhancements.levels.put(5, 25);
+        enhancements.levels.put(6, 13);
+        enhancements.levels.put(7, 44);
+
+        new RunePrestigeResetService(players, enhancements).reset(playerId);
+
+        assertEquals(RuneProgression.ORDINARY_RANK, players.rank(1, 5));
+        assertEquals(RuneProgression.ORDINARY_RANK, players.rank(2, 6));
+        assertEquals(RuneProgression.ADVANCED_RANK, players.rank(2, 7));
+        assertEquals(0, enhancements.getLevel(playerId, 1, 5));
+        assertEquals(0, enhancements.getLevel(playerId, 2, 6));
+        assertEquals(44, enhancements.getLevel(playerId, 2, 7));
+    }
+
+    @Test
     void missingRuneDoesNotCreateOrWipeEnhancement() {
         UUID playerUuid = UUID.randomUUID();
         FakePlayerRepository players = new FakePlayerRepository();
@@ -110,14 +134,22 @@ public final class RunePrestigeResetServiceTest {
     }
 
     private static final class FakePlayerRepository implements PlayerRepository {
-        private final List<RuneRecord> runes = new ArrayList<>();
+        private final Map<Integer, List<RuneRecord>> byCollection = new HashMap<>();
 
         void addRune(int runeIndex, int rank) {
-            runes.add(new RuneRecord(runeIndex, runeIndex, rank, 0));
+            addRuneInCollection(0, runeIndex, rank);
         }
 
-        int rank(int runeIndex) {
-            for (RuneRecord rune : runes) if (rune.runeIndex == runeIndex) return rune.layer;
+        void addRuneInCollection(int collectionIndex, int runeIndex, int rank) {
+            byCollection.computeIfAbsent(collectionIndex, ignored -> new ArrayList<>())
+                    .add(new RuneRecord(runeIndex, runeIndex, rank, 0));
+        }
+
+        int rank(int runeIndex) { return rank(0, runeIndex); }
+
+        int rank(int collectionIndex, int runeIndex) {
+            for (RuneRecord rune : getRunesInCollection(null, collectionIndex))
+                if (rune.runeIndex == runeIndex) return rune.layer;
             return 0;
         }
 
@@ -128,7 +160,8 @@ public final class RunePrestigeResetServiceTest {
         @Override public int getCrystals(UUID uuid) { return 0; }
         @Override public void setCrystals(UUID uuid, int crystals) {}
         @Override public List<RuneRecord> getRunesInCollection(UUID uuid, int collectionIndex) {
-            return collectionIndex == 0 ? new ArrayList<>(runes) : Collections.emptyList();
+            List<RuneRecord> runes = byCollection.get(collectionIndex);
+            return runes == null ? Collections.emptyList() : new ArrayList<>(runes);
         }
         @Override public int getActiveCollection(UUID uuid) { return 0; }
         @Override public void setActiveCollection(UUID uuid, int collectionIndex) {}
@@ -137,6 +170,8 @@ public final class RunePrestigeResetServiceTest {
         @Override public void deleteCollection(UUID uuid, int collectionIndex) {}
         @Override public void addRuneToCollection(UUID uuid, int collectionIndex, int slot, int runeIndex, int layer, int level) {}
         @Override public boolean setRuneRank(UUID uuid, int collectionIndex, int runeIndex, int layer) {
+            List<RuneRecord> runes = byCollection.get(collectionIndex);
+            if (runes == null) return false;
             for (int i = 0; i < runes.size(); i++) {
                 RuneRecord rune = runes.get(i);
                 if (rune.runeIndex != runeIndex) continue;
@@ -145,7 +180,7 @@ public final class RunePrestigeResetServiceTest {
             }
             return false;
         }
-        @Override public void clearCollection(UUID uuid, int collectionIndex) { runes.clear(); }
+        @Override public void clearCollection(UUID uuid, int collectionIndex) { byCollection.remove(collectionIndex); }
     }
 
     private static final class FakeEnhancementRepository implements RuneEnhancementRepository {
