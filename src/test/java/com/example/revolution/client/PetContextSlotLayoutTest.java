@@ -8,22 +8,32 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class PetContextSlotLayoutTest {
-    @Test void exactlyTenCellsHaveNonOverlappingVisualAndClickBounds() {
+    @Test void exactlyTenCellsHaveNonOverlappingVisualAndClickBoundsAtSeveralScales() {
         for (int availableWidth : new int[]{180, 350, 594, 930}) {
             PetContextSlotLayout layout = new PetContextSlotLayout(100, availableWidth, 80);
             for (int i = 0; i < 10; i++) {
                 int centerX = layout.x(i) + layout.width() / 2;
-                int centerY = layout.y() + layout.height() / 2;
+                int centerY = layout.y(i) + layout.cellHeight() / 2;
                 assertEquals(i, layout.hit(centerX, centerY));
-                assertEquals(i, layout.hit(layout.x(i), layout.y()));
-                assertEquals(i, layout.hit(layout.x(i) + layout.width() - 1, layout.y() + layout.height() - 1));
+                assertEquals(i, layout.hit(layout.x(i), layout.y(i)));
+                assertEquals(i, layout.hit(layout.x(i) + layout.width() - 1,
+                        layout.y(i) + layout.cellHeight() - 1));
                 assertTrue(layout.x(i) >= 100);
                 assertTrue(layout.x(i) + layout.width() <= 100 + availableWidth);
-                if (i > 0) assertTrue(layout.x(i) >= layout.x(i - 1) + layout.width());
+                assertTrue(layout.y(i) >= 80);
+                assertTrue(layout.y(i) + layout.cellHeight() <= 80 + layout.height());
+                for (int j = 0; j < i; j++) {
+                    boolean disjointX = layout.x(i) >= layout.x(j) + layout.width()
+                            || layout.x(j) >= layout.x(i) + layout.width();
+                    boolean disjointY = layout.y(i) >= layout.y(j) + layout.cellHeight()
+                            || layout.y(j) >= layout.y(i) + layout.cellHeight();
+                    assertTrue(disjointX || disjointY);
+                }
             }
             assertEquals(-1, layout.hit(99, 80));
-            assertEquals(-1, layout.hit(100, layout.y() - 1));
-            assertEquals(-1, layout.hit(100, layout.y() + layout.height()));
+            assertEquals(-1, layout.hit(100, layout.y(0) - 1));
+            assertEquals(-1, layout.hit(100, layout.y(9) + layout.cellHeight()));
+            assertEquals(-1, layout.hit(layout.x(0), layout.y(0) + layout.cellHeight()));
         }
     }
 
