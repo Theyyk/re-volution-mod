@@ -40,6 +40,7 @@ public class NetworkHandler {
         INSTANCE.registerMessage(UniqueRuneActionPacketHandler.class, UniqueRuneActionPacket.class, 25, Side.SERVER);
         INSTANCE.registerMessage(UniqueRuneSnapshotPacketServerHandler.class, UniqueRuneSnapshotPacket.class, 26, Side.CLIENT);
         MechanicUnlockNetworkRegistration.registerServer();
+        MasteryNetworkRegistration.registerServer();
     }
 
     public static boolean clientHasRevolutionMod(EntityPlayerMP player) {

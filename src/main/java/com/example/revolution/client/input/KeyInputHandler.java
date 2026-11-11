@@ -4,12 +4,14 @@ import com.example.revolution.client.ClientUiBridge;
 import com.example.revolution.client.UnifiedMainMenuChrome;
 import com.example.revolution.client.ClientUniqueRunes;
 import com.example.revolution.client.mechanic.ClientMechanicUnlocks;
+import com.example.revolution.client.network.MasteryClientState;
 import com.example.revolution.client.network.AuraClientState;
 import com.example.revolution.client.network.GodWorshipClientState;
 import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.network.AuraActionPacket;
 import com.example.revolution.network.GodWorshipActionPacket;
 import com.example.revolution.network.NetworkHandler;
+import com.example.revolution.network.MasteryActionPacket;
 import com.example.revolution.network.QuestActionPacket;
 import com.example.revolution.network.StageTravelMenuRequestPacket;
 import net.minecraft.client.Minecraft;
@@ -28,11 +30,13 @@ public class KeyInputHandler {
     public static KeyBinding keyOpenQuests;
     public static KeyBinding keyOpenGodWorship;
     public static KeyBinding keyOpenAura;
+    public static KeyBinding keyOpenMastery;
     private boolean menuWasPressed = false;
     private boolean stageTravelWasPressed = false;
     private boolean questsWasPressed = false;
     private boolean godWorshipWasPressed = false;
     private boolean auraWasPressed = false;
+    private boolean masteryWasPressed = false;
     private boolean vanillaBindingsConfigured = false;
 
     public static void register() {
@@ -41,11 +45,13 @@ public class KeyInputHandler {
         keyOpenQuests = new KeyBinding("key.revolution.quests", Keyboard.KEY_Q, "key.categories.revolution");
         keyOpenGodWorship = new KeyBinding("key.revolution.god_worship", Keyboard.KEY_G, "key.categories.revolution");
         keyOpenAura = new KeyBinding("key.revolution.aura", Keyboard.KEY_U, "key.categories.revolution");
+        keyOpenMastery = new KeyBinding("key.revolution.mastery", Keyboard.KEY_Y, "key.categories.revolution");
         ClientRegistry.registerKeyBinding(keyOpenMenu);
         ClientRegistry.registerKeyBinding(keyOpenStageTravel);
         ClientRegistry.registerKeyBinding(keyOpenQuests);
         ClientRegistry.registerKeyBinding(keyOpenGodWorship);
         ClientRegistry.registerKeyBinding(keyOpenAura);
+        ClientRegistry.registerKeyBinding(keyOpenMastery);
     }
 
     @SubscribeEvent public void onClientTick(TickEvent.ClientTickEvent event) {
@@ -55,6 +61,7 @@ public class KeyInputHandler {
         // Do not reuse another server/player's unlock visibility after disconnect.
         if (minecraft.getConnection() == null) {
             ClientMechanicUnlocks.reset();
+            MasteryClientState.reset();
             ClientUniqueRunes.reset();
             UnifiedMainMenuChrome.forgetRunes();
         }
@@ -88,6 +95,14 @@ public class KeyInputHandler {
             NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket("sync", "", "", 0L));
         }
         auraWasPressed = auraPressed;
+
+        boolean masteryPressed = keyOpenMastery != null && keyOpenMastery.isPressed();
+        if (masteryPressed && !masteryWasPressed && minecraft.player != null && minecraft.getConnection() != null
+                && minecraft.currentScreen == null && !MasteryClientState.pending()) {
+            MasteryClientState.requestOpen();
+            NetworkHandler.INSTANCE.sendToServer(new MasteryActionPacket("sync", "", "", MasteryClientState.nextRequestId()));
+        }
+        masteryWasPressed = masteryPressed;
     }
 
     private void configureVanillaBindings(Minecraft minecraft) {
