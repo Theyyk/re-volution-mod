@@ -72,6 +72,22 @@ final class GodWorshipServiceTest {
         assertEquals(0L, gods.run.gods.get(GodId.GOD_1).level);
     }
 
+    @Test
+    void offeringsAdministrationPreservesGodStateAndRejectsInvalidBalances() {
+        FakeGodRepository gods = new FakeGodRepository();
+        GodWorshipService service = new GodWorshipService(gods, new ResourceService(new FakeResourceRepository()), new FakePolicy());
+        gods.persistent.permanentDurationLevel = 4L;
+        assertEquals(true, service.setOfferings(PLAYER, new BigDecimal("1000.25")));
+        assertEquals(0, service.offeringsBalance(PLAYER).compareTo(new BigDecimal("1000.25")));
+        assertEquals(true, service.addOfferings(PLAYER, new BigDecimal("-250.25")));
+        assertEquals(0, service.offeringsBalance(PLAYER).compareTo(new BigDecimal("750.00")));
+        assertEquals(false, service.addOfferings(PLAYER, new BigDecimal("-751")));
+        assertEquals(false, service.setOfferings(PLAYER, new BigDecimal("-1")));
+        assertEquals(false, service.setOfferings(PLAYER, null));
+        assertEquals(0, service.offeringsBalance(PLAYER).compareTo(new BigDecimal("750")));
+        assertEquals(4L, gods.persistent.permanentDurationLevel);
+    }
+
     private static final class FakeGodRepository implements GodWorshipRepository {
         private RunState run = new RunState();
         private PersistentState persistent = new PersistentState();

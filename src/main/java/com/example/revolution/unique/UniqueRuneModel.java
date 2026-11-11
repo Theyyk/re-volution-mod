@@ -1,6 +1,7 @@
 package com.example.revolution.unique;
 
 import com.example.revolution.effect.EffectResolver;
+import com.example.revolution.rune.rules.RuneCollectionProgression;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -119,33 +120,95 @@ public final class UniqueRuneModel {
         public Rarity currentRarity = Rarity.COMMON;
         /** Rune id -> factual owned rarity in the current cycle. */
         public final Map<String, Rarity> owned = new LinkedHashMap<>();
+        /** V3: COMMON acquisition cohort independent of highest factual rune ownership. */
+        public final Set<String> acquisitionCommon = new LinkedHashSet<>();
+        /** V3 independent paid/earned cohort, not derived from highest rune ownership. */
+        public final Set<String> acquisitionImproved = new LinkedHashSet<>();
+        public final Set<String> acquisitionAdvanced = new LinkedHashSet<>();
+        /** Terminal rank provenance: no ANCIENT gameplay advancement. */
+        public final Set<String> acquisitionMythic = new LinkedHashSet<>();
+        /** Legacy rollback restore metadata retained for save compatibility; never grants free awakening. */
+        public final Map<String, Rarity> rollbackRestore = new LinkedHashMap<>();
         /** Enhancement survives awaken/rollback and is meaningful only for Crystal collection. */
         public final Map<String, Integer> enhancement = new LinkedHashMap<>();
         public Rarity rollbackRarity;
         public final Map<String, Rarity> rollbackOwned = new LinkedHashMap<>();
+        /** v2: authoritative previous rank, scoped to the rune which was individually awakened. */
+        public final Map<String, Rarity> runeRollback = new LinkedHashMap<>();
+        /** Exact original v1 collection document, retained for diagnostics without restoring its history. */
+        public String legacyV1SnapshotJson;
 
-        public int progress() {
-            int result = 0;
-            for (Rarity rarity : owned.values()) if (rarity == currentRarity) result++;
-            return result;
+        public int progress() { return owned.size(); }
+        public Set<String> cohort(Rarity rarity) {
+            if (rarity == Rarity.COMMON) return acquisitionCommon;
+            if (rarity == Rarity.IMPROVED) return acquisitionImproved;
+            if (rarity == Rarity.ADVANCED) return acquisitionAdvanced;
+            if (rarity == Rarity.MYTHIC) return acquisitionMythic;
+            return Collections.emptySet();
         }
-        public boolean ownsAtCurrent(String runeId) { return currentRarity == owned.get(runeId); }
+        /** Shared ordinary-rune rank progression: factual owned ranks decide purchase coverage. */
+        private RuneCollectionProgression stageProgression() {
+            int[] ranks = new int[RUNES_PER_COLLECTION];
+            for (Map.Entry<String, Rarity> entry : owned.entrySet()) {
+                String id = entry.getKey();
+                if (id == null || id.length() < 2) continue;
+                try {
+                    int slot = Integer.parseInt(id.substring(id.length() - 2));
+                    if (slot >= 1 && slot <= RUNES_PER_COLLECTION)
+                        ranks[slot - 1] = Math.max(ranks[slot - 1], entry.getValue().persistentId);
+                } catch (NumberFormatException ignored) { }
+            }
+            return RuneCollectionProgression.fromBestRanks(ranks);
+        }
+        public Rarity purchaseRarity() {
+            return Rarity.values()[stageProgression().stageRank() - 1];
+        }
+        /** Number of factual slots at or above the current purchase stage. */
+        public int acquisitionProgress() { return stageProgression().coveredCount(); }
+        public boolean ownsAtCurrent(String runeId) {
+            Rarity rank = owned.get(runeId);
+            return rank != null && rank.persistentId >= purchaseRarity().persistentId;
+        }
+        public Rarity readyToAwaken() {
+            for (Rarity rank : new Rarity[]{Rarity.ADVANCED, Rarity.IMPROVED, Rarity.COMMON}) {
+                int covered = 0;
+                for (Rarity ownedRank : owned.values())
+                    if (ownedRank.persistentId >= rank.persistentId) covered++;
+                if (covered >= RUNES_PER_COLLECTION) return rank;
+            }
+            return null;
+        }
+        public boolean canAwaken(String runeId) {
+            Rarity existing = owned.get(runeId);
+            if (existing == null) return false;
+            // Same authoritative rule as ordinary runes: all 26 factual slots
+            // must be at least the target rune's current rank. Higher ranks count.
+            if (existing == Rarity.MYTHIC) return false;
+            int covered = 0;
+            for (Rarity rank : owned.values())
+                if (rank.persistentId >= existing.persistentId) covered++;
+            return covered >= RUNES_PER_COLLECTION;
+        }
+        /** Rollback is a paid, confirmed rank downgrade available only from ADVANCED (#3). */
+        public boolean canRollback(String runeId) { Rarity rarity = owned.get(runeId); return rarity == Rarity.ADVANCED || rarity == Rarity.MYTHIC; }
         public int enhancement(String runeId) { Integer value = enhancement.get(runeId); return value == null ? 0 : Math.max(0, value); }
         public CollectionState copy() {
             CollectionState copy = new CollectionState(); copy.currentRarity = currentRarity;
-            copy.owned.putAll(owned); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); return copy;
+            copy.owned.putAll(owned); copy.acquisitionCommon.addAll(acquisitionCommon); copy.acquisitionImproved.addAll(acquisitionImproved); copy.acquisitionAdvanced.addAll(acquisitionAdvanced); copy.acquisitionMythic.addAll(acquisitionMythic); copy.rollbackRestore.putAll(rollbackRestore); copy.enhancement.putAll(enhancement); copy.rollbackRarity = rollbackRarity; copy.rollbackOwned.putAll(rollbackOwned); copy.runeRollback.putAll(runeRollback); copy.legacyV1SnapshotJson = legacyV1SnapshotJson; return copy;
         }
     }
 
     public static final class PlayerState {
         public final Map<CollectionId, CollectionState> collections = new EnumMap<>(CollectionId.class);
         public long lastDailyClaimDay = Long.MIN_VALUE;
+        /** UTC epoch millis of a confirmed successful daily grant; absent for legacy saves. */
+        public long lastDailyClaimMillis = Long.MIN_VALUE;
         public PlayerState() { for (CollectionId id : CollectionId.values()) collections.put(id, new CollectionState()); }
         public CollectionState collection(CollectionId id) { return collections.get(id); }
         public PlayerState copy() {
             PlayerState copy = new PlayerState(); copy.collections.clear();
             for (Map.Entry<CollectionId, CollectionState> entry : collections.entrySet()) copy.collections.put(entry.getKey(), entry.getValue().copy());
-            copy.lastDailyClaimDay = lastDailyClaimDay; return copy;
+            copy.lastDailyClaimDay = lastDailyClaimDay; copy.lastDailyClaimMillis = lastDailyClaimMillis; return copy;
         }
     }
 

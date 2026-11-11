@@ -23,14 +23,24 @@ public final class ResourceServiceTest {
                 });
         ResourceService service = new ResourceService(repository);
         UUID player = UUID.randomUUID();
+        final int[] notices = {0};
+        service.setChangeListener(uuid -> {
+            check(player.equals(uuid), "notice belongs to changed player");
+            check(service.getPlayerResourceValue(uuid, "coins").signum() >= 0, "notice follows commit");
+            notices[0]++;
+        });
         check(!service.grantPlayerResource(player, "unknown", 10), "reject unknown grants");
         check(!service.grantPlayerResource(player, "coins", -1), "reject negative grants");
+        check(notices[0] == 0, "invalid mutations must not notify");
         check(service.grantPlayerResource(player, "coins", new BigDecimal("999999999999999999999")), "exact grant");
         check(service.getPlayerResource(player, "coins") == Integer.MAX_VALUE, "legacy integer read saturates");
+        check(notices[0] == 1, "successful persisted grant notifies once");
         check(service.spendPlayerResource(player, "coins", 5), "spend exact balance");
         check(balances.get("coins").equals(new BigDecimal("999999999999999999994")), "no precision loss");
         service.setPlayerResource(player, "rune_dust", 20);
+        int noticesBeforeReject = notices[0];
         check(!service.spendPlayerResource(player, "rune_dust", 21), "reject unaffordable spend");
+        check(notices[0] == noticesBeforeReject, "rejected spend must not notify");
         check(balances.get("rune_dust").intValue() == 20, "failed spend preserves balance");
         check(!service.spendPlayerResource(player, "rune_dust", -1), "reject negative spend");
         check(service.spendPlayerResource(player, "rune_dust", 20), "allow exact spend");
@@ -49,6 +59,26 @@ public final class ResourceServiceTest {
         service.setPlayerResource(player, "rune_dust", 50);
         RuneAwakeningPaymentService.Result result = payment.charge(player, paidRule);
         check(result.allowed && result.paid && result.cost == 40 && result.balance == 10, "awakening charge contract");
+        // R2-A05: verify that normal/improved rank-up currencies really change
+        // in the persistence port, independently from client resource rendering.
+        for (String awakeningCurrency : new String[]{
+                ResourceDefinitions.RUNE_SHARDS, ResourceDefinitions.RUNE_CORES}) {
+            RuneRankUpRule resourceRule = new RuneRankUpRule(
+                    2, 3, 26, awakeningCurrency, 17,
+                    RuneRankUpRule.ClearMode.AT_OR_BELOW_SOURCE, true);
+            service.setPlayerResource(player, awakeningCurrency, 100);
+            RuneAwakeningPaymentService.Result charged = payment.charge(player, resourceRule);
+            check(charged.allowed && charged.paid && charged.cost == 17 && charged.balance == 83,
+                    "authoritative rank-up payment for " + awakeningCurrency);
+            check(service.getPlayerResource(player, awakeningCurrency) == 83,
+                    "persisted rank-up deduction for " + awakeningCurrency);
+            check(!payment.charge(player, new RuneRankUpRule(
+                    2, 3, 26, awakeningCurrency, 100,
+                    RuneRankUpRule.ClearMode.AT_OR_BELOW_SOURCE, true)).allowed,
+                    "reject insufficient rank-up funds for " + awakeningCurrency);
+            check(service.getPlayerResource(player, awakeningCurrency) == 83,
+                    "rejected payment does not alter funds for " + awakeningCurrency);
+        }
         RuneRankUpRule invalidRule = new RuneRankUpRule(
                 1,
                 2,

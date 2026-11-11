@@ -1,6 +1,7 @@
 package com.example.revolution.client;
 
 import com.example.revolution.achievement.AchievementStageLabels;
+import com.example.revolution.client.ui.UiMenuSection;
 import com.example.revolution.network.AchievementActionPacket;
 import com.example.revolution.network.AchievementSnapshotPacket;
 import com.example.revolution.network.NetworkHandler;
@@ -9,114 +10,168 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import org.lwjgl.input.Mouse;
 
-/** Functional-first Achievement tab: categories, progression, rewards, Claim, Share and meta header. */
+/** Achievement categories, server rewards and meta levels in common E-menu chrome. */
 public final class AchievementsGuiScreen extends GuiScreen {
-    private static final int RUNES = 200, CLOSE = 299, PREV = 510, NEXT = 511, CATEGORY_BASE = 600;
-    private static final String[] CATEGORIES = {"ALL", "DAMAGE", "RESOURCES", "MASTERY", "PETS", "RUNES", "KILLS", "LOCATIONS", "AURAS", "HIDDEN"};
-    private static final int ROW_H = 46;
+    private static final int CATEGORY_BASE = 600;
+    private static final String[] CATEGORIES =
+            {"ALL", "DAMAGE", "RESOURCES", "MASTERY", "PETS", "RUNES", "KILLS", "LOCATIONS", "AURAS", "HIDDEN"};
+    private static final String[] CATEGORY_LABELS =
+            {"Все", "Урон", "Ресурсы", "Мастерство", "Питомцы", "Руны", "Убийства", "Локации", "Ауры", "Скрытые"};
+    private static final int ROW_H = 70;
     private static long requestNonce = System.currentTimeMillis();
     private String category = "ALL";
-    private int page;
+    private int scrollRow;
+
+    private int left() { return UnifiedMainMenuChrome.contentLeft(width, height); }
+    private int right() { return UnifiedMainMenuChrome.contentRight(width, height); }
+    private int top() { return UnifiedMainMenuChrome.contentTop(width, height); }
+
+    private int categoryRowCount() {
+        int x = left(), rows = 1;
+        for (String label : CATEGORY_LABELS) {
+            int w = Math.max(48, fontRenderer.getStringWidth(label) + 16);
+            if (x + w > right()) { x = left(); rows++; }
+            x += w + 4;
+        }
+        return rows;
+    }
+
+    private int contentTop() {
+        return top() + categoryRowCount() * 23 + 44;
+    }
+
+    private int visibleRows() {
+        return Math.max(1, (height - contentTop() - 42) / ROW_H);
+    }
+
+    private int maxScroll(List<AchievementSnapshotPacket.Entry> visible) {
+        return Math.max(0, visible.size() - visibleRows());
+    }
+
+    @Override public void handleMouseInput() throws IOException {
+        super.handleMouseInput();
+        int wheel = Mouse.getEventDWheel();
+        if (wheel == 0) return;
+        int mx = Mouse.getEventX() * width / mc.displayWidth;
+        int my = height - Mouse.getEventY() * height / mc.displayHeight - 1;
+        if (mx >= left() && mx < right() && my >= contentTop() && my < height-42)
+            scrollRow = Math.max(0, Math.min(maxScroll(filtered()), scrollRow + (wheel < 0 ? 1 : -1)));
+    }
 
     @Override public void initGui() {
         buttonList.clear();
-        buttonList.add(new GuiButton(RUNES, 8, 8, 70, 20, "Runes"));
-        buttonList.add(new GuiButton(CLOSE, width - 28, 8, 20, 20, "X"));
-        int x = 8, y = 36;
+        UnifiedMainMenuChrome.installNavigation(buttonList, width, height, UiMenuSection.ACHIEVEMENTS);
+        int x = left(), y = top();
         for (int i = 0; i < CATEGORIES.length; i++) {
-            int w = Math.max(48, fontRenderer.getStringWidth(CATEGORIES[i]) + 12);
-            if (x + w > width - 8) { x = 8; y += 23; }
-            GuiButton button = new GuiButton(CATEGORY_BASE + i, x, y, w, 20, CATEGORIES[i]);
+            int w = Math.max(48, fontRenderer.getStringWidth(CATEGORY_LABELS[i]) + 16);
+            if (x + w > right()) { x = left(); y += 23; }
+            GuiButton button = new GuiControls.PanelButton(
+                    CATEGORY_BASE + i, x, y, w, 20, CATEGORY_LABELS[i]);
             button.enabled = !CATEGORIES[i].equals(category);
             buttonList.add(button);
             x += w + 4;
         }
-        buttonList.add(new GuiButton(PREV, width / 2 - 105, height - 28, 100, 20, "< Previous"));
-        buttonList.add(new GuiButton(NEXT, width / 2 + 5, height - 28, 100, 20, "Next >"));
         NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket("sync", "", 0, 0L));
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
         if (!button.enabled) return;
-        if (button.id == CLOSE) { mc.displayGuiScreen(null); return; }
-        if (button.id == RUNES) { ClientUiBridge.beginRuneOpen(); mc.displayGuiScreen(null); return; }
-        if (button.id == PREV) { page = Math.max(0, page - 1); return; }
-        if (button.id == NEXT) { page++; return; }
+        if (UnifiedMainMenuChrome.handleNavigation(button.id, UiMenuSection.ACHIEVEMENTS, mc)) return;
         if (button.id >= CATEGORY_BASE && button.id < CATEGORY_BASE + CATEGORIES.length) {
-            category = CATEGORIES[button.id - CATEGORY_BASE];
-            page = 0;
-            initGui();
+            category = CATEGORIES[button.id - CATEGORY_BASE]; scrollRow = 0; initGui();
         }
     }
 
+    private int claimX() { return Math.max(left(), right()-152); }
+    private int shareX() { return Math.max(left(), right()-76); }
+
     @Override protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
-        List<AchievementSnapshotPacket.Entry> visible = filtered();
-        int top = contentTop();
-        int perPage = perPage();
-        int start = page * perPage;
-        for (int row = 0; row < perPage && start + row < visible.size(); row++) {
-            AchievementSnapshotPacket.Entry e = visible.get(start + row);
-            if (!e.revealed || e.achievementId.startsWith("hidden:")) continue;
-            int y = top + row * ROW_H;
-            if (mouseY < y || mouseY >= y + ROW_H - 4) continue;
-            if (mouseX >= width - 154 && mouseX < width - 84) {
-                if (e.completed && !e.claimed) NetworkHandler.INSTANCE.sendToServer(
-                        new AchievementActionPacket("claim", e.achievementId, e.stageIndex, nextNonce()));
-                return;
-            }
-            if (mouseX >= width - 78 && mouseX < width - 8) {
-                NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket("share", e.achievementId, e.stageIndex, nextNonce()));
-                return;
+        if (mouseButton == 0) {
+            List<AchievementSnapshotPacket.Entry> visible = filtered();
+            scrollRow = Math.min(scrollRow, maxScroll(visible));
+            int start = scrollRow;
+            for (int row = 0; row < visibleRows() && start + row < visible.size(); row++) {
+                AchievementSnapshotPacket.Entry e = visible.get(start + row);
+                if (!e.revealed || e.achievementId.startsWith("hidden:")) continue;
+                int y = contentTop() + row * ROW_H;
+                if (mouseY < y + 30 || mouseY >= y + 54) continue;
+                if (mouseX >= claimX() && mouseX < claimX() + 68) {
+                    if (e.completed && !e.claimed)
+                        NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket(
+                                "claim", e.achievementId, e.stageIndex, nextNonce()));
+                    return;
+                }
+                if (mouseX >= shareX() && mouseX < shareX() + 68) {
+                    NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket(
+                            "share", e.achievementId, e.stageIndex, nextNonce()));
+                    return;
+                }
             }
         }
         super.mouseClicked(mouseX, mouseY, mouseButton);
     }
 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        drawDefaultBackground();
-        drawCenteredString(fontRenderer, "ACHIEVEMENTS", width / 2, 12, 0xFFFFFF);
-        String meta = "Points: " + ClientAchievements.points() + " | Level: " + ClientAchievements.level()
-                + " | Bonus: +" + ClientAchievements.bonusPercent() + "% | Next: " + ClientAchievements.nextLevelThreshold();
-        drawCenteredString(fontRenderer, meta, width / 2, 25, 0xD8D8D8);
+        UnifiedMainMenuChrome.draw(mc, width, height, mouseX, mouseY, "ДОСТИЖЕНИЯ");
+        UnifiedMainMenuChrome.refreshNavigation(buttonList);
+        String meta = "Очки: " + ClientAchievements.points()
+                + "   Уровень: " + ClientAchievements.level()
+                + "   Бонус: +" + ClientAchievements.bonusPercent()
+                + "%   Далее: " + ClientAchievements.nextLevelThreshold();
+        fontRenderer.drawString(fontRenderer.trimStringToWidth(meta, Math.max(10,right()-left())),
+                left(), contentTop()-30, GuiTheme.SILVER_COLOR);
 
         List<AchievementSnapshotPacket.Entry> visible = filtered();
-        int perPage = perPage();
-        int maxPage = Math.max(0, (visible.size() - 1) / perPage);
-        if (page > maxPage) page = maxPage;
-        int start = page * perPage;
-        int top = contentTop();
-        for (int row = 0; row < perPage && start + row < visible.size(); row++) {
+        scrollRow = Math.min(scrollRow, maxScroll(visible));
+        int start = scrollRow;
+        for (int row = 0; row < visibleRows() && start + row < visible.size(); row++) {
             AchievementSnapshotPacket.Entry e = visible.get(start + row);
-            int y = top + row * ROW_H;
-            boolean hover = mouseY >= y && mouseY < y + ROW_H - 4;
-            drawRect(8, y, width - 8, y + ROW_H - 4, hover ? 0xAA343A43 : 0xAA20242A);
+            int y = contentTop() + row * ROW_H;
+            boolean hover = mouseX >= left() && mouseX < right()
+                    && mouseY >= y && mouseY < y + ROW_H - 4;
+            GuiDrawing.drawSurface(left(), y, Math.max(10,right()-left()), ROW_H-5,
+                    hover ? GuiTheme.RUNE_HOVER_BG_COLOR : GuiTheme.PANEL_BG_SOFT,
+                    GuiTheme.PANEL_BORDER_COLOR);
             if (!e.revealed) {
-                fontRenderer.drawString("???", 14, y + 8, 0xAAAAAA);
-                fontRenderer.drawString("Hidden Achievement", 14, y + 22, 0x777777);
+                fontRenderer.drawString("???", left()+8, y+7, GuiTheme.DISABLED_TEXT_COLOR);
+                fontRenderer.drawString("Скрытое достижение", left()+8, y+22, GuiTheme.MUTED_TEXT_COLOR);
                 continue;
             }
+            int descriptionWidth = Math.max(24, claimX()-left()-13);
             String title = e.name + (e.stageRoman.isEmpty() ? "" : " " + e.stageRoman);
-            fontRenderer.drawString(title, 14, y + 6, 0xFFFFFF);
-            String history = "Done " + stageHistory(e.highestCompletedStage) + " | Claimed " + stageHistory(e.highestClaimedStage);
-            fontRenderer.drawString(e.progress + " / " + e.target + "   [" + e.category + "]   " + history,
-                    14, y + 18, e.completed ? 0x8FE3A5 : 0xC7CDD5);
-            String reward = "Rewards: " + e.crystals + " Crystals, " + e.offerings + " Offerings, " + e.auraKeys
-                    + " Aura Keys, " + e.achievementPoints + " AP";
-            fontRenderer.drawString(reward, 14, y + 30, 0xAEB7C2);
-            int claimColor = e.claimed ? 0xFF555555 : e.completed ? 0xFF2E7547 : 0xFF3B414A;
-            drawRect(width - 154, y + 9, width - 84, y + 31, claimColor);
-            drawCenteredString(fontRenderer, e.claimed ? "Claimed" : e.completed ? "Claim" : "Locked", width - 119, y + 16, 0xFFFFFF);
-            drawRect(width - 78, y + 9, width - 8, y + 31, 0xFF4B5570);
-            drawCenteredString(fontRenderer, "Share", width - 43, y + 16, 0xFFFFFF);
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(title, descriptionWidth),
+                    left()+7, y+5, GuiTheme.TEXT_COLOR);
+            String history = "Выполнено " + stageHistory(e.highestCompletedStage)
+                    + " / Получено " + stageHistory(e.highestClaimedStage);
+            String progress = e.progress + "/" + e.target + "  [" + e.category + "]  " + history;
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(progress, descriptionWidth),
+                    left()+7, y+17, e.completed ? 0xFF8FE3A5 : GuiTheme.SILVER_COLOR);
+            int progressBar = Math.max(12, descriptionWidth - 8);
+            drawRect(left()+7, y+38, left()+7+progressBar, y+43, 0xFF29303A);
+            double fraction = AchievementProgressMath.fraction(e.progress, e.target, e.completed);
+            drawRect(left()+7, y+38, left()+7+(int)Math.round(progressBar*fraction),
+                    y+43, 0xFF6EA8DA);
+            String reward = "Кристаллы " + e.crystals + " | Подношения " + e.offerings
+                    + " | Ключи ауры " + e.auraKeys + " | Очки " + e.achievementPoints;
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(reward, descriptionWidth),
+                    left()+7, y+49, GuiTheme.DISABLED_TEXT_COLOR);
+            drawRect(claimX(), y+30, claimX()+68, y+54,
+                    e.claimed ? 0xFF333333 : e.completed ? 0xFF2E7547 : 0xFF3B414A);
+            drawCenteredString(fontRenderer, e.claimed ? "Получено" : e.completed ? "Забрать" : "Закрыто",
+                    claimX()+34, y+38, GuiTheme.TEXT_COLOR);
+            drawRect(shareX(), y+30, shareX()+68, y+54, 0xFF3B4E67);
+            drawCenteredString(fontRenderer, "Поделиться", shareX()+34, y+38, GuiTheme.TEXT_COLOR);
         }
-        drawCenteredString(fontRenderer, "Page " + (page + 1) + "/" + (maxPage + 1), width / 2, height - 39, 0xAEB7C2);
+        fontRenderer.drawString("Показано: " + (visible.isEmpty() ? 0 : scrollRow+1)
+                + "-" + Math.min(visible.size(), scrollRow+visibleRows()) + " из " + visible.size()
+                + "   Колёсико мыши: прокрутка", left(), height-25, GuiTheme.SILVER_COLOR);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
     private static synchronized long nextNonce() {
-        long now = System.currentTimeMillis();
-        requestNonce = Math.max(requestNonce + 1L, now);
+        requestNonce = Math.max(requestNonce + 1L, System.currentTimeMillis());
         return requestNonce;
     }
 
@@ -126,13 +181,10 @@ public final class AchievementsGuiScreen extends GuiScreen {
 
     private List<AchievementSnapshotPacket.Entry> filtered() {
         List<AchievementSnapshotPacket.Entry> result = new ArrayList<>();
-        for (AchievementSnapshotPacket.Entry entry : ClientAchievements.entries()) {
-            if ("ALL".equals(category) || category.equals(entry.category)) result.add(entry);
-        }
+        for (AchievementSnapshotPacket.Entry e : ClientAchievements.entries())
+            if ("ALL".equals(category) || category.equals(e.category)) result.add(e);
         return result;
     }
 
-    private int contentTop() { return width < 680 ? 105 : 82; }
-    private int perPage() { return Math.max(1, (height - contentTop() - 48) / ROW_H); }
     @Override public boolean doesGuiPauseGame() { return false; }
 }

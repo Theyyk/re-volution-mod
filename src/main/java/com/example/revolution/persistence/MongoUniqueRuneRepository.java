@@ -1,6 +1,7 @@
 package com.example.revolution.persistence;
 
 import com.example.revolution.unique.UniqueRuneModel;
+import com.example.revolution.rune.service.RunePurchaseProfiling;
 import com.example.revolution.unique.UniqueRuneRepository;
 import com.mongodb.client.model.UpdateOptions;
 import java.util.ArrayList;
@@ -11,7 +12,7 @@ import org.bson.Document;
 
 /** v2.11.0 permanent Unique Rune state embedded in the existing players document. */
 public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
-    private static final int SCHEMA_VERSION = 1;
+    private static final int SCHEMA_VERSION = 3;
     private final MongoConnection connection;
     private final boolean enabled;
 
@@ -21,15 +22,18 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
 
     @Override public UniqueRuneModel.PlayerState load(UUID playerUuid) {
         if (playerUuid == null || !enabled || !connection.isConnected()) return new UniqueRuneModel.PlayerState();
-        Document player = connection.collection("players").find(new Document("_id", playerUuid.toString())).first();
+        Document player = RunePurchaseProfiling.mongoRead(() -> connection.collection("players")
+                .find(new Document("_id", playerUuid.toString())).first());
         if (player == null) return new UniqueRuneModel.PlayerState();
         return decode(player.get("uniqueRuneState", Document.class));
     }
 
     @Override public void save(UUID playerUuid, UniqueRuneModel.PlayerState state) {
         if (playerUuid == null || state == null || !enabled || !connection.isConnected()) return;
-        connection.collection("players").updateOne(new Document("_id", playerUuid.toString()),
-                new Document("$set", new Document("uniqueRuneState", encode(state))), new UpdateOptions().upsert(true));
+        RunePurchaseProfiling.mongoWrite(() -> connection.collection("players").updateOne(
+                new Document("_id", playerUuid.toString()),
+                new Document("$set", new Document("uniqueRuneState", encode(state))),
+                new UpdateOptions().upsert(true)));
     }
 
     static Document encode(UniqueRuneModel.PlayerState state) {
@@ -45,31 +49,72 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
             List<Document> rollbackOwned = new ArrayList<>();
             for (Map.Entry<String, UniqueRuneModel.Rarity> entry : collection.rollbackOwned.entrySet())
                 rollbackOwned.add(new Document("runeId", entry.getKey()).append("rarity", entry.getValue().name()));
-            collections.append(id.name(), new Document("currentRarity", collection.currentRarity.name())
-                    .append("owned", owned).append("enhancement", enhancement)
+            List<Document> individualRollback = new ArrayList<>();
+            for (Map.Entry<String, UniqueRuneModel.Rarity> entry : collection.runeRollback.entrySet())
+                individualRollback.add(new Document("runeId", entry.getKey()).append("previousRarity", entry.getValue().name()));
+            Document collectionDocument = new Document("currentRarity", collection.currentRarity.name())
+                    .append("owned", owned)
+                    .append("acquisitionCommon", new ArrayList<>(collection.acquisitionCommon))
+                    .append("acquisitionImproved", new ArrayList<>(collection.acquisitionImproved))
+                    .append("acquisitionAdvanced", new ArrayList<>(collection.acquisitionAdvanced))
+                    .append("acquisitionMythic", new ArrayList<>(collection.acquisitionMythic))
+                    .append("rollbackRestore", encodeRarityMap(collection.rollbackRestore))
+                    .append("enhancement", enhancement)
                     .append("rollbackRarity", collection.rollbackRarity == null ? null : collection.rollbackRarity.name())
-                    .append("rollbackOwned", rollbackOwned));
+                    .append("rollbackOwned", rollbackOwned)
+                    .append("runeRollback", individualRollback);
+            if (collection.legacyV1SnapshotJson != null)
+                collectionDocument.append("legacyV1Snapshot", Document.parse(collection.legacyV1SnapshotJson));
+            collections.append(id.name(), collectionDocument);
         }
         return new Document("schemaVersion", SCHEMA_VERSION).append("collections", collections)
-                .append("lastDailyClaimDay", state.lastDailyClaimDay);
+                .append("lastDailyClaimDay", state.lastDailyClaimDay)
+                .append("lastDailyClaimMillis", state.lastDailyClaimMillis);
     }
 
     @SuppressWarnings("unchecked")
     static UniqueRuneModel.PlayerState decode(Document root) {
         UniqueRuneModel.PlayerState state = new UniqueRuneModel.PlayerState();
-        if (root == null) return state; // v2.10.0 migration: COMMON, empty, no claim.
+        if (root == null) return state; // Fresh player, no migration needed.
+        Object versionValue = root.get("schemaVersion");
+        int version = versionValue instanceof Number ? ((Number) versionValue).intValue() : 1;
+        if (version > SCHEMA_VERSION || version < 1) throw new IllegalStateException("Unsupported unique rune schemaVersion: " + version);
         Document collections = root.get("collections", Document.class);
         if (collections != null) for (UniqueRuneModel.CollectionId id : UniqueRuneModel.CollectionId.values()) {
             Document stored = collections.get(id.name(), Document.class); if (stored == null) continue;
             UniqueRuneModel.CollectionState target = state.collection(id);
+            if (version == 1) target.legacyV1SnapshotJson = stored.toJson();
+            else {
+                Document rawLegacy = stored.get("legacyV1Snapshot", Document.class);
+                if (rawLegacy != null) target.legacyV1SnapshotJson = rawLegacy.toJson();
+            }
             try { target.currentRarity = UniqueRuneModel.Rarity.valueOf(stored.getString("currentRarity")); }
             catch (RuntimeException ignored) { target.currentRarity = UniqueRuneModel.Rarity.COMMON; }
             if (!target.currentRarity.gameplayEnabled) target.currentRarity = UniqueRuneModel.Rarity.MYTHIC;
             List<Document> owned = (List<Document>) stored.get("owned");
             if (owned != null) for (Document item : owned) try {
                 String runeId = item.getString("runeId"); UniqueRuneModel.Rarity rarity = UniqueRuneModel.Rarity.valueOf(item.getString("rarity"));
-                if (runeId != null && rarity.gameplayEnabled) target.owned.put(runeId, rarity);
-            } catch (RuntimeException ignored) { }
+                if (runeId == null || !rarity.gameplayEnabled || target.owned.putIfAbsent(runeId, rarity) != null)
+                    throw new IllegalStateException("Invalid or duplicate persisted Unique Rune ownership");
+            } catch (IllegalStateException error) { throw error; } catch (RuntimeException error) { throw new IllegalStateException("Invalid persisted Unique Rune ownership", error); }
+            if (version >= 3) {
+                decodeCohort(stored, "acquisitionCommon", id, target.acquisitionCommon);
+                decodeCohort(stored, "acquisitionImproved", id, target.acquisitionImproved);
+                decodeCohort(stored, "acquisitionAdvanced", id, target.acquisitionAdvanced);
+                decodeCohort(stored, "acquisitionMythic", id, target.acquisitionMythic);
+            } else {
+                // Legacy v1/v2 only proves the *factual* tier of each owned rune.
+                // Never fabricate lost lower-tier history underneath a higher rune.
+                for (Map.Entry<String, UniqueRuneModel.Rarity> entry : target.owned.entrySet()) {
+                    switch (entry.getValue()) {
+                        case COMMON: target.acquisitionCommon.add(entry.getKey()); break;
+                        case IMPROVED: target.acquisitionImproved.add(entry.getKey()); break;
+                        case ADVANCED: target.acquisitionAdvanced.add(entry.getKey()); break;
+                        case MYTHIC: target.acquisitionMythic.add(entry.getKey()); break;
+                        default: break;
+                    }
+                }
+            }
             List<Document> enhancement = (List<Document>) stored.get("enhancement");
             if (enhancement != null) for (Document item : enhancement) {
                 String runeId = item.getString("runeId"); Object level = item.get("level");
@@ -77,6 +122,35 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
             }
             try { String rollback = stored.getString("rollbackRarity"); target.rollbackRarity = rollback == null ? null : UniqueRuneModel.Rarity.valueOf(rollback); }
             catch (RuntimeException ignored) { target.rollbackRarity = null; }
+            List<Document> individualRollback = (List<Document>) stored.get("runeRollback");
+            if (individualRollback != null) for (Document item : individualRollback) {
+                String runeId = item.getString("runeId");
+                UniqueRuneModel.Rarity previous;
+                try { previous = UniqueRuneModel.Rarity.valueOf(item.getString("previousRarity")); }
+                catch (RuntimeException error) { throw new IllegalStateException("Invalid individual rune rollback rarity", error); }
+                if (runeId == null || !target.owned.containsKey(runeId) || !previous.gameplayEnabled
+                        || target.runeRollback.putIfAbsent(runeId, previous) != null)
+                    throw new IllegalStateException("Invalid or duplicated individual rune rollback target");
+            }
+            if (version >= 3) {
+                Object restoreValue = stored.get("rollbackRestore");
+                if (!(restoreValue instanceof List))
+                    throw new IllegalStateException("Missing v3 targeted rollback restoration");
+                for (Object raw : (List<?>) restoreValue) {
+                    if (!(raw instanceof Document))
+                        throw new IllegalStateException("Invalid v3 rollback restoration record");
+                    Document record = (Document) raw;
+                    String runeId = record.getString("runeId");
+                    UniqueRuneModel.Rarity rarity;
+                    try { rarity = UniqueRuneModel.Rarity.valueOf(record.getString("rarity")); }
+                    catch (RuntimeException invalid) { throw new IllegalStateException("Invalid v3 restore rarity", invalid); }
+                    if (!validCohortId(id, runeId) || !rarity.gameplayEnabled || rarity == UniqueRuneModel.Rarity.COMMON
+                            || !target.owned.containsKey(runeId)
+                            || target.owned.get(runeId).nextGameplay() != rarity
+                            || target.rollbackRestore.putIfAbsent(runeId, rarity) != null)
+                        throw new IllegalStateException("Invalid/duplicate v3 restoration target");
+                }
+            }
             List<Document> rollbackOwned = (List<Document>) stored.get("rollbackOwned");
             if (rollbackOwned != null) for (Document item : rollbackOwned) try {
                 String runeId = item.getString("runeId"); UniqueRuneModel.Rarity rarity = UniqueRuneModel.Rarity.valueOf(item.getString("rarity"));
@@ -85,6 +159,44 @@ public final class MongoUniqueRuneRepository implements UniqueRuneRepository {
         }
         Object lastDaily = root.get("lastDailyClaimDay");
         state.lastDailyClaimDay = lastDaily instanceof Number ? ((Number) lastDaily).longValue() : Long.MIN_VALUE;
+        Object lastDailyMillis = root.get("lastDailyClaimMillis");
+        state.lastDailyClaimMillis = lastDailyMillis instanceof Number ? ((Number) lastDailyMillis).longValue() : Long.MIN_VALUE;
         return state;
     }
+    private static List<Document> encodeRarityMap(Map<String, UniqueRuneModel.Rarity> values) {
+        List<Document> rows = new ArrayList<>();
+        for (Map.Entry<String, UniqueRuneModel.Rarity> entry : values.entrySet())
+            rows.add(new Document("runeId", entry.getKey()).append("rarity", entry.getValue().name()));
+        return rows;
+    }
+
+    private static void decodeCohort(Document stored, String field,
+                                     UniqueRuneModel.CollectionId collection, java.util.Set<String> target) {
+        Object raw = stored.get(field);
+        if (!(raw instanceof List))
+            throw new IllegalStateException("Missing v3 " + field + " cohort");
+        for (Object idValue : (List<?>) raw)
+            if (!(idValue instanceof String) || !validCohortId(collection, (String) idValue)
+                    || !target.add((String) idValue))
+                throw new IllegalStateException("Invalid/duplicate v3 " + field + " rune");
+    }
+
+    private static boolean validCohortId(UniqueRuneModel.CollectionId collection, String runeId) {
+        if (runeId == null) return false;
+        String prefix;
+        switch (collection) {
+            case CRYSTAL_COLLECTION: prefix = "crystal_"; break;
+            case DAILY_COLLECTION: prefix = "daily_"; break;
+            case OFFERINGS_COLLECTION: prefix = "offerings_"; break;
+            default: return false;
+        }
+        if (!runeId.startsWith(prefix) || runeId.length() != prefix.length() + 2) return false;
+        try {
+            int n = Integer.parseInt(runeId.substring(prefix.length()));
+            return n >= 1 && n <= UniqueRuneModel.RUNES_PER_COLLECTION
+                    && String.format(java.util.Locale.ROOT, "%02d", n)
+                            .equals(runeId.substring(prefix.length()));
+        } catch (NumberFormatException invalid) { return false; }
+    }
+
 }

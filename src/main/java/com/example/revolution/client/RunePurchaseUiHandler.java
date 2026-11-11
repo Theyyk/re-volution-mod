@@ -45,7 +45,8 @@ public class RunePurchaseUiHandler {
     }
 
     @SubscribeEvent public void onActionPerformed(GuiScreenEvent.ActionPerformedEvent.Post event) {
-        if (!(event.getGui() instanceof RunesGuiScreen)) return;
+        if (!(event.getGui() instanceof RunesGuiScreen)
+                || ((RunesGuiScreen) event.getGui()).isUniqueCollectionSelected()) return;
         GuiButton button = event.getButton(); if (button == null) return;
         if (button.id == ENHANCE_AMOUNT_BUTTON_ID) {
             enhancementAmount = enhancementAmount == 1 ? 5 : enhancementAmount == 5 ? 10 : enhancementAmount == 10 ? 100 : 1;
@@ -58,9 +59,12 @@ public class RunePurchaseUiHandler {
     }
 
     @SubscribeEvent public void onMouseInput(GuiScreenEvent.MouseInputEvent.Post event) {
-        if (!(event.getGui() instanceof RunesGuiScreen) || !Mouse.getEventButtonState()) return;
+        if (!(event.getGui() instanceof RunesGuiScreen)
+                || ((RunesGuiScreen) event.getGui()).isUniqueCollectionSelected()
+                || !Mouse.getEventButtonState()) return;
         int button = Mouse.getEventButton();
-        if (!RuneAwakeningInput.isAwakeningButton(button) && !RuneRankRevertInput.isRevertButton(button)) return;
+        if (!RuneAwakeningInput.isAwakeningGesture(button, GuiScreen.isCtrlKeyDown())
+                && !RuneRankRevertInput.isRevertButton(button)) return;
 
         RunesGuiScreen screen = (RunesGuiScreen) event.getGui(); Minecraft mc = Minecraft.getMinecraft();
         int mouseX = Mouse.getEventX() * screen.width / Math.max(1, mc.displayWidth);
@@ -75,6 +79,8 @@ public class RunePurchaseUiHandler {
             return;
         }
 
+        // The Post event fires even if RunesGuiScreen consumed Ctrl+click for Share.
+        if (!RuneAwakeningInput.isAwakeningGesture(button, GuiScreen.isCtrlKeyDown())) return;
         int rune = screen.awakeningRuneAt(mouseX, mouseY);
         if (rune >= 0) NetworkHandler.INSTANCE.sendToServer(new PingPacket("upgrade_rune:" + rune));
     }

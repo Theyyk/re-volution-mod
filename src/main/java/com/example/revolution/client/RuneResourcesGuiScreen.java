@@ -21,6 +21,24 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         GlStateManager.pushMatrix();
         GlStateManager.translate(resourceLayout.canvasX, resourceLayout.canvasY, 0);
         GlStateManager.scale(resourceLayout.canvasScale, resourceLayout.canvasScale, 1);
+        drawSharedResourcePanels();
+        GlStateManager.popMatrix();
+    }
+
+    /**
+     * Draws the identical stats, currency, rune resources, equipment slots and
+     * live player preview across the auxiliary E-menu sections. Never opens
+     * the rune preloader or mutates inventory.
+     * Caller has installed the virtual canvas GL transform.
+     */
+    void drawAuxiliarySidebar(net.minecraft.client.Minecraft minecraft, int screenWidth,
+                              int screenHeight, int logicalMouseX, int logicalMouseY) {
+        drawSharedSidebarForAuxiliary(minecraft, screenWidth, screenHeight, logicalMouseX, logicalMouseY);
+        resourceLayout.update(screenWidth, screenHeight);
+        drawSharedResourcePanels();
+    }
+
+    private void drawSharedResourcePanels() {
         int panelX = resourceLayout.leftPanelX;
         int currencyY = resourceLayout.leftPanelY + resourceLayout.leftPanelHeight + 11;
         int runeY = currencyY + CURRENCY_PANEL_HEIGHT + PANEL_GAP;
@@ -35,7 +53,9 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         drawResourceLine(x, y, "Монеты", ClientPlayerStats.getCoins(), textWidth);
         y += resourceLayout.scaled(16, 12);
         drawResourceLine(x, y, "Кристаллы", ClientPlayerStats.getCrystals(), textWidth);
-        drawSurface(panelX, runeY, panelWidth, RUNE_PANEL_HEIGHT, PANEL_BG_COLOR, PANEL_BORDER_COLOR);
+        int additionalHeight = 38;
+        drawSurface(panelX, runeY, panelWidth, RUNE_PANEL_HEIGHT + additionalHeight,
+                PANEL_BG_COLOR, PANEL_BORDER_COLOR);
         y = runeY + pad;
         GuiFontRenderer.heading(mc).drawStringWithShadow("РЕСУРСЫ РУН", x, y, HEADING_TEXT_COLOR);
         y += resourceLayout.scaled(21, 16);
@@ -44,7 +64,10 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
         drawResourceLine(x, y, "Осколки рун", ClientPlayerStats.getRuneShards(), textWidth);
         y += resourceLayout.scaled(16, 12);
         drawResourceLine(x, y, "Ядра рун", ClientPlayerStats.getRuneCores(), textWidth);
-        GlStateManager.popMatrix();
+        y += resourceLayout.scaled(16, 12);
+        drawResourceLine(x, y, "Жемчуг", ClientPlayerStats.getPearls(), textWidth);
+        y += resourceLayout.scaled(16, 12);
+        drawResourceLine(x, y, "Подношения", ClientPlayerStats.getOfferings(), textWidth);
     }
 
     private void drawResourceLine(int x, int y, String name, BigDecimal value, int availableWidth) {
@@ -75,6 +98,13 @@ public final class RuneResourcesGuiScreen extends RunesGuiScreen {
     private void drawResourceIcon(int x, int y, String name) {
         if ("Монеты".equals(name)) { drawRect(x + 2, y + 1, x + 8, y + 10, COIN_COLOR); drawRect(x + 1, y + 3, x + 9, y + 8, COIN_COLOR); drawRect(x + 3, y + 3, x + 5, y + 7, COIN_HIGHLIGHT_COLOR); return; }
         if ("Кристаллы".equals(name)) { drawRect(x + 3, y + 1, x + 7, y + 10, CRYSTAL_COLOR); drawRect(x + 1, y + 4, x + 9, y + 7, CRYSTAL_COLOR); drawRect(x + 2, y + 2, x + 8, y + 9, CRYSTAL_COLOR); drawRect(x + 3, y + 2, x + 5, y + 6, CRYSTAL_HIGHLIGHT_COLOR); return; }
+        if ("Жемчуг".equals(name)) {
+            drawRect(x + 2, y + 3, x + 9, y + 8, CRYSTAL_HIGHLIGHT_COLOR);
+            drawRect(x + 4, y + 1, x + 7, y + 10, CRYSTAL_COLOR); return;
+        }
+        if ("Подношения".equals(name)) {
+            drawRect(x + 2, y + 2, x + 8, y + 9, GOLD_COLOR); return;
+        }
         if ("Пыль рун".equals(name)) { drawRect(x + 1, y + 6, x + 4, y + 9, POISON_TYPE_COLOR); drawRect(x + 5, y + 2, x + 7, y + 4, POISON_TYPE_COLOR); drawRect(x + 7, y + 6, x + 9, y + 8, CRYSTAL_HIGHLIGHT_COLOR); drawRect(x + 3, y + 4, x + 5, y + 6, BOOST_TYPE_COLOR); return; }
         if ("Осколки рун".equals(name)) { drawRect(x + 4, y + 1, x + 7, y + 4, CRYSTAL_COLOR); drawRect(x + 3, y + 3, x + 8, y + 7, CRYSTAL_COLOR); drawRect(x + 2, y + 6, x + 5, y + 10, BOOST_TYPE_COLOR); drawRect(x + 6, y + 5, x + 9, y + 9, CRYSTAL_HIGHLIGHT_COLOR); return; }
         if ("Ядра рун".equals(name)) { drawRect(x + 2, y + 2, x + 8, y + 9, POISON_TYPE_COLOR); drawRect(x + 1, y + 4, x + 9, y + 7, POISON_TYPE_COLOR); drawRect(x + 4, y + 3, x + 6, y + 8, TYPE_BADGE_BG_COLOR); drawRect(x + 3, y + 5, x + 7, y + 7, TYPE_BADGE_BG_COLOR); drawRect(x + 4, y + 4, x + 6, y + 6, CRYSTAL_HIGHLIGHT_COLOR); }

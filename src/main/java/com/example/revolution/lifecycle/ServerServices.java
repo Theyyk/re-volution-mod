@@ -26,6 +26,7 @@ import com.example.revolution.gameplay.GameplayEventType;
 import com.example.revolution.god.BalanceGodWorshipPolicy;
 import com.example.revolution.god.GodWorshipAutomationService;
 import com.example.revolution.god.GodWorshipModel;
+import com.example.revolution.god.GodWorshipRepository;
 import com.example.revolution.god.GodWorshipModifierService;
 import com.example.revolution.god.GodWorshipService;
 import com.example.revolution.location.definition.MobZoneIds;
@@ -127,6 +128,8 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Locale;
+import java.util.UUID;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.Logger;
 
@@ -139,6 +142,9 @@ public final class ServerServices implements AutoCloseable {
     private final StageMobBootstrapService stageMobs;
     private final MongoAdminStageStore adminStageStore;
     private final boolean persistentGameplay;
+    private volatile MinecraftServer liveServer;
+    private final ResourceSyncCoalescer resourceSyncCoalescer = new ResourceSyncCoalescer();
+    public final PlayerStatsSyncService statsSync;
     public final AdminAccessService adminAccess = new AdminAccessService(new FileAdminWhitelistRepository());
     public final BalanceService balance;
     public final MechanicUnlockService mechanicUnlocks;
@@ -204,7 +210,18 @@ public final class ServerServices implements AutoCloseable {
                 players,
                 new MongoMechanicUnlockRepository(connection, persistentGameplay),
                 new BalanceMechanicUnlockPolicy(balance));
-        MongoGodWorshipRepository godRepository = new MongoGodWorshipRepository(connection, persistentGameplay);
+        // A single God Worship storage boundary notifies the shared wallet projection on commit.
+        final GodWorshipRepository storedGodRepository = new MongoGodWorshipRepository(connection, persistentGameplay);
+        GodWorshipRepository godRepository = new GodWorshipRepository() {
+            @Override public GodWorshipModel.RunState loadRunState(UUID uuid) { return storedGodRepository.loadRunState(uuid); }
+            @Override public GodWorshipModel.PersistentState loadPersistentState(UUID uuid) { return storedGodRepository.loadPersistentState(uuid); }
+            @Override public void saveRunState(UUID uuid, GodWorshipModel.RunState state) { storedGodRepository.saveRunState(uuid, state); }
+            @Override public void savePersistentState(UUID uuid, GodWorshipModel.PersistentState state) {
+                storedGodRepository.savePersistentState(uuid, state);
+                scheduleResourceSync(uuid);
+            }
+            @Override public void resetRunState(UUID uuid) { storedGodRepository.resetRunState(uuid); }
+        };
         MongoAuraRepository auraRepository = new MongoAuraRepository(connection, persistentGameplay);
         UniqueRuneRepository uniqueRuneRepository = new MongoUniqueRuneRepository(connection, persistentGameplay);
         uniqueRunePolicy = new BalanceUniqueRunePolicy(balance);
@@ -287,10 +304,13 @@ public final class ServerServices implements AutoCloseable {
                 combat, new RuneRewardBonusService(players, enhancements, effectBalance));
         playerStats = new PlayerStatsService(players, enhancements);
         PlayerStatsSyncService stats = new PlayerStatsSyncService(players, resources, playerStats, combat);
+        statsSync = stats;
+        resources.setChangeListener(this::scheduleResourceSync);
         sessions = new PlayerSessionService(players, resources, stats);
         RuneEnhancementBalanceService enhancementBalance = new RuneEnhancementBalanceService(balance);
         RuneEnhancementPlanningService enhancementPlanning = new RuneEnhancementPlanningService(enhancementBalance);
         RuneRankUpBalanceService rankUpBalance = new RuneRankUpBalanceService(balance);
+        stats.bindRankUpBalance(rankUpBalance);
         RuneSyncService sync = new RuneSyncService(players, enhancements, enhancementBalance);
         RunePurchaseService runePurchase = new RunePurchaseService(players, resources, stats, new RunePurchaseBalanceService(balance));
         RuneEnhancementService runeEnhancement = new RuneEnhancementService(players, resources, stats, enhancements, sync, enhancementPlanning);
@@ -335,6 +355,7 @@ public final class ServerServices implements AutoCloseable {
                     }
                 });
         uniqueRunes.setGameplayEventSink(gameplayEvents);
+        stats.bindUniqueRunes(uniqueRunes);
 
         physicalBuilds = new REBuilderAdapter(configDirectory.toPath());
         LocationGenerationRepository storedGenerations = new MongoLocationGenerationRepository(connection, persistentGameplay);
@@ -365,7 +386,9 @@ public final class ServerServices implements AutoCloseable {
         if (persistentGameplay) mobs.setConfigurationGuard(adminStageStore::recover);
         mobZoneOverlay = new MobZoneOverlayService(locationRepository);
         adminOperations = new AdminOperationsService(players, resources, stats, mobRepository, mobs, enhancements, sync);
+        adminOperations.bindOfferingsWallet(gods);
         adminQueries = new AdminQueryService(players, resources, mobRepository);
+        adminQueries.bindOfferingsWallet(gods);
         if (persistentGameplay) adminQueries.setConfigurationGuard(adminStageStore::recover);
         adminApi = new AdminApiServer(logger, adminOperations, adminQueries);
         AdminToolsService adminTools = new AdminToolsService(locationRepository, mobRepository, mobProgression);
@@ -387,10 +410,24 @@ public final class ServerServices implements AutoCloseable {
     }
 
     public void startAdminApi(MinecraftServer server, File configDirectory) throws IOException {
+        liveServer = server;
         adminApi.start(server, configDirectory);
     }
 
+    /** Coalesce only redundant UI refresh tasks; every resource write stays authoritative. */
+    private void scheduleResourceSync(UUID uuid) {
+        MinecraftServer server = liveServer;
+        if (uuid == null || server == null) return;
+        resourceSyncCoalescer.request(uuid, task -> server.addScheduledTask(task), () -> {
+            if (liveServer != server) return;
+            EntityPlayerMP online = server.getPlayerList().getPlayerByUUID(uuid);
+            if (online != null) statsSync.sendTo(online);
+        });
+    }
+
     @Override public void close() {
+        liveServer = null;
+        resourceSyncCoalescer.clear();
         adminApi.close();
         achievements.flushAll();
         runeTransientEffects.clear();

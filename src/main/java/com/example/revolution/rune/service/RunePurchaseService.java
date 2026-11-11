@@ -30,6 +30,7 @@ public final class RunePurchaseService {
     private final ResourceService resources;
     private final PlayerStatsSyncService stats;
     private final RunePurchaseBalanceService purchaseBalance;
+    private final RuneProgressRefreshCoalescer purchaseStatsRefreshes = new RuneProgressRefreshCoalescer();
     private GameplayEventSink gameplayEvents = GameplayEventSink.NONE;
 
     public RunePurchaseService(
@@ -247,7 +248,9 @@ public final class RunePurchaseService {
             int duplicates,
             int spent) {
         int newBalance = resources.addPlayerResource(player.getUniqueID(), purchaseResource, -spent);
-        stats.sendTo(player);
+        // syncPurchaseBalance already sends the authoritative PlayerStatsPacket.
+        // Repeating sendTo here doubles expensive rune/combat/resource resolution
+        // on every ordinary purchase, worsening server-thread burst stalls.
         syncPurchaseBalance(player, purchaseResource, newBalance);
         String resourceName = ResourceDefinitions.getDisplayName(purchaseResource);
         String duplicateText = duplicates > 0 ? " §7Дубликаты: §e" + duplicates + "§7." : "";
@@ -261,7 +264,17 @@ public final class RunePurchaseService {
     }
 
     private void syncPurchaseBalance(EntityPlayerMP player, String resource, int balance) {
-        stats.sendTo(player);
+        // Burst purchases already commit sequentially and emit RuneSlotPackets.
+        // Building a full PlayerStatsPacket synchronously after *each* click
+        // performs repeat multi-collection/Mongo reads on the server thread.
+        // Queue only the latest-state UI refresh once per pending player. No
+        // purchase, charge, reward or receipt is deferred or coalesced.
+        UUID uuid = player.getUniqueID();
+        purchaseStatsRefreshes.request(uuid,
+                task -> player.getServerWorld().addScheduledTask(task),
+                () -> {
+                    stats.sendTo(player);
+                });
         if ("coins".equals(ResourceDefinitions.normalize(resource))) NetworkHandler.sendToClient(new PongPacket(balance), player);
     }
 

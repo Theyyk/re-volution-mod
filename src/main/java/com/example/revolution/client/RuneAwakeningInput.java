@@ -8,8 +8,13 @@ import java.util.function.IntPredicate;
 final class RuneAwakeningInput {
     private RuneAwakeningInput() {}
 
+    /** Share owns Ctrl+left-click, even when a rune is eligible for awakening. */
+    static boolean isAwakeningGesture(int button, boolean controlDown) {
+        return button == 0 && !controlDown;
+    }
+
     static boolean isAwakeningButton(int button) {
-        return button == 0;
+        return isAwakeningGesture(button, false);
     }
 
     static int runeAt(GuiLayout layout, RuneInventory inventory, int activeCollection,

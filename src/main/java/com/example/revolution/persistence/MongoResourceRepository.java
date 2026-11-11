@@ -1,6 +1,7 @@
 package com.example.revolution.persistence;
 
 import com.example.revolution.number.LargeNumbers;
+import com.example.revolution.rune.service.RunePurchaseProfiling;
 import com.example.revolution.resource.repository.ResourceRepository;
 import com.mongodb.client.model.UpdateOptions;
 import java.math.BigDecimal;
@@ -35,7 +36,8 @@ public final class MongoResourceRepository implements ResourceRepository {
 
         String canonical = findCanonicalName(resource);
         if (canonical == null) return BigDecimal.ZERO;
-        Document doc = connection.collection("players").find(new Document("_id", uuid.toString())).first();
+        Document doc = RunePurchaseProfiling.mongoRead(() -> connection.collection("players")
+                .find(new Document("_id", uuid.toString())).first());
         if (doc == null) return BigDecimal.ZERO;
         String normalized = normalize(canonical);
         if (normalized.equals("coins")) return getDecimal(doc, "balance");
@@ -48,9 +50,10 @@ public final class MongoResourceRepository implements ResourceRepository {
     public void writePlayerResource(UUID uuid, String canonical, BigDecimal value) {
 
         String field = playerResourceField(canonical);
-        connection.collection("players").updateOne(new Document("_id", uuid.toString()),
+        RunePurchaseProfiling.mongoWrite(() -> connection.collection("players").updateOne(
+                new Document("_id", uuid.toString()),
                 new Document("$set", new Document(field, LargeNumbers.canonical(value.max(BigDecimal.ZERO)))),
-                new UpdateOptions().upsert(true));
+                new UpdateOptions().upsert(true)));
     }
 
     private BigDecimal getDecimal(Document doc, String field) {

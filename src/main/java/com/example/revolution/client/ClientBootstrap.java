@@ -10,7 +10,6 @@ import com.example.revolution.client.input.ClientRpgSurvivalGuard;
 import com.example.revolution.client.input.EnhancementClickGuard;
 import com.example.revolution.client.input.InventoryMenuRedirectHandler;
 import com.example.revolution.client.input.KeyInputHandler;
-import com.example.revolution.client.mechanic.MechanicUnlockTabHandler;
 import com.example.revolution.client.mob.ManagedMobVisualRenderer;
 import com.example.revolution.client.settings.SettingsKeyHandler;
 import net.minecraft.client.Minecraft;
@@ -38,10 +37,8 @@ public final class ClientBootstrap {
         MinecraftForge.EVENT_BUS.register(new ClientRpgSurvivalGuard());
         MinecraftForge.EVENT_BUS.register(new RunePurchaseUiHandler());
         MinecraftForge.EVENT_BUS.register(new RuneUxUiHandler());
-        MinecraftForge.EVENT_BUS.register(new PetTabUiHandler());
-        MinecraftForge.EVENT_BUS.register(new AchievementTabUiHandler());
-        MinecraftForge.EVENT_BUS.register(new UniqueRuneTabUiHandler());
-        MinecraftForge.EVENT_BUS.register(new MechanicUnlockTabHandler());
+        // A single owner avoids colliding IDs and overlapping legacy tab buttons.
+        MinecraftForge.EVENT_BUS.register(new UnifiedMenuTabHandler());
         RuneTexturePreloader.register();
 
         Minecraft minecraft = Minecraft.getMinecraft();

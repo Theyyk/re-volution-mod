@@ -1,5 +1,6 @@
 package com.example.revolution.client;
 
+import com.example.revolution.client.ui.UiMenuSection;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PetActionPacket;
 import com.example.revolution.network.PetSnapshotPacket;
@@ -9,31 +10,49 @@ import java.util.List;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 
-/** Functional Pet tab. Final art/naming/polish is intentionally deferred. */
+/** Functional Pet screen with shared E-menu chrome; all actions remain server-authoritative. */
 public final class PetsGuiScreen extends GuiScreen {
-    private static final int CLOSE = 299, RUNES = 200, BUY_NORMAL_SLOT = 500, BUY_PREMIUM_SLOT = 501, COLLECT = 502;
-    private static final int TILE_W = 180, TILE_H = 57, GAP = 7;
+    private static final int BUY_NORMAL_SLOT = 500, BUY_PREMIUM_SLOT = 501, COLLECT = 502;
+    private static final int PREV_PAGE = 503, NEXT_PAGE = 504;
+    private static final int TILE_H = 57, GAP = 7;
+    private int page;
 
     @Override public void initGui() {
         buttonList.clear();
-        buttonList.add(new GuiButton(RUNES, 8, 8, 76, 20, "Руны"));
-        buttonList.add(new GuiButton(CLOSE, width - 28, 8, 20, 20, "X"));
-        buttonList.add(new GuiButton(BUY_NORMAL_SLOT, 96, 8, 230, 20, PrestigeRunResources.FRAGMENT_OF_KNOWLEDGE_PLURAL + ": " + ClientPets.nextNormalSlotCost()));
-        GuiButton premium = new GuiButton(BUY_PREMIUM_SLOT, 332, 8, 180, 20, "Premium slot (Crystals)"); premium.enabled = ClientPets.premiumSlots() < 2; buttonList.add(premium);
-        buttonList.add(new GuiButton(COLLECT, 518, 8, 155, 20, "Collect Pet: " + ClientPets.petPendingFragments()));
+        UnifiedMainMenuChrome.installNavigation(buttonList, width, height, UiMenuSection.PETS);
+        int left = UnifiedMainMenuChrome.contentLeft(width, height);
+        int right = UnifiedMainMenuChrome.contentRight(width, height);
+        int total = Math.max(180, right - left);
+        int btn = Math.max(40, (total - 14) / 3);
+        int y = Math.max(28, UnifiedMainMenuChrome.contentTop(width, height) - 23);
+        buttonList.add(new GuiControls.PanelButton(
+                BUY_NORMAL_SLOT, left, y, btn, 20,
+                PrestigeRunResources.FRAGMENT_OF_KNOWLEDGE_PLURAL + ": " + ClientPets.nextNormalSlotCost()));
+        GuiButton premium = new GuiControls.PanelButton(
+                BUY_PREMIUM_SLOT, left + btn + 7, y, btn, 20, "Премиум-слот");
+        premium.enabled = ClientPets.premiumSlots() < 2;
+        buttonList.add(premium);
+        buttonList.add(new GuiControls.PanelButton(
+                COLLECT, left + (btn + 7) * 2, y, btn, 20, "Собрать: " + ClientPets.petPendingFragments()));
+        buttonList.add(new GuiControls.PanelButton(
+                PREV_PAGE, Math.max(left, right - 126), height - 30, 56, 20, "<"));
+        buttonList.add(new GuiControls.PanelButton(
+                NEXT_PAGE, Math.max(left, right - 63), height - 30, 56, 20, ">"));
         NetworkHandler.INSTANCE.sendToServer(new PetActionPacket("sync"));
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
         if (!button.enabled) return;
-        if (button.id == CLOSE) { mc.displayGuiScreen(null); return; }
-        if (button.id == RUNES) { ClientUiBridge.beginRuneOpen(); mc.displayGuiScreen(null); return; }
+        if (UnifiedMainMenuChrome.handleNavigation(button.id, UiMenuSection.PETS, mc)) return;
         if (button.id == BUY_NORMAL_SLOT) send("purchase_normal_slot", "");
         if (button.id == BUY_PREMIUM_SLOT) send("purchase_premium_slot", "");
         if (button.id == COLLECT) send("collect_pet_fragments", "");
+        if (button.id == PREV_PAGE) page = Math.max(0, page - 1);
+        if (button.id == NEXT_PAGE) page = Math.min(lastPage(), page + 1);
     }
 
     @Override protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        // Hit regions share exactly the same geometry as the rendered tiles.
         int index = tileAt(mouseX, mouseY);
         if (index >= 0) {
             List<PetSnapshotPacket.Entry> entries = ClientPets.entries();
@@ -52,27 +71,119 @@ public final class PetsGuiScreen extends GuiScreen {
         super.mouseClicked(mouseX, mouseY, mouseButton);
     }
 
-    private void send(String action, String petId) { NetworkHandler.INSTANCE.sendToServer(new PetActionPacket(action, petId, ClientPets.runId())); }
+    private void send(String action, String petId) {
+        NetworkHandler.INSTANCE.sendToServer(new PetActionPacket(action, petId, ClientPets.runId()));
+    }
+
+    private int contentWidth() {
+        return Math.max(1, UnifiedMainMenuChrome.contentRight(width, height)
+                - UnifiedMainMenuChrome.contentLeft(width, height));
+    }
+
+    private int columns() {
+        return Math.max(1, Math.min(4, (contentWidth() + GAP) / (180 + GAP)));
+    }
+
+    private int tileWidth() {
+        return Math.max(1, (contentWidth() - (columns() - 1) * GAP) / columns());
+    }
+
+    private int tileTop() {
+        return Math.max(69, UnifiedMainMenuChrome.contentTop(width, height) + 14);
+    }
+
+    private int rows() {
+        return Math.max(1, (height - tileTop() - 42 + GAP) / (TILE_H + GAP));
+    }
+
+    private int perPage() {
+        return Math.max(1, columns() * rows());
+    }
+
+    private int lastPage() {
+        int count = ClientPets.entries().size();
+        return Math.max(0, (count - 1) / perPage());
+    }
+
+    private int tileX(int indexOnPage) {
+        return UnifiedMainMenuChrome.contentLeft(width, height)
+                + (indexOnPage % columns()) * (tileWidth() + GAP);
+    }
+
+    private int tileY(int indexOnPage) {
+        return tileTop() + (indexOnPage / columns()) * (TILE_H + GAP);
+    }
+
     private int tileAt(int mouseX, int mouseY) {
-        int cols = Math.max(1, Math.min(4, (width - 24 + GAP) / (TILE_W + GAP))); int gridW = cols * TILE_W + (cols - 1) * GAP; int left = (width - gridW) / 2; int top = 62;
-        for (int i = 0; i < ClientPets.entries().size(); i++) { int x = left + (i % cols) * (TILE_W + GAP), y = top + (i / cols) * (TILE_H + GAP); if (mouseX >= x && mouseX < x + TILE_W && mouseY >= y && mouseY < y + TILE_H) return i; }
+        List<PetSnapshotPacket.Entry> entries = ClientPets.entries();
+        int start = Math.min(page, lastPage()) * perPage();
+        for (int slot = 0; slot < perPage() && start + slot < entries.size(); slot++) {
+            int x = tileX(slot), y = tileY(slot);
+            if (mouseX >= x && mouseX < x + tileWidth()
+                    && mouseY >= y && mouseY < y + TILE_H) return start + slot;
+        }
         return -1;
     }
 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        drawDefaultBackground(); drawCenteredString(fontRenderer, "PETS", width / 2, 13, 0xFFFFFF);
-        drawCenteredString(fontRenderer, "Active slots: " + ClientPets.normalSlots() + "/8 normal + " + ClientPets.premiumSlots() + "/2 premium | Fragments: " + ClientPets.fragments() + " | Pet pending: " + ClientPets.petPendingFragments(), width / 2, 38, 0xD8D8D8);
-        List<PetSnapshotPacket.Entry> entries = ClientPets.entries(); int cols = Math.max(1, Math.min(4, (width - 24 + GAP) / (TILE_W + GAP))); int gridW = cols * TILE_W + (cols - 1) * GAP; int left = (width - gridW) / 2, top = 62; long now = System.currentTimeMillis();
-        for (int i = 0; i < entries.size(); i++) {
-            PetSnapshotPacket.Entry e = entries.get(i); int x = left + (i % cols) * (TILE_W + GAP), y = top + (i / cols) * (TILE_H + GAP); boolean hover = mouseX >= x && mouseX < x + TILE_W && mouseY >= y && mouseY < y + TILE_H;
-            int bg = e.selected && e.premiumSlot ? 0xAA4D2968 : e.selected ? 0xAA254A35 : 0xAA20242A; drawRect(x, y, x + TILE_W, y + TILE_H, hover ? 0xFFFFFFFF : 0xFF555B66); drawRect(x + 1, y + 1, x + TILE_W - 1, y + TILE_H - 1, bg);
-            fontRenderer.drawString(e.petId + "  " + e.rank, x + 5, y + 5, 0xFFFFFF); fontRenderer.drawString("Lvl " + e.level + "  XP " + e.xp + "/" + e.nextLevelThreshold, x + 5, y + 17, 0xD0D0D0);
-            String state; if (e.cooldownUntil > now) state = "CD " + formatCooldown(e.cooldownUntil - now); else if (e.levelUpReady) state = "LEVEL UP READY"; else if (e.selected) state = "ACTIVE" + (e.premiumSlot ? " [P]" : ""); else if (e.owned) state = "Доступен"; else state = "Цена " + e.purchaseCost + " coins";
-            fontRenderer.drawString(state, x + 5, y + 29, e.cooldownUntil > now ? 0xFFAA66 : 0xA8E6B8); String effects = e.effects.length() > 28 ? e.effects.substring(0, 28) + "..." : e.effects; fontRenderer.drawString(effects, x + 5, y + 41, 0x9EA7B3);
+        UnifiedMainMenuChrome.draw(mc, width, height, mouseX, mouseY, "ПИТОМЦЫ");
+        UnifiedMainMenuChrome.refreshNavigation(buttonList);
+        int left = UnifiedMainMenuChrome.contentLeft(width, height);
+        int right = UnifiedMainMenuChrome.contentRight(width, height);
+        String info = "Слоты: " + ClientPets.normalSlots() + "/8 + " + ClientPets.premiumSlots()
+                + "/2  |  Фрагменты: " + ClientPets.fragments()
+                + "  |  Готово к сбору: " + ClientPets.petPendingFragments();
+        fontRenderer.drawString(fontRenderer.trimStringToWidth(info, Math.max(10, right-left)),
+                left, tileTop() - 13, GuiTheme.MUTED_TEXT_COLOR);
+
+        List<PetSnapshotPacket.Entry> entries = ClientPets.entries();
+        page = Math.min(page, lastPage());
+        int start = page * perPage();
+        long now = System.currentTimeMillis();
+        for (int slot = 0; slot < perPage() && start + slot < entries.size(); slot++) {
+            PetSnapshotPacket.Entry e = entries.get(start + slot);
+            int x = tileX(slot), y = tileY(slot), w = tileWidth();
+            boolean hover = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + TILE_H;
+            int bg = e.selected && e.premiumSlot ? 0xAA4D2968
+                    : e.selected ? 0xAA254A35 : GuiTheme.PANEL_BG_SOFT;
+            GuiDrawing.drawSurface(x, y, w, TILE_H,
+                    bg, hover ? GuiTheme.SLOT_HOVER_COLOR : GuiTheme.PANEL_BORDER_COLOR);
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(e.petId + "  " + e.rank, w - 10),
+                    x + 5, y + 5, GuiTheme.TEXT_COLOR);
+            fontRenderer.drawString("Ур. " + e.level + "  Опыт " + e.xp + "/" + e.nextLevelThreshold,
+                    x + 5, y + 17, GuiTheme.SILVER_COLOR);
+            String state;
+            if (e.cooldownUntil > now) state = "Перезарядка " + formatCooldown(e.cooldownUntil - now);
+            else if (e.levelUpReady) state = "ДОСТУПНО УЛУЧШЕНИЕ";
+            else if (e.selected) state = "АКТИВЕН" + (e.premiumSlot ? " [P]" : "");
+            else if (e.owned) state = "Доступен";
+            else state = "Цена " + e.purchaseCost + " монет";
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(state, w-10),
+                    x + 5, y + 29, e.cooldownUntil > now ? 0xFFAA66 : 0xA8E6B8);
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(e.effects, w - 10),
+                    x + 5, y + 41, GuiTheme.DISABLED_TEXT_COLOR);
         }
-        if (!entries.isEmpty()) drawString(fontRenderer, "ЛКМ: купить / выбрать / Level Up / пробудить   Ctrl+ПКМ: ранг -1", 10, height - 16, 0xB8C0CA);
+        String pages = "Стр. " + (page + 1) + "/" + (lastPage() + 1);
+        fontRenderer.drawString(pages, left, height - 25, GuiTheme.SILVER_COLOR);
+        if (!entries.isEmpty())
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(
+                    "ЛКМ: купить / выбрать / улучшить / пробудить   Ctrl+ПКМ: снизить ранг", Math.max(8, right-left)),
+                    left, height - 41, GuiTheme.DISABLED_TEXT_COLOR);
+        for (GuiButton b : buttonList) {
+            if (b.id == PREV_PAGE) b.enabled = page > 0;
+            if (b.id == NEXT_PAGE) b.enabled = page < lastPage();
+            if (b.id == BUY_PREMIUM_SLOT) b.enabled = ClientPets.premiumSlots() < 2;
+            if (b.id == COLLECT) b.displayString = "Собрать: " + ClientPets.petPendingFragments();
+            if (b.id == BUY_NORMAL_SLOT) b.displayString = PrestigeRunResources.FRAGMENT_OF_KNOWLEDGE_PLURAL
+                    + ": " + ClientPets.nextNormalSlotCost();
+        }
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
-    private static String formatCooldown(long millis) { long seconds = Math.max(0L, millis / 1000L), hours = seconds / 3600L, minutes = (seconds % 3600L) / 60L; return hours + "h " + minutes + "m"; }
+
+    private static String formatCooldown(long millis) {
+        long seconds = Math.max(0L, millis / 1000L);
+        return (seconds / 3600L) + "ч " + ((seconds % 3600L) / 60L) + "м";
+    }
+
     @Override public boolean doesGuiPauseGame() { return false; }
 }

@@ -29,6 +29,7 @@ public final class QuestGuiScreen extends GuiScreen {
         int top = height / 2 - 92;
         for (int i = 0; i < entries.size(); i++) {
             QuestSnapshotPacket.Entry entry = entries.get(i);
+            buttonList.add(new GuiButton(200 + i, left + 144, top + i * 48 + 15, 69, 20, "Share"));
             if ("COMPLETED".equals(entry.state)) {
                 buttonList.add(new GuiButton(100 + i, left + 218, top + i * 48 + 15, 75, 20, "Claim +" + entry.crystalReward));
             }
@@ -41,6 +42,11 @@ public final class QuestGuiScreen extends GuiScreen {
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
+        if (button.id >= 200 && button.id < 200 + entries.size()) {
+            QuestSnapshotPacket.Entry entry = entries.get(button.id - 200);
+            NetworkHandler.INSTANCE.sendToServer(new QuestActionPacket("share", entry.entryId));
+            return;
+        }
         if (button.id >= 100 && button.id < 100 + entries.size()) {
             QuestSnapshotPacket.Entry entry = entries.get(button.id - 100);
             NetworkHandler.INSTANCE.sendToServer(new QuestActionPacket("claim", entry.entryId));

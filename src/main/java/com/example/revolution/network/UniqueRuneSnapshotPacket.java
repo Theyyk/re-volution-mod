@@ -15,12 +15,21 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
         public String name = "";
         public String rarity = "";
         public int enhancement;
+        public String enhancementPearlCost = "0";
         public String effects = "";
+        public boolean canAwaken;
+        public boolean canRollback;
+        /** Factual rune slot covered at or above current purchase stage (wire-compatible field). */
+        public boolean acquiredCommon;
     }
     public static final class Collection {
         public String collectionId = "";
         public String rarity = "COMMON";
         public int progress;
+        /** Historical cohort telemetry; actual purchase-stage progress is in progress. */
+        public int improvedProgress;
+        public int advancedProgress;
+        public int mythicProgress;
         public boolean unlocked;
         public boolean canAwaken;
         public boolean canRollback;
@@ -32,8 +41,16 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
     private String crystals = "0";
     private String offerings = "0";
     private String crystalPurchaseCost = "0";
+    private String crystalEnhancementCost = "0";
+    private String lastCrystalRollId = "";
+    private boolean lastCrystalRollDuplicate;
+    private String lastCrystalRollCompensation = "0";
     private String offeringsPurchaseCost = "0";
     private String zbtStatus = "draft";
+    private String dailyExtraResource = "";
+    private String dailyExtraAmount = "0";
+    /** Authoritative UTC day reset, 0 when the daily claim is currently available. */
+    private long dailyNextClaimMillis;
 
     public UniqueRuneSnapshotPacket() {}
     public UniqueRuneSnapshotPacket(List<Entry> entries, List<Collection> collections, String pearl, String crystals,
@@ -42,31 +59,66 @@ public final class UniqueRuneSnapshotPacket implements IMessage {
         this.pearl = safe(pearl); this.crystals = safe(crystals); this.offerings = safe(offerings);
         this.crystalPurchaseCost = safe(crystalPurchaseCost); this.offeringsPurchaseCost = safe(offeringsPurchaseCost); this.zbtStatus = safe(zbtStatus);
     }
+    public UniqueRuneSnapshotPacket(List<Entry> entries, List<Collection> collections, String pearl, String crystals,
+                                    String offerings, String crystalPurchaseCost, String offeringsPurchaseCost,
+                                    String zbtStatus, long dailyNextClaimMillis) {
+        this(entries, collections, pearl, crystals, offerings, crystalPurchaseCost, offeringsPurchaseCost, zbtStatus);
+        this.dailyNextClaimMillis = Math.max(0L, dailyNextClaimMillis);
+    }
     public List<Entry> getEntries() { return Collections.unmodifiableList(entries); }
     public List<Collection> getCollections() { return Collections.unmodifiableList(collections); }
     public String getPearl() { return pearl; }
     public String getCrystals() { return crystals; }
     public String getOfferings() { return offerings; }
     public String getCrystalPurchaseCost() { return crystalPurchaseCost; }
+    public String getCrystalEnhancementCost() { return crystalEnhancementCost; }
+    public void setCrystalEnhancementCost(String value) { crystalEnhancementCost = safe(value); }
+    public String getLastCrystalRollId() { return lastCrystalRollId; }
+    public boolean isLastCrystalRollDuplicate() { return lastCrystalRollDuplicate; }
+    public String getLastCrystalRollCompensation() { return lastCrystalRollCompensation; }
+    public void setLastCrystalRoll(String runeId, boolean duplicate, String compensation) {
+        lastCrystalRollId = safe(runeId);
+        lastCrystalRollDuplicate = duplicate;
+        lastCrystalRollCompensation = safe(compensation);
+    }
     public String getOfferingsPurchaseCost() { return offeringsPurchaseCost; }
     public String getZbtStatus() { return zbtStatus; }
+    public long getDailyNextClaimMillis() { return dailyNextClaimMillis; }
+    public String getDailyExtraResource() { return dailyExtraResource; }
+    public String getDailyExtraAmount() { return dailyExtraAmount; }
+    public void setDailyExtraReward(String resource, String amount) {
+        dailyExtraResource = safe(resource);
+        dailyExtraAmount = safe(amount);
+    }
 
     @Override public void fromBytes(ByteBuf buf) {
         entries.clear(); collections.clear();
         int collectionCount = Math.max(0, Math.min(3, buf.readInt()));
-        for (int i = 0; i < collectionCount; i++) { Collection c = new Collection(); c.collectionId = ByteBufUtils.readUTF8String(buf); c.rarity = ByteBufUtils.readUTF8String(buf); c.progress = Math.max(0, Math.min(26, buf.readInt())); c.unlocked = buf.readBoolean(); c.canAwaken = buf.readBoolean(); c.canRollback = buf.readBoolean(); collections.add(c); }
+        for (int i = 0; i < collectionCount; i++) { Collection c = new Collection(); c.collectionId = ByteBufUtils.readUTF8String(buf); c.rarity = ByteBufUtils.readUTF8String(buf); c.progress = Math.max(0, Math.min(26, buf.readInt())); c.improvedProgress = Math.max(0, Math.min(26, buf.readInt())); c.advancedProgress = Math.max(0, Math.min(26, buf.readInt())); c.mythicProgress = Math.max(0, Math.min(26, buf.readInt())); c.unlocked = buf.readBoolean(); c.canAwaken = buf.readBoolean(); c.canRollback = buf.readBoolean(); collections.add(c); }
         int count = Math.max(0, Math.min(78, buf.readInt()));
-        for (int i = 0; i < count; i++) { Entry e = new Entry(); e.collectionId = ByteBufUtils.readUTF8String(buf); e.runeId = ByteBufUtils.readUTF8String(buf); e.name = ByteBufUtils.readUTF8String(buf); e.rarity = ByteBufUtils.readUTF8String(buf); e.enhancement = Math.max(0, buf.readInt()); e.effects = ByteBufUtils.readUTF8String(buf); entries.add(e); }
+        for (int i = 0; i < count; i++) { Entry e = new Entry(); e.collectionId = ByteBufUtils.readUTF8String(buf); e.runeId = ByteBufUtils.readUTF8String(buf); e.name = ByteBufUtils.readUTF8String(buf); e.rarity = ByteBufUtils.readUTF8String(buf); e.enhancement = Math.max(0, buf.readInt()); e.enhancementPearlCost = ByteBufUtils.readUTF8String(buf); e.effects = ByteBufUtils.readUTF8String(buf); e.canAwaken = buf.readBoolean(); e.canRollback = buf.readBoolean(); e.acquiredCommon = buf.readBoolean(); entries.add(e); }
         pearl = ByteBufUtils.readUTF8String(buf); crystals = ByteBufUtils.readUTF8String(buf); offerings = ByteBufUtils.readUTF8String(buf);
-        crystalPurchaseCost = ByteBufUtils.readUTF8String(buf); offeringsPurchaseCost = ByteBufUtils.readUTF8String(buf); zbtStatus = ByteBufUtils.readUTF8String(buf);
+        crystalPurchaseCost = ByteBufUtils.readUTF8String(buf); offeringsPurchaseCost = ByteBufUtils.readUTF8String(buf); zbtStatus = ByteBufUtils.readUTF8String(buf); dailyNextClaimMillis = Math.max(0L, buf.readLong());
+        dailyExtraResource = ByteBufUtils.readUTF8String(buf);
+        dailyExtraAmount = ByteBufUtils.readUTF8String(buf);
+        crystalEnhancementCost = ByteBufUtils.readUTF8String(buf);
+        lastCrystalRollId = ByteBufUtils.readUTF8String(buf);
+        lastCrystalRollDuplicate = buf.readBoolean();
+        lastCrystalRollCompensation = ByteBufUtils.readUTF8String(buf);
     }
     @Override public void toBytes(ByteBuf buf) {
         int collectionCount = Math.min(3, collections.size()); buf.writeInt(collectionCount);
-        for (int i = 0; i < collectionCount; i++) { Collection c = collections.get(i); ByteBufUtils.writeUTF8String(buf, safe(c.collectionId)); ByteBufUtils.writeUTF8String(buf, safe(c.rarity)); buf.writeInt(Math.max(0, Math.min(26, c.progress))); buf.writeBoolean(c.unlocked); buf.writeBoolean(c.canAwaken); buf.writeBoolean(c.canRollback); }
+        for (int i = 0; i < collectionCount; i++) { Collection c = collections.get(i); ByteBufUtils.writeUTF8String(buf, safe(c.collectionId)); ByteBufUtils.writeUTF8String(buf, safe(c.rarity)); buf.writeInt(Math.max(0, Math.min(26, c.progress))); buf.writeInt(Math.max(0, Math.min(26, c.improvedProgress))); buf.writeInt(Math.max(0, Math.min(26, c.advancedProgress))); buf.writeInt(Math.max(0, Math.min(26, c.mythicProgress))); buf.writeBoolean(c.unlocked); buf.writeBoolean(c.canAwaken); buf.writeBoolean(c.canRollback); }
         int count = Math.min(78, entries.size()); buf.writeInt(count);
-        for (int i = 0; i < count; i++) { Entry e = entries.get(i); ByteBufUtils.writeUTF8String(buf, safe(e.collectionId)); ByteBufUtils.writeUTF8String(buf, safe(e.runeId)); ByteBufUtils.writeUTF8String(buf, safe(e.name)); ByteBufUtils.writeUTF8String(buf, safe(e.rarity)); buf.writeInt(Math.max(0, e.enhancement)); ByteBufUtils.writeUTF8String(buf, safe(e.effects)); }
+        for (int i = 0; i < count; i++) { Entry e = entries.get(i); ByteBufUtils.writeUTF8String(buf, safe(e.collectionId)); ByteBufUtils.writeUTF8String(buf, safe(e.runeId)); ByteBufUtils.writeUTF8String(buf, safe(e.name)); ByteBufUtils.writeUTF8String(buf, safe(e.rarity)); buf.writeInt(Math.max(0, e.enhancement)); ByteBufUtils.writeUTF8String(buf, safe(e.enhancementPearlCost)); ByteBufUtils.writeUTF8String(buf, safe(e.effects)); buf.writeBoolean(e.canAwaken); buf.writeBoolean(e.canRollback); buf.writeBoolean(e.acquiredCommon); }
         ByteBufUtils.writeUTF8String(buf, safe(pearl)); ByteBufUtils.writeUTF8String(buf, safe(crystals)); ByteBufUtils.writeUTF8String(buf, safe(offerings));
-        ByteBufUtils.writeUTF8String(buf, safe(crystalPurchaseCost)); ByteBufUtils.writeUTF8String(buf, safe(offeringsPurchaseCost)); ByteBufUtils.writeUTF8String(buf, safe(zbtStatus));
+        ByteBufUtils.writeUTF8String(buf, safe(crystalPurchaseCost)); ByteBufUtils.writeUTF8String(buf, safe(offeringsPurchaseCost)); ByteBufUtils.writeUTF8String(buf, safe(zbtStatus)); buf.writeLong(Math.max(0L, dailyNextClaimMillis));
+        ByteBufUtils.writeUTF8String(buf, safe(dailyExtraResource));
+        ByteBufUtils.writeUTF8String(buf, safe(dailyExtraAmount));
+        ByteBufUtils.writeUTF8String(buf, safe(crystalEnhancementCost));
+        ByteBufUtils.writeUTF8String(buf, safe(lastCrystalRollId));
+        buf.writeBoolean(lastCrystalRollDuplicate);
+        ByteBufUtils.writeUTF8String(buf, safe(lastCrystalRollCompensation));
     }
     private static String safe(String value) { return value == null ? "" : value; }
 }

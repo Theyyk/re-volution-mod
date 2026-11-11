@@ -10,12 +10,24 @@ import java.util.List;
 /** Client mirror of factual server snapshots. It never predicts ownership/effects. */
 public final class ClientUniqueRunes {
     private static UniqueRuneSnapshotPacket snapshot = new UniqueRuneSnapshotPacket();
+    /** -1 = ordinary runes; remembered until the client disconnects. */
+    private static int selectedCollectionIndex = -1;
     /** Epoch-based seed avoids reconnecting clients restarting below a nonce retained by the server. */
     private static long nonce = Math.max(1L, System.currentTimeMillis());
     private ClientUniqueRunes() {}
 
     public static synchronized void accept(UniqueRuneSnapshotPacket value) { snapshot = value == null ? new UniqueRuneSnapshotPacket() : value; }
     public static synchronized UniqueRuneSnapshotPacket snapshot() { return snapshot; }
+    public static synchronized void reset() {
+        snapshot = new UniqueRuneSnapshotPacket();
+        UniqueRunesGuiScreen.resetSessionSelection();
+        selectedCollectionIndex = -1;
+    }
+    public static synchronized int selectedCollectionIndex() { return selectedCollectionIndex; }
+    public static synchronized void selectCollectionIndex(int index) {
+        if (index < -1 || index >= 3) throw new IllegalArgumentException("Unknown collection index: " + index);
+        selectedCollectionIndex = index;
+    }
     public static synchronized long nextNonce() {
         long now = System.currentTimeMillis();
         if (nonce < now) nonce = now;

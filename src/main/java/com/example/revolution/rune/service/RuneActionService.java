@@ -4,6 +4,13 @@ import com.example.revolution.RevolutionMod;
 import com.example.revolution.mechanic.MechanicUnlockService;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PongPacket;
+import com.example.revolution.network.ShareChatDelivery;
+import com.example.revolution.rune.definition.PrimaryRuneCatalog;
+import com.example.revolution.rune.definition.RuneTechnicalCatalog;
+import com.example.revolution.rune.definition.RuneStat;
+import com.example.revolution.rune.definition.RuneTargetedPower;
+import com.example.revolution.rune.definition.RuneCompositeEffect;
+import com.example.revolution.rune.repository.RuneRecord;
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.player.service.PlayerStatsSyncService;
 import com.example.revolution.rune.definition.RuneCollectionId;
@@ -21,6 +28,7 @@ public final class RuneActionService {
     private final RuneSyncService sync;
     private final RuneCollectionUnlockService collectionUnlocks;
     private final MechanicUnlockService mechanicUnlocks;
+    private final RuneProgressRefreshCoalescer mechanicProgressRefreshes = new RuneProgressRefreshCoalescer();
 
     public RuneActionService(
             PlayerRepository players,
@@ -159,6 +167,12 @@ public final class RuneActionService {
             } catch (NumberFormatException e) {
                 player.sendMessage(new TextComponentString("§cНекорректная руна."));
             }
+        } else if (action.startsWith("share_rune:")) {
+            try {
+                shareRune(player, collectionIndex, Integer.parseInt(action.substring("share_rune:".length())));
+            } catch (NumberFormatException ignored) {
+                // Invalid client identifier: no chat message and no gameplay mutation.
+            }
         } else if (action.equals("get_player_stats")) {
             stats.sendTo(player);
         } else if (action.equals("get_balance")) {
@@ -197,6 +211,50 @@ public final class RuneActionService {
         }
     }
 
+    private void shareRune(EntityPlayerMP player, int collectionIndex, int runeIndex) {
+        RuneCollectionId collection = RuneCollectionId.fromLegacyIndex(collectionIndex);
+        if (collection == null || runeIndex < 0 || runeIndex >= 26
+                || !isCollectionUnlocked(player, collectionIndex)) return;
+        // Use one authoritative snapshot of this player's active ordinary collection.
+        java.util.List<RuneRecord> ownedRunes = players.getRunesInCollection(player.getUniqueID(), collectionIndex);
+        RuneRecord owned = null;
+        for (RuneRecord record : ownedRunes) {
+            if (record.runeIndex == runeIndex && (owned == null || record.layer > owned.layer)) owned = record;
+        }
+        if (owned == null) return;
+
+        int rank = owned.layer;
+        int enhancement = sync.enhancementLevel(player.getUniqueID(), collectionIndex, runeIndex);
+        double enhancementMultiplier = sync.enhancementMultiplier(collection, enhancement);
+        String name;
+        StringBuilder details = new StringBuilder();
+        if (collectionIndex == 0) {
+            PrimaryRuneCatalog.Definition rune = PrimaryRuneCatalog.at(runeIndex);
+            if (rune == null) return;
+            name = rune.name;
+            details.append("Type: ").append(rune.type);
+            for (String statLine : RuneShareStatFormatter.finalStatLines(
+                    rune, runeIndex, rank, enhancementMultiplier, ownedRunes,
+                    slot -> sync.enhancementMultiplier(collection,
+                            sync.enhancementLevel(player.getUniqueID(), collectionIndex, slot))))
+                details.append("\nEffect: ").append(statLine);
+            for (RuneTargetedPower power : rune.targetedPowers)
+                details.append("\nTarget: ").append(power.tooltipLine(rank, enhancementMultiplier));
+            for (RuneCompositeEffect effect : rune.compositeEffects)
+                for (String line : effect.tooltipLines(rank, enhancementMultiplier))
+                    details.append("\nEffect: ").append(line);
+        } else {
+            name = "Rune " + (runeIndex + 1);
+            for (RuneTechnicalCatalog.EffectLabel effect : RuneTechnicalCatalog.effects(collection, runeIndex)) {
+                details.append(details.length() == 0 ? "" : "\n").append("Effect: ")
+                        .append(effect.type).append(effect.channel == null ? "" : " (" + effect.channel.name() + ")");
+            }
+        }
+        String tooltip = name + "\nCollection: " + collection.id() + "\nRank: " + rank
+                + "\nEnhancement: +" + enhancement + (details.length() == 0 ? "" : "\n" + details);
+        ShareChatDelivery.send(player, "Rune: " + name, tooltip);
+    }
+
     private boolean isCollectionUnlocked(EntityPlayerMP player, int collectionIndex) {
         if (collectionUnlocks == null) return true;
         RuneCollectionId id = RuneCollectionId.fromLegacyIndex(collectionIndex);
@@ -212,7 +270,14 @@ public final class RuneActionService {
     }
 
     private void refreshMechanicProgress(EntityPlayerMP player) {
-        if (mechanicUnlocks != null) mechanicUnlocks.refreshRuneProgress(player.getUniqueID());
+        if (mechanicUnlocks == null) return;
+        // MechanicUnlockService.refreshRuneProgress reads all seven rune
+        // collections. Consecutive purchases still mutate synchronously and
+        // in order; only their redundant derived progress refreshes are merged.
+        java.util.UUID playerId = player.getUniqueID();
+        mechanicProgressRefreshes.request(playerId,
+                task -> player.getServerWorld().addScheduledTask(task),
+                () -> mechanicUnlocks.refreshRuneProgress(playerId));
     }
 
     private static boolean isImportantPlayerAction(String action) {

@@ -178,19 +178,31 @@ public final class AdminApiServer implements AutoCloseable {
     }
 
     private String capabilitiesJson() {
+        return capabilitiesJson(tools != null, balance != null && balanceBatch != null, mechanics != null);
+    }
+
+    static String capabilitiesJson(boolean toolsAvailable, boolean balanceAvailable, boolean mechanicsAvailable) {
         List<String> capabilities = new ArrayList<>();
-        if (tools != null) {
+        capabilities.add("server.read");
+        capabilities.add("players.read");
+        capabilities.add("resources.read");
+        capabilities.add("resources.write");
+        capabilities.add("runes.read");
+        capabilities.add("runes.write");
+        capabilities.add("mobs.read");
+        capabilities.add("mobs.write");
+        if (toolsAvailable) {
             capabilities.add("stages.read");
             capabilities.add("stages.write");
             capabilities.add("progression.read");
             capabilities.add("progression.write");
             capabilities.add("enhancements.write");
         }
-        if (balance != null && balanceBatch != null) {
+        if (balanceAvailable) {
             capabilities.add("balance.read");
             capabilities.add("balance.write");
         }
-        if (mechanics != null) capabilities.add("mechanics.read");
+        if (mechanicsAvailable) capabilities.add("mechanics.read");
         capabilities.add("effects.read");
         StringBuilder json = new StringBuilder("[");
         for (int i = 0; i < capabilities.size(); i++) {

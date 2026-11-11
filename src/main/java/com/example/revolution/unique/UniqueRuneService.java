@@ -94,15 +94,43 @@ public final class UniqueRuneService {
         return milestones.milestone(playerUuid) >= policy.unlockMilestone(id);
     }
 
+    /**
+     * Resolve collection access once for a single authoritative UI snapshot.
+     * Crystal and Daily share the same milestone source. Offerings keeps its
+     * independent God-access gate. No access result is cached across requests.
+     */
+    public java.util.Set<CollectionId> unlockedCollections(UUID playerUuid) {
+        java.util.EnumSet<CollectionId> unlocked = java.util.EnumSet.noneOf(CollectionId.class);
+        if (playerUuid == null) return unlocked;
+        boolean crystal = policy.collectionEnabled(CollectionId.CRYSTAL_COLLECTION);
+        boolean daily = policy.collectionEnabled(CollectionId.DAILY_COLLECTION);
+        if (crystal || daily) {
+            long reached = milestones.milestone(playerUuid);
+            if (crystal && reached >= policy.unlockMilestone(CollectionId.CRYSTAL_COLLECTION))
+                unlocked.add(CollectionId.CRYSTAL_COLLECTION);
+            if (daily && reached >= policy.unlockMilestone(CollectionId.DAILY_COLLECTION))
+                unlocked.add(CollectionId.DAILY_COLLECTION);
+        }
+        if (policy.collectionEnabled(CollectionId.OFFERINGS_COLLECTION)
+                && godAccess.unlocked(playerUuid))
+            unlocked.add(CollectionId.OFFERINGS_COLLECTION);
+        return unlocked;
+    }
+
     public synchronized Result purchaseCrystal(UUID playerUuid, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.CRYSTAL_COLLECTION)) return Result.of(ResultCode.LOCKED);
         PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(CollectionId.CRYSTAL_COLLECTION);
-        if (collection.progress() >= UniqueRuneModel.RUNES_PER_COLLECTION) return Result.of(ResultCode.COMPLETE);
+        if (collection.acquisitionProgress() >= UniqueRuneModel.RUNES_PER_COLLECTION) return Result.of(ResultCode.COMPLETE);
         BigDecimal cost = policy.crystalPurchaseCost(); if (!resources.spendPlayerResource(playerUuid, "crystals", cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
         RuneDefinition rune = roll(policy.definition(CollectionId.CRYSTAL_COLLECTION).runes);
         boolean duplicate = collection.ownsAtCurrent(rune.runeId);
-        if (!duplicate) collection.owned.put(rune.runeId, collection.currentRarity);
+        if (!duplicate) {
+            Rarity purchaseRank = collection.purchaseRarity();
+            collection.cohort(purchaseRank).add(rune.runeId);
+            collection.owned.put(rune.runeId, purchaseRank);
+            collection.rollbackRestore.remove(rune.runeId);
+        }
         repository.save(playerUuid, state);
         if (duplicate) {
             BigDecimal pearl = policy.duplicatePearl(); resources.grantPlayerResource(playerUuid, ResourceDefinitions.PEARL, pearl);
@@ -117,42 +145,82 @@ public final class UniqueRuneService {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.OFFERINGS_COLLECTION)) return Result.of(ResultCode.LOCKED);
         PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(CollectionId.OFFERINGS_COLLECTION);
-        if (collection.progress() >= UniqueRuneModel.RUNES_PER_COLLECTION) return Result.of(ResultCode.COMPLETE);
+        if (collection.acquisitionProgress() >= UniqueRuneModel.RUNES_PER_COLLECTION) return Result.of(ResultCode.COMPLETE);
         BigDecimal cost = policy.offeringsPurchaseCost(); if (!offerings.spend(playerUuid, cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
         RuneDefinition rune = roll(policy.definition(CollectionId.OFFERINGS_COLLECTION).runes);
         boolean duplicate = collection.ownsAtCurrent(rune.runeId);
-        if (!duplicate) collection.owned.put(rune.runeId, collection.currentRarity);
+        if (!duplicate) {
+            Rarity purchaseRank = collection.purchaseRarity();
+            collection.cohort(purchaseRank).add(rune.runeId);
+            collection.owned.put(rune.runeId, purchaseRank);
+            collection.rollbackRestore.remove(rune.runeId);
+        }
         repository.save(playerUuid, state);
         factual(playerUuid, duplicate ? GameplayEventType.UNIQUE_RUNE_DUPLICATE : GameplayEventType.UNIQUE_RUNE_OBTAINED,
                 CollectionId.OFFERINGS_COLLECTION, rune.runeId);
         return duplicate ? Result.duplicate(rune.runeId, BigDecimal.ZERO) : Result.grant(rune.runeId);
     }
 
+    /** Production grants use exact server time, not time elapsed since page open. */
+    public synchronized Result claimDailyAtMillis(UUID playerUuid, long nowMillis, long requestNonce) {
+        if (nowMillis < 0L) return Result.of(ResultCode.INVALID);
+        return claimDailyInternal(playerUuid, Math.floorDiv(nowMillis, 86400000L), nowMillis, requestNonce);
+    }
+
+    /** UTC-day compatibility entry point used by historic callers and fixtures. */
     public synchronized Result claimDaily(UUID playerUuid, long epochDay, long requestNonce) {
+        return claimDailyInternal(playerUuid, epochDay, epochDay * 86400000L, requestNonce);
+    }
+
+    private Result claimDailyInternal(UUID playerUuid, long epochDay, long nowMillis, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.DAILY_COLLECTION)) return Result.of(ResultCode.LOCKED);
-        PlayerState state = repository.load(playerUuid); if (state.lastDailyClaimDay == epochDay) return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
+        PlayerState state = repository.load(playerUuid);
+        // Older data has only a UTC day; do not grant twice on that same day.
+        if (state.lastDailyClaimDay >= epochDay) return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
+        if (state.lastDailyClaimMillis != Long.MIN_VALUE
+                && nowMillis - state.lastDailyClaimMillis < 86400000L)
+            return Result.of(ResultCode.DAILY_ALREADY_CLAIMED);
         CollectionState collection = state.collection(CollectionId.DAILY_COLLECTION);
         List<RuneDefinition> eligible = new ArrayList<>();
-        for (RuneDefinition rune : policy.definition(CollectionId.DAILY_COLLECTION).runes) if (!collection.ownsAtCurrent(rune.runeId)) eligible.add(rune);
+        for (RuneDefinition rune : policy.definition(CollectionId.DAILY_COLLECTION).runes)
+            if (!collection.ownsAtCurrent(rune.runeId)) eligible.add(rune);
         if (eligible.isEmpty()) return Result.of(ResultCode.COMPLETE);
-        RuneDefinition rune = roll(eligible); collection.owned.put(rune.runeId, collection.currentRarity); state.lastDailyClaimDay = epochDay;
+        RuneDefinition rune = roll(eligible);
+        Rarity purchaseRank = collection.purchaseRarity();
+        collection.cohort(purchaseRank).add(rune.runeId);
+        collection.owned.put(rune.runeId, purchaseRank);
+        collection.rollbackRestore.remove(rune.runeId);
+        state.lastDailyClaimDay = epochDay;
+        state.lastDailyClaimMillis = nowMillis; // commit only after actual successful reward selection
         repository.save(playerUuid, state);
         resources.grantEarnedPlayerResource(playerUuid, policy.dailyExtraResource(), policy.dailyExtraAmount());
         factual(playerUuid, GameplayEventType.UNIQUE_RUNE_OBTAINED, CollectionId.DAILY_COLLECTION, rune.runeId);
         return Result.grant(rune.runeId);
     }
 
-    public synchronized Result enhance(UUID playerUuid, String runeId, long requestNonce) {
+    /** Random enhancement of one owned Crystal rune; the client never chooses a target. */
+    public synchronized Result enhance(UUID playerUuid, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!isUnlocked(playerUuid, CollectionId.CRYSTAL_COLLECTION)) return Result.of(ResultCode.LOCKED);
-        CollectionDefinition definition = policy.definition(CollectionId.CRYSTAL_COLLECTION); if (definition.rune(runeId) == null) return Result.of(ResultCode.INVALID);
         PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(CollectionId.CRYSTAL_COLLECTION);
-        if (!collection.owned.containsKey(runeId)) return Result.of(ResultCode.INVALID);
-        int level = collection.enhancement(runeId); BigDecimal cost = policy.enhancementPearlCost(runeId, level);
-        if (!resources.spendPlayerResource(playerUuid, ResourceDefinitions.PEARL, cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
+        BigDecimal pearls = pearlBalance(playerUuid);
+        List<String> eligible = new ArrayList<>();
+        for (RuneDefinition rune : policy.definition(CollectionId.CRYSTAL_COLLECTION).runes) {
+            if (collection.owned.containsKey(rune.runeId)
+                    && policy.enhancementPearlCost(rune.runeId, collection.enhancement(rune.runeId)).compareTo(pearls) <= 0)
+                eligible.add(rune.runeId);
+        }
+        if (eligible.isEmpty()) return Result.of(collection.owned.isEmpty()
+                ? ResultCode.INVALID : ResultCode.INSUFFICIENT_RESOURCE);
+        String runeId = eligible.get(random.nextInt(eligible.size()));
+        int level = collection.enhancement(runeId);
+        BigDecimal cost = policy.enhancementPearlCost(runeId, level);
+        if (!resources.spendPlayerResource(playerUuid, ResourceDefinitions.PEARL, cost))
+            return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
         collection.enhancement.put(runeId, level + 1); repository.save(playerUuid, state);
-        factual(playerUuid, GameplayEventType.UNIQUE_RUNE_ENHANCED, CollectionId.CRYSTAL_COLLECTION, runeId); return Result.grant(runeId);
+        factual(playerUuid, GameplayEventType.UNIQUE_RUNE_ENHANCED, CollectionId.CRYSTAL_COLLECTION, runeId);
+        return Result.grant(runeId);
     }
 
     public synchronized Result awaken(UUID playerUuid, CollectionId id, String promotedRuneId, long requestNonce) {
@@ -160,29 +228,77 @@ public final class UniqueRuneService {
         if (!isUnlocked(playerUuid, id)) return Result.of(ResultCode.LOCKED);
         CollectionDefinition definition = policy.definition(id); if (definition == null || definition.rune(promotedRuneId) == null) return Result.of(ResultCode.INVALID);
         PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(id);
-        if (collection.progress() < UniqueRuneModel.RUNES_PER_COLLECTION) return Result.of(ResultCode.NOT_READY);
-        Rarity next = collection.currentRarity.nextGameplay(); if (next == collection.currentRarity) return Result.of(ResultCode.MAX_RARITY);
-        if (!collection.ownsAtCurrent(promotedRuneId)) return Result.of(ResultCode.INVALID);
-        collection.rollbackRarity = collection.currentRarity; collection.rollbackOwned.clear(); collection.rollbackOwned.putAll(collection.owned);
-        collection.owned.clear(); collection.currentRarity = next; collection.owned.put(promotedRuneId, next);
+        Rarity factual = collection.owned.get(promotedRuneId);
+        if (factual == null) return Result.of(ResultCode.INVALID);
+        if (factual == Rarity.MYTHIC && !collection.canAwaken(promotedRuneId))
+            return Result.of(ResultCode.MAX_RARITY);
+        // Historical rollbackRestore records must never bypass a full factual
+        // cohort. The same 26/26 rank guard applies to legacy and new runes.
+        if (!collection.canAwaken(promotedRuneId))
+            return Result.of(ResultCode.NOT_READY);
+        Rarity source = factual;
+        Rarity next = source.nextGameplay();
+        if (next == source) return Result.of(ResultCode.MAX_RARITY);
+        // Ordinary rank-up clears every OTHER slot at or below the source
+        // rank while retaining higher runes, enhancements and independent sets.
+        collection.cohort(source).clear();
+        List<String> consumed = new ArrayList<>();
+        for (Map.Entry<String, Rarity> entry : collection.owned.entrySet())
+            if (entry.getValue().persistentId <= source.persistentId
+                    && !entry.getKey().equals(promotedRuneId))
+                consumed.add(entry.getKey());
+        for (String consumedId : consumed) {
+            collection.owned.remove(consumedId);
+            collection.runeRollback.remove(consumedId);
+            collection.rollbackRestore.remove(consumedId);
+        }
+        collection.cohort(next).add(promotedRuneId);
+        collection.owned.put(promotedRuneId, next);
+        collection.runeRollback.put(promotedRuneId, factual);
+        // Clear only selected rune's stale legacy entitlement after a legal
+        // awakening. No bulk save migration or unrelated player mutation.
+        collection.rollbackRestore.remove(promotedRuneId);
+        collection.currentRarity = Rarity.COMMON;
         repository.save(playerUuid, state); factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_AWAKENED, id, promotedRuneId); return Result.grant(promotedRuneId);
     }
 
-    public synchronized Result rollback(UUID playerUuid, CollectionId id, boolean confirmed, long requestNonce) {
+    /** Targeted rollback: never interprets a legacy collection-wide rollback snapshot as per-rune history. */
+    public synchronized Result rollback(UUID playerUuid, CollectionId id, String runeId, boolean confirmed, long requestNonce) {
         if (!acceptNonce(playerUuid, requestNonce)) return Result.of(ResultCode.REPLAYED);
         if (!confirmed) return Result.of(ResultCode.CONFIRMATION_REQUIRED);
         if (!isUnlocked(playerUuid, id)) return Result.of(ResultCode.LOCKED);
+        CollectionDefinition definition = policy.definition(id);
+        if (definition == null || definition.rune(runeId) == null) return Result.of(ResultCode.INVALID);
         PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(id);
-        if (collection.rollbackRarity == null) return Result.of(ResultCode.NO_ROLLBACK);
-        BigDecimal cost = policy.rollbackCrystalCost(id); if (!resources.spendPlayerResource(playerUuid, "crystals", cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
-        collection.currentRarity = collection.rollbackRarity; collection.owned.clear(); collection.owned.putAll(collection.rollbackOwned);
-        collection.rollbackRarity = null; collection.rollbackOwned.clear(); repository.save(playerUuid, state);
-        factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_ROLLED_BACK, id, ""); return Result.of(ResultCode.OK);
+        Rarity current = collection.owned.get(runeId);
+        if (current == null) return Result.of(ResultCode.INVALID);
+        // Rollback is a NEW explicitly confirmed paid downgrade of this rune's
+        // factual rarity, not a reconstruction of collection-wide legacy data.
+        // No history is needed for old ADVANCED or MYTHIC runes, and ranks 1/2
+        // can never be rolled back even if stale runeRollback data exists.
+        if (!collection.canRollback(runeId)) return Result.of(ResultCode.NO_ROLLBACK);
+        Rarity previous = current.previous();
+        BigDecimal cost = policy.rollbackCrystalCost(id);
+        if (!resources.spendPlayerResource(playerUuid, "crystals", cost)) return Result.of(ResultCode.INSUFFICIENT_RESOURCE);
+        collection.owned.put(runeId, previous);
+        collection.runeRollback.remove(runeId);
+        // Paid rollback is a real downgrade, not a free re-awakening credit.
+        // Invalidate an old legacy entitlement for this rune only.
+        collection.rollbackRestore.remove(runeId);
+        repository.save(playerUuid, state);
+        factual(playerUuid, GameplayEventType.UNIQUE_COLLECTION_ROLLED_BACK, id, runeId);
+        return Result.grant(runeId);
     }
 
     public SharePayload share(UUID playerUuid, CollectionId id, String runeId) {
         if (playerUuid == null || id == null || runeId == null) return null;
-        PlayerState state = repository.load(playerUuid); CollectionState collection = state.collection(id); Rarity rarity = collection.owned.get(runeId);
+        return shareFromSnapshot(repository.load(playerUuid), id, runeId);
+    }
+
+    /** Reuse the already loaded authoritative snapshot when serializing many owned runes. */
+    public SharePayload shareFromSnapshot(PlayerState state, CollectionId id, String runeId) {
+        if (state == null || id == null || runeId == null) return null;
+        CollectionState collection = state.collection(id); Rarity rarity = collection.owned.get(runeId);
         RuneDefinition rune = policy.definition(id).rune(runeId); if (rarity == null || rune == null) return null;
         Map<String, String> effects = new HashMap<>(); int enhancement = id == CollectionId.CRYSTAL_COLLECTION ? collection.enhancement(runeId) : 0;
         for (UniqueRuneModel.Effect effect : rune.effects) if (effect.stat != null)

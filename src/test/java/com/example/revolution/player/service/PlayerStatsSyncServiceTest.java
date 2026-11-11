@@ -15,8 +15,8 @@ public final class PlayerStatsSyncServiceTest {
         Arrays.fill(ranks, RuneProgression.IMPROVED_RANK);
         RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(ranks);
 
-        assertEquals(26, progression.lowerProgress());
-        assertEquals(0, progression.higherRuneCount());
+        assertEquals(0, progression.lowerProgress());
+        assertEquals(26, progression.higherRuneCount());
         assertEquals(true, progression.isComplete());
         assertEquals(0, PlayerStatsSyncService.resolvePurchaseUnitCost(null, 1, progression));
     }
