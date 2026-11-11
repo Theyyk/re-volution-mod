@@ -1,8 +1,6 @@
 package com.example.revolution.client.hud;
 
 import com.example.revolution.client.input.KeyInputHandler;
-import com.example.revolution.client.mechanic.ClientMechanicUnlocks;
-import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.client.settings.SettingsKeyHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -21,7 +19,7 @@ public final class RealmHudRenderer {
     private static final int LINE_GAP = 2;
     private static final int HINT_COLOR = 0xAFAFAF;
     private static final int REALM_COLOR = 0xE6E6E6;
-    private static final int LINE_COUNT = 4;
+    private static final int LINE_COUNT = 5;
 
     @SubscribeEvent
     public void onRenderText(RenderGameOverlayEvent.Text event) {
@@ -44,13 +42,10 @@ public final class RealmHudRenderer {
         y -= lineStep;
         drawHint(font, keyName(KeyInputHandler.keyOpenMenu), "Меню", right, y);
 
-        // Reuse the existing control-hint renderer; keep the left legend above vanilla chat.
-        int chatOffset = minecraft.ingameGUI.getChatGUI().getChatOpen() ? 225 : 160;
-        int masteryY = Math.max(10, resolution.getScaledHeight() - chatOffset);
-        String masteryAction = ClientMechanicUnlocks.isUnlocked(BalanceMechanicUnlockPolicy.ARTS)
-                ? "Мастерство" : "Мастерство (закрыто)";
-        font.drawStringWithShadow("§f[" + keyName(KeyInputHandler.keyOpenMastery) + "] §7" + masteryAction,
-                MARGIN, masteryY, HINT_COLOR);
+        // UI-03-M R1: Mastery belongs to the same lower-right control legend as the other hints.
+        // Use the live remappable key label; do not render a separate lower-left overlay.
+        y -= lineStep;
+        drawHint(font, keyName(KeyInputHandler.keyOpenMastery), "Мастерство", right, y);
     }
 
     static int reservedBottomPixels(FontRenderer font) {
