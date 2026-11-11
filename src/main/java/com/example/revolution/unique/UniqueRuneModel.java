@@ -127,7 +127,7 @@ public final class UniqueRuneModel {
         public final Set<String> acquisitionAdvanced = new LinkedHashSet<>();
         /** Terminal rank provenance: no ANCIENT gameplay advancement. */
         public final Set<String> acquisitionMythic = new LinkedHashSet<>();
-        /** An explicitly paid rollback can restore only the same rune's pre-rollback rarity. */
+        /** Legacy rollback restore metadata retained for save compatibility; never grants free awakening. */
         public final Map<String, Rarity> rollbackRestore = new LinkedHashMap<>();
         /** Enhancement survives awaken/rollback and is meaningful only for Crystal collection. */
         public final Map<String, Integer> enhancement = new LinkedHashMap<>();
@@ -181,8 +181,6 @@ public final class UniqueRuneModel {
         public boolean canAwaken(String runeId) {
             Rarity existing = owned.get(runeId);
             if (existing == null) return false;
-            if (rollbackRestore.containsKey(runeId)
-                    && existing.nextGameplay() == rollbackRestore.get(runeId)) return true;
             // Same authoritative rule as ordinary runes: all 26 factual slots
             // must be at least the target rune's current rank. Higher ranks count.
             if (existing == Rarity.MYTHIC) return false;
