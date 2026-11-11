@@ -16,6 +16,9 @@ public final class PetsGuiScreen extends GuiScreen {
     private static final int PREV_PAGE = 503, NEXT_PAGE = 504;
     private static final int TILE_H = 57, GAP = 7;
     private int page;
+    private int focusedSlot = -1;
+    private String focusedPetId = "";
+    private long pendingRevision = -1L;
 
     @Override public void initGui() {
         buttonList.clear();
@@ -53,6 +56,17 @@ public final class PetsGuiScreen extends GuiScreen {
 
     @Override protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         // Hit regions share exactly the same geometry as the rendered tiles.
+        // Clicking a context cell is UI-only; never perform Gameplay on focus.
+        PetContextSlotLayout context = contextSlots();
+        int contextIndex = context.hit(mouseX, mouseY);
+        if (contextIndex >= 0) {
+            if (mouseButton == 0) {
+                focusedSlot = contextIndex;
+                PetSnapshotPacket.Entry assigned = PetContextSlotLayout.assigned(ClientPets.entries(), contextIndex);
+                focusedPetId = assigned == null ? "" : assigned.petId;
+            }
+            return;
+        }
         int index = tileAt(mouseX, mouseY);
         if (index >= 0) {
             List<PetSnapshotPacket.Entry> entries = ClientPets.entries();
@@ -72,6 +86,11 @@ public final class PetsGuiScreen extends GuiScreen {
     }
 
     private void send(String action, String petId) {
+        // A single screen keeps at most one gameplay mutation in flight.
+        // It is released only by the next server Pets snapshot, not a local click.
+        long currentRevision = ClientPets.revision();
+        if (pendingRevision >= 0L && currentRevision <= pendingRevision) return;
+        pendingRevision = currentRevision;
         NetworkHandler.INSTANCE.sendToServer(new PetActionPacket(action, petId, ClientPets.runId()));
     }
 
@@ -88,8 +107,17 @@ public final class PetsGuiScreen extends GuiScreen {
         return Math.max(1, (contentWidth() - (columns() - 1) * GAP) / columns());
     }
 
-    private int tileTop() {
+    private int contextTop() {
         return Math.max(69, UnifiedMainMenuChrome.contentTop(width, height) + 14);
+    }
+
+    private PetContextSlotLayout contextSlots() {
+        return new PetContextSlotLayout(
+                UnifiedMainMenuChrome.contentLeft(width, height), contentWidth(), contextTop());
+    }
+
+    private int tileTop() {
+        return contextTop() + contextSlots().height() + 23;
     }
 
     private int rows() {
@@ -134,9 +162,38 @@ public final class PetsGuiScreen extends GuiScreen {
                 + "/2  |  Фрагменты: " + ClientPets.fragments()
                 + "  |  Готово к сбору: " + ClientPets.petPendingFragments();
         fontRenderer.drawString(fontRenderer.trimStringToWidth(info, Math.max(10, right-left)),
-                left, tileTop() - 13, GuiTheme.MUTED_TEXT_COLOR);
+                left, contextTop() - 13, GuiTheme.MUTED_TEXT_COLOR);
 
         List<PetSnapshotPacket.Entry> entries = ClientPets.entries();
+        PetContextSlotLayout context = contextSlots();
+        if (focusedSlot >= 0) {
+            PetSnapshotPacket.Entry actual = PetContextSlotLayout.assigned(entries, focusedSlot);
+            String actualId = actual == null ? "" : actual.petId;
+            if (!actualId.equals(focusedPetId)) {
+                focusedSlot = -1;
+                focusedPetId = "";
+            }
+        }
+        for (int i = 0; i < PetContextSlotLayout.COUNT; i++) {
+            boolean unlocked = PetContextSlotLayout.unlocked(i, ClientPets.normalSlots(), ClientPets.premiumSlots());
+            PetSnapshotPacket.Entry assigned = PetContextSlotLayout.assigned(entries, i);
+            boolean hovered = context.hit(mouseX, mouseY) == i;
+            boolean focused = focusedSlot == i;
+            int bg = focused ? 0xAA45648A : assigned != null ? 0xAA254A35
+                    : unlocked ? GuiTheme.PANEL_BG_SOFT : 0xAA292929;
+            int border = focused ? 0xFF99C9FF : hovered ? GuiTheme.SLOT_HOVER_COLOR
+                    : GuiTheme.PANEL_BORDER_COLOR;
+            GuiDrawing.drawSurface(context.x(i), context.y(), context.width(), context.height(), bg, border);
+            String title = assigned == null ? (unlocked ? "+" : "X") : assigned.petId;
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(title, Math.max(1, context.width() - 6)),
+                    context.x(i) + 3, context.y() + 5,
+                    unlocked ? GuiTheme.TEXT_COLOR : GuiTheme.DISABLED_TEXT_COLOR);
+            String sub = assigned == null ? (unlocked ? "EMPTY" : "LOCK")
+                    : (assigned.premiumSlot ? "ACTIVE P" : "ACTIVE");
+            fontRenderer.drawString(fontRenderer.trimStringToWidth(sub, Math.max(1, context.width() - 6)),
+                    context.x(i) + 3, context.y() + Math.min(context.height() - 9, 20),
+                    assigned != null ? 0xA8E6B8 : GuiTheme.DISABLED_TEXT_COLOR);
+        }
         page = Math.min(page, lastPage());
         int start = page * perPage();
         long now = System.currentTimeMillis();
@@ -178,6 +235,15 @@ public final class PetsGuiScreen extends GuiScreen {
                     + ": " + ClientPets.nextNormalSlotCost();
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
+        int hoveredSlot = context.hit(mouseX, mouseY);
+        if (hoveredSlot >= 0) {
+            PetSnapshotPacket.Entry hoverPet = PetContextSlotLayout.assigned(entries, hoveredSlot);
+            String description = hoverPet == null
+                    ? (PetContextSlotLayout.unlocked(hoveredSlot, ClientPets.normalSlots(), ClientPets.premiumSlots())
+                    ? "Пустой слот" : "Слот пока не разблокирован")
+                    : hoverPet.petId + " | " + hoverPet.rank + " | Ур. " + hoverPet.level;
+            drawHoveringText(java.util.Collections.singletonList(description), mouseX, mouseY);
+        }
     }
 
     private static String formatCooldown(long millis) {
