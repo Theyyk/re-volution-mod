@@ -215,8 +215,10 @@ public final class RuneActionService {
         RuneCollectionId collection = RuneCollectionId.fromLegacyIndex(collectionIndex);
         if (collection == null || runeIndex < 0 || runeIndex >= 26
                 || !isCollectionUnlocked(player, collectionIndex)) return;
+        // Use one authoritative snapshot of this player's active ordinary collection.
+        java.util.List<RuneRecord> ownedRunes = players.getRunesInCollection(player.getUniqueID(), collectionIndex);
         RuneRecord owned = null;
-        for (RuneRecord record : players.getRunesInCollection(player.getUniqueID(), collectionIndex)) {
+        for (RuneRecord record : ownedRunes) {
             if (record.runeIndex == runeIndex && (owned == null || record.layer > owned.layer)) owned = record;
         }
         if (owned == null) return;
@@ -231,9 +233,11 @@ public final class RuneActionService {
             if (rune == null) return;
             name = rune.name;
             details.append("Type: ").append(rune.type);
-            for (RuneStat stat : rune.stats)
-                details.append("\nEffect: ").append(stat.type.displayName).append(" ")
-                        .append(stat.type.format(stat.resolve(rank, enhancementMultiplier).finalValue));
+            for (String statLine : RuneShareStatFormatter.finalStatLines(
+                    rune, runeIndex, rank, enhancementMultiplier, ownedRunes,
+                    slot -> sync.enhancementMultiplier(collection,
+                            sync.enhancementLevel(player.getUniqueID(), collectionIndex, slot))))
+                details.append("\nEffect: ").append(statLine);
             for (RuneTargetedPower power : rune.targetedPowers)
                 details.append("\nTarget: ").append(power.tooltipLine(rank, enhancementMultiplier));
             for (RuneCompositeEffect effect : rune.compositeEffects)
