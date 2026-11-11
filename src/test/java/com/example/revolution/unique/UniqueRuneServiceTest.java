@@ -621,7 +621,8 @@ final class UniqueRuneServiceTest {
                 assertEquals(source, after.owned.get(target));
                 assertEquals(source.nextGameplay(), after.rollbackRestore.get(target),
                         "rejected operation must not silently mutate historical Mongo v3 data");
-                assertEquals(11, id == CollectionId.CRYSTAL_COLLECTION ? after.enhancement(target) : 11);
+                if (id == CollectionId.CRYSTAL_COLLECTION)
+                    assertEquals(11, after.enhancement(target));
             }
         }
     }
