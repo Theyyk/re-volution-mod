@@ -28,6 +28,7 @@ public final class RuneRankRevertPricingTest {
                 + "\"runes.poison.purchase.higher_rank_multiplier\":\"1.15\","
                 + "\"runes.poison.duplicate.resource\":\"rune_dust\","
                 + "\"runes.poison.duplicate.rate\":\"0.0003\"},\"curves\":{"
+                + "\"runes.poison.purchase.rank.1\":{\"mode\":\"TABLE\",\"values\":[\"20\",\"40\"]},"
                 + "\"runes.poison.purchase.rank.2\":{\"mode\":\"TABLE\",\"values\":[\"20\",\"40\"]}}}");
         RunePurchaseBalanceService purchase = new RunePurchaseBalanceService(balance);
 
