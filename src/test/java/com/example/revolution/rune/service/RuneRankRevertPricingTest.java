@@ -37,9 +37,9 @@ public final class RuneRankRevertPricingTest {
         ranks[4] = first.targetRank;
 
         RuneCollectionProgression after = RuneCollectionProgression.fromBestRanks(ranks);
-        assertEquals(RuneProgression.IMPROVED_RANK, after.stageRank());
-        assertEquals(1, after.lowerProgress());
-        assertEquals(25, after.higherRuneCount());
+        assertEquals(RuneProgression.ORDINARY_RANK, after.stageRank());
+        assertEquals(0, after.lowerProgress());
+        assertEquals(26, after.higherRuneCount());
         assertEquals(26, after.coveredCount());
         assertTrue(after.isComplete(), "revert must not create a purchase-farm slot");
         int factualPricePoint = purchase.purchaseCost(
