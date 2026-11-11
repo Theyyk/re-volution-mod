@@ -41,6 +41,10 @@ public final class AdminApiControlContractTest {
     private static void testRoutePaths() {
         require("/api/v1/players/runes".equals(AdminApiRoutes.RUNES_READ_PATH), "Rune read route changed");
         require("/api/v1/players/mechanics".equals(AdminMechanicsRoutes.PATH), "Mechanics route changed");
+        require("/api/v1/players/mechanics/editable".equals(AdminMechanicsRoutes.EDITABLE_PATH),
+                "Mechanics editable route changed");
+        require("/api/v1/players/mechanics/set".equals(AdminMechanicsRoutes.SET_PATH),
+                "Mechanics set route changed");
         require("/api/v1/players/mechanics/simulate-time".equals(AdminMechanicsRoutes.TIME_SIMULATION_PATH),
                 "Time simulation route changed");
         require("/api/v1/players/effects".equals(AdminEffectsRoutes.PATH), "Effects route changed");
