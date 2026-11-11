@@ -5,9 +5,9 @@ import com.example.revolution.rune.definition.RuneLayoutDefinition;
 /**
  * Derived nested purchase progression for one rune collection.
  *
- * <p>The factual per-rune ranks are the only source of truth. A higher-rank rune occupies its slot
- * for the current lower-rank rebuild, while purchases continue one rank below the factual maximum
- * until all 26 slots reach that maximum rank.</p>
+ * <p>The factual per-rune ranks are the only source of truth. Purchases always grant
+ * the base COMMON/ORDINARY rank; a higher-rank rune already covers its numbered slot.
+ * Upgrading rarity requires explicit awakening, never a higher-rank purchase.</p>
  */
 public final class RuneCollectionProgression {
     private final int stageRank;
@@ -31,28 +31,8 @@ public final class RuneCollectionProgression {
             throw new IllegalArgumentException("bestRanks must contain all rune slots");
         }
 
-        int highestRank = RuneProgression.NORMAL_RANK;
-        int highestRankCount = 0;
-        for (int rune = 0; rune < RuneLayoutDefinition.BOOST_TYPE_COUNT; rune++) {
-            int rawRank = bestRanks[rune];
-            if (rawRank <= 0) continue;
-            int rank = RuneProgression.clampRank(rawRank);
-            if (rank > highestRank) {
-                highestRank = rank;
-                highestRankCount = 1;
-            } else if (rank == highestRank) {
-                highestRankCount++;
-            }
-        }
-
-        int stageRank;
-        if (highestRank <= RuneProgression.NORMAL_RANK) {
-            stageRank = RuneProgression.NORMAL_RANK;
-        } else if (highestRankCount >= RuneLayoutDefinition.BOOST_TYPE_COUNT) {
-            stageRank = highestRank;
-        } else {
-            stageRank = Math.max(RuneProgression.NORMAL_RANK, highestRank - 1);
-        }
+        // Purchase rank is immutable: ONLY awakening can create IMPROVED+ runes.
+        int stageRank = RuneProgression.NORMAL_RANK;
 
         boolean[] ownedAtStage = new boolean[RuneLayoutDefinition.BOOST_TYPE_COUNT];
         int lowerProgress = 0;
