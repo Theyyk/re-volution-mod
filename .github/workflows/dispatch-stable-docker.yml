@@ -1,34 +1,34 @@
 name: Dispatch stable Docker image
 on:
-  release:
-    types: [published]
-  workflow_run:
-    workflows: ['Build and Release']
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published stable tag to build only after owner approval
+        required: true
+        type: string
 permissions:
   contents: read
   actions: read
 jobs:
   dispatch:
-    if: >-
-      github.event_name == 'release' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_repository.full_name == github.repository)
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch published release only after successful source build
         env:
           GH_TOKEN: ${{ secrets.RE_VOLUTION_DOCKER }}
           READ_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           test -n "$GH_TOKEN"
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          SOURCE_SHA=$(GH_TOKEN="$READ_TOKEN" gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)
           text=$(GH_TOKEN="$READ_TOKEN" gh api "repos/$GITHUB_REPOSITORY/contents/build.gradle?ref=$SOURCE_SHA" --jq .content | base64 --decode)
           version=$(printf '%s\n' "$text" | sed -nE "s/^[[:space:]]*version[[:space:]]*=[[:space:]]*['\"]([0-9]+\.[0-9]+\.[0-9]+)['\"][[:space:]]*$/\1/p")
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           tag="v$version"
+          test "$RELEASE_TAG" = "$tag"
           if ! release=$(GH_TOKEN="$READ_TOKEN" gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" 2>/dev/null); then
             echo "No published release for this source; skip."
             exit 0
