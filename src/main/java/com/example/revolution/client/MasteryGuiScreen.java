@@ -16,7 +16,7 @@ public final class MasteryGuiScreen extends GuiScreen {
     private String armedPreview = "";
     private String armedRunId = "";
 
-    private int panelWidth() { return Math.min(520, Math.max(270, width - 20)); }
+    private int panelWidth() { return Math.min(520, Math.max(175, width - 20)); }
     private int panelLeft() { return (width - panelWidth()) / 2; }
     private int panelTop() { return Math.max(8, (height - 300) / 2); }
     private int panelBottom() { return Math.min(height - 8, panelTop() + 300); }
@@ -31,10 +31,10 @@ public final class MasteryGuiScreen extends GuiScreen {
         boolean unlocked = state != null && state.artsUnlocked;
         boolean active = state != null && !state.runId.isEmpty();
         boolean available = unlocked && !active && !MasteryClientState.pending();
-        int branchW = Math.max(110, w / 2 - 16);
+        int branchW = Math.max(75, w / 2 - 16);
         for (int i = 0; i < branches.size() && i < 8; i++) {
             String id = branches.get(i).id;
-            GuiButton button = new GuiButton(100 + i, x + 9, y + 43 + i * 23, branchW, 20,
+            GuiButton button = new GuiButton(100 + i, x + 9, y + 43 + i * 21, branchW, 18,
                     (id.equals(selectedBranch) ? "§a> " : "") + branchName(id));
             button.enabled = available;
             buttonList.add(button);
