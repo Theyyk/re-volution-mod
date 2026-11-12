@@ -35,38 +35,85 @@ public class PetSystemTest {
     }
 
     @Test public void normalSlotPriceIsContinuousThroughAwakeningAndResetsWithRun() {
-        Fixture f = funded(); BigDecimal first = f.pets.nextNormalSlotCost(f.id); assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
-        PetPlayerState afterPurchase = f.pets.snapshot(f.id); assertEquals(1L, afterPurchase.run.totalNormalSlotPurchasesThisRun);
-        BigDecimal second = f.pets.nextNormalSlotCost(f.id); assertTrue(second.compareTo(first) >= 0); buyAndSelect(f, "pet_01");
-        assertEquals(PetService.Result.APPLIED, f.pets.awaken(f.id, "pet_01")); assertEquals(1L, f.pets.snapshot(f.id).run.totalNormalSlotPurchasesThisRun);
-        assertEquals(0, second.compareTo(f.pets.nextNormalSlotCost(f.id))); f.startNewRun(); PetPlayerState snapshot = f.pets.snapshot(f.id);
-        assertEquals(0, snapshot.run.normalSlotsUnlockedThisRun); assertEquals(0L, snapshot.run.totalNormalSlotPurchasesThisRun); assertEquals(0, first.compareTo(f.pets.nextNormalSlotCost(f.id)));
+        Fixture f = funded();
+        BigDecimal first = f.pets.nextNormalSlotCost(f.id);
+        assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
+        PetPlayerState afterPurchase = f.pets.snapshot(f.id);
+        assertEquals(1L, afterPurchase.run.totalNormalSlotPurchasesThisRun);
+        BigDecimal second = f.pets.nextNormalSlotCost(f.id);
+        assertTrue(second.compareTo(first) >= 0);
+        buyAndSelect(f, "pet_01");
+        assertEquals(PetService.Result.BOARD_NOT_FULL, f.pets.awaken(f.id, "pet_01"));
+        assertEquals(1L, f.pets.snapshot(f.id).run.totalNormalSlotPurchasesThisRun);
+        assertEquals(0, second.compareTo(f.pets.nextNormalSlotCost(f.id)));
+        f.startNewRun();
+        PetPlayerState snapshot = f.pets.snapshot(f.id);
+        assertEquals(0, snapshot.run.normalSlotsUnlockedThisRun);
+        assertEquals(0L, snapshot.run.totalNormalSlotPurchasesThisRun);
+        assertEquals(0, first.compareTo(f.pets.nextNormalSlotCost(f.id)));
     }
-
     @Test public void premiumEntitlementPersistsAcrossRunsAndSelectionCannotDuplicate() {
         Fixture f = funded(); assertEquals(PetService.Result.APPLIED, f.pets.purchasePremiumSlot(f.id)); assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
         buyAndSelect(f, "pet_01"); assertEquals(PetService.Result.SELECTED, f.pets.selectPet(f.id, "pet_01")); f.startNewRun(); assertEquals(1, f.pets.snapshot(f.id).premiumPetSlotsUnlocked);
     }
 
     @Test public void awakeningRequiresFullBoardAndPremiumPetSkipsCooldown() {
-        Fixture f = funded(); assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id)); assertEquals(PetService.Result.APPLIED, f.pets.purchasePremiumSlot(f.id));
-        f.pets.purchasePet(f.id, "pet_01"); f.pets.purchasePet(f.id, "pet_02"); assertEquals(PetService.Result.APPLIED, f.pets.selectPet(f.id, "pet_01"));
-        assertEquals(PetService.Result.BOARD_NOT_FULL, f.pets.awaken(f.id, "pet_01")); assertEquals(PetService.Result.APPLIED, f.pets.selectPet(f.id, "pet_02"));
-        PetPlayerState before = f.petRepo.load(f.id); before.pet("pet_01").level = BigInteger.TEN; before.pet("pet_01").xp = new BigDecimal("7.5"); f.petRepo.save(f.id, before);
-        assertEquals(PetService.Result.APPLIED, f.pets.awaken(f.id, "pet_01")); PetPlayerState state = f.pets.snapshot(f.id);
-        assertEquals(PetRank.IMPROVED, state.pets.get("pet_01").rank); assertEquals(BigInteger.TEN, state.pets.get("pet_01").level);
-        assertEquals(0, new BigDecimal("7.5").compareTo(state.pets.get("pet_01").xp)); assertFalse(state.run.cooldownUntil.containsKey("pet_02"));
-        assertEquals(1, state.run.selectedPets.size()); assertEquals("pet_01", state.run.selectedPets.get(0).petId);
+        Fixture f = funded();
+        for (int i = 0; i < PetService.NORMAL_SLOT_COUNT; i++)
+            assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
+        assertEquals(PetService.Result.APPLIED, f.pets.purchasePremiumSlot(f.id));
+        for (int i = 1; i <= 8; i++) buyAndSelect(f, String.format("pet_%02d", i));
+        assertEquals(PetService.Result.BOARD_NOT_FULL, f.pets.awaken(f.id, "pet_01"));
+        buyAndSelect(f, "pet_09");
+        PetPlayerState before = f.petRepo.load(f.id);
+        before.pet("pet_01").level = BigInteger.TEN;
+        before.pet("pet_01").xp = new BigDecimal("7.5");
+        f.petRepo.save(f.id, before);
+        assertEquals(PetService.Result.APPLIED, f.pets.awaken(f.id, "pet_01"));
+        PetPlayerState state = f.pets.snapshot(f.id);
+        assertEquals(PetRank.IMPROVED, state.pets.get("pet_01").rank);
+        assertEquals(BigInteger.TEN, state.pets.get("pet_01").level);
+        assertEquals(0, new BigDecimal("7.5").compareTo(state.pets.get("pet_01").xp));
+        assertFalse(state.run.cooldownUntil.containsKey("pet_09"));
+        assertEquals(1, state.run.selectedPets.size());
+        assertEquals("pet_01", state.run.selectedPets.get(0).petId);
     }
-
     @Test public void awakeningCooldownsNormalPetsAndDeterministicallyPreservesHigherRank() {
-        Fixture f = funded(); f.pets.purchaseNormalSlot(f.id); f.pets.purchaseNormalSlot(f.id); f.pets.purchaseNormalSlot(f.id);
-        buyAndSelect(f, "pet_01"); buyAndSelect(f, "pet_02"); buyAndSelect(f, "pet_03"); PetPlayerState before = f.petRepo.load(f.id);
-        before.pet("pet_02").rank = PetRank.ADVANCED; before.pet("pet_03").level = BigInteger.valueOf(9L); before.pet("pet_03").xp = BigDecimal.TEN; f.petRepo.save(f.id, before);
-        assertEquals(PetService.Result.APPLIED, f.pets.awaken(f.id, "pet_01")); PetPlayerState after = f.pets.snapshot(f.id);
-        assertEquals(2, after.run.selectedPets.size()); assertEquals("pet_02", after.run.selectedPets.get(0).petId); assertEquals("pet_01", after.run.selectedPets.get(1).petId);
-        assertTrue(after.run.cooldownUntil.get("pet_03") > System.currentTimeMillis()); assertEquals(BigInteger.ONE, after.pets.get("pet_03").level);
-        assertEquals(0, BigDecimal.ZERO.compareTo(after.pets.get("pet_03").xp)); assertEquals(PetService.Result.COOLDOWN, f.pets.selectPet(f.id, "pet_03"));
+        Fixture f = funded();
+        for (int i = 0; i < PetService.NORMAL_SLOT_COUNT; i++)
+            assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
+        for (int i = 1; i <= 8; i++) buyAndSelect(f, String.format("pet_%02d", i));
+        PetPlayerState before = f.petRepo.load(f.id);
+        before.pet("pet_02").rank = PetRank.ADVANCED;
+        before.pet("pet_03").level = BigInteger.valueOf(9L);
+        before.pet("pet_03").xp = BigDecimal.TEN;
+        f.petRepo.save(f.id, before);
+        assertEquals(PetService.Result.APPLIED, f.pets.awaken(f.id, "pet_01"));
+        PetPlayerState after = f.pets.snapshot(f.id);
+        assertEquals(2, after.run.selectedPets.size());
+        assertEquals("pet_02", after.run.selectedPets.get(0).petId);
+        assertEquals("pet_01", after.run.selectedPets.get(1).petId);
+        assertTrue(after.run.cooldownUntil.get("pet_03") > System.currentTimeMillis());
+        assertEquals(BigInteger.ONE, after.pets.get("pet_03").level);
+        assertEquals(0, BigDecimal.ZERO.compareTo(after.pets.get("pet_03").xp));
+        assertEquals(PetService.Result.COOLDOWN, f.pets.selectPet(f.id, "pet_03"));
+    }
+    @Test public void awakeningRequiresEightNormalAndAllUnlockedPremiumSlots() {
+        for (int premiums = 0; premiums <= PetService.PREMIUM_SLOT_COUNT; premiums++) {
+            Fixture f = funded();
+            for (int p = 0; p < premiums; p++)
+                assertEquals(PetService.Result.APPLIED, f.pets.purchasePremiumSlot(f.id));
+            for (int i = 0; i < PetService.NORMAL_SLOT_COUNT - 1; i++)
+                assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
+            for (int i = 1; i <= 7 + premiums; i++)
+                buyAndSelect(f, String.format("pet_%02d", i));
+            assertEquals(PetService.Result.BOARD_NOT_FULL, f.pets.awaken(f.id, "pet_01"));
+            assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
+            assertEquals(PetService.Result.BOARD_NOT_FULL, f.pets.awaken(f.id, "pet_01"));
+            buyAndSelect(f, String.format("pet_%02d", 8 + premiums));
+            assertEquals(PetService.Result.APPLIED, f.pets.awaken(f.id, "pet_01"));
+            assertEquals(PetRank.IMPROVED, f.pets.snapshot(f.id).pets.get("pet_01").rank);
+        }
     }
 
     @Test public void expiredCooldownUsesRealTimeAndAllowsSelectionAgain() {

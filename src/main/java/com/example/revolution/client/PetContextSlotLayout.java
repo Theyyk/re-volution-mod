@@ -3,31 +3,36 @@ package com.example.revolution.client;
 import com.example.revolution.network.PetSnapshotPacket;
 import java.util.List;
 
-/** Pure geometry and server-snapshot mapping for the 8+2 pet context cells. */
+/** Shared rendering/input geometry for the server-backed 8 normal + 2 premium Pet board. */
 final class PetContextSlotLayout {
     static final int COUNT = 10;
     static final int NORMAL_COUNT = 8;
+    private static final int COLUMNS = 5;
     private final int x, y, cellWidth, cellHeight, gap;
 
     PetContextSlotLayout(int contentLeft, int contentWidth, int top) {
-        int width = Math.max(COUNT, contentWidth);
-        gap = width < 40 ? 0 : Math.max(1, Math.min(5, width / 100));
-        cellWidth = Math.max(1, (width - gap * (COUNT - 1)) / COUNT);
-        cellHeight = Math.max(12, Math.min(45, cellWidth));
-        int occupiedWidth = COUNT * cellWidth + (COUNT - 1) * gap;
+        int width = Math.max(COLUMNS, contentWidth);
+        gap = width < 40 ? 0 : Math.max(2, Math.min(7, width / 70));
+        cellWidth = Math.max(1, (width - gap * (COLUMNS - 1)) / COLUMNS);
+        cellHeight = Math.max(12, Math.min(31, cellWidth));
+        int occupiedWidth = COLUMNS * cellWidth + (COLUMNS - 1) * gap;
         x = contentLeft + Math.max(0, (width - occupiedWidth) / 2);
         y = top;
     }
 
-    int x(int index) { return x + index * (cellWidth + gap); }
-    int y() { return y; }
+    int x(int index) { return x + (index % COLUMNS) * (cellWidth + gap); }
+    int y(int index) { return y + (index / COLUMNS) * (cellHeight + gap); }
     int width() { return cellWidth; }
-    int height() { return cellHeight; }
+    int cellHeight() { return cellHeight; }
+    /** Entire occupied board height including the gap between two rows. */
+    int height() { return 2 * cellHeight + gap; }
 
     int hit(int mouseX, int mouseY) {
-        if (mouseY < y || mouseY >= y + cellHeight) return -1;
-        for (int i = 0; i < COUNT; i++)
-            if (mouseX >= x(i) && mouseX < x(i) + cellWidth) return i;
+        for (int i = 0; i < COUNT; i++) {
+            int sx = x(i), sy = y(i);
+            if (mouseX >= sx && mouseX < sx + cellWidth
+                    && mouseY >= sy && mouseY < sy + cellHeight) return i;
+        }
         return -1;
     }
 
