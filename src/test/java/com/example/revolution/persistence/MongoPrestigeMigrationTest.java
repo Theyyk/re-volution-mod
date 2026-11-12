@@ -85,15 +85,15 @@ public final class MongoPrestigeMigrationTest {
     }
 
     @Test
-    public void normalResetAtomicallyClearsStandardRuneOwnershipWithoutTouchingUnlocksOrUniques() {
+    public void normalResetRemovesOnlyBelowAdvancedPreservesUnlocksAndUniques() {
         Document first = new Document("name", "Collection 01")
                 .append("cards", java.util.Arrays.asList(
                         new Document("cardIndex", 0).append("layer", 1),
                         new Document("cardIndex", 1).append("layer", 4)))
-                .append("runeEnhancements", new Document("0", 5));
+                .append("runeEnhancements", new Document("0", 5).append("1", 17));
         Document secondLegacy = new Document("name", "Collection 02")
                 .append("cards", java.util.Arrays.asList(new Document("cardIndex", 2).append("layer", 3)))
-                .append("runeEnhancements", new Document("2", 7));
+                .append("runeEnhancements", new Document("2", 7).append("5", 21).append("6", 31));
         Document fixedTwo = new Document("slots", java.util.Arrays.asList(
                 new Document("cardIndex", 5).append("layer", 2),
                 new Document("cardIndex", 6).append("layer", 4)))
@@ -112,15 +112,18 @@ public final class MongoPrestigeMigrationTest {
         MongoPrestigeRepository.appendRuneOwnershipWipe(player, set);
 
         java.util.List<Document> cleared = (java.util.List<Document>) set.get("decks");
-        assertEquals(0, ((java.util.List<?>) cleared.get(0).get("cards")).size());
-        assertEquals(0, ((java.util.List<?>) cleared.get(1).get("cards")).size());
-        assertTrue(cleared.get(0).get("runeEnhancements", Document.class).isEmpty());
-        assertTrue(cleared.get(1).get("runeEnhancements", Document.class).isEmpty());
+        assertEquals(1, ((java.util.List<?>) cleared.get(0).get("cards")).size());
+        assertEquals(4, ((Document) ((java.util.List<?>) cleared.get(0).get("cards")).get(0)).getInteger("layer").intValue());
+        assertEquals(1, ((java.util.List<?>) cleared.get(1).get("cards")).size());
+        assertEquals(17, cleared.get(0).get("runeEnhancements", Document.class).getInteger("1").intValue());
+        assertEquals(1, cleared.get(0).get("runeEnhancements", Document.class).size());
+        assertEquals(31, cleared.get(1).get("runeEnhancements", Document.class).getInteger("6").intValue());
+        assertEquals(1, cleared.get(1).get("runeEnhancements", Document.class).size());
         assertEquals("Collection 01", cleared.get(0).getString("name"));
         assertEquals("Collection 02", cleared.get(1).getString("name"));
-        assertEquals(0, ((java.util.List<?>) set.get(
+        assertEquals(1, ((java.util.List<?>) set.get(
                 "runeCollections.collections.collection_02.slots")).size());
-        assertEquals(0, ((java.util.List<?>) set.get(
+        assertEquals(1, ((java.util.List<?>) set.get(
                 "runeCollections.collections.collection_03.slots")).size());
         assertFalse(set.containsKey("runeCollections"));
         assertFalse(set.containsKey("uniqueRunes"));

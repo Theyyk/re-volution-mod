@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public final class RunePrestigeResetServiceTest {
     @Test
-    void ordinaryResetDeletesOwnershipAtEveryRankAndClearsEnhancements() {
+    void ordinaryResetDeletesOnlyOrdinaryImprovedAndPreservesAdvancedPlus() {
         UUID playerUuid = UUID.randomUUID();
         FakePlayerRepository players = new FakePlayerRepository();
         FakeEnhancementRepository enhancements = new FakeEnhancementRepository();
@@ -39,13 +39,16 @@ public final class RunePrestigeResetServiceTest {
 
         new RunePrestigeResetService(players, enhancements).reset(playerUuid);
 
-        assertEquals(0, players.getRunesInCollection(playerUuid, 0).size());
+        assertEquals(3, players.getRunesInCollection(playerUuid, 0).size());
+        assertEquals(RuneProgression.ADVANCED_RANK, players.rank(2));
+        assertEquals(RuneProgression.MYTHIC_RANK, players.rank(3));
+        assertEquals(RuneProgression.MYTHIC_RANK + 100, players.rank(4));
 
         assertEquals(0, enhancements.getLevel(playerUuid, 0, 0));
         assertEquals(0, enhancements.getLevel(playerUuid, 0, 1));
-        assertEquals(0, enhancements.getLevel(playerUuid, 0, 2));
-        assertEquals(0, enhancements.getLevel(playerUuid, 0, 3));
-        assertEquals(0, enhancements.getLevel(playerUuid, 0, 4));
+        assertEquals(12, enhancements.getLevel(playerUuid, 0, 2));
+        assertEquals(13, enhancements.getLevel(playerUuid, 0, 3));
+        assertEquals(14, enhancements.getLevel(playerUuid, 0, 4));
     }
 
     @Test
@@ -65,14 +68,15 @@ public final class RunePrestigeResetServiceTest {
         new RunePrestigeResetService(players, enhancements).reset(playerId);
 
         assertEquals(0, players.getRunesInCollection(playerId, 1).size());
-        assertEquals(0, players.getRunesInCollection(playerId, 2).size());
+        assertEquals(1, players.getRunesInCollection(playerId, 2).size());
+        assertEquals(RuneProgression.ADVANCED_RANK, players.rank(2, 7));
         assertEquals(0, enhancements.getLevel(playerId, 1, 5));
         assertEquals(0, enhancements.getLevel(playerId, 2, 6));
-        assertEquals(0, enhancements.getLevel(playerId, 2, 7));
+        assertEquals(44, enhancements.getLevel(playerId, 2, 7));
     }
 
     @Test
-    void resetClearsOrphanedEnhancementsWithoutCreatingRunes() {
+    void resetDoesNotAlterOrphanedEnhancementsWithoutOwnedRunes() {
         UUID playerUuid = UUID.randomUUID();
         FakePlayerRepository players = new FakePlayerRepository();
         FakeEnhancementRepository enhancements = new FakeEnhancementRepository();
@@ -80,7 +84,7 @@ public final class RunePrestigeResetServiceTest {
 
         new RunePrestigeResetService(players, enhancements).reset(playerUuid);
 
-        assertEquals(0, enhancements.getLevel(playerUuid, 0, 5));
+        assertEquals(25, enhancements.getLevel(playerUuid, 0, 5));
         assertEquals(0, players.getRunesInCollection(playerUuid, 0).size());
     }
 
@@ -104,9 +108,10 @@ public final class RunePrestigeResetServiceTest {
         String runId = service.startRun(playerId, PrestigeBranch.CLICK).runId;
         assertEquals(PrestigeResetService.ResetResult.APPLIED, service.reset(playerId, runId));
         assertEquals(1, applied.get());
-        assertEquals(0, players.getRunesInCollection(playerId, 0).size());
+        assertEquals(1, players.getRunesInCollection(playerId, 0).size());
+        assertEquals(RuneProgression.ADVANCED_RANK, players.rank(1));
         assertEquals(0, enhancements.getLevel(playerId, 0, 0));
-        assertEquals(0, enhancements.getLevel(playerId, 0, 1));
+        assertEquals(11, enhancements.getLevel(playerId, 0, 1));
         assertEquals(PrestigeResetService.ResetResult.DUPLICATE, service.reset(playerId, runId));
         assertEquals(1, applied.get());
     }
@@ -163,7 +168,10 @@ public final class RunePrestigeResetServiceTest {
         @Override public List<String> getCollectionNames(UUID uuid) { return Arrays.asList("Default"); }
         @Override public void addCollection(UUID uuid, String name) {}
         @Override public void deleteCollection(UUID uuid, int collectionIndex) {}
-        @Override public void addRuneToCollection(UUID uuid, int collectionIndex, int slot, int runeIndex, int layer, int level) {}
+        @Override public void addRuneToCollection(UUID uuid, int collectionIndex, int slot, int runeIndex, int layer, int level) {
+            byCollection.computeIfAbsent(collectionIndex, ignored -> new ArrayList<>())
+                    .add(new RuneRecord(slot, runeIndex, layer, level));
+        }
         @Override public boolean setRuneRank(UUID uuid, int collectionIndex, int runeIndex, int layer) {
             List<RuneRecord> runes = byCollection.get(collectionIndex);
             if (runes == null) return false;

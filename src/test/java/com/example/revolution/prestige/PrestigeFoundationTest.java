@@ -74,7 +74,7 @@ public final class PrestigeFoundationTest {
     }
 
     @Test
-    public void resetRemovesAllStandardRuneRanksButPreservesCrystalsAndCollectionName() {
+    public void resetRemovesOrdinaryAndImprovedButPreservesAdvancedAndCrystals() {
         Document ordinary = new Document("slot", 1).append("cardIndex", 1).append("layer", 1);
         Document improved = new Document("slot", 2).append("cardIndex", 2).append("layer", 2);
         Document advanced = new Document("slot", 3).append("cardIndex", 3).append("layer", 3);
@@ -92,8 +92,10 @@ public final class PrestigeFoundationTest {
         assertNotNull(collections);
         @SuppressWarnings("unchecked")
         List<Document> runes = (List<Document>) collections.get(0).get("cards");
-        assertTrue(runes.isEmpty());
-        assertTrue(collections.get(0).get("runeEnhancements", Document.class).isEmpty());
+        assertEquals(1, runes.size());
+        assertEquals(3, runes.get(0).getInteger("layer").intValue());
+        assertEquals(1, collections.get(0).get("runeEnhancements", Document.class).size());
+        assertEquals(66, collections.get(0).get("runeEnhancements", Document.class).getInteger("3").intValue());
         assertEquals("A", collections.get(0).getString("name"));
         assertEquals(777, player.getInteger("crystals"));
         assertEquals(3, ((List<?>) collection.get("cards")).size());

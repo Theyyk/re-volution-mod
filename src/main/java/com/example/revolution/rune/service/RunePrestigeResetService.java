@@ -4,6 +4,8 @@ import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
+import com.example.revolution.rune.rules.RuneProgression;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -12,9 +14,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Post-commit fallback/verification for Mastery Reset ownership removal.
- * The Mongo prestige repository performs the same wipe atomically with the runId guard.
- * This participant also covers non-Mongo repositories and cleans stale records.
+ * Post-commit verification and fallback selective ownership removal.
+ * The Mongo prestige repository commits the same removal atomically with the run.
+ * Only ORDINARY and IMPROVED vanish. ADVANCED+ are preserved with enhancements.
  */
 public final class RunePrestigeResetService {
     private static final Logger LOG = LogManager.getLogger(RunePrestigeResetService.class);
@@ -29,28 +31,41 @@ public final class RunePrestigeResetService {
     }
 
     public void reset(UUID playerUuid) {
-        int ownedBefore = 0;
-        int remaining = 0;
-        int enhancedRemaining = 0;
+        int removed = 0;
+        int remainingLowRank = 0;
         for (RuneCollectionId collection : RuneCollectionId.values()) {
             int index = collection.legacyIndex();
             List<RuneRecord> records = players.getRunesInCollection(playerUuid, index);
-            ownedBefore += records.size();
-
-            // No ownership of any rarity survives an ordinary run reset.
-            if (!records.isEmpty()) players.clearCollection(playerUuid, index);
-            enhancements.resetCollection(playerUuid, index);
-
-            List<RuneRecord> persisted = players.getRunesInCollection(playerUuid, index);
-            remaining += persisted.size();
-            int[] levels = enhancements.getLevels(playerUuid, index);
-            for (int level : levels) if (level > 0) enhancedRemaining++;
+            List<RuneRecord> retained = new ArrayList<>();
+            Set<Integer> retainedIndices = new HashSet<>();
+            Set<Integer> removedIndices = new HashSet<>();
+            for (RuneRecord record : records) {
+                if (record.layer >= RuneProgression.ADVANCED_RANK) {
+                    retained.add(record);
+                    retainedIndices.add(record.runeIndex);
+                } else {
+                    removedIndices.add(record.runeIndex);
+                    removed++;
+                }
+            }
+            if (!removedIndices.isEmpty()) {
+                // Usually no-op for Mongo: the guarded commit has already removed
+                // these records. For alternate repositories, reconstruct only the
+                // retained ADVANCED+ records without dropping their enhancements.
+                players.clearCollection(playerUuid, index);
+                for (RuneRecord rune : retained)
+                    players.addRuneToCollection(playerUuid, index,
+                            rune.slot, rune.runeIndex, rune.layer, rune.level);
+                for (Integer runeIndex : removedIndices)
+                    if (!retainedIndices.contains(runeIndex))
+                        enhancements.resetRune(playerUuid, index, runeIndex);
+            }
+            for (RuneRecord rune : players.getRunesInCollection(playerUuid, index))
+                if (rune.layer < RuneProgression.ADVANCED_RANK) remainingLowRank++;
         }
-        LOG.info("Mastery rune ownership reset audit: ownedBefore=" + ownedBefore +
-                ", remaining=" + remaining + ", enhancedRemaining=" + enhancedRemaining);
-        if (remaining != 0 || enhancedRemaining != 0) {
-            LOG.error("Mastery rune ownership reset incomplete: remaining=" + remaining +
-                    ", enhancedRemaining=" + enhancedRemaining);
-        }
+        LOG.info("Mastery selective rune ownership reset audit: removed=" + removed +
+                ", remainingLowRank=" + remainingLowRank);
+        if (remainingLowRank != 0) LOG.error(
+                "Mastery selective rune ownership reset incomplete: remainingLowRank=" + remainingLowRank);
     }
 }
