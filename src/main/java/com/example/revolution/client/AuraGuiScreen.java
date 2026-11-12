@@ -97,13 +97,12 @@ public final class AuraGuiScreen extends GuiScreen {
             if (button.id == 30) { button.enabled = page > 0; continue; }
             if (button.id == 31) { button.enabled = (page + 1) * rowsPerPage() < visible.size(); continue; }
             boolean enabled = available;
-            if (button.id == 11 || button.id == 13 || button.id == 14 || button.id == 20 || button.id == 21)
+            if (button.id == 11 || button.id == 13 || button.id == 14 || button.id == 21)
                 enabled &= current != null;
             if (current != null) {
                 if (button.id == 11) enabled &= !current.active;
                 if (button.id == 13) enabled &= !current.pinned;
                 if (button.id == 14) enabled &= current.pinned;
-                if (button.id == 20) enabled &= !"MYTHIC".equals(current.rarity);
                 if (button.id == 21) enabled &= !"COMMON".equals(current.rarity) && !current.active && !current.pinned;
             }
             if (button.id == 12) enabled &= activeAura() != null;
@@ -128,7 +127,7 @@ public final class AuraGuiScreen extends GuiScreen {
         else if (button.id == 12) { clearPending(); send("unequip", "", ""); }
         else if (button.id == 13 && current != null) { clearPending(); send("pin", current.instanceId, ""); }
         else if (button.id == 14 && current != null) { clearPending(); send("unpin", current.instanceId, ""); }
-        else if (button.id == 20 && current != null && !"MYTHIC".equals(current.rarity)) previewOrConfirmCraft(current.rarity);
+        else if (button.id == 20) { clearPending(); mc.displayGuiScreen(new AuraCraftGuiScreen(this)); }
         else if (button.id == 21 && current != null && !"COMMON".equals(current.rarity)) previewOrConfirmDismantle(current);
         else if (button.id == 22) { clearPending(); send("sync", "", ""); }
         else if (button.id == 23) mc.displayGuiScreen(null);
@@ -142,23 +141,6 @@ public final class AuraGuiScreen extends GuiScreen {
             clearPending(); send("open", String.valueOf(quantity), ""); return;
         }
         clearPending(); pendingAction = "open"; pendingOpenQuantity = quantity;
-    }
-
-    private void previewOrConfirmCraft(String rarity) {
-        int required = AuraClientState.craftCost(rarity);
-        if (required <= 0) { clearPending(); return; }
-        if ("craft".equals(pendingAction) && rarity.equals(pendingRarity) && !pendingIds.isEmpty()) {
-            String ids = pendingIds; clearPending(); send("craft", rarity, ids); return;
-        }
-        List<String> ids = new ArrayList<>();
-        for (AuraSnapshotPacket.Entry entry : AuraClientState.entries()) {
-            if (rarity.equals(entry.rarity) && !entry.pinned && !entry.active) ids.add(entry.instanceId);
-            if (ids.size() == required) break;
-        }
-        if (ids.size() != required) { clearPending(); return; }
-        StringBuilder joined = new StringBuilder();
-        for (String id : ids) { if (joined.length() > 0) joined.append(','); joined.append(id); }
-        clearPending(); pendingAction = "craft"; pendingRarity = rarity; pendingIds = joined.toString();
     }
 
     private void previewOrConfirmDismantle(AuraSnapshotPacket.Entry current) {
