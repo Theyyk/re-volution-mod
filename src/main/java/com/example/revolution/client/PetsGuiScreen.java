@@ -12,6 +12,7 @@ import net.minecraft.client.gui.GuiScreen;
 
 /** Functional Pet screen with shared E-menu chrome; all actions remain server-authoritative. */
 public final class PetsGuiScreen extends GuiScreen {
+    private final GuiBackgroundBlur backgroundBlur = new GuiBackgroundBlur();
     private static final int BUY_NORMAL_SLOT = 500, BUY_PREMIUM_SLOT = 501, COLLECT = 502;
     private static final int PREV_PAGE = 503, NEXT_PAGE = 504, AWAKEN_BUTTON = 505, CLOSE_DIALOG = 506, LEVEL_BUTTON = 507;
     private static final int TILE_H = 57, GAP = 7;
@@ -58,6 +59,16 @@ public final class PetsGuiScreen extends GuiScreen {
         close.visible = false;
         buttonList.add(close);
         NetworkHandler.INSTANCE.sendToServer(new PetActionPacket("sync"));
+        backgroundBlur.enable(mc);
+    }
+
+
+    @Override public void onGuiClosed() {
+        try {
+            backgroundBlur.disable(mc);
+        } finally {
+            super.onGuiClosed();
+        }
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {

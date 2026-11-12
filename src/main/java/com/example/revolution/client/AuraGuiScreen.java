@@ -1,6 +1,9 @@
 package com.example.revolution.client;
 
 import com.example.revolution.client.network.AuraClientState;
+import com.example.revolution.client.mechanic.ClientMechanicUnlocks;
+import com.example.revolution.client.ui.AuraSlotState;
+import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.network.AuraActionPacket;
 import com.example.revolution.network.AuraSnapshotPacket;
 import com.example.revolution.network.NetworkHandler;
@@ -40,6 +43,23 @@ public final class AuraGuiScreen extends GuiScreen {
         buttonList.add(new GuiButton(22, left + 188, top + 184, 58, 20, "Refresh"));
         buttonList.add(new GuiButton(23, left + 250, top + 184, 60, 20, "Close"));
         rebuildVisible();
+        // The existing server gate is authoritative; no actions are exposed while locked.
+        boolean available = auraAvailable();
+        for (GuiButton button : buttonList) if (button.id != 23) button.enabled = available;
+    }
+
+    private boolean auraAvailable() {
+        return ClientMechanicUnlocks.isUnlocked(BalanceMechanicUnlockPolicy.AURA_SYSTEM)
+                && AuraClientState.featureEnabled();
+    }
+
+    private AuraSnapshotPacket.Entry activeAura() {
+        for (AuraSnapshotPacket.Entry entry : AuraClientState.entries()) if (entry.active) return entry;
+        return null;
+    }
+
+    private AuraSlotState slotState() {
+        return AuraSlotState.resolve(auraAvailable(), activeAura() != null);
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
@@ -122,6 +142,19 @@ public final class AuraGuiScreen extends GuiScreen {
     @Override protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         super.mouseClicked(mouseX, mouseY, mouseButton);
         int left = width / 2 - 155, top = height / 2 - 105;
+        // Slot click selects the server-backed active Aura locally; it never emits a mutation.
+        if (mouseButton == 0 && mouseX >= left && mouseX < left + 310
+                && mouseY >= top - 25 && mouseY < top - 4 && slotState() == AuraSlotState.ACTIVE) {
+            AuraSnapshotPacket.Entry active = activeAura();
+            if (active != null) for (int i = 0; i < visible.size(); i++) {
+                if (active.instanceId.equals(visible.get(i).instanceId)) {
+                    selectedIndex = i;
+                    clearPending();
+                    break;
+                }
+            }
+            return;
+        }
         if (mouseX < left || mouseX > left + 310 || mouseY < top + 78 || mouseY > top + 174) return;
         int row = (mouseY - (top + 78)) / 12;
         if (row >= 0 && row < Math.min(8, visible.size())) { selectedIndex = row; clearPending(); }
@@ -130,6 +163,16 @@ public final class AuraGuiScreen extends GuiScreen {
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
         int left = width / 2 - 155, top = height / 2 - 105;
+        AuraSlotState state = slotState();
+        AuraSnapshotPacket.Entry active = activeAura();
+        boolean hover = mouseX >= left && mouseX < left + 310
+                && mouseY >= top - 25 && mouseY < top - 4;
+        GuiDrawing.drawSurface(left, top - 25, 310, 21, 0xD0252D36,
+                hover && state == AuraSlotState.ACTIVE ? GuiTheme.SLOT_HOVER_COLOR : GuiTheme.PANEL_BORDER_COLOR);
+        String slotLabel = state == AuraSlotState.LOCKED ? "Аура: недоступна"
+                : state == AuraSlotState.EMPTY ? "Аура: пустой слот"
+                : "Аура: " + active.rarity + " [АКТИВНА]";
+        drawString(fontRenderer, slotLabel, left + 7, top - 18, GuiTheme.TEXT_COLOR);
         drawCenteredString(fontRenderer, "Aura System", width / 2, top + 5, 0xFFFFFF);
         drawString(fontRenderer, "Keys: " + AuraClientState.auraKeys() + "   Crystals: " + AuraClientState.crystals()
                 + "   Missing key price: " + AuraClientState.keyCrystalPrice(), left, top + 16, 0xDDDDDD);
