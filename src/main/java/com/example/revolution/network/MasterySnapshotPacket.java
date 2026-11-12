@@ -50,6 +50,8 @@ public final class MasterySnapshotPacket implements IMessage {
     public String ranks = "";
     public boolean masteryResetAvailable;
     public boolean premiumPreserveAvailable;
+    public boolean premiumPreserveRunes;
+    public boolean premiumPreservePets;
     public int premiumCrystalCost;
     public long startedAt;
     private final List<BranchEntry> branches = new ArrayList<>();
@@ -69,6 +71,7 @@ public final class MasterySnapshotPacket implements IMessage {
         runId = read(buf); activeBranch = read(buf); progress = read(buf); level = buf.readInt();
         fragments = read(buf); masteryPending = read(buf); petPending = read(buf); ranks = read(buf);
         masteryResetAvailable = buf.readBoolean(); premiumPreserveAvailable = buf.readBoolean();
+        premiumPreserveRunes = buf.readBoolean(); premiumPreservePets = buf.readBoolean();
         premiumCrystalCost = buf.readInt(); startedAt = buf.readLong();
         branches.clear();
         int count = buf.readInt();
@@ -96,6 +99,7 @@ public final class MasterySnapshotPacket implements IMessage {
         write(buf, runId); write(buf, activeBranch); write(buf, progress); buf.writeInt(level);
         write(buf, fragments); write(buf, masteryPending); write(buf, petPending); write(buf, ranks);
         buf.writeBoolean(masteryResetAvailable); buf.writeBoolean(premiumPreserveAvailable);
+        buf.writeBoolean(premiumPreserveRunes); buf.writeBoolean(premiumPreservePets);
         buf.writeInt(premiumCrystalCost); buf.writeLong(startedAt);
         buf.writeInt(branches.size());
         for (BranchEntry entry : branches) {

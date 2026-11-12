@@ -46,10 +46,30 @@ public final class PrestigeResetService {
                 candidate, newBest, gain, upgraded);
     }
 
+    /** Ordinary run reset; the optional preserve choice is governed by Balance Core. */
     public ResetResult reset(UUID playerUuid, String expectedRunId) {
+        return reset(playerUuid, expectedRunId, false);
+    }
+
+    public MasteryTierPolicy.PremiumPreservePolicy premiumPreservePolicy(UUID playerUuid, String expectedRunId) {
+        PrestigeState state = repository.load(playerUuid);
+        PrestigeState.RunState run = requireRun(state, expectedRunId);
+        return currentTier(state.branch(run.activeBranch)).premiumPreserve;
+    }
+
+    public ResetResult reset(UUID playerUuid, String expectedRunId, boolean premiumPreserve) {
         PrestigeState current = repository.load(playerUuid);
         ResetResult guard = ordinaryGuard(current, expectedRunId);
         if (guard != null) return guard;
+        PrestigeRepository.ResetCommitPolicy commitPolicy = PrestigeRepository.ResetCommitPolicy.normal();
+        if (premiumPreserve) {
+            MasteryTierPolicy.PremiumPreservePolicy premium;
+            try { premium = currentTier(current.branch(current.activeRun.activeBranch)).premiumPreserve; }
+            catch (RuntimeException invalid) { return ResetResult.POLICY_UNAVAILABLE; }
+            if (!premium.enabled) return ResetResult.OPTION_UNAVAILABLE;
+            commitPolicy = new PrestigeRepository.ResetCommitPolicy(
+                    premium.crystalCost, premium.preserveRunes, premium.preservePets);
+        }
 
         PrestigeState next = current.copy();
         PrestigeState.RunState run = next.activeRun;
@@ -58,9 +78,11 @@ public final class PrestigeResetService {
         next.lastResetRunId = run.runId;
         next.activeRun = null;
 
-        PrestigeRepository.ResetCommitResult committed = repository.commitReset(playerUuid, expectedRunId, next);
+        PrestigeRepository.ResetCommitResult committed = repository.commitReset(playerUuid, expectedRunId, next, commitPolicy);
         if (committed == PrestigeRepository.ResetCommitResult.APPLIED) return ResetResult.APPLIED;
         if (committed == PrestigeRepository.ResetCommitResult.DUPLICATE) return ResetResult.DUPLICATE;
+        if (committed == PrestigeRepository.ResetCommitResult.INSUFFICIENT_CRYSTALS) return ResetResult.INSUFFICIENT_CRYSTALS;
+        if (committed == PrestigeRepository.ResetCommitResult.POLICY_UNAVAILABLE) return ResetResult.POLICY_UNAVAILABLE;
         return ResetResult.STALE;
     }
 
@@ -215,7 +237,7 @@ public final class PrestigeResetService {
         return value == null || value.signum() < 0 ? BigDecimal.ONE : value;
     }
 
-    public enum ResetResult { APPLIED, DUPLICATE, STALE }
+    public enum ResetResult { APPLIED, DUPLICATE, STALE, OPTION_UNAVAILABLE, POLICY_UNAVAILABLE, INSUFFICIENT_CRYSTALS }
     public enum MasteryResetResult { APPLIED, DUPLICATE, STALE, NOT_ELIGIBLE, POLICY_UNAVAILABLE, OPTION_UNAVAILABLE, INSUFFICIENT_CRYSTALS }
 
     public static final class ResetPreview {
