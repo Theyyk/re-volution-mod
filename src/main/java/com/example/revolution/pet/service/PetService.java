@@ -130,7 +130,16 @@ public final class PetService {
                 || ctx.run.selectedPets.size() != required) return Result.BOARD_NOT_FULL;
         PetPlayerState.SelectedPet target = selected(ctx.run, petId); if (target == null) return Result.NOT_ELIGIBLE;
         PetPlayerState.PetProgress targetProgress = ctx.state.pets.get(petId); if (targetProgress == null || targetProgress.rank.isGameplayMaximum()) return Result.NOT_ELIGIBLE;
-        PetRank sourceRank = targetProgress.rank; targetProgress.rank = sourceRank.nextGameplayRank(); target.order = nextOrder(ctx.run);
+        PetRank sourceRank = targetProgress.rank;
+        // Every occupied cell must be at least the target's current rank.
+        // ORDINARY -> IMPROVED: all ORDINARY+; IMPROVED -> ADVANCED: all IMPROVED+;
+        // ADVANCED -> MYTHIC: all ADVANCED+. Higher-rank pets remain eligible.
+        for (PetPlayerState.SelectedPet selected : ctx.run.selectedPets) {
+            PetPlayerState.PetProgress progress = ctx.state.pets.get(selected.petId);
+            if (progress == null || progress.rank.progressionOrder() < sourceRank.progressionOrder())
+                return Result.NOT_ELIGIBLE;
+        }
+        targetProgress.rank = sourceRank.nextGameplayRank(); target.order = nextOrder(ctx.run);
         long now = System.currentTimeMillis(); long cooldownMillis = balance.cooldownMillis(); List<PetPlayerState.SelectedPet> preserved = new ArrayList<>();
         for (PetPlayerState.SelectedPet selected : ctx.run.selectedPets) {
             PetPlayerState.PetProgress selectedProgress = ctx.state.pets.get(selected.petId);
