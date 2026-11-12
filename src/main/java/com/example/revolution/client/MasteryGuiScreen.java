@@ -15,6 +15,7 @@ public final class MasteryGuiScreen extends GuiScreen {
     private String selectedBranch = "";
     private String armedPreview = "";
     private String armedRunId = "";
+    private boolean premiumSelected;
 
     private int panelWidth() { return Math.min(520, Math.max(175, width - 20)); }
     private int panelLeft() { return (width - panelWidth()) / 2; }
@@ -51,30 +52,29 @@ public final class MasteryGuiScreen extends GuiScreen {
             collect.enabled = unlocked && !MasteryClientState.pending() && !"0".equals(state.masteryPending);
             buttonList.add(collect);
             GuiButton reset = new GuiButton(12, x + 12 + actionWidth, footerY, actionWidth, 20,
-                    "reset".equals(armedPreview) ? "Подтвердить" : "Сброс забега");
+                    (premiumSelected ? "reset_premium" : "reset").equals(armedPreview) ? "Подтвердить" : "Сброс забега");
             reset.enabled = unlocked && !MasteryClientState.pending();
             buttonList.add(reset);
             GuiButton mastery = new GuiButton(13, x + 15 + actionWidth * 2, footerY, actionWidth, 20,
-                    "mastery".equals(armedPreview) ? "Подтвердить" : "Mastery Reset");
+                    (premiumSelected ? "premium" : "mastery").equals(armedPreview) ? "Подтвердить" : "Mastery Reset");
             mastery.enabled = unlocked && state.masteryResetAvailable && !MasteryClientState.pending();
             buttonList.add(mastery);
-            if (state.masteryResetAvailable && state.premiumPreserveAvailable) {
-                GuiButton premium = new GuiButton(14, x + 9, footerY - 26, Math.min(w - 18, 180), 20,
-                        "premium".equals(armedPreview) ? "Premium: подтвердить" : "Premium Preserve");
-                premium.enabled = unlocked && !MasteryClientState.pending();
-                buttonList.add(premium);
-            }
+            int premiumWidth = Math.min(180, Math.max(65, w - 120));
+            GuiButton premium = new GuiButton(14, x + 9, footerY - 26, premiumWidth, 20,
+                    state.premiumPreserveAvailable
+                            ? (premiumSelected ? "Сохранение: ВКЛ" : "Сохранение: ВЫКЛ")
+                            : "Премиум недоступен");
+            premium.enabled = unlocked && state.premiumPreserveAvailable && !MasteryClientState.pending();
+            buttonList.add(premium);
         }
         buttonList.add(new GuiButton(20, x + w - half - 12, active ? footerY - 26 : footerY, half, 20, "Обновить"));
-        // The refresh button is intentionally hidden when it would overlap Premium.
+        // Premium selector and Refresh share the same row without overlapping.
         GuiButton refresh = buttonList.get(buttonList.size() - 1);
         if (active) {
-            refresh.x = x + w - Math.min(100, half) - 9;
-            refresh.width = Math.min(100, half);
+            int premiumWidth = Math.min(180, Math.max(65, w - 120));
+            refresh.width = Math.min(100, Math.max(60, w - premiumWidth - 27));
+            refresh.x = x + w - refresh.width - 9;
             refresh.enabled = !MasteryClientState.pending();
-            if (state.masteryResetAvailable && state.premiumPreserveAvailable) {
-                refresh.y = footerY - 54;
-            }
         }
     }
 
@@ -98,10 +98,14 @@ public final class MasteryGuiScreen extends GuiScreen {
         }
         if (state.runId.isEmpty()) return;
         if (button.id == 11) { armedPreview = ""; request("collect", "", state.runId); }
-        else if (button.id == 12) previewOrConfirm("reset", state.runId);
-        else if (button.id == 13 && state.masteryResetAvailable) previewOrConfirm("mastery", state.runId);
-        else if (button.id == 14 && state.masteryResetAvailable && state.premiumPreserveAvailable)
-            previewOrConfirm("premium", state.runId);
+        else if (button.id == 12) previewOrConfirm(premiumSelected ? "reset_premium" : "reset", state.runId);
+        else if (button.id == 13 && state.masteryResetAvailable)
+            previewOrConfirm(premiumSelected ? "premium" : "mastery", state.runId);
+        else if (button.id == 14 && state.premiumPreserveAvailable) {
+            premiumSelected = !premiumSelected;
+            armedPreview = ""; armedRunId = "";
+            refreshButtons();
+        }
     }
     private void previewOrConfirm(String kind, String runId) {
         MasterySnapshotPacket state = MasteryClientState.snapshot();
@@ -169,9 +173,15 @@ public final class MasteryGuiScreen extends GuiScreen {
             }
             // Keep server feedback below the final permanent-rank row.
             int foot = bottom - 78;
-            // Premium Preserve moves Refresh onto the feedback row; reserve its width.
-            int footerTextWidth = !state.runId.isEmpty() && state.masteryResetAvailable
-                    && state.premiumPreserveAvailable ? Math.max(10, w - 125) : w - 18;
+            // The choice is shared by ordinary Reset and Mastery Reset.
+            int footerTextWidth = w - 18;
+            if (!state.runId.isEmpty() && state.premiumPreserveAvailable) {
+                line(premiumSelected
+                        ? "Сохранение: " + state.premiumCrystalCost + " крист. | руны: "
+                            + state.premiumPreserveRunes + " | питомцы: " + state.premiumPreservePets
+                        : "Сохранение: выключено (обычный сброс)",
+                        x + 9, y + 206, w - 18, 0xFFE9CA8D);
+            }
             if (!state.previewDetails.isEmpty() && state.previewKind.equals(armedPreview)) {
                 line("ПРЕДПРОСМОТР: " + state.previewDetails, x + 9, foot, footerTextWidth, 0xFFFFCC77);
                 line("Повторное нажатие применит сброс; это затронет прогресс.", x + 9, foot + 12,
@@ -197,6 +207,9 @@ public final class MasteryGuiScreen extends GuiScreen {
         if ("STALE_RUN".equals(value)) return "Состояние забега устарело";
         if ("REPLAY_REJECTED".equals(value)) return "Повторный запрос отклонён";
         if ("RESET_APPLIED".equals(value)) return "Забег завершён";
+        if ("RESET_PREMIUM_APPLIED".equals(value)) return "Премиальный сброс выполнен";
+        if ("RESET_PREMIUM_INSUFFICIENT_CRYSTALS".equals(value)) return "Недостаточно кристаллов";
+        if ("RESET_PREMIUM_OPTION_UNAVAILABLE".equals(value)) return "Премиальное сохранение недоступно";
         if ("MASTERY_APPLIED".equals(value) || "PREMIUM_APPLIED".equals(value)) return "Mastery Reset применён";
         if (value.startsWith("COLLECTED:")) return "Собрано фрагментов: " + value.substring(10);
         return value;
