@@ -14,6 +14,7 @@ import org.lwjgl.input.Mouse;
 
 /** Achievement categories, server rewards and meta levels in common E-menu chrome. */
 public final class AchievementsGuiScreen extends GuiScreen {
+    private final GuiBackgroundBlur backgroundBlur = new GuiBackgroundBlur();
     private static final int CATEGORY_BASE = 600;
     private static final String[] CATEGORIES =
             {"ALL", "DAMAGE", "RESOURCES", "MASTERY", "PETS", "RUNES", "KILLS", "LOCATIONS", "AURAS", "HIDDEN"};
@@ -74,6 +75,16 @@ public final class AchievementsGuiScreen extends GuiScreen {
             x += w + 4;
         }
         NetworkHandler.INSTANCE.sendToServer(new AchievementActionPacket("sync", "", 0, 0L));
+        backgroundBlur.enable(mc);
+    }
+
+
+    @Override public void onGuiClosed() {
+        try {
+            backgroundBlur.disable(mc);
+        } finally {
+            super.onGuiClosed();
+        }
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
