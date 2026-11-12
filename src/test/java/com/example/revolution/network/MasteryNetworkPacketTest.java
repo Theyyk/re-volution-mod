@@ -40,6 +40,8 @@ public final class MasteryNetworkPacketTest {
         original.startedAt = 1234L;
         original.masteryResetAvailable = true;
         original.premiumPreserveAvailable = true;
+        original.premiumPreserveRunes = true;
+        original.premiumPreservePets = false;
         original.premiumCrystalCost = 12;
         original.addBranch(new MasterySnapshotPacket.BranchEntry("POISON", "POISON_DAMAGE", "999", 2, 15, 3));
         original.addPermanentRank(new MasterySnapshotPacket.RankEntry("POISON", "POISON_I", "100", 2, 15));
@@ -63,6 +65,8 @@ public final class MasteryNetworkPacketTest {
             assertEquals(1234L, copy.startedAt);
             assertTrue(copy.masteryResetAvailable);
             assertTrue(copy.premiumPreserveAvailable);
+            assertTrue(copy.premiumPreserveRunes);
+            assertFalse(copy.premiumPreservePets);
             assertEquals(12, copy.premiumCrystalCost);
             assertEquals(1, copy.getBranches().size());
             assertEquals("POISON", copy.getBranches().get(0).id);
