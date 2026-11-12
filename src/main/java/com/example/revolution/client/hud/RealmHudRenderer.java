@@ -1,6 +1,8 @@
 package com.example.revolution.client.hud;
 
 import com.example.revolution.client.input.KeyInputHandler;
+import com.example.revolution.client.mechanic.ClientMechanicUnlocks;
+import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.client.settings.SettingsKeyHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -19,7 +21,7 @@ public final class RealmHudRenderer {
     private static final int LINE_GAP = 2;
     private static final int HINT_COLOR = 0xAFAFAF;
     private static final int REALM_COLOR = 0xE6E6E6;
-    private static final int LINE_COUNT = 6;
+    private static final int BASE_LINE_COUNT = 5;
 
     @SubscribeEvent
     public void onRenderText(RenderGameOverlayEvent.Text event) {
@@ -46,13 +48,21 @@ public final class RealmHudRenderer {
         // Use the live remappable key label; do not render a separate lower-left overlay.
         y -= lineStep;
         drawHint(font, keyName(KeyInputHandler.keyOpenMastery), "Мастерство", right, y);
-        y -= lineStep;
-        drawHint(font, keyName(KeyInputHandler.keyOpenAura), "Ауры", right, y);
+        if (auraHintVisible()) {
+            y -= lineStep;
+            drawHint(font, keyName(KeyInputHandler.keyOpenAura), "Ауры", right, y);
+        }
+    }
+
+    /** Match the same server-snapshot mechanic gate used by the actual Aura key handler. */
+    static boolean auraHintVisible() {
+        return ClientMechanicUnlocks.isUnlocked(BalanceMechanicUnlockPolicy.AURA_SYSTEM);
     }
 
     static int reservedBottomPixels(FontRenderer font) {
-        if (font == null) return 58;
-        return MARGIN + LINE_COUNT * font.FONT_HEIGHT + (LINE_COUNT - 1) * LINE_GAP + 8;
+        if (font == null) return auraHintVisible() ? 69 : 58;
+        int lines = BASE_LINE_COUNT + (auraHintVisible() ? 1 : 0);
+        return MARGIN + lines * font.FONT_HEIGHT + (lines - 1) * LINE_GAP + 8;
     }
 
     private static void drawHint(FontRenderer font, String key, String action, int right, int y) {
