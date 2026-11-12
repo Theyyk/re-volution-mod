@@ -37,6 +37,27 @@ public class PetContextSlotLayoutTest {
         }
     }
 
+    @Test void visualOrderGroupsUnlockedThenLockedSlotsWithoutChangingPhysicalIds() {
+        int[] expected = {0, 1, 8, 2, 3, 4, 5, 6, 7, 9};
+        for (int i = 0; i < expected.length; i++) {
+            assertEquals(expected[i], PetContextSlotLayout.physicalAt(i, 2, 1));
+            assertEquals(i, PetContextSlotLayout.displayAt(expected[i], 2, 1));
+        }
+        for (int normals = 0; normals <= 8; normals++)
+            for (int premiums = 0; premiums <= 2; premiums++) {
+                boolean[] seen = new boolean[10];
+                for (int display = 0; display < 10; display++) {
+                    int physical = PetContextSlotLayout.physicalAt(display, normals, premiums);
+                    assertTrue(physical >= 0 && physical < 10);
+                    assertFalse(seen[physical]);
+                    seen[physical] = true;
+                    assertEquals(display, PetContextSlotLayout.displayAt(physical, normals, premiums));
+                    assertEquals(display < normals + premiums,
+                            PetContextSlotLayout.unlocked(physical, normals, premiums));
+                }
+            }
+    }
+
     @Test void unlocksFollowExistingEightNormalPlusTwoPremiumLimits() {
         for (int i = 0; i < 10; i++) {
             assertFalse(PetContextSlotLayout.unlocked(i, 0, 0));
