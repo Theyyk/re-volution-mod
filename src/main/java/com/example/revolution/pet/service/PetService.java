@@ -124,8 +124,10 @@ public final class PetService {
 
     public synchronized Result awaken(UUID playerUuid, String petId) {
         RunContext ctx = run(playerUuid, true); if (ctx == null) return Result.NO_ACTIVE_RUN;
-        int accessible = ctx.run.normalSlotsUnlockedThisRun + ctx.state.premiumPetSlotsUnlocked;
-        if (accessible <= 0 || ctx.run.selectedPets.size() != accessible) return Result.BOARD_NOT_FULL;
+        // Awakening requires all eight normal slots and every unlocked premium slot to be occupied.
+        int required = NORMAL_SLOT_COUNT + ctx.state.premiumPetSlotsUnlocked;
+        if (ctx.run.normalSlotsUnlockedThisRun < NORMAL_SLOT_COUNT
+                || ctx.run.selectedPets.size() != required) return Result.BOARD_NOT_FULL;
         PetPlayerState.SelectedPet target = selected(ctx.run, petId); if (target == null) return Result.NOT_ELIGIBLE;
         PetPlayerState.PetProgress targetProgress = ctx.state.pets.get(petId); if (targetProgress == null || targetProgress.rank.isGameplayMaximum()) return Result.NOT_ELIGIBLE;
         PetRank sourceRank = targetProgress.rank; targetProgress.rank = sourceRank.nextGameplayRank(); target.order = nextOrder(ctx.run);
