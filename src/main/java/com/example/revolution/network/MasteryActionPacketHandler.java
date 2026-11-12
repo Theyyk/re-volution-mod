@@ -6,6 +6,7 @@ import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.mechanic.MechanicUnlockService;
 import com.example.revolution.prestige.MasteryResetMode;
 import com.example.revolution.prestige.PrestigeBranch;
+import com.example.revolution.prestige.PrestigeBranchRegistry;
 import com.example.revolution.prestige.PrestigeResetService;
 import com.example.revolution.prestige.PrestigeState;
 import java.math.BigDecimal;
@@ -161,6 +162,12 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
             packet.addBranch(new MasterySnapshotPacket.BranchEntry(branch.name(),
                     services.prestige.progressSource(branch), exact(permanent.bestSavedProgress),
                     permanent.masteryTier, permanent.rankMetaLevelCap, gain));
+            for (PrestigeBranchRegistry.RankDefinition rank : services.prestige.rankDefinitions(branch)) {
+                int cap = Math.max(0, permanent.rankMetaLevelCap);
+                int level = Math.max(0, Math.min(cap, permanent.rankMetaLevels.getOrDefault(rank.rankId, 0)));
+                packet.addPermanentRank(new MasterySnapshotPacket.RankEntry(branch.name(), rank.rankId,
+                        exact(rank.unlockProgress), level, cap));
+            }
         }
         PrestigeState.RunState run = state.activeRun;
         if (run != null) {
