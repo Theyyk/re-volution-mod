@@ -79,7 +79,7 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
      * stores and legacy deck remnants in one atomic prestige commit.
      */
     @SuppressWarnings("unchecked")
-    static void appendRuneOwnershipWipe(Document player, Document set) {
+    public static void appendRuneOwnershipWipe(Document player, Document set) {
         List<Document> stored = (List<Document>) player.get("decks");
         if (stored != null) {
             List<Document> cleared = new ArrayList<>();
