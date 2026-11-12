@@ -116,6 +116,45 @@ public class PetSystemTest {
         }
     }
 
+    @Test public void improvedAwakeningRequiresEveryOccupiedPetToBeImprovedOrHigher() {
+        Fixture f = funded();
+        for (int i = 0; i < PetService.NORMAL_SLOT_COUNT; i++)
+            assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
+        assertEquals(PetService.Result.APPLIED, f.pets.purchasePremiumSlot(f.id));
+        for (int i = 1; i <= 9; i++) buyAndSelect(f, String.format("pet_%02d", i));
+        PetPlayerState state = f.petRepo.load(f.id);
+        state.pet("pet_01").rank = PetRank.IMPROVED;
+        f.petRepo.save(f.id, state);
+        assertEquals(PetService.Result.NOT_ELIGIBLE, f.pets.awaken(f.id, "pet_01"));
+        assertEquals(PetRank.IMPROVED, f.pets.snapshot(f.id).pets.get("pet_01").rank);
+        state = f.petRepo.load(f.id);
+        for (int i = 2; i <= 8; i++)
+            state.pet(String.format("pet_%02d", i)).rank = PetRank.IMPROVED;
+        state.pet("pet_09").rank = PetRank.ADVANCED;
+        f.petRepo.save(f.id, state);
+        assertEquals(PetService.Result.APPLIED, f.pets.awaken(f.id, "pet_01"));
+        assertEquals(PetRank.ADVANCED, f.pets.snapshot(f.id).pets.get("pet_01").rank);
+    }
+
+    @Test public void advancedAwakeningRequiresEveryOccupiedPetToBeAdvancedOrHigher() {
+        Fixture f = funded();
+        for (int i = 0; i < PetService.NORMAL_SLOT_COUNT; i++)
+            assertEquals(PetService.Result.APPLIED, f.pets.purchaseNormalSlot(f.id));
+        for (int i = 1; i <= 8; i++) buyAndSelect(f, String.format("pet_%02d", i));
+        PetPlayerState state = f.petRepo.load(f.id);
+        for (int i = 1; i <= 8; i++)
+            state.pet(String.format("pet_%02d", i)).rank = PetRank.ADVANCED;
+        state.pet("pet_08").rank = PetRank.IMPROVED;
+        f.petRepo.save(f.id, state);
+        assertEquals(PetService.Result.NOT_ELIGIBLE, f.pets.awaken(f.id, "pet_01"));
+        assertEquals(PetRank.ADVANCED, f.pets.snapshot(f.id).pets.get("pet_01").rank);
+        state = f.petRepo.load(f.id);
+        state.pet("pet_08").rank = PetRank.ADVANCED;
+        f.petRepo.save(f.id, state);
+        assertEquals(PetService.Result.APPLIED, f.pets.awaken(f.id, "pet_01"));
+        assertEquals(PetRank.MYTHIC, f.pets.snapshot(f.id).pets.get("pet_01").rank);
+    }
+
     @Test public void expiredCooldownUsesRealTimeAndAllowsSelectionAgain() {
         Fixture f = funded(); f.pets.purchaseNormalSlot(f.id); f.pets.purchasePet(f.id, "pet_01"); PetPlayerState state = f.pets.snapshot(f.id);
         state.run.cooldownUntil.put("pet_01", System.currentTimeMillis() - 1L); f.petRepo.save(f.id, state); assertEquals(PetService.Result.APPLIED, f.pets.selectPet(f.id, "pet_01"));
