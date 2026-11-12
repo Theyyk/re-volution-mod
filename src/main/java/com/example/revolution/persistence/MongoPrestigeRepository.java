@@ -83,8 +83,8 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         List<Document> stored = (List<Document>) player.get("decks");
         if (stored != null) {
             List<Document> cleared = new ArrayList<>();
-            for (Document deck : stored) {
-                Document next = new Document(deck);
+            for (Document storedCollection : stored) {
+                Document next = new Document(storedCollection);
                 if (next.containsKey("cards")) next.put("cards", new ArrayList<Document>());
                 if (next.containsKey("runeEnhancements"))
                     next.put("runeEnhancements", new Document());
