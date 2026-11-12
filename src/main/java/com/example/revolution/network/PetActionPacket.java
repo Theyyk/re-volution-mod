@@ -9,28 +9,36 @@ public final class PetActionPacket implements IMessage {
     private String action = "";
     private String petId = "";
     private String expectedRunId = "";
+    private int slotIndex = -1;
 
     public PetActionPacket() {}
     public PetActionPacket(String action) { this(action, "", ""); }
     public PetActionPacket(String action, String petId) { this(action, petId, ""); }
     public PetActionPacket(String action, String petId, String expectedRunId) {
+        this(action, petId, expectedRunId, -1);
+    }
+    public PetActionPacket(String action, String petId, String expectedRunId, int slotIndex) {
         this.action = action == null ? "" : action;
         this.petId = petId == null ? "" : petId;
         this.expectedRunId = expectedRunId == null ? "" : expectedRunId;
+        this.slotIndex = slotIndex;
     }
 
     public String getAction() { return action; }
     public String getPetId() { return petId; }
     public String getExpectedRunId() { return expectedRunId; }
+    public int getSlotIndex() { return slotIndex; }
 
     @Override public void fromBytes(ByteBuf buf) {
         action = ByteBufUtils.readUTF8String(buf);
         petId = ByteBufUtils.readUTF8String(buf);
         expectedRunId = ByteBufUtils.readUTF8String(buf);
+        slotIndex = buf.readInt();
     }
     @Override public void toBytes(ByteBuf buf) {
         ByteBufUtils.writeUTF8String(buf, action);
         ByteBufUtils.writeUTF8String(buf, petId);
         ByteBufUtils.writeUTF8String(buf, expectedRunId);
+        buf.writeInt(slotIndex);
     }
 }

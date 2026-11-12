@@ -155,6 +155,38 @@ public class PetSystemTest {
         assertEquals(PetRank.MYTHIC, f.pets.snapshot(f.id).pets.get("pet_01").rank);
     }
 
+    @Test public void explicitSelectionTargetsRequestedSlotAndRejectsOccupiedLockedAndStale() {
+        Fixture f = funded();
+        for (int i = 0; i < 3; i++) f.pets.purchaseNormalSlot(f.id);
+        f.pets.purchasePremiumSlot(f.id);
+        f.pets.purchasePet(f.id, "pet_01"); f.pets.purchasePet(f.id, "pet_02");
+        String runId = f.prestige.activeRun(f.id).runId;
+        assertEquals(PetService.Result.SLOT_LIMIT, f.pets.selectPetAtSlot(f.id, "pet_01", 3, runId));
+        assertEquals(PetService.Result.SLOT_LIMIT, f.pets.selectPetAtSlot(f.id, "pet_01", 9, runId));
+        assertEquals(PetService.Result.STALE_RUN, f.pets.selectPetAtSlot(f.id, "pet_01", 1, "stale"));
+        assertEquals(PetService.Result.APPLIED, f.pets.selectPetAtSlot(f.id, "pet_01", 2, runId));
+        assertEquals(Integer.valueOf(2), PetService.assignedSlots(f.pets.snapshot(f.id).run).get("pet_01"));
+        assertEquals(PetService.Result.NO_FREE_SLOT, f.pets.selectPetAtSlot(f.id, "pet_02", 2, runId));
+        assertEquals(PetService.Result.APPLIED, f.pets.selectPetAtSlot(f.id, "pet_02", 8, runId));
+        assertEquals(PetService.Result.APPLIED, f.pets.selectPetAtSlot(f.id, "pet_01", 0, runId));
+        PetPlayerState state = f.pets.snapshot(f.id);
+        assertEquals(Integer.valueOf(0), PetService.assignedSlots(state.run).get("pet_01"));
+        assertEquals(Integer.valueOf(8), PetService.assignedSlots(state.run).get("pet_02"));
+        assertEquals(PetService.Result.SELECTED, f.pets.selectPetAtSlot(f.id, "pet_01", 0, runId));
+    }
+
+    @Test public void legacySelectionWithoutPhysicalSlotKeepsDeterministicFallback() {
+        Fixture f = funded(); f.pets.purchaseNormalSlot(f.id); f.pets.purchasePremiumSlot(f.id);
+        buyAndSelect(f, "pet_01"); buyAndSelect(f, "pet_02");
+        PetPlayerState state = f.petRepo.load(f.id);
+        for (PetPlayerState.SelectedPet selection : state.run.selectedPets) selection.slotIndex = -1;
+        f.petRepo.save(f.id, state);
+        Map<String, Integer> assigned = PetService.assignedSlots(f.pets.snapshot(f.id).run);
+        assertEquals(Integer.valueOf(0), assigned.get("pet_01"));
+        assertEquals(Integer.valueOf(8), assigned.get("pet_02"));
+        assertEquals(PetService.Result.NO_FREE_SLOT, f.pets.selectPetAtSlot(f.id, "pet_02", 0, f.prestige.activeRun(f.id).runId));
+    }
+
     @Test public void expiredCooldownUsesRealTimeAndAllowsSelectionAgain() {
         Fixture f = funded(); f.pets.purchaseNormalSlot(f.id); f.pets.purchasePet(f.id, "pet_01"); PetPlayerState state = f.pets.snapshot(f.id);
         state.run.cooldownUntil.put("pet_01", System.currentTimeMillis() - 1L); f.petRepo.save(f.id, state); assertEquals(PetService.Result.APPLIED, f.pets.selectPet(f.id, "pet_01"));
