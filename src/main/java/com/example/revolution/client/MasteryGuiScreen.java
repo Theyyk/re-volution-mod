@@ -152,6 +152,21 @@ public final class MasteryGuiScreen extends GuiScreen {
                 line("Ранги: " + (state.ranks.isEmpty() ? "нет" : state.ranks), infoX, row + 75, infoW, 0xFFB8C6D1);
                 line("Run ID: " + state.runId, infoX, row + 90, infoW, 0xFF82929F);
             }
+            // Canonical server-authored permanent ranks for the selected or active direction.
+            String rankBranch = state.runId.isEmpty() ? selectedBranch : state.activeBranch;
+            int rankY = y + 164;
+            if (!rankBranch.isEmpty()) {
+                line("Постоянные ранги: " + branchName(rankBranch), x + 10, rankY, w - 20, 0xFFE9CA8D);
+                int rowIndex = 0;
+                for (MasterySnapshotPacket.RankEntry rank : state.getPermanentRanks()) {
+                    if (!rankBranch.equals(rank.branch)) continue;
+                    String reached = !state.runId.isEmpty() && state.ranks.contains(rank.id) ? " ✓" : "";
+                    line(rank.id + " | " + rank.metaLevel + "/" + rank.metaCap
+                            + " | порог " + rank.threshold + reached,
+                            x + 10, rankY + 15 + rowIndex * 13, w - 20, 0xFFD8E1E9);
+                    rowIndex++;
+                }
+            }
             int foot = bottom - 88;
             if (!state.previewDetails.isEmpty() && state.previewKind.equals(armedPreview)) {
                 line("ПРЕДПРОСМОТР: " + state.previewDetails, x + 9, foot, w - 18, 0xFFFFCC77);

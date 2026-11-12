@@ -22,6 +22,18 @@ public final class MasterySnapshotPacket implements IMessage {
             this.tier = tier; this.metaCap = metaCap; this.metaGain = metaGain;
         }
     }
+    public static final class RankEntry {
+        public String branch = "";
+        public String id = "";
+        public String threshold = "0";
+        public int metaLevel;
+        public int metaCap;
+        public RankEntry() {}
+        public RankEntry(String branch, String id, String threshold, int metaLevel, int metaCap) {
+            this.branch = branch; this.id = id; this.threshold = threshold;
+            this.metaLevel = metaLevel; this.metaCap = metaCap;
+        }
+    }
     public long requestId;
     public boolean artsUnlocked;
     public String unlockRequirement = "";
@@ -41,10 +53,14 @@ public final class MasterySnapshotPacket implements IMessage {
     public int premiumCrystalCost;
     public long startedAt;
     private final List<BranchEntry> branches = new ArrayList<>();
+    private final List<RankEntry> permanentRanks = new ArrayList<>();
 
     public MasterySnapshotPacket() {}
     public List<BranchEntry> getBranches() { return Collections.unmodifiableList(branches); }
     public void addBranch(BranchEntry branch) { if (branches.size() < 16) branches.add(branch); }
+
+    public List<RankEntry> getPermanentRanks() { return Collections.unmodifiableList(permanentRanks); }
+    public void addPermanentRank(RankEntry rank) { if (permanentRanks.size() < 48) permanentRanks.add(rank); }
 
     @Override public void fromBytes(ByteBuf buf) {
         requestId = buf.readLong(); artsUnlocked = buf.readBoolean();
@@ -63,6 +79,15 @@ public final class MasterySnapshotPacket implements IMessage {
             entry.tier = buf.readInt(); entry.metaCap = buf.readInt(); entry.metaGain = buf.readInt();
             branches.add(entry);
         }
+        permanentRanks.clear();
+        int rankCount = buf.readInt();
+        if (rankCount < 0 || rankCount > 48) throw new IllegalArgumentException("Invalid Mastery rank count");
+        for (int i = 0; i < rankCount; i++) {
+            RankEntry rank = new RankEntry();
+            rank.branch = read(buf); rank.id = read(buf); rank.threshold = read(buf);
+            rank.metaLevel = buf.readInt(); rank.metaCap = buf.readInt();
+            permanentRanks.add(rank);
+        }
     }
     @Override public void toBytes(ByteBuf buf) {
         buf.writeLong(requestId); buf.writeBoolean(artsUnlocked);
@@ -76,6 +101,11 @@ public final class MasterySnapshotPacket implements IMessage {
         for (BranchEntry entry : branches) {
             write(buf, entry.id); write(buf, entry.source); write(buf, entry.best);
             buf.writeInt(entry.tier); buf.writeInt(entry.metaCap); buf.writeInt(entry.metaGain);
+        }
+        buf.writeInt(permanentRanks.size());
+        for (RankEntry rank : permanentRanks) {
+            write(buf, rank.branch); write(buf, rank.id); write(buf, rank.threshold);
+            buf.writeInt(rank.metaLevel); buf.writeInt(rank.metaCap);
         }
     }
     private static String read(ByteBuf buf) { return ByteBufUtils.readUTF8String(buf); }
