@@ -72,6 +72,21 @@ public class PetContextSlotLayoutTest {
         assertFalse(PetContextSlotLayout.unlocked(-1, 8, 2));
     }
 
+    @Test void selectedPetsOnlyAppearOnBoardAndNotInLowerCatalog() {
+        List<PetSnapshotPacket.Entry> entries = new ArrayList<>();
+        entries.add(pet("pet_01", true, 0));
+        entries.add(pet("pet_02", false, -1));
+        entries.add(pet("pet_03", true, 8));
+        entries.add(pet("pet_04", false, -1));
+        List<PetSnapshotPacket.Entry> available = PetContextSlotLayout.available(entries);
+        assertEquals(2, available.size());
+        assertEquals("pet_02", available.get(0).petId);
+        assertEquals("pet_04", available.get(1).petId);
+        assertEquals("pet_01", PetContextSlotLayout.assigned(entries, 0).petId);
+        assertEquals("pet_03", PetContextSlotLayout.assigned(entries, 8).petId);
+        assertTrue(PetContextSlotLayout.available(Collections.emptyList()).isEmpty());
+    }
+
     @Test void occupiedCellsReflectOnlyAuthoritativeServerAssignment() {
         List<PetSnapshotPacket.Entry> entries = new ArrayList<>();
         assertNull(PetContextSlotLayout.assigned(entries, 0));

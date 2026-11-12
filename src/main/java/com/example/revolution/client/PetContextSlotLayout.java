@@ -2,6 +2,7 @@ package com.example.revolution.client;
 
 import com.example.revolution.network.PetSnapshotPacket;
 import java.util.List;
+import java.util.ArrayList;
 
 /** Shared rendering/input geometry for the server-backed 8 normal + 2 premium Pet board. */
 final class PetContextSlotLayout {
@@ -58,6 +59,14 @@ final class PetContextSlotLayout {
     static boolean unlocked(int index, int normalSlots, int premiumSlots) {
         if (index < 0 || index >= COUNT) return false;
         return index < NORMAL_COUNT ? index < normalSlots : index - NORMAL_COUNT < premiumSlots;
+    }
+
+    /** The lower catalog offers unassigned pets only; top slots own selected pets. */
+    static List<PetSnapshotPacket.Entry> available(List<PetSnapshotPacket.Entry> entries) {
+        List<PetSnapshotPacket.Entry> result = new ArrayList<>();
+        if (entries != null) for (PetSnapshotPacket.Entry entry : entries)
+            if (entry != null && !entry.selected) result.add(entry);
+        return result;
     }
 
     static PetSnapshotPacket.Entry assigned(List<PetSnapshotPacket.Entry> entries, int index) {
