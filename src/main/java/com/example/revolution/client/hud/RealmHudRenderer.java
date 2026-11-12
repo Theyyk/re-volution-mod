@@ -19,7 +19,7 @@ public final class RealmHudRenderer {
     private static final int LINE_GAP = 2;
     private static final int HINT_COLOR = 0xAFAFAF;
     private static final int REALM_COLOR = 0xE6E6E6;
-    private static final int LINE_COUNT = 5;
+    private static final int LINE_COUNT = 6;
 
     @SubscribeEvent
     public void onRenderText(RenderGameOverlayEvent.Text event) {
@@ -46,6 +46,8 @@ public final class RealmHudRenderer {
         // Use the live remappable key label; do not render a separate lower-left overlay.
         y -= lineStep;
         drawHint(font, keyName(KeyInputHandler.keyOpenMastery), "Мастерство", right, y);
+        y -= lineStep;
+        drawHint(font, keyName(KeyInputHandler.keyOpenAura), "Ауры", right, y);
     }
 
     static int reservedBottomPixels(FontRenderer font) {
