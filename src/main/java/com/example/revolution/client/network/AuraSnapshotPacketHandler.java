@@ -15,8 +15,9 @@ public final class AuraSnapshotPacketHandler implements IMessageHandler<AuraSnap
             AuraClientState.update(message);
             boolean alreadyOpen = minecraft.currentScreen instanceof AuraGuiScreen;
             boolean requested = AuraClientState.consumeOpenRequested();
-            if (!alreadyOpen && !requested) return;
-            minecraft.displayGuiScreen(new AuraGuiScreen());
+            // Keep the same GUI instance after equip/pin/refresh so selection and page survive sync.
+            if (alreadyOpen) return;
+            if (requested) minecraft.displayGuiScreen(new AuraGuiScreen());
         });
         return null;
     }
