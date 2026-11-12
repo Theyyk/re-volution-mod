@@ -5,6 +5,7 @@ import com.example.revolution.lifecycle.ServerServices;
 import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.mechanic.MechanicUnlockService;
 import com.example.revolution.prestige.MasteryResetMode;
+import com.example.revolution.prestige.MasteryTierPolicy;
 import com.example.revolution.prestige.PrestigeBranch;
 import com.example.revolution.prestige.PrestigeBranchRegistry;
 import com.example.revolution.prestige.PrestigeResetService;
@@ -68,9 +69,18 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                                 " | Лучшее: " + exact(preview.newBest) +
                                 " | Meta: +" + preview.metaLevelGainPerRun +
                                 " | Ранги: " + preview.ranksUpgraded;
-                    } else if ("reset".equals(action)) {
-                        PrestigeResetService.ResetResult result = services.prestige.reset(playerId, expected);
-                        response = "RESET_" + result.name();
+                    } else if ("preview_reset_premium".equals(action)) {
+                        PrestigeResetService.ResetPreview preview = services.prestige.previewReset(playerId, expected);
+                        MasteryTierPolicy.PremiumPreservePolicy policy = services.prestige.premiumPreservePolicy(playerId, expected);
+                        if (!policy.enabled) throw new IllegalStateException("OPTION_UNAVAILABLE");
+                        previewKind = "reset_premium";
+                        previewDetails = "Сохранится: " + exact(preview.savedCandidate) +
+                                " | Кристаллы: " + policy.crystalCost +
+                                " | Руны: " + policy.preserveRunes + " | Питомцы: " + policy.preservePets;
+                    } else if ("reset".equals(action) || "reset_premium".equals(action)) {
+                        boolean premium = "reset_premium".equals(action);
+                        PrestigeResetService.ResetResult result = services.prestige.reset(playerId, expected, premium);
+                        response = (premium ? "RESET_PREMIUM_" : "RESET_") + result.name();
                         if (result == PrestigeResetService.ResetResult.APPLIED)
                             services.runeActions.refreshAfterPrestigeReset(player);
                     } else if ("preview_mastery".equals(action)) {
@@ -115,12 +125,13 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
     private static boolean known(String action) {
         return "start".equals(action) || "collect".equals(action)
                 || "preview_reset".equals(action) || "reset".equals(action)
+                || "preview_reset_premium".equals(action) || "reset_premium".equals(action)
                 || "preview_mastery".equals(action) || "mastery".equals(action)
                 || "preview_premium".equals(action) || "premium".equals(action);
     }
     private static boolean isMutation(String action) {
         return "start".equals(action) || "collect".equals(action) || "reset".equals(action)
-                || "mastery".equals(action) || "premium".equals(action);
+                || "reset_premium".equals(action) || "mastery".equals(action) || "premium".equals(action);
     }
     /** Strictly monotonic per-player replay rejection; startRun also forbids multiple active runs. */
     static boolean accept(UUID playerId, long nonce) {
@@ -181,13 +192,14 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
             packet.ranks = String.join(", ", run.reachedRanks);
             packet.startedAt = run.startedAt;
             packet.masteryResetAvailable = services.prestige.masteryResetAvailable(id);
-            if (packet.masteryResetAvailable) {
-                try {
-                    PrestigeResetService.MasteryResetPreview preview = services.prestige.previewMasteryReset(id, run.runId);
-                    packet.premiumPreserveAvailable = preview.premiumPreserveEnabled;
-                    packet.premiumCrystalCost = preview.premiumPreserveCrystalCost;
-                } catch (IllegalStateException ignored) { }
-            }
+            try {
+                MasteryTierPolicy.PremiumPreservePolicy premium = services.prestige.premiumPreservePolicy(id, run.runId);
+                packet.premiumPreserveAvailable = premium.enabled;
+                packet.premiumCrystalCost = premium.crystalCost;
+                packet.premiumPreserveRunes = premium.preserveRunes;
+                packet.premiumPreservePets = premium.preservePets;
+            } catch (RuntimeException ignored) { }
+
         }
         NetworkHandler.sendToClient(packet, player);
     }
