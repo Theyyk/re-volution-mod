@@ -38,6 +38,7 @@ public final class PetActionPacketHandler implements IMessageHandler<PetActionPa
         if ("sync".equals(action)) { sendSnapshot(player, services); return; }
         if ("purchase_pet".equals(action)) result = services.pets.purchasePet(player.getUniqueID(), request.getPetId());
         else if ("select_pet".equals(action)) result = services.pets.selectPet(player.getUniqueID(), request.getPetId());
+        else if ("assign_pet_slot".equals(action)) result = services.pets.selectPetAtSlot(player.getUniqueID(), request.getPetId(), request.getSlotIndex(), request.getExpectedRunId());
         else if ("level_up_pet".equals(action)) result = services.pets.levelUpPet(player.getUniqueID(), request.getPetId(), request.getExpectedRunId());
         else if ("collect_pet_fragments".equals(action)) result = services.pets.collectPetFragments(player.getUniqueID(), request.getExpectedRunId());
         else if ("awaken_pet".equals(action)) result = services.pets.awaken(player.getUniqueID(), request.getPetId());
@@ -68,15 +69,8 @@ public final class PetActionPacketHandler implements IMessageHandler<PetActionPa
         PetPlayerState state = services.pets.snapshot(id); PetPlayerState.RunState run = state.run;
         PrestigeState.RunState masteryRun = services.prestige.activeRun(id);
         List<PetSnapshotPacket.Entry> entries = new ArrayList<>(); long now = System.currentTimeMillis();
-        // Derive physical cell positions from the server's normalized selection board.
-        // Normal cells occupy 0..7, premium cells occupy 8..9; no persistent data changes.
-        Map<String, Integer> assignedSlots = new HashMap<>();
-        int normalIndex = 0, premiumIndex = 8;
-        if (run != null) for (PetPlayerState.SelectedPet selection : run.selectedPets) {
-            if (selection.premiumSlot) {
-                if (premiumIndex < 10) assignedSlots.put(selection.petId, premiumIndex++);
-            } else if (normalIndex < 8) assignedSlots.put(selection.petId, normalIndex++);
-        }
+        // Physical positions come from server-controlled assignments; legacy saves use fallback mapping.
+        Map<String, Integer> assignedSlots = PetService.assignedSlots(run);
         for (PetDefinition pet : services.pets.catalog()) {
             PetPlayerState.PetProgress progress = state.pets.get(pet.petId); PetPlayerState.SelectedPet selected = null;
             if (run != null) for (PetPlayerState.SelectedPet candidate : run.selectedPets) if (pet.petId.equals(candidate.petId)) { selected = candidate; break; }
