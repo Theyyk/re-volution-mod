@@ -167,13 +167,17 @@ public final class MasteryGuiScreen extends GuiScreen {
                     rowIndex++;
                 }
             }
-            int foot = bottom - 88;
+            // Keep server feedback below the final permanent-rank row.
+            int foot = bottom - 78;
+            // Premium Preserve moves Refresh onto the feedback row; reserve its width.
+            int footerTextWidth = !state.runId.isEmpty() && state.masteryResetAvailable
+                    && state.premiumPreserveAvailable ? Math.max(10, w - 125) : w - 18;
             if (!state.previewDetails.isEmpty() && state.previewKind.equals(armedPreview)) {
-                line("ПРЕДПРОСМОТР: " + state.previewDetails, x + 9, foot, w - 18, 0xFFFFCC77);
+                line("ПРЕДПРОСМОТР: " + state.previewDetails, x + 9, foot, footerTextWidth, 0xFFFFCC77);
                 line("Повторное нажатие применит сброс; это затронет прогресс.", x + 9, foot + 12,
-                        w - 18, 0xFFFFB18F);
+                        footerTextWidth, 0xFFFFB18F);
             } else if (!state.response.isEmpty()) {
-                line("Сервер: " + resultName(state.response), x + 9, foot, w - 18, 0xFFFFCA8B);
+                line("Сервер: " + resultName(state.response), x + 9, foot, footerTextWidth, 0xFFFFCA8B);
             }
             if (MasteryClientState.pending())
                 line("Запрос к серверу...", x + 9, bottom - 100, w - 18, 0xFFCCDBE5);
