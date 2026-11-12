@@ -84,7 +84,7 @@ public final class MongoPetRepository implements PetRepository {
             if (state.run.runId != null) run.append("runId", state.run.runId);
             run.append("purchasedPetIds", new ArrayList<>(state.run.purchasedPetIds));
             List<Document> selected = new ArrayList<>();
-            for (PetPlayerState.SelectedPet pet : state.run.selectedPets) selected.add(new Document("petId", pet.petId).append("premiumSlot", pet.premiumSlot).append("order", pet.order));
+            for (PetPlayerState.SelectedPet pet : state.run.selectedPets) selected.add(new Document("petId", pet.petId).append("premiumSlot", pet.premiumSlot).append("order", pet.order).append("slotIndex", pet.slotIndex));
             run.append("selectedPets", selected)
                     .append("normalSlotsUnlockedThisRun", state.run.normalSlotsUnlockedThisRun)
                     .append("totalNormalSlotPurchasesThisRun", state.run.totalNormalSlotPurchasesThisRun)
@@ -122,7 +122,13 @@ public final class MongoPetRepository implements PetRepository {
             List<Document> selected = (List<Document>) runDoc.get("selectedPets");
             if (selected != null) for (Document s : selected) {
                 String id = s.getString("petId");
-                if (id != null) run.selectedPets.add(new PetPlayerState.SelectedPet(id, Boolean.TRUE.equals(s.getBoolean("premiumSlot")), number(s.get("order"))));
+                if (id != null) {
+                    PetPlayerState.SelectedPet entry = new PetPlayerState.SelectedPet(
+                            id, Boolean.TRUE.equals(s.getBoolean("premiumSlot")), number(s.get("order")));
+                    // Legacy data has no physical cell: the client receives a deterministic fallback.
+                    entry.slotIndex = s.containsKey("slotIndex") ? s.getInteger("slotIndex", -1) : -1;
+                    run.selectedPets.add(entry);
+                }
             }
             run.normalSlotsUnlockedThisRun = Math.max(0, Math.min(8, runDoc.getInteger("normalSlotsUnlockedThisRun", 0)));
             run.totalNormalSlotPurchasesThisRun = Math.max(0L, number(runDoc.get("totalNormalSlotPurchasesThisRun")));
