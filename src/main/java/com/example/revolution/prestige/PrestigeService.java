@@ -224,6 +224,10 @@ public final class PrestigeService implements EffectResolver.Source {
 
     public synchronized PrestigeState snapshot(UUID playerUuid) { return repository.load(playerUuid).copy(); }
     public List<PrestigeBranch> branches() { return registry.branches(); }
+    /** Read-only canonical rank definitions for server-authored Mastery projections. */
+    public List<PrestigeBranchRegistry.RankDefinition> rankDefinitions(PrestigeBranch branch) {
+        return registry.get(branch).ranks;
+    }
     public String progressSource(PrestigeBranch branch) { return registry.get(branch).progressSource.toString(); }
 
     @Override public synchronized List<EffectResolver.Contribution> contributions(UUID playerUuid, EffectResolver.Stat stat) {
