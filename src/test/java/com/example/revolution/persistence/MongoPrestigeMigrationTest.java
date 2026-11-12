@@ -84,6 +84,53 @@ public final class MongoPrestigeMigrationTest {
         assertEquals("9", rewrittenRun.getString("runBranchCurrency"));
     }
 
+    @Test
+    public void normalResetAtomicallyClearsStandardRuneOwnershipWithoutTouchingUnlocksOrUniques() {
+        Document first = new Document("name", "Collection 01")
+                .append("cards", java.util.Arrays.asList(
+                        new Document("cardIndex", 0).append("layer", 1),
+                        new Document("cardIndex", 1).append("layer", 4)))
+                .append("runeEnhancements", new Document("0", 5));
+        Document secondLegacy = new Document("name", "Collection 02")
+                .append("cards", java.util.Arrays.asList(new Document("cardIndex", 2).append("layer", 3)))
+                .append("runeEnhancements", new Document("2", 7));
+        Document fixedTwo = new Document("slots", java.util.Arrays.asList(
+                new Document("cardIndex", 5).append("layer", 2),
+                new Document("cardIndex", 6).append("layer", 4)))
+                .append("metadata", "unchanged");
+        Document fixedThree = new Document("slots", java.util.Arrays.asList(
+                new Document("cardIndex", 7).append("layer", 4)));
+        Document root = new Document("unlockedCollections", java.util.Arrays.asList("collection_02"))
+                .append("collections", new Document("collection_02", fixedTwo)
+                        .append("collection_03", fixedThree));
+        Document uniques = new Document("collection", "daily").append("count", 3);
+        Document player = new Document("decks", java.util.Arrays.asList(first, secondLegacy))
+                .append("runeCollections", root)
+                .append("uniqueRunes", uniques);
+        Document set = new Document("prestige", new Document("lastResetRunId", "r-1"));
+
+        MongoPrestigeRepository.appendRuneOwnershipWipe(player, set);
+
+        java.util.List<Document> cleared = (java.util.List<Document>) set.get("decks");
+        assertEquals(0, ((java.util.List<?>) cleared.get(0).get("cards")).size());
+        assertEquals(0, ((java.util.List<?>) cleared.get(1).get("cards")).size());
+        assertTrue(cleared.get(0).get("runeEnhancements", Document.class).isEmpty());
+        assertTrue(cleared.get(1).get("runeEnhancements", Document.class).isEmpty());
+        assertEquals("Collection 01", cleared.get(0).getString("name"));
+        assertEquals("Collection 02", cleared.get(1).getString("name"));
+        assertEquals(0, ((java.util.List<?>) set.get(
+                "runeCollections.collections.collection_02.slots")).size());
+        assertEquals(0, ((java.util.List<?>) set.get(
+                "runeCollections.collections.collection_03.slots")).size());
+        assertFalse(set.containsKey("runeCollections"));
+        assertFalse(set.containsKey("uniqueRunes"));
+        assertEquals(java.util.Arrays.asList("collection_02"),
+                root.get("unlockedCollections"));
+        assertEquals(3, uniques.getInteger("count").intValue());
+        assertEquals(2, ((java.util.List<?>) first.get("cards")).size());
+        assertFalse(set.containsKey("runeCollections.collections.collection_04.slots"));
+    }
+
     private static Harness harness(UUID player, Document storedPrestige) throws Exception {
         Document playerDocument = new Document("_id", player.toString()).append("prestige", storedPrestige);
         AtomicReference<Document> writtenUpdate = new AtomicReference<>();

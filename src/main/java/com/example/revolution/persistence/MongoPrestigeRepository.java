@@ -3,7 +3,7 @@ package com.example.revolution.persistence;
 import com.example.revolution.prestige.PrestigeBranch;
 import com.example.revolution.prestige.PrestigeRepository;
 import com.example.revolution.prestige.PrestigeState;
-import com.example.revolution.rune.rules.RuneStorageRules;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.result.UpdateResult;
 import java.math.BigDecimal;
@@ -47,10 +47,12 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         if (expectedRunId == null || !expectedRunId.equals(current.activeRun.runId)) return ResetCommitResult.STALE;
         if (crystals(player) < policy.crystalCost) return ResetCommitResult.INSUFFICIENT_CRYSTALS;
 
-        List<Document> resetCollections = policy.preserveRunes ? null : resetRuneRanks(player);
         Document resetPets = policy.preservePets ? null : MongoPetRepository.resetForPrestige(player);
         Document set = new Document("prestige", encode(nextState));
-        if (resetCollections != null) set.append("decks", resetCollections);
+        // Commit removal of owned standard runes and their upgrades in the SAME
+        // runId-guarded Mongo update as the Mastery result. A crashed server must
+        // not persist "run already reset" while leaving the owned runes behind.
+        if (!policy.preserveRunes) appendRuneOwnershipWipe(player, set);
         if (resetPets != null) set.append("petSystem", resetPets);
         Document filter = new Document("_id", playerUuid.toString()).append("prestige.activeRun.runId", expectedRunId);
         if (policy.crystalCost > 0) filter.append("crystals", new Document("$gte", policy.crystalCost));
@@ -67,27 +69,41 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         return ResetCommitResult.STALE;
     }
 
-    @SuppressWarnings("unchecked") public static List<Document> resetRuneRanks(Document player) {
-        if (player == null) return null;
-        List<Document> storedCollections = (List<Document>) player.get("decks");
-        if (storedCollections == null) return null;
-        List<Document> collections = new ArrayList<>();
-        for (Document storedCollection : storedCollections) {
-            Document collection = new Document(storedCollection);
-            List<Document> storedRunes = (List<Document>) storedCollection.get("cards");
-            if (storedRunes != null) {
-                List<Document> resetRunes = new ArrayList<>();
-                for (Document storedRune : storedRunes) {
-                    Document rune = new Document(storedRune);
-                    int rank = rune.getInteger("layer", RuneStorageRules.NORMAL_RANK);
-                    if (rank < RuneStorageRules.ADVANCED_RANK) rune.put("layer", RuneStorageRules.NORMAL_RANK);
-                    resetRunes.add(rune);
-                }
-                collection.put("cards", resetRunes);
+    /**
+     * A normal Mastery Reset removes ownership of ALL standard runes (regardless of
+     * rarity) and their enhancement progress. Permanent collection unlock metadata,
+     * names, active selection, mechanic unlocks and unique-rune state stay intact.
+     *
+     * Collection 1 reads legacy decks[0].cards. Collections 2..7 read the additive
+     * runeCollections.collections.collection_0N.slots structure. Clear both factual
+     * stores and legacy deck remnants in one atomic prestige commit.
+     */
+    @SuppressWarnings("unchecked")
+    public static void appendRuneOwnershipWipe(Document player, Document set) {
+        List<Document> stored = (List<Document>) player.get("decks");
+        if (stored != null) {
+            List<Document> cleared = new ArrayList<>();
+            for (Document storedCollection : stored) {
+                Document next = new Document(storedCollection);
+                if (next.containsKey("cards")) next.put("cards", new ArrayList<Document>());
+                if (next.containsKey("runeEnhancements"))
+                    next.put("runeEnhancements", new Document());
+                cleared.add(next);
             }
-            collections.add(collection);
+            set.append("decks", cleared);
         }
-        return collections;
+
+        Document root = player.get("runeCollections", Document.class);
+        Document fixed = root == null ? null : root.get("collections", Document.class);
+        if (fixed == null) return;
+        for (RuneCollectionId collection : RuneCollectionId.values()) {
+            if (collection == RuneCollectionId.COLLECTION_01) continue;
+            Document storedCollection = fixed.get(collection.id(), Document.class);
+            if (storedCollection != null && storedCollection.containsKey("slots")) {
+                set.append("runeCollections.collections." + collection.id() + ".slots",
+                        new ArrayList<Document>());
+            }
+        }
     }
 
     private Document encode(PrestigeState state) {

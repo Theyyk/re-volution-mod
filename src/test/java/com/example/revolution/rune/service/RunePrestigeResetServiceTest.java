@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public final class RunePrestigeResetServiceTest {
     @Test
-    void selectiveWipeUsesPreResetRankForRankAndEnhancementPolicy() {
+    void ordinaryResetDeletesOwnershipAtEveryRankAndClearsEnhancements() {
         UUID playerUuid = UUID.randomUUID();
         FakePlayerRepository players = new FakePlayerRepository();
         FakeEnhancementRepository enhancements = new FakeEnhancementRepository();
@@ -39,17 +39,13 @@ public final class RunePrestigeResetServiceTest {
 
         new RunePrestigeResetService(players, enhancements).reset(playerUuid);
 
-        assertEquals(RuneProgression.ORDINARY_RANK, players.rank(0));
-        assertEquals(RuneProgression.ORDINARY_RANK, players.rank(1));
-        assertEquals(RuneProgression.ADVANCED_RANK, players.rank(2));
-        assertEquals(RuneProgression.MYTHIC_RANK, players.rank(3));
-        assertEquals(RuneProgression.MYTHIC_RANK + 100, players.rank(4));
+        assertEquals(0, players.getRunesInCollection(playerUuid, 0).size());
 
         assertEquals(0, enhancements.getLevel(playerUuid, 0, 0));
         assertEquals(0, enhancements.getLevel(playerUuid, 0, 1));
-        assertEquals(12, enhancements.getLevel(playerUuid, 0, 2));
-        assertEquals(13, enhancements.getLevel(playerUuid, 0, 3));
-        assertEquals(14, enhancements.getLevel(playerUuid, 0, 4));
+        assertEquals(0, enhancements.getLevel(playerUuid, 0, 2));
+        assertEquals(0, enhancements.getLevel(playerUuid, 0, 3));
+        assertEquals(0, enhancements.getLevel(playerUuid, 0, 4));
     }
 
     @Test
@@ -68,16 +64,15 @@ public final class RunePrestigeResetServiceTest {
 
         new RunePrestigeResetService(players, enhancements).reset(playerId);
 
-        assertEquals(RuneProgression.ORDINARY_RANK, players.rank(1, 5));
-        assertEquals(RuneProgression.ORDINARY_RANK, players.rank(2, 6));
-        assertEquals(RuneProgression.ADVANCED_RANK, players.rank(2, 7));
+        assertEquals(0, players.getRunesInCollection(playerId, 1).size());
+        assertEquals(0, players.getRunesInCollection(playerId, 2).size());
         assertEquals(0, enhancements.getLevel(playerId, 1, 5));
         assertEquals(0, enhancements.getLevel(playerId, 2, 6));
-        assertEquals(44, enhancements.getLevel(playerId, 2, 7));
+        assertEquals(0, enhancements.getLevel(playerId, 2, 7));
     }
 
     @Test
-    void missingRuneDoesNotCreateOrWipeEnhancement() {
+    void resetClearsOrphanedEnhancementsWithoutCreatingRunes() {
         UUID playerUuid = UUID.randomUUID();
         FakePlayerRepository players = new FakePlayerRepository();
         FakeEnhancementRepository enhancements = new FakeEnhancementRepository();
@@ -85,7 +80,8 @@ public final class RunePrestigeResetServiceTest {
 
         new RunePrestigeResetService(players, enhancements).reset(playerUuid);
 
-        assertEquals(25, enhancements.getLevel(playerUuid, 0, 5));
+        assertEquals(0, enhancements.getLevel(playerUuid, 0, 5));
+        assertEquals(0, players.getRunesInCollection(playerUuid, 0).size());
     }
 
     @Test
@@ -108,10 +104,9 @@ public final class RunePrestigeResetServiceTest {
         String runId = service.startRun(playerId, PrestigeBranch.CLICK).runId;
         assertEquals(PrestigeResetService.ResetResult.APPLIED, service.reset(playerId, runId));
         assertEquals(1, applied.get());
-        assertEquals(RuneProgression.ORDINARY_RANK, players.rank(0));
-        assertEquals(RuneProgression.ADVANCED_RANK, players.rank(1));
+        assertEquals(0, players.getRunesInCollection(playerId, 0).size());
         assertEquals(0, enhancements.getLevel(playerId, 0, 0));
-        assertEquals(11, enhancements.getLevel(playerId, 0, 1));
+        assertEquals(0, enhancements.getLevel(playerId, 0, 1));
         assertEquals(PrestigeResetService.ResetResult.DUPLICATE, service.reset(playerId, runId));
         assertEquals(1, applied.get());
     }
