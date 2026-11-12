@@ -36,6 +36,25 @@ final class PetContextSlotLayout {
         return -1;
     }
 
+    /** Visual order: open normal, open premium, locked normal, locked premium. */
+    static int physicalAt(int displayIndex, int normalSlots, int premiumSlots) {
+        if (displayIndex < 0 || displayIndex >= COUNT) return -1;
+        int normal = Math.max(0, Math.min(NORMAL_COUNT, normalSlots));
+        int premium = Math.max(0, Math.min(COUNT - NORMAL_COUNT, premiumSlots));
+        if (displayIndex < normal) return displayIndex;
+        int next = displayIndex - normal;
+        if (next < premium) return NORMAL_COUNT + next;
+        next -= premium;
+        if (next < NORMAL_COUNT - normal) return normal + next;
+        return NORMAL_COUNT + premium + next - (NORMAL_COUNT - normal);
+    }
+
+    static int displayAt(int physicalIndex, int normalSlots, int premiumSlots) {
+        for (int i = 0; i < COUNT; i++)
+            if (physicalAt(i, normalSlots, premiumSlots) == physicalIndex) return i;
+        return -1;
+    }
+
     static boolean unlocked(int index, int normalSlots, int premiumSlots) {
         if (index < 0 || index >= COUNT) return false;
         return index < NORMAL_COUNT ? index < normalSlots : index - NORMAL_COUNT < premiumSlots;
