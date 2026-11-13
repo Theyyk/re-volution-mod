@@ -26,6 +26,11 @@ public final class InMemoryMobProgressionRepository implements MobProgressionRep
         records.computeIfAbsent(player, ignored -> new HashMap<>()).put(location, values);
     }
 
+    public boolean rawLegacyContains(UUID player, int location, int slot) {
+        return records.getOrDefault(player, Collections.emptyMap())
+                .getOrDefault(location, Collections.emptySet()).contains(slot);
+    }
+
     @Override public Set<Integer> getUnlockedSlots(UUID player, int location) {
         Set<Integer> result = new HashSet<>(records.getOrDefault(player, Collections.emptyMap())
                 .getOrDefault(location, Collections.emptySet()));
