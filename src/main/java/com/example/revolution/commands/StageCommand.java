@@ -372,7 +372,7 @@ public final class StageCommand extends AdminOnlyCommand {
                 + ": activeRun=" + activeRun + ", pendingReturn=" + (pending != null)));
         int unlocked = 0;
         int locked = 0;
-        int runStages = 0;
+        int cycleStages = 0;
         int permanentOrLegacy = 0;
         int permanent = 0;
         int unmasked = 0;
@@ -388,7 +388,7 @@ public final class StageCommand extends AdminOnlyCommand {
                 else if ("LEGACY_UNMASKED".equals(rawGrant)) unmasked++;
                 else if ("LEGACY_MASKED".equals(rawGrant)) masked++;
                 if (open) unlocked++; else locked++;
-                if ("RUN".equals(source)) runStages++;
+                if ("CYCLE".equals(source)) cycleStages++;
                 else if ("PERMANENT_OR_LEGACY".equals(source)) permanentOrLegacy++;
                 else if ("START".equals(source)) startStages++;
                 sender.sendMessage(new TextComponentString((open ? "§a" : "§c")
@@ -398,7 +398,7 @@ public final class StageCommand extends AdminOnlyCommand {
             }
         }
         sender.sendMessage(new TextComponentString("§6Summary: " + unlocked + " unlocked, " + locked
-                + " locked; START=" + startStages + " RUN=" + runStages
+                + " locked; START=" + startStages + " CYCLE=" + cycleStages
                 + " PERMANENT_OR_LEGACY=" + permanentOrLegacy
                 + "; Mongo PERMANENT=" + permanent + " LEGACY_UNMASKED=" + unmasked
                 + " LEGACY_MASKED=" + masked
