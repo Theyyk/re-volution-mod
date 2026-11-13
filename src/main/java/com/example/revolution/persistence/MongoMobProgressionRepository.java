@@ -112,6 +112,23 @@ public final class MongoMobProgressionRepository implements MobProgressionReposi
         return latest != null && latest.containsKey("legacyRunSlots");
     }
 
+    /** Diagnostic only: query the exact same Mongo row as the live effective stage check. */
+    @Override public String stageGrantProvenance(UUID playerUuid, int worldLocationId, int mobSlotId) {
+        if (!valid(playerUuid, worldLocationId) || mobSlotId < 1 || mobSlotId > 99) return "UNAVAILABLE";
+        Document doc = connection.collection(COLLECTION)
+                .find(new Document("_id", key(playerUuid, worldLocationId))).first();
+        return rawGrantProvenance(doc, mobSlotId);
+    }
+
+    static String rawGrantProvenance(Document doc, int mobSlotId) {
+        if (doc == null) return "NONE";
+        if (stageSlots(doc.get("permanentSlots")).contains(mobSlotId)) return "PERMANENT";
+        if (stageSlots(doc.get("unlockedSlots")).contains(mobSlotId))
+            return stageSlots(doc.get("legacyRunSlots")).contains(mobSlotId)
+                    ? "LEGACY_MASKED" : "LEGACY_UNMASKED";
+        return "NONE";
+    }
+
     /** Pure, backward-compatible read model: old rows retain full access until explicitly classified. */
     static Set<Integer> visibleSlots(Document doc) {
         Set<Integer> result = stageSlots(doc.get("unlockedSlots"));
