@@ -19,6 +19,11 @@ public interface MobProgressionRepository {
     }
     boolean replaceUnlockedSlots(UUID playerUuid, int worldLocationId, Set<Integer> unlockedSlots);
     boolean clearFromLocation(UUID playerUuid, int worldLocationId);
+    /** Read-only storage provenance, not an authority to revoke any permanent grant. */
+    default String stageGrantProvenance(UUID playerUuid, int worldLocationId, int mobSlotId) {
+        return "UNSUPPORTED";
+    }
+
     /** Explicitly classify unmarked historical stage grants as run-earned. No destructive delete. */
     default boolean classifyLegacyRunSlots(UUID playerUuid, int worldLocationId) { return false; }
 }

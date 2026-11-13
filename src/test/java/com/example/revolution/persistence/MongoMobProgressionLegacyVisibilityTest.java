@@ -11,6 +11,20 @@ import org.junit.jupiter.api.Test;
 
 /** Historical player progression and permanent/admin grants are never destructively mixed. */
 public final class MongoMobProgressionLegacyVisibilityTest {
+    @Test public void provenanceDistinguishesPermanentUnmaskedAndMaskedOldGrants() {
+        Document row = new Document("unlockedSlots", Arrays.asList(2, 5, 9))
+                .append("legacyRunSlots", Arrays.asList(2, 5))
+                .append("permanentSlots", Collections.singletonList(5));
+        assertEquals("LEGACY_MASKED", MongoMobProgressionRepository.rawGrantProvenance(row, 2));
+        assertEquals("PERMANENT", MongoMobProgressionRepository.rawGrantProvenance(row, 5));
+        assertEquals("LEGACY_UNMASKED", MongoMobProgressionRepository.rawGrantProvenance(row, 9));
+        assertEquals("NONE", MongoMobProgressionRepository.rawGrantProvenance(row, 10));
+        assertEquals("NONE", MongoMobProgressionRepository.rawGrantProvenance(null, 5));
+        assertTrue(MongoMobProgressionRepository.visibleSlots(row).contains(5));
+        assertTrue(MongoMobProgressionRepository.visibleSlots(row).contains(9));
+        assertFalse(MongoMobProgressionRepository.visibleSlots(row).contains(2));
+    }
+
     @Test public void originalLegacyRecordsRemainVisibleBeforeExplicitClassification() {
         Document doc = new Document("unlockedSlots", Arrays.asList(2, 5, 9));
         assertEquals(3, MongoMobProgressionRepository.visibleSlots(doc).size());
