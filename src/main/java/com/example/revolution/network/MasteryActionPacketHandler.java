@@ -75,14 +75,17 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                         if (!policy.enabled) throw new IllegalStateException("OPTION_UNAVAILABLE");
                         previewKind = "reset_premium";
                         previewDetails = "Сохранится: " + exact(preview.savedCandidate) +
-                                " | Кристаллы: " + policy.crystalCost +
-                                " | Руны: " + policy.preserveRunes + " | Питомцы: " + policy.preservePets;
+                                " | Ранги: " + preview.ranksUpgraded +
+                                " | Meta: +" + preview.metaLevelGainPerRun + ", кристаллы: " + policy.crystalCost +
+                                " | Руны: " + policy.preserveRunes + ", питомцы: " + policy.preservePets;
                     } else if ("reset".equals(action) || "reset_premium".equals(action)) {
                         boolean premium = "reset_premium".equals(action);
                         PrestigeResetService.ResetResult result = services.prestige.reset(playerId, expected, premium);
                         response = (premium ? "RESET_PREMIUM_" : "RESET_") + result.name();
-                        if (result == PrestigeResetService.ResetResult.APPLIED)
+                        if (result == PrestigeResetService.ResetResult.APPLIED) {
                             services.runeActions.refreshAfterPrestigeReset(player);
+                            services.statsSync.sendTo(player);
+                        }
                     } else if ("preview_mastery".equals(action)) {
                         PrestigeResetService.MasteryResetPreview preview = services.prestige.previewMasteryReset(playerId, expected);
                         previewKind = "mastery";
@@ -93,8 +96,10 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                         PrestigeResetService.MasteryResetResult result =
                                 services.prestige.masteryReset(playerId, expected, MasteryResetMode.NORMAL);
                         response = "MASTERY_" + result.name();
-                        if (result == PrestigeResetService.MasteryResetResult.APPLIED)
+                        if (result == PrestigeResetService.MasteryResetResult.APPLIED) {
                             services.runeActions.refreshAfterPrestigeReset(player);
+                            services.statsSync.sendTo(player);
+                        }
                     } else if ("preview_premium".equals(action)) {
                         PrestigeResetService.MasteryResetPreview preview = services.prestige.previewMasteryReset(playerId, expected);
                         if (!preview.premiumPreserveEnabled) throw new IllegalStateException("OPTION_UNAVAILABLE");
@@ -109,8 +114,11 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                         PrestigeResetService.MasteryResetResult result =
                                 services.prestige.masteryReset(playerId, expected, MasteryResetMode.PREMIUM_PRESERVE);
                         response = "PREMIUM_" + result.name();
-                        if (result == PrestigeResetService.MasteryResetResult.APPLIED && !preview.premiumPreserveRunes)
-                            services.runeActions.refreshAfterPrestigeReset(player);
+                        if (result == PrestigeResetService.MasteryResetResult.APPLIED) {
+                            if (!preview.premiumPreserveRunes)
+                                services.runeActions.refreshAfterPrestigeReset(player);
+                            services.statsSync.sendTo(player);
+                        }
                     }
                 }
             } catch (IllegalArgumentException invalid) {
