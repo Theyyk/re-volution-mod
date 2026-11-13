@@ -257,6 +257,15 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(2, 5)));
     }
 
+    @Test void startingZoneIsFirstConfiguredStageAndCanLaterBeReplaced() {
+        LocationResetReturnService returns = new LocationResetReturnService(null, service, null, null, null);
+        assertEquals(id(1, 2), returns.startingStageId());
+        service.reloadConfiguration(Arrays.asList(zone(4, 3), zone(4, 8)), Collections.emptyList());
+        assertEquals(id(4, 3), returns.startingStageId());
+        service.clear();
+        assertThrows(IllegalStateException.class, returns::startingStageId);
+    }
+
     @Test void runOnlyStageUnlockDoesNotOverwritePermanentGrants() {
         final java.util.Set<Integer> runStages = new java.util.HashSet<>();
         final boolean[] active = {true};
