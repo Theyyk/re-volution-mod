@@ -19,8 +19,8 @@ public final class MasteryGuiScreen extends GuiScreen {
 
     private int panelWidth() { return Math.min(520, Math.max(175, width - 20)); }
     private int panelLeft() { return (width - panelWidth()) / 2; }
-    private int panelTop() { return Math.max(8, (height - 300) / 2); }
-    private int panelBottom() { return Math.min(height - 8, panelTop() + 300); }
+    private int panelTop() { return Math.max(8, (height - 365) / 2); }
+    private int panelBottom() { return Math.min(height - 8, panelTop() + 365); }
 
     @Override public void initGui() { refreshButtons(); }
 
@@ -29,6 +29,11 @@ public final class MasteryGuiScreen extends GuiScreen {
         MasterySnapshotPacket state = MasteryClientState.snapshot();
         List<MasterySnapshotPacket.BranchEntry> branches = MasteryClientState.branches();
         int x = panelLeft(), y = panelTop(), w = panelWidth(), bottom = panelBottom();
+        if (state != null && state.runId.isEmpty()) {
+            premiumSelected = false;
+            armedPreview = "";
+            armedRunId = "";
+        }
         boolean unlocked = state != null && state.artsUnlocked;
         boolean active = state != null && !state.runId.isEmpty();
         boolean available = unlocked && !active && !MasteryClientState.pending();
@@ -172,25 +177,29 @@ public final class MasteryGuiScreen extends GuiScreen {
                 }
             }
             // Keep server feedback below the final permanent-rank row.
-            int foot = bottom - 78;
-            // The choice is shared by ordinary Reset and Mastery Reset.
-            int footerTextWidth = w - 18;
+            // Keep rank rows (ending at y+214), selection (y+221) and
+            // the preview (y+240..301) separate from footer buttons (y+312).
+            int foot = bottom - 125;
             if (!state.runId.isEmpty() && state.premiumPreserveAvailable) {
                 line(premiumSelected
                         ? "Сохранение: " + state.premiumCrystalCost + " крист. | руны: "
                             + state.premiumPreserveRunes + " | питомцы: " + state.premiumPreservePets
-                        : "Сохранение: выключено (обычный сброс)",
-                        x + 9, y + 206, w - 18, 0xFFE9CA8D);
+                        : "Сохранение: ВЫКЛ (стандартный сброс)",
+                        x + 9, y + 221, w - 18, 0xFFE9CA8D);
             }
             if (!state.previewDetails.isEmpty() && state.previewKind.equals(armedPreview)) {
-                line("ПРЕДПРОСМОТР: " + state.previewDetails, x + 9, foot, footerTextWidth, 0xFFFFCC77);
-                line("Повторное нажатие применит сброс; это затронет прогресс.", x + 9, foot + 12,
-                        footerTextWidth, 0xFFFFB18F);
+                line("ПРЕДПРОСМОТР: нажмите «Подтвердить» для выполнения", x + 9, foot, w - 18, 0xFFFFCC77);
+                String[] details = state.previewDetails.split(" \\| ");
+                for (int i = 0; i < details.length && i < 4; i++)
+                    line(details[i], x + 12, foot + 13 + 13 * i, w - 24, 0xFFFFB18F);
             } else if (!state.response.isEmpty()) {
-                line("Сервер: " + resultName(state.response), x + 9, foot, footerTextWidth, 0xFFFFCA8B);
+                line("Сервер: " + resultName(state.response), x + 9, foot, w - 18, 0xFFFFCA8B);
+                if (state.runId.isEmpty() && resetApplied(state.response))
+                    line("Забег завершён. Выберите новое направление слева.", x + 9,
+                            foot + 14, w - 18, 0xFF89DBA4);
             }
             if (MasteryClientState.pending())
-                line("Запрос к серверу...", x + 9, bottom - 100, w - 18, 0xFFCCDBE5);
+                line("Запрос к серверу...", x + 9, foot - 12, w - 18, 0xFFCCDBE5);
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
@@ -199,6 +208,10 @@ public final class MasteryGuiScreen extends GuiScreen {
         if (y > panelBottom() - 3) return;
         fontRenderer.drawStringWithShadow(fontRenderer.trimStringToWidth(value, Math.max(10, maxWidth)),
                 x, y, color);
+    }
+    private static boolean resetApplied(String value) {
+        return "RESET_APPLIED".equals(value) || "RESET_PREMIUM_APPLIED".equals(value)
+                || "MASTERY_APPLIED".equals(value) || "PREMIUM_APPLIED".equals(value);
     }
     private static String resultName(String value) {
         if ("RUN_STARTED".equals(value)) return "Забег запущен";
