@@ -169,18 +169,26 @@ public final class PrestigeService implements EffectResolver.Source {
         return pending;
     }
 
-    /** Run-only location grants live in Mastery Run persistence; permanent grants remain separate. */
+    /** Mastery Run selection does not gate ordinary location progression. */
     public synchronized boolean isRunActive(UUID playerUuid) {
         return repository.load(playerUuid).activeRun != null;
     }
     public synchronized boolean hasRunStage(UUID playerUuid, int internalLocationId) {
-        PrestigeState.RunState run = repository.load(playerUuid).activeRun;
-        return run != null && run.runUnlockedStages.contains(internalLocationId);
+        PrestigeState state = repository.load(playerUuid);
+        // Legacy R1 candidates stored locations under activeRun; preserve read compatibility.
+        return state.locationCycleUnlockedStages.contains(internalLocationId)
+                || (state.activeRun != null && state.activeRun.runUnlockedStages.contains(internalLocationId));
     }
     public synchronized boolean unlockRunStage(UUID playerUuid, int internalLocationId) {
+        if (playerUuid == null
+                || !com.example.revolution.location.definition.MobZoneIds.isMobZoneId(internalLocationId)) return false;
         PrestigeState state = repository.load(playerUuid);
-        if (state.activeRun == null || !com.example.revolution.location.definition.MobZoneIds.isMobZoneId(internalLocationId)) return false;
-        if (!state.activeRun.runUnlockedStages.add(internalLocationId)) return false;
+        if (state.locationCycleUnlockedStages.contains(internalLocationId)
+                || (state.activeRun != null && state.activeRun.runUnlockedStages.contains(internalLocationId)))
+            return false;
+        // Current-cycle grants are gameplay state, never permanent/admin grants.
+        // They persist regardless of whether a Mastery Run has been started.
+        if (!state.locationCycleUnlockedStages.add(internalLocationId)) return false;
         repository.save(playerUuid, state);
         return true;
     }
