@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -226,7 +227,7 @@ public final class MasteryResetTest {
         assertFalse(service.completeLocationReturn(player, run.runId));
         PrestigeState.RunState next = service.startRun(player, PrestigeBranch.POISON);
         assertTrue(next.runUnlockedStages.isEmpty());
-        assertEquals(PrestigeResetService.ResetResult.DUPLICATE, service.reset(player, run.runId));
+        assertEquals(PrestigeResetService.ResetResult.STALE, service.reset(player, run.runId));
         assertNotNull(service.activeRun(player));
     }
 
