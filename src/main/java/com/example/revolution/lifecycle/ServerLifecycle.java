@@ -18,6 +18,7 @@ import com.example.revolution.commands.StageCommand;
 import com.example.revolution.god.event.GodWorshipDamageHandler;
 import com.example.revolution.god.event.GodWorshipRuntimeHandler;
 import com.example.revolution.location.event.FastAutoHandler;
+import com.example.revolution.location.event.LocationResetReturnHandler;
 import com.example.revolution.location.event.StageTransitionTriggerHandler;
 import com.example.revolution.mob.event.ManagedMobAppearanceEvents;
 import com.example.revolution.mob.event.ManagedMobEvents;
@@ -85,7 +86,8 @@ public final class ServerLifecycle {
         listeners.add(new AchievementPersistenceHandler(current.achievements));
         listeners.add(new GodWorshipRuntimeHandler(current.godAutomation, current.mechanicUnlocks));
         listeners.add(new RpgSurvivalGuard());
-        listeners.add(new RealmLoginHandler(current.realms));
+        listeners.add(new RealmLoginHandler(current.realms, current.locationReturn));
+        listeners.add(new LocationResetReturnHandler(current.locationReturn));
         listeners.add(new RealmEntityLoadHandler());
         listeners.add(new ManagedMobEvents(current.mobs, current.gameplayEvents, current.runeTransientEffects));
         listeners.add(new ManagedMobAppearanceEvents());
