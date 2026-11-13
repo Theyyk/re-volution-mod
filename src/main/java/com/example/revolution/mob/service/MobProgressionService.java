@@ -242,11 +242,11 @@ public final class MobProgressionService {
         if (unlocked.contains(nextSlot)) return null;
         if (isUnlocked(playerUuid, nextInternalId)) return null;
         RunStageAccess runAccess = runStageAccess;
-        // In production, all gameplay unlocks must belong to an active Mastery Run.
-        // Never turn ordinary gameplay outside a Run into a permanent admin grant.
+        // Gameplay can progress before, during, or after starting a Mastery Run.
+        // The injected access stores these grants in current-cycle (resettable) state.
+        // Never turn ordinary mob kills into permanent admin grants.
         if (runAccess != null) {
-            if (!runAccess.isRunActive(playerUuid) || !runAccess.unlockRunStage(playerUuid, nextInternalId))
-                return null;
+            if (!runAccess.unlockRunStage(playerUuid, nextInternalId)) return null;
         } else {
             // Unwired/test-only compatibility path, deliberately never used in ServerServices.
             if (!repository.unlockSlot(playerUuid, nextWorldLocationId, nextSlot)) return null;
