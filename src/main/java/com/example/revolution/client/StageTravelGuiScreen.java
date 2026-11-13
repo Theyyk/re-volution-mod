@@ -69,9 +69,17 @@ public final class StageTravelGuiScreen extends GuiScreen {
         for (int i = from; i < to; i++) {
             int worldLocationId = locations.get(i);
             visibleLocations.add(worldLocationId);
+            boolean available = false;
+            for (StageTravelMenuPacket.Entry entry : entries) {
+                if (entry.getWorldLocationId() == worldLocationId && entry.isUnlocked()) {
+                    available = true;
+                    break;
+                }
+            }
+            // Keep locked Locations visible for navigation, but never present them as unlocked.
             buttonList.add(new GuiButton(ITEM_BASE + visibleLocations.size() - 1,
                     width / 2 - 110, 48 + (visibleLocations.size() - 1) * 24,
-                    220, 20, "Локация " + worldLocationId));
+                    220, 20, "Локация " + worldLocationId + (available ? "" : " [ЗАКРЫТА]")));
         }
         addPageButtons(pages);
     }
