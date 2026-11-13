@@ -39,7 +39,8 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         if ("sync".equals(action)) { sendSnapshot(player, services); return; }
         UniqueRuneModel.CollectionId collection = collection(request.getCollectionId());
         UniqueRuneService.Result crystalRoll = null;
-        if ("purchase_crystal".equals(action)) crystalRoll = services.uniqueRunes.purchaseCrystal(player.getUniqueID(), request.getRequestNonce());
+        if ("purchase_crystal".equals(action)) crystalRoll = RunePurchaseProfiling.phase("purchase",
+                () -> services.uniqueRunes.purchaseCrystal(player.getUniqueID(), request.getRequestNonce()));
         else if ("purchase_offerings".equals(action)) services.uniqueRunes.purchaseOfferings(player.getUniqueID(), request.getRequestNonce());
         else if ("daily".equals(action)) services.uniqueRunes.claimDailyAtMillis(player.getUniqueID(), System.currentTimeMillis(), request.getRequestNonce());
         else if ("enhance".equals(action)) services.uniqueRunes.enhance(player.getUniqueID(), request.getRequestNonce());
@@ -65,7 +66,10 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         else if ("rollback".equals(action) && collection != null) services.uniqueRunes.rollback(player.getUniqueID(), collection, request.getRuneId(), request.isConfirmed(), request.getRequestNonce());
         else if ("share".equals(action) && collection != null) { share(player, services, collection, request.getRuneId()); return; }
         else return;
-        sendSnapshot(player, services, crystalRoll);
+        if ("purchase_crystal".equals(action)) {
+            final UniqueRuneService.Result result = crystalRoll;
+            RunePurchaseProfiling.phase("snapshot", () -> sendSnapshot(player, services, result));
+        } else sendSnapshot(player, services, crystalRoll);
     }
 
     public static void sendSnapshot(EntityPlayerMP player, ServerServices services) {
