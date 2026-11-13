@@ -339,26 +339,29 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(1, 5)));
     }
 
-        @Test void configuredStageUnlocksFailClosedWithoutActiveMasteryRun() {
-        final java.util.Set<Integer> stages = new java.util.HashSet<>();
+        @Test void configuredStagesUnlockOutsideMasteryRunWithoutPermanentWrite() {
+        final java.util.Set<Integer> cycleStages = new java.util.HashSet<>();
         final boolean[] active = {false};
         service.setRunStageAccess(new MobProgressionService.RunStageAccess() {
             @Override public boolean isRunActive(UUID uuid) { return active[0]; }
-            @Override public boolean isRunStageUnlocked(UUID uuid, int id) { return stages.contains(id); }
-            @Override public boolean unlockRunStage(UUID uuid, int id) { return stages.add(id); }
+            @Override public boolean isRunStageUnlocked(UUID uuid, int id) { return cycleStages.contains(id); }
+            @Override public boolean unlockRunStage(UUID uuid, int id) { return cycleStages.add(id); }
         });
         assertEquals("START", service.stageAccessSource(player, id(1, 2)));
-        assertNull(service.unlockNext(player, id(1, 2)), "Ordinary stage unlock cannot mint permanent grants outside Run");
-        assertFalse(service.isUnlocked(player, id(1, 5)));
-        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
-        assertEquals(0, repository.unlockWrites);
-        active[0] = true;
         assertNotNull(service.unlockNext(player, id(1, 2)));
         assertEquals("RUN", service.stageAccessSource(player, id(1, 5)));
+        assertEquals(0, repository.unlockWrites);
+        // Choosing a Mastery Run later does not remove previously opened stages.
+        active[0] = true;
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertNotNull(service.unlockNext(player, id(1, 5)));
         active[0] = false;
-        stages.clear();
-        assertFalse(service.isUnlocked(player, id(1, 5)));
+        assertTrue(service.isUnlocked(player, id(1, 9)));
+        // Reset clears cycle state, not the permanent mob progression repository.
+        cycleStages.clear();
         assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertEquals("RUN", service.stageAccessSource(player, id(1, 5)));
         assertEquals(0, repository.unlockWrites);
     }
 
