@@ -13,6 +13,9 @@ public final class InMemoryMobProgressionRepository implements MobProgressionRep
     public boolean failUnlock;
     public boolean failReplace;
     public boolean failClear;
+    public boolean failClassification;
+    private final Map<UUID, Map<Integer, Set<Integer>>> maskedLegacy = new HashMap<>();
+    private final Map<UUID, Map<Integer, Set<Integer>>> newPermanent = new HashMap<>();
     public int unlockWrites;
     public int replaceWrites;
     public int clearWrites;
@@ -24,14 +27,19 @@ public final class InMemoryMobProgressionRepository implements MobProgressionRep
     }
 
     @Override public Set<Integer> getUnlockedSlots(UUID player, int location) {
-        return new HashSet<>(records.getOrDefault(player, Collections.emptyMap())
+        Set<Integer> result = new HashSet<>(records.getOrDefault(player, Collections.emptyMap())
                 .getOrDefault(location, Collections.emptySet()));
+        result.removeAll(maskedLegacy.getOrDefault(player, Collections.emptyMap())
+                .getOrDefault(location, Collections.emptySet()));
+        result.addAll(newPermanent.getOrDefault(player, Collections.emptyMap())
+                .getOrDefault(location, Collections.emptySet()));
+        return result;
     }
 
     @Override public boolean unlockSlot(UUID player, int location, int slot) {
         unlockWrites++;
         if (failUnlock) return false;
-        return records.computeIfAbsent(player, ignored -> new HashMap<>())
+        return newPermanent.computeIfAbsent(player, ignored -> new HashMap<>())
                 .computeIfAbsent(location, ignored -> new HashSet<>()).add(slot);
     }
 
@@ -39,6 +47,17 @@ public final class InMemoryMobProgressionRepository implements MobProgressionRep
         replaceWrites++;
         if (failReplace) return false;
         records.computeIfAbsent(player, ignored -> new HashMap<>()).put(location, new HashSet<>(slots));
+        maskedLegacy.computeIfAbsent(player, ignored -> new HashMap<>()).remove(location);
+        newPermanent.computeIfAbsent(player, ignored -> new HashMap<>()).remove(location);
+        return true;
+    }
+
+    @Override public boolean classifyLegacyRunSlots(UUID player, int location) {
+        if (failClassification) return false;
+        maskedLegacy.computeIfAbsent(player, ignored -> new HashMap<>())
+                .computeIfAbsent(location, ignored ->
+                        new HashSet<>(records.getOrDefault(player, Collections.emptyMap())
+                                .getOrDefault(location, Collections.emptySet())));
         return true;
     }
 
@@ -47,6 +66,8 @@ public final class InMemoryMobProgressionRepository implements MobProgressionRep
         if (failClear) return false;
         Map<Integer, Set<Integer>> values = records.get(player);
         if (values != null) values.keySet().removeIf(id -> id >= location);
+        maskedLegacy.computeIfAbsent(player, ignored -> new HashMap<>()).keySet().removeIf(id -> id >= location);
+        newPermanent.computeIfAbsent(player, ignored -> new HashMap<>()).keySet().removeIf(id -> id >= location);
         return true;
     }
 }
