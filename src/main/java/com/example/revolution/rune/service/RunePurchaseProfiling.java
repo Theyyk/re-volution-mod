@@ -42,6 +42,23 @@ public final class RunePurchaseProfiling {
         }
     }
 
+    /** Diagnose Crystal purchase work versus authoritative snapshot build without changing either action. */
+    public static <T> T phase(String name, Supplier<T> action) {
+        Sample sample = ACTIVE.get();
+        if (sample == null) return action.get();
+        long started = System.nanoTime();
+        try { return action.get(); }
+        finally {
+            long elapsed = System.nanoTime() - started;
+            if ("purchase".equals(name)) sample.purchaseNanos += elapsed;
+            else if ("snapshot".equals(name)) sample.snapshotNanos += elapsed;
+        }
+    }
+
+    public static void phase(String name, Runnable action) {
+        phase(name, () -> { action.run(); return null; });
+    }
+
     public static <T> T mongoRead(Supplier<T> action) {
         Sample sample = ACTIVE.get();
         if (sample == null) return action.get();
@@ -65,14 +82,14 @@ public final class RunePurchaseProfiling {
     private static long millis(long nanos) { return Math.max(0L, nanos) / NANOS_PER_MS; }
 
     private static final class Sample {
-        long readNanos, writeNanos;
+        long readNanos, writeNanos, purchaseNanos, snapshotNanos;
         int reads, writes;
     }
 
     private static final class Window {
         final String path;
         int count, maxPending, reads, writes;
-        long totalQueue, totalExecution, totalMongoRead, totalMongoWrite;
+        long totalQueue, totalExecution, totalMongoRead, totalMongoWrite, totalPurchase, totalSnapshot;
         long maxQueue, maxExecution, lastSlowWarningNanos;
 
         Window(String path) { this.path = path; }
@@ -83,6 +100,8 @@ public final class RunePurchaseProfiling {
             totalExecution += executionNanos;
             totalMongoRead += sample.readNanos;
             totalMongoWrite += sample.writeNanos;
+            totalPurchase += sample.purchaseNanos;
+            totalSnapshot += sample.snapshotNanos;
             reads += sample.reads;
             writes += sample.writes;
             maxQueue = Math.max(maxQueue, queueNanos);
@@ -100,6 +119,9 @@ public final class RunePurchaseProfiling {
                         + " mongoWriteMs=" + millis(sample.writeNanos)
                         + " mongoReads=" + sample.reads
                         + " mongoWrites=" + sample.writes
+                        + " purchaseMs=" + millis(sample.purchaseNanos)
+                        + " snapshotMs=" + millis(sample.snapshotNanos)
+                        + " unclassifiedMs=" + millis(Math.max(0L, executionNanos - sample.purchaseNanos - sample.snapshotNanos))
                         + " pending=" + pending);
             }
             if (count < 25) return;
@@ -111,12 +133,15 @@ public final class RunePurchaseProfiling {
                     + " avgMongoReadMs=" + millis(totalMongoRead / count)
                     + " avgMongoWriteMs=" + millis(totalMongoWrite / count)
                     + " reads=" + reads + " writes=" + writes
+                    + " avgPurchaseMs=" + millis(totalPurchase / count)
+                    + " avgSnapshotMs=" + millis(totalSnapshot / count)
+                    + " avgUnclassifiedMs=" + millis(Math.max(0L, totalExecution - totalPurchase - totalSnapshot) / count)
                     + " maxPending=" + maxPending;
             if (millis(maxExecution) >= 50L || millis(maxQueue) >= 50L)
                 RevolutionMod.logger.warn(message);
             else RevolutionMod.logger.info(message);
             count = maxPending = reads = writes = 0;
-            totalQueue = totalExecution = totalMongoRead = totalMongoWrite = 0L;
+            totalQueue = totalExecution = totalMongoRead = totalMongoWrite = totalPurchase = totalSnapshot = 0L;
             maxQueue = maxExecution = 0L;
         }
     }
