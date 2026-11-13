@@ -54,6 +54,7 @@ public final class PrestigeBranchLifecycleTest {
         router.confirmedDamage(player, GameplayDamageSource.POISON, new BigDecimal("600"));
         assertEquals(PrestigeResetService.ResetResult.APPLIED, prestige.reset(player, poisonRun.runId));
 
+        assertTrue(prestige.completeLocationReturn(player, poisonRun.runId));
         PrestigeState.RunState coinRun = prestige.startRun(player, PrestigeBranch.COINS);
         router.earnedResource(player, "coins", new BigDecimal("200"));
         assertEquals(PrestigeResetService.ResetResult.APPLIED, prestige.reset(player, coinRun.runId));
