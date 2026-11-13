@@ -267,7 +267,42 @@ class MobProgressionServiceJUnitTest {
         assertThrows(IllegalStateException.class, returns::startingStageId);
     }
 
-    @Test void runOnlyStageUnlockDoesNotOverwritePermanentGrants() {
+    @Test void confirmedHistoricalOrdinaryStagesAreMaskedWithoutDeletingOtherPlayersGrants() {
+        UUID otherPlayer = UUID.fromString("00000000-0000-0000-0000-000000001311");
+        repository.seed(player, 1, 5, 9);
+        repository.seed(otherPlayer, 1, 5, 9);
+        service.reloadConfiguration(allZones(), allSpawns());
+
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertTrue(service.isUnlocked(otherPlayer, id(1, 5)));
+
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertTrue(service.isUnlocked(player, id(1, 2)));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+        assertTrue(service.isUnlocked(otherPlayer, id(1, 5)));
+        assertTrue(service.isUnlocked(otherPlayer, id(1, 9)));
+        assertTrue(repository.rawLegacyContains(player, 1, 5));
+
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        assertTrue(service.grantStage(player, 1, 5));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+    }
+
+    @Test void failedHistoricalClassificationCanBeSafelyRetried() {
+        repository.seed(player, 1, 5);
+        service.reloadConfiguration(allZones(), allSpawns());
+        repository.failClassification = true;
+        assertFalse(service.classifyLegacyRunProgress(player));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        repository.failClassification = false;
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+    }
+
+        @Test void runOnlyStageUnlockDoesNotOverwritePermanentGrants() {
         final java.util.Set<Integer> runStages = new java.util.HashSet<>();
         final boolean[] active = {true};
         service.setRunStageAccess(new MobProgressionService.RunStageAccess() {

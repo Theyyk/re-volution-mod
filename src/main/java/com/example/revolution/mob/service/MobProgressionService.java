@@ -257,6 +257,24 @@ public final class MobProgressionService {
         return locations.isEmpty() ? null : locations.get(0);
     }
 
+    /**
+     * Run only for an explicitly confirmed legacy player, after their Reset.
+     * The repository keeps the historical bytes, masking only old ordinary stage
+     * grants. This cannot infer provenance: never invoke automatically on login/reset.
+     */
+    public boolean classifyLegacyRunProgress(UUID playerUuid) {
+        if (playerUuid == null || chains.isEmpty()) return false;
+        for (Integer location : configuredWorldLocations()) {
+            // Invalidate every classified Location even if a later Mongo write fails:
+            // a partial, non-destructive migration must never leave stale open-stage cache.
+            boolean classified = repository.classifyLegacyRunSlots(playerUuid, location);
+            unlockCache.remove(playerUuid.toString() + ":" + location);
+            if (!classified) return false;
+        }
+        invalidateFromLocation(playerUuid, firstConfiguredWorldLocationId());
+        return true;
+    }
+
     /** Admin access grant does not trigger fast-auto travel or combat rewards. */
     public boolean grantStage(UUID playerUuid, int worldLocationId, int mobSlotId) {
         if (playerUuid == null) return false;

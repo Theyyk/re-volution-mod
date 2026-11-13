@@ -10,6 +10,7 @@ import com.example.revolution.location.service.StageTransitionTriggerService;
 import com.example.revolution.mob.definition.MobDefinition;
 import com.example.revolution.mob.service.MobAdminService;
 import com.example.revolution.mob.service.MobProgressionService;
+import com.example.revolution.lifecycle.ServerLifecycle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -52,7 +53,8 @@ public final class StageCommand extends AdminOnlyCommand {
                 + " | /stage display <locationId> <mobSlotId> <chat|actionbar>"
                 + " | /stage auto <on|off> [player]"
                 + " | /stage revoke <locationId> <mobSlotId> [player]"
-                + " | /stage reset <locationId> [player]";
+                + " | /stage reset <locationId> [player]"
+                + " | /stage classify-legacy-run <player> [confirm]";
     }
 
     @Override
@@ -60,7 +62,8 @@ public final class StageCommand extends AdminOnlyCommand {
             MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(args,
-                    "next", "previous", "teleport", "location", "setpoint", "clearpoint", "settrigger", "cleartrigger",
+                    "next", "previous", "teleport", "location", "setpoint", "clearpoint", "settrigger",
+                    "classify-legacy-run", "cleartrigger",
                     "setmessage", "clearmessage", "display", "auto", "revoke", "reset");
         }
         if (args.length >= 2 && "location".equalsIgnoreCase(args[0])) {
@@ -94,6 +97,10 @@ public final class StageCommand extends AdminOnlyCommand {
         if (args.length == 4 && ("teleport".equalsIgnoreCase(args[0]) || "tp".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
         }
+        if (args.length == 2 && "classify-legacy-run".equalsIgnoreCase(args[0]))
+            return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
+        if (args.length == 3 && "classify-legacy-run".equalsIgnoreCase(args[0]))
+            return getListOfStringsMatchingLastWord(args, "confirm");
         if (args.length == 2 && "auto".equalsIgnoreCase(args[0])) {
             return getListOfStringsMatchingLastWord(args, "on", "off");
         }
@@ -133,6 +140,7 @@ public final class StageCommand extends AdminOnlyCommand {
             case "auto": setAuto(server, sender, args); return;
             case "revoke": revoke(server, sender, args); return;
             case "reset": reset(server, sender, args); return;
+            case "classify-legacy-run": classifyLegacyRun(server, sender, args); return;
             default: break;
         }
 
@@ -345,6 +353,29 @@ public final class StageCommand extends AdminOnlyCommand {
         sender.sendMessage(new TextComponentString(
                 "Progression revoked for " + player.getName() + " from Location " + worldLocationId
                         + ", mobSlot " + mobSlotId + " onward, including all later Locations."));
+    }
+
+    /** Deliberate per-player legacy reclassification; never automatically wipes unknown admin grants. */
+    private void classifyLegacyRun(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 2 && args.length != 3) throw new CommandException(getUsage(sender));
+        EntityPlayerMP player = getPlayer(server, sender, args[1]);
+        if (ServerLifecycle.services().prestige.isRunActive(player.getUniqueID()))
+            throw new CommandException("Finish the active Mastery Run first; no legacy migration during an active Run");
+        if (ServerLifecycle.services().prestige.pendingLocationReturn(player.getUniqueID()) != null)
+            throw new CommandException("Finish pending starting-zone return before legacy migration");
+        if (args.length == 2) {
+            sender.sendMessage(new TextComponentString("§eLegacy provenance is unknown. For player "
+                    + player.getName() + ", this marks historical stage unlocks as run-earned without deleting records."));
+            sender.sendMessage(new TextComponentString("§eOnly use if the owner confirms these historical grants were ordinary gameplay, not permanent admin grants."));
+            sender.sendMessage(new TextComponentString("§eConfirm: /stage classify-legacy-run " + player.getName() + " confirm"));
+            return;
+        }
+        if (!"confirm".equalsIgnoreCase(args[2])) throw new CommandException(getUsage(sender));
+        if (!progression.classifyLegacyRunProgress(player.getUniqueID()))
+            throw new CommandException("Legacy classification could not finish. Retry; existing stage records remain intact.");
+        sender.sendMessage(new TextComponentString("§aHistorical ordinary stage progression classified as run-scoped for "
+                + player.getName() + ". Permanent Mastery/runes/pets unaffected; new admin grants remain permanent."));
+        player.sendMessage(new TextComponentString("§eYour historical run-earned stage progression was reset by an administrator."));
     }
 
     private void reset(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
