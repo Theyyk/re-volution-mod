@@ -257,6 +257,43 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(2, 5)));
     }
 
+    @Test void runOnlyStageUnlockDoesNotOverwritePermanentGrants() {
+        final java.util.Set<Integer> runStages = new java.util.HashSet<>();
+        final boolean[] active = {true};
+        service.setRunStageAccess(new MobProgressionService.RunStageAccess() {
+            @Override public boolean isRunActive(UUID uuid) { return active[0]; }
+            @Override public boolean isRunStageUnlocked(UUID uuid, int stage) { return runStages.contains(stage); }
+            @Override public boolean unlockRunStage(UUID uuid, int stage) { return runStages.add(stage); }
+        });
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertEquals(0, repository.unlockWrites);
+        assertTrue(service.grantStage(player, 2, 5));
+        assertTrue(service.isUnlocked(player, id(2, 5)));
+        runStages.clear();
+        active[0] = false;
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        assertTrue(service.isUnlocked(player, id(2, 5)));
+        assertTrue(service.isUnlocked(player, id(1, 2)));
+    }
+
+    @Test void runUnlockOfNextLocationFirstStageIsVisibleAndReversible() {
+        final java.util.Set<Integer> runStages = new java.util.HashSet<>();
+        service.setRunStageAccess(new MobProgressionService.RunStageAccess() {
+            @Override public boolean isRunActive(UUID uuid) { return true; }
+            @Override public boolean isRunStageUnlocked(UUID uuid, int stage) { return runStages.contains(stage); }
+            @Override public boolean unlockRunStage(UUID uuid, int stage) { return runStages.add(stage); }
+        });
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertNotNull(service.unlockNext(player, id(1, 5)));
+        assertNotNull(service.unlockNext(player, id(1, 9)));
+        assertTrue(service.isUnlocked(player, id(2, 2)));
+        assertEquals(0, repository.unlockWrites);
+        runStages.clear();
+        assertFalse(service.isUnlocked(player, id(2, 2)));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+    }
+
     private void unlockLocationOneThroughBoss() {
         assertNotNull(service.unlockNext(player, id(1, 2)));
         assertNotNull(service.unlockNext(player, id(1, 5)));
