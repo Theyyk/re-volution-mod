@@ -188,11 +188,7 @@ public final class PrestigeService implements EffectResolver.Source {
         return repository.load(playerUuid).pendingLocationReturnRunId;
     }
     public synchronized boolean completeLocationReturn(UUID playerUuid, String runId) {
-        PrestigeState state = repository.load(playerUuid);
-        if (runId == null || !runId.equals(state.pendingLocationReturnRunId)) return false;
-        state.pendingLocationReturnRunId = null;
-        repository.save(playerUuid, state);
-        return true;
+        return repository.completeLocationReturn(playerUuid, runId);
     }
     public synchronized PrestigeState.RunState activeRun(UUID playerUuid) {
         PrestigeState state = repository.load(playerUuid);
