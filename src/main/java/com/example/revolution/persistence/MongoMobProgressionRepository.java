@@ -100,16 +100,22 @@ public final class MongoMobProgressionRepository implements MobProgressionReposi
         if (!valid(playerUuid, worldLocationId)) return false;
         Document key = new Document("_id", key(playerUuid, worldLocationId));
         Document current = connection.collection(COLLECTION).find(key).first();
-        if (current == null || current.containsKey("legacyRunSlots")) return true;
-        Set<Integer> legacy = stageSlots(current.get("unlockedSlots"));
-        if (legacy.isEmpty()) return true;
-        Document filter = new Document("_id", key(playerUuid, worldLocationId))
-                .append("legacyRunSlots", new Document("$exists", false));
-        UpdateResult result = connection.collection(COLLECTION).updateOne(filter,
-                new Document("$set", new Document("legacyRunSlots", new ArrayList<>(legacy))));
-        if (result != null && result.getMatchedCount() == 1) return true;
+        if (current == null) return true;
+        // A previous partial migration may already have legacyRunSlots. Never treat that
+        // marker alone as completion: reconcile all unmasked historical unlockedSlots.
+        Set<Integer> unmasked = stageSlots(current.get("unlockedSlots"));
+        unmasked.removeAll(stageSlots(current.get("legacyRunSlots")));
+        if (unmasked.isEmpty()) return true;
+        Document update = new Document("$addToSet",
+                new Document("legacyRunSlots", new Document("$each", new ArrayList<>(unmasked))));
+        UpdateResult result = connection.collection(COLLECTION).updateOne(key, update);
+        if (result == null || !result.wasAcknowledged()) return false;
+        // Do not report success when a concurrent legacy write leaves effective slots open.
         Document latest = connection.collection(COLLECTION).find(key).first();
-        return latest != null && latest.containsKey("legacyRunSlots");
+        if (latest == null) return true;
+        Set<Integer> stillUnmasked = stageSlots(latest.get("unlockedSlots"));
+        stillUnmasked.removeAll(stageSlots(latest.get("legacyRunSlots")));
+        return stillUnmasked.isEmpty();
     }
 
     /** Diagnostic only: query the exact same Mongo row as the live effective stage check. */
