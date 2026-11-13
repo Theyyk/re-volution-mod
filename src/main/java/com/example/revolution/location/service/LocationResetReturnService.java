@@ -1,6 +1,5 @@
 package com.example.revolution.location.service;
 
-import com.example.revolution.location.definition.LocationDefinition;
 import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.mob.service.MobProgressionService;
 import com.example.revolution.prestige.PrestigeService;
@@ -52,7 +51,7 @@ public final class LocationResetReturnService {
                 RealmDefinition realm = RealmCatalog.leastPopulated(realms.population(server, player.getUniqueID()));
                 realms.join(server, player, realm.getRealmId());
             }
-            transitions.moveToStage(player, destination);
+            if (!transitions.isAtConfiguredStage(player, destination)) transitions.moveToStage(player, destination);
             if (!prestige.completeLocationReturn(player.getUniqueID(), pendingRunId))
                 throw new IllegalStateException("Starting stage reached but return acknowledgement is pending");
             return true;
