@@ -31,11 +31,7 @@ public final class MongoMobProgressionRepository implements MobProgressionReposi
         }
         Document doc = connection.collection(COLLECTION).find(new Document("_id", key(playerUuid, worldLocationId))).first();
         if (doc == null) return Collections.emptySet();
-        Set<Integer> result = stageSlots(doc.get("unlockedSlots"));
-        result.removeAll(stageSlots(doc.get("legacyRunSlots")));
-        // New permanent/admin grants can restore access without resurrecting prior run progress.
-        result.addAll(stageSlots(doc.get("permanentSlots")));
-        return Collections.unmodifiableSet(result);
+        return Collections.unmodifiableSet(visibleSlots(doc));
     }
 
     @Override
@@ -97,6 +93,14 @@ public final class MongoMobProgressionRepository implements MobProgressionReposi
         if (result != null && result.getMatchedCount() == 1) return true;
         Document latest = connection.collection(COLLECTION).find(key).first();
         return latest != null && latest.containsKey("legacyRunSlots");
+    }
+
+    /** Pure, backward-compatible read model: old rows retain full access until explicitly classified. */
+    static Set<Integer> visibleSlots(Document doc) {
+        Set<Integer> result = stageSlots(doc.get("unlockedSlots"));
+        result.removeAll(stageSlots(doc.get("legacyRunSlots")));
+        result.addAll(stageSlots(doc.get("permanentSlots")));
+        return result;
     }
 
     private static Set<Integer> stageSlots(Object raw) {
