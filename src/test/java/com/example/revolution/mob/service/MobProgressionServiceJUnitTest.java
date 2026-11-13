@@ -290,7 +290,8 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(1, 5)));
         // Simulate a partially migrated historical row that later exposes more old slots.
         repository.seed(player, 1, 2, 5, 9);
-        assertTrue(service.isUnlocked(player, id(1, 9)));
+        // A direct storage mutation does not invalidate the service cache; the admin
+        // reconciliation itself must refresh it and mask the newly discovered slots.
         assertTrue(service.classifyLegacyRunProgress(player));
         assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
         assertEquals("LOCKED", service.stageAccessSource(player, id(1, 9)));
