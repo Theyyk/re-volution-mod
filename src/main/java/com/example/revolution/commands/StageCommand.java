@@ -374,25 +374,35 @@ public final class StageCommand extends AdminOnlyCommand {
         int locked = 0;
         int runStages = 0;
         int permanentOrLegacy = 0;
+        int permanent = 0;
+        int unmasked = 0;
+        int masked = 0;
         int startStages = 0;
         for (Integer location : progression.configuredWorldLocations()) {
             for (Integer slot : progression.configuredSlots(location)) {
                 int id = MobZoneIds.encode(location, slot);
                 String source = progression.stageAccessSource(player.getUniqueID(), id);
                 boolean open = progression.isUnlocked(player.getUniqueID(), id);
+                String rawGrant = progression.stageStoredGrantProvenance(player.getUniqueID(), id);
+                if ("PERMANENT".equals(rawGrant)) permanent++;
+                else if ("LEGACY_UNMASKED".equals(rawGrant)) unmasked++;
+                else if ("LEGACY_MASKED".equals(rawGrant)) masked++;
                 if (open) unlocked++; else locked++;
                 if ("RUN".equals(source)) runStages++;
                 else if ("PERMANENT_OR_LEGACY".equals(source)) permanentOrLegacy++;
                 else if ("START".equals(source)) startStages++;
                 sender.sendMessage(new TextComponentString((open ? "§a" : "§c")
                         + "Location " + location + " stage " + slot + " = "
-                        + (open ? "UNLOCKED" : "LOCKED") + " [" + source + "]"));
+                        + (open ? "UNLOCKED" : "LOCKED") + " [" + source + "]"
+                        + " mongo=" + rawGrant));
             }
         }
         sender.sendMessage(new TextComponentString("§6Summary: " + unlocked + " unlocked, " + locked
                 + " locked; START=" + startStages + " RUN=" + runStages
                 + " PERMANENT_OR_LEGACY=" + permanentOrLegacy
-                + ". Server-authoritative, not GUI cache."));
+                + "; Mongo PERMANENT=" + permanent + " LEGACY_UNMASKED=" + unmasked
+                + " LEGACY_MASKED=" + masked
+                + ". Server-authoritative, read-only audit."));
     }
 
     /** Deliberate per-player legacy reclassification; never automatically wipes unknown admin grants. */
