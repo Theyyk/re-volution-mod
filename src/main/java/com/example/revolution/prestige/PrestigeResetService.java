@@ -76,6 +76,7 @@ public final class PrestigeResetService {
         PrestigeState.BranchState branch = next.branch(run.activeBranch);
         applyRunResult(playerUuid, run, branch);
         next.lastResetRunId = run.runId;
+        next.pendingLocationReturnRunId = run.runId;
         next.activeRun = null;
 
         PrestigeRepository.ResetCommitResult committed = repository.commitReset(playerUuid, expectedRunId, next, commitPolicy);
@@ -155,6 +156,7 @@ public final class PrestigeResetService {
         branch.masteryTier = nextTier.tier;
         branch.rankMetaLevelCap = nextTier.rankMetaLevelCap;
         next.lastResetRunId = run.runId;
+        next.pendingLocationReturnRunId = run.runId;
         next.activeRun = null;
 
         PrestigeRepository.ResetCommitResult committed = repository.commitReset(playerUuid, expectedRunId, next, commitPolicy);

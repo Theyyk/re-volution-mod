@@ -79,6 +79,7 @@ public final class PrestigeService implements EffectResolver.Source {
     public synchronized PrestigeState.RunState startRun(UUID playerUuid, PrestigeBranch branch) {
         PrestigeState state = repository.load(playerUuid);
         if (state.activeRun != null) throw new IllegalStateException("A Mastery run is already active; reset it before switching branch");
+        if (state.pendingLocationReturnRunId != null) throw new IllegalStateException("STARTING_ZONE_RETURN_PENDING");
         registry.get(branch);
         PrestigeState.RunState run = new PrestigeState.RunState();
         run.runId = UUID.randomUUID().toString();
@@ -168,6 +169,31 @@ public final class PrestigeService implements EffectResolver.Source {
         return pending;
     }
 
+    /** Run-only location grants live in Mastery Run persistence; permanent grants remain separate. */
+    public synchronized boolean isRunActive(UUID playerUuid) {
+        return repository.load(playerUuid).activeRun != null;
+    }
+    public synchronized boolean hasRunStage(UUID playerUuid, int internalLocationId) {
+        PrestigeState.RunState run = repository.load(playerUuid).activeRun;
+        return run != null && run.runUnlockedStages.contains(internalLocationId);
+    }
+    public synchronized boolean unlockRunStage(UUID playerUuid, int internalLocationId) {
+        PrestigeState state = repository.load(playerUuid);
+        if (state.activeRun == null || !com.example.revolution.location.definition.MobZoneIds.isMobZoneId(internalLocationId)) return false;
+        if (!state.activeRun.runUnlockedStages.add(internalLocationId)) return false;
+        repository.save(playerUuid, state);
+        return true;
+    }
+    public synchronized String pendingLocationReturn(UUID playerUuid) {
+        return repository.load(playerUuid).pendingLocationReturnRunId;
+    }
+    public synchronized boolean completeLocationReturn(UUID playerUuid, String runId) {
+        PrestigeState state = repository.load(playerUuid);
+        if (runId == null || !runId.equals(state.pendingLocationReturnRunId)) return false;
+        state.pendingLocationReturnRunId = null;
+        repository.save(playerUuid, state);
+        return true;
+    }
     public synchronized PrestigeState.RunState activeRun(UUID playerUuid) {
         PrestigeState state = repository.load(playerUuid);
         return state.activeRun == null ? null : state.activeRun.copy();

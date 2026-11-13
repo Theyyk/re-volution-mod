@@ -320,6 +320,11 @@ public final class ServerServices implements AutoCloseable {
         runeAwakening.setGameplayEventSink(gameplayEvents);
         runeActions = new RuneActionService(players, stats, runePurchase, runeEnhancement, runeAwakening, sync, mechanicUnlocks);
         mobProgression = new MobProgressionService(progressionRepository);
+        mobProgression.setRunStageAccess(new MobProgressionService.RunStageAccess() {
+            @Override public boolean isRunActive(UUID playerUuid) { return prestige.isRunActive(playerUuid); }
+            @Override public boolean isRunStageUnlocked(UUID playerUuid, int locationId) { return prestige.hasRunStage(playerUuid, locationId); }
+            @Override public boolean unlockRunStage(UUID playerUuid, int locationId) { return prestige.unlockRunStage(playerUuid, locationId); }
+        });
 
         uniqueRunes = new UniqueRuneService(
                 uniqueRuneRepository,
