@@ -372,19 +372,27 @@ public final class StageCommand extends AdminOnlyCommand {
                 + ": activeRun=" + activeRun + ", pendingReturn=" + (pending != null)));
         int unlocked = 0;
         int locked = 0;
+        int runStages = 0;
+        int permanentOrLegacy = 0;
+        int startStages = 0;
         for (Integer location : progression.configuredWorldLocations()) {
             for (Integer slot : progression.configuredSlots(location)) {
                 int id = MobZoneIds.encode(location, slot);
                 String source = progression.stageAccessSource(player.getUniqueID(), id);
                 boolean open = progression.isUnlocked(player.getUniqueID(), id);
                 if (open) unlocked++; else locked++;
+                if ("RUN".equals(source)) runStages++;
+                else if ("PERMANENT_OR_LEGACY".equals(source)) permanentOrLegacy++;
+                else if ("START".equals(source)) startStages++;
                 sender.sendMessage(new TextComponentString((open ? "§a" : "§c")
                         + "Location " + location + " stage " + slot + " = "
                         + (open ? "UNLOCKED" : "LOCKED") + " [" + source + "]"));
             }
         }
         sender.sendMessage(new TextComponentString("§6Summary: " + unlocked + " unlocked, " + locked
-                + " locked. This is the server-authoritative state, not a GUI cache."));
+                + " locked; START=" + startStages + " RUN=" + runStages
+                + " PERMANENT_OR_LEGACY=" + permanentOrLegacy
+                + ". Server-authoritative, not GUI cache."));
     }
 
     /** Deliberate per-player legacy reclassification; never automatically wipes unknown admin grants. */
