@@ -282,6 +282,28 @@ class MobProgressionServiceJUnitTest {
         assertThrows(IllegalStateException.class, returns::startingStageId);
     }
 
+    @Test void repeatClassificationReconcilesNewlyDiscoveredUnmaskedOldStages() {
+        UUID unaffected = UUID.fromString("00000000-0000-0000-0000-000000009033");
+        repository.seed(player, 1, 2);
+        repository.seed(unaffected, 1, 5, 9);
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        // Simulate a partially migrated historical row that later exposes more old slots.
+        repository.seed(player, 1, 2, 5, 9);
+        // A direct storage mutation does not invalidate the service cache; the admin
+        // reconciliation itself must refresh it and mask the newly discovered slots.
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 9)));
+        assertTrue(repository.rawLegacyContains(player, 1, 9));
+        assertTrue(service.isUnlocked(unaffected, id(1, 5)));
+        // A later confirmed admin grant remains permanent despite reclassification.
+        assertTrue(service.grantStage(player, 1, 5));
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertEquals("PERMANENT_OR_LEGACY", service.stageAccessSource(player, id(1, 5)));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 9)));
+    }
+
     @Test void confirmedHistoricalOrdinaryStagesAreMaskedWithoutDeletingOtherPlayersGrants() {
         UUID otherPlayer = UUID.fromString("00000000-0000-0000-0000-000000001311");
         repository.seed(player, 1, 5, 9);

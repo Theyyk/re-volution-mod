@@ -70,9 +70,9 @@ public final class InMemoryMobProgressionRepository implements MobProgressionRep
     @Override public boolean classifyLegacyRunSlots(UUID player, int location) {
         if (failClassification) return false;
         maskedLegacy.computeIfAbsent(player, ignored -> new HashMap<>())
-                .computeIfAbsent(location, ignored ->
-                        new HashSet<>(records.getOrDefault(player, Collections.emptyMap())
-                                .getOrDefault(location, Collections.emptySet())));
+                .computeIfAbsent(location, ignored -> new HashSet<>())
+                .addAll(records.getOrDefault(player, Collections.emptyMap())
+                        .getOrDefault(location, Collections.emptySet()));
         return true;
     }
 
