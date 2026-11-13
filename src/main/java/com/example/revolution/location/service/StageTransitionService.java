@@ -131,6 +131,16 @@ public final class StageTransitionService {
         return teleport(player, fromId, target);
     }
 
+    /** Avoid repeating a gameplay LOCATION_REACHED event while acknowledging an earlier teleport. */
+    public boolean isAtConfiguredStage(EntityPlayerMP player, int internalLocationId) {
+        if (player == null || !MobZoneIds.isMobZoneId(internalLocationId)) return false;
+        LocationDefinition stage = locations.getLocation(internalLocationId);
+        if (stage == null || !stage.hasTransitionPoint()) return false;
+        return Math.abs(player.posX - stage.getTransitionX()) < 0.125D
+                && Math.abs(player.posY - stage.getTransitionY()) < 0.125D
+                && Math.abs(player.posZ - stage.getTransitionZ()) < 0.125D;
+    }
+
     private TransitionResult teleport(EntityPlayerMP player, int fromInternalLocationId, LocationDefinition target) {
         if (!target.hasTransitionPoint()) {
             throw new IllegalStateException("Target mob stage has no transition point configured: " + target.getLocationId());

@@ -1,6 +1,7 @@
 package com.example.revolution.persistence;
 
 import com.example.revolution.prestige.PrestigeBranch;
+import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.prestige.PrestigeRepository;
 import com.example.revolution.prestige.PrestigeState;
 import com.example.revolution.rune.definition.RuneCollectionId;
@@ -33,6 +34,14 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
     @Override public void save(UUID playerUuid, PrestigeState state) {
         if (!enabled || !connection.isConnected()) return;
         connection.collection("players").updateOne(new Document("_id", playerUuid.toString()), new Document("$set", new Document("prestige", encode(state))), new UpdateOptions().upsert(true));
+    }
+
+    @Override public boolean completeLocationReturn(UUID playerUuid, String runId) {
+        if (!enabled || !connection.isConnected() || playerUuid == null || runId == null) return false;
+        UpdateResult result = connection.collection("players").updateOne(
+                new Document("_id", playerUuid.toString()).append("prestige.pendingLocationReturnRunId", runId),
+                new Document("$unset", new Document("prestige.pendingLocationReturnRunId", "")));
+        return result != null && result.getModifiedCount() == 1;
     }
 
     @Override public ResetCommitResult commitReset(UUID playerUuid, String expectedRunId, PrestigeState nextState) {
@@ -154,6 +163,7 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
     private Document encode(PrestigeState state) {
         Document root = new Document("schemaVersion", SCHEMA_VERSION);
         if (state.lastResetRunId != null) root.append("lastResetRunId", state.lastResetRunId);
+        if (state.pendingLocationReturnRunId != null) root.append("pendingLocationReturnRunId", state.pendingLocationReturnRunId);
         if (state.activeRun != null) root.append("activeRun", encodeRun(state.activeRun));
         Document branches = new Document();
         for (PrestigeBranch branch : PrestigeBranch.values()) branches.append(branch.name(), encodeBranch(state.branch(branch)));
@@ -175,7 +185,8 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
                 .append("masteryPendingFragments", exact(run.masteryPendingFragments))
                 .append("petPendingFragments", exact(run.petPendingFragments))
                 .append("runExchange", new Document("purchases", purchases))
-                .append("runModifiers", modifiers);
+                .append("runModifiers", modifiers)
+                .append("runUnlockedStages", new ArrayList<>(run.runUnlockedStages));
     }
 
     private Document encodeBranch(PrestigeState.BranchState state) {
@@ -189,6 +200,7 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         PrestigeState state = new PrestigeState();
         if (root == null) return state;
         state.lastResetRunId = root.getString("lastResetRunId");
+        state.pendingLocationReturnRunId = root.getString("pendingLocationReturnRunId");
         Document run = root.get("activeRun", Document.class);
         if (run != null) try {
             PrestigeState.RunState active = new PrestigeState.RunState();
@@ -207,6 +219,11 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
             }
             Document modifiers = run.get("runModifiers", Document.class);
             if (modifiers != null) for (String key : modifiers.keySet()) active.runModifiers.put(key, decimal(modifiers.get(key)));
+            Object storedStages = run.get("runUnlockedStages");
+            if (storedStages instanceof List) for (Object raw : (List<?>) storedStages) {
+                if (raw instanceof Number && MobZoneIds.isMobZoneId(((Number) raw).intValue()))
+                    active.runUnlockedStages.add(((Number) raw).intValue());
+            }
             if (active.runId != null) state.activeRun = active;
         } catch (RuntimeException ignored) { state.activeRun = null; }
         Document branches = root.get("branches", Document.class);

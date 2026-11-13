@@ -84,6 +84,7 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                         response = (premium ? "RESET_PREMIUM_" : "RESET_") + result.name();
                         if (result == PrestigeResetService.ResetResult.APPLIED) {
                             services.runeActions.refreshAfterPrestigeReset(player);
+                            services.locationReturn.tryReturn(player);
                             services.statsSync.sendTo(player);
                         }
                     } else if ("preview_mastery".equals(action)) {
@@ -98,6 +99,7 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                         response = "MASTERY_" + result.name();
                         if (result == PrestigeResetService.MasteryResetResult.APPLIED) {
                             services.runeActions.refreshAfterPrestigeReset(player);
+                            services.locationReturn.tryReturn(player);
                             services.statsSync.sendTo(player);
                         }
                     } else if ("preview_premium".equals(action)) {
@@ -117,6 +119,7 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                         if (result == PrestigeResetService.MasteryResetResult.APPLIED) {
                             if (!preview.premiumPreserveRunes)
                                 services.runeActions.refreshAfterPrestigeReset(player);
+                            services.locationReturn.tryReturn(player);
                             services.statsSync.sendTo(player);
                         }
                     }

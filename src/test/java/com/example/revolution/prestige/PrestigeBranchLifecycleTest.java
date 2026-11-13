@@ -2,6 +2,7 @@ package com.example.revolution.prestige;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.gameplay.GameplayDamageSource;
@@ -54,6 +55,7 @@ public final class PrestigeBranchLifecycleTest {
         router.confirmedDamage(player, GameplayDamageSource.POISON, new BigDecimal("600"));
         assertEquals(PrestigeResetService.ResetResult.APPLIED, prestige.reset(player, poisonRun.runId));
 
+        assertTrue(prestige.completeLocationReturn(player, poisonRun.runId));
         PrestigeState.RunState coinRun = prestige.startRun(player, PrestigeBranch.COINS);
         router.earnedResource(player, "coins", new BigDecimal("200"));
         assertEquals(PrestigeResetService.ResetResult.APPLIED, prestige.reset(player, coinRun.runId));

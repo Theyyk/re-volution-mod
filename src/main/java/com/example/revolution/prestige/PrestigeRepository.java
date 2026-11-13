@@ -3,6 +3,13 @@ package com.example.revolution.prestige;
 import java.util.UUID;
 
 public interface PrestigeRepository {
+    default boolean completeLocationReturn(UUID playerUuid, String runId) {
+        PrestigeState state = load(playerUuid);
+        if (runId == null || !runId.equals(state.pendingLocationReturnRunId)) return false;
+        state.pendingLocationReturnRunId = null;
+        save(playerUuid, state);
+        return true;
+    }
     PrestigeState load(UUID playerUuid);
     void save(UUID playerUuid, PrestigeState state);
     ResetCommitResult commitReset(UUID playerUuid, String expectedRunId, PrestigeState state);

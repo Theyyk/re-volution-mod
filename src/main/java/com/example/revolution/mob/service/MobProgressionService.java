@@ -18,6 +18,11 @@ import java.util.UUID;
 /** Per-player progression across configured mob stages and world Locations. */
 public final class MobProgressionService {
     public interface UnlockListener { void onUnlocked(UUID playerUuid, UnlockResult result); }
+    public interface RunStageAccess {
+        boolean isRunActive(UUID playerUuid);
+        boolean isRunStageUnlocked(UUID playerUuid, int internalLocationId);
+        boolean unlockRunStage(UUID playerUuid, int internalLocationId);
+    }
 
     public static final class UnlockResult {
         public final int worldLocationId;
@@ -49,6 +54,7 @@ public final class MobProgressionService {
     private final Set<Integer> validBossLayouts = new LinkedHashSet<>();
     private final Map<String, Set<Integer>> unlockCache = new HashMap<>();
     private UnlockListener unlockListener;
+    private RunStageAccess runStageAccess;
 
     public MobProgressionService(MobProgressionRepository repository) {
         if (repository == null) throw new IllegalArgumentException("repository is required");
@@ -56,6 +62,7 @@ public final class MobProgressionService {
     }
 
     public void setUnlockListener(UnlockListener unlockListener) { this.unlockListener = unlockListener; }
+    public void setRunStageAccess(RunStageAccess access) { this.runStageAccess = access; }
 
     public void reloadConfiguration(List<LocationDefinition> locations, List<StoredMobSpawn> storedSpawns) {
         chains.clear();
@@ -125,9 +132,10 @@ public final class MobProgressionService {
         Integer firstLocation = firstConfiguredWorldLocationId();
         int firstSlot = configured.get(0);
         boolean firstLocationDefault = firstLocation != null && firstLocation == worldLocationId;
-        if (!firstLocationDefault && !explicit.contains(firstSlot)) return false;
-        if (mobSlotId == firstSlot) return firstLocationDefault || explicit.contains(firstSlot);
-        return explicit.contains(mobSlotId);
+        boolean firstUnlocked = explicit.contains(firstSlot) || (runStageAccess != null && runStageAccess.isRunStageUnlocked(playerUuid, MobZoneIds.encode(worldLocationId, firstSlot)));
+        if (!firstLocationDefault && !firstUnlocked) return false;
+        if (mobSlotId == firstSlot) return firstLocationDefault || firstUnlocked;
+        return explicit.contains(mobSlotId) || (runStageAccess != null && runStageAccess.isRunStageUnlocked(playerUuid, internalLocationId));
     }
 
     public Integer previousRequiredSlot(int internalLocationId) {
@@ -203,8 +211,14 @@ public final class MobProgressionService {
         int nextSlot = MobZoneIds.mobSlotId(nextInternalId);
         Set<Integer> unlocked = unlockedSlots(playerUuid, nextWorldLocationId);
         if (unlocked.contains(nextSlot)) return null;
-        if (!repository.unlockSlot(playerUuid, nextWorldLocationId, nextSlot)) return null;
-        unlocked.add(nextSlot);
+        if (isUnlocked(playerUuid, nextInternalId)) return null;
+        RunStageAccess runAccess = runStageAccess;
+        if (runAccess != null && runAccess.isRunActive(playerUuid)) {
+            if (!runAccess.unlockRunStage(playerUuid, nextInternalId)) return null;
+        } else {
+            if (!repository.unlockSlot(playerUuid, nextWorldLocationId, nextSlot)) return null;
+            unlocked.add(nextSlot);
+        }
         Stage next = stage(nextWorldLocationId, nextSlot);
         UnlockResult result = new UnlockResult(nextWorldLocationId, nextSlot, next == null ? "" : next.mobName);
         UnlockListener listener = unlockListener;
@@ -324,5 +338,6 @@ public final class MobProgressionService {
         validBossLayouts.clear();
         unlockCache.clear();
         unlockListener = null;
+        runStageAccess = null;
     }
 }

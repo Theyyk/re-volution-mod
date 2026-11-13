@@ -54,6 +54,7 @@ public final class PrestigeFoundationTest {
         assertEquals(0, effects.multiplier(player, EffectResolver.Stat.CLICK_DAMAGE_MULTIPLIER)
                 .compareTo(new BigDecimal("1.02")));
 
+        assertTrue(prestige.completeLocationReturn(player, first.runId));
         PrestigeState.RunState weaker = prestige.startRun(player, PrestigeBranch.CLICK);
         prestige.recordProgress(player, PrestigeBranch.CLICK, new BigDecimal("200"));
         assertEquals(PrestigeResetService.ResetResult.STALE, prestige.reset(player, first.runId));
