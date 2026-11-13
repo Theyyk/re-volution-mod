@@ -94,8 +94,9 @@ public final class MongoMobProgressionRepository implements MobProgressionReposi
                 .append("legacyRunSlots", new Document("$exists", false));
         UpdateResult result = connection.collection(COLLECTION).updateOne(filter,
                 new Document("$set", new Document("legacyRunSlots", new ArrayList<>(legacy))));
-        return result != null && (result.getMatchedCount() == 1
-                || connection.collection(COLLECTION).find(key).first().containsKey("legacyRunSlots"));
+        if (result != null && result.getMatchedCount() == 1) return true;
+        Document latest = connection.collection(COLLECTION).find(key).first();
+        return latest != null && latest.containsKey("legacyRunSlots");
     }
 
     private static Set<Integer> stageSlots(Object raw) {
