@@ -151,10 +151,20 @@ public final class MobProgressionService {
         if (!isUnlocked(playerUuid, internalLocationId)) return "LOCKED";
         Integer first = firstConfiguredWorldLocationId();
         if (first != null && first == worldLocationId && slot == configured.get(0)) return "START";
-        if (unlockedSlots(playerUuid, worldLocationId).contains(slot)) return "PERMANENT_OR_LEGACY";
+        if (unlockedSlots(playerUuid, worldLocationId).contains(slot)) {
+            String storageSource = repository.stageGrantProvenance(playerUuid, worldLocationId, slot);
+            return "UNSUPPORTED".equals(storageSource) ? "PERMANENT_OR_LEGACY" : storageSource;
+        }
         if (runStageAccess != null && runStageAccess.isRunStageUnlocked(playerUuid, internalLocationId))
             return "RUN";
         return "LOCKED";
+    }
+
+    /** Separate read-only Mongo provenance, even for masked (currently locked) slots. */
+    public String stageStoredGrantProvenance(UUID playerUuid, int internalLocationId) {
+        if (playerUuid == null || !MobZoneIds.isMobZoneId(internalLocationId)) return "INVALID";
+        return repository.stageGrantProvenance(playerUuid, MobZoneIds.worldLocationId(internalLocationId),
+                MobZoneIds.mobSlotId(internalLocationId));
     }
 
     public Integer previousRequiredSlot(int internalLocationId) {
