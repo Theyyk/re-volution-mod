@@ -265,8 +265,11 @@ public final class MobProgressionService {
     public boolean classifyLegacyRunProgress(UUID playerUuid) {
         if (playerUuid == null || chains.isEmpty()) return false;
         for (Integer location : configuredWorldLocations()) {
-            if (!repository.classifyLegacyRunSlots(playerUuid, location)) return false;
+            // Invalidate every classified Location even if a later Mongo write fails:
+            // a partial, non-destructive migration must never leave stale open-stage cache.
+            boolean classified = repository.classifyLegacyRunSlots(playerUuid, location);
             unlockCache.remove(playerUuid.toString() + ":" + location);
+            if (!classified) return false;
         }
         invalidateFromLocation(playerUuid, firstConfiguredWorldLocationId());
         return true;
