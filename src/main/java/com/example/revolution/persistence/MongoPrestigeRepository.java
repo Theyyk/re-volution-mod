@@ -48,7 +48,12 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         PrestigeState current = decode(player.get("prestige", Document.class));
         if (current.activeRun == null) return expectedRunId != null && expectedRunId.equals(current.lastResetRunId) ? ResetCommitResult.DUPLICATE : ResetCommitResult.STALE;
         if (expectedRunId == null || !expectedRunId.equals(current.activeRun.runId)) return ResetCommitResult.STALE;
-        if (crystals(player) < policy.crystalCost) return ResetCommitResult.INSUFFICIENT_CRYSTALS;
+        // The canonical wallet is stored as a decimal STRING, not a BSON number.
+        // Keep the runId and the exact observed wallet value in one CAS filter.
+        Object observedCrystals = player.get("crystals");
+        BigDecimal wallet = decimal(observedCrystals);
+        if (wallet.compareTo(BigDecimal.valueOf(policy.crystalCost)) < 0)
+            return ResetCommitResult.INSUFFICIENT_CRYSTALS;
 
         Document resetPets = policy.preservePets ? null : MongoPetRepository.resetForPrestige(player);
         Document set = new Document("prestige", encode(nextState));
@@ -58,9 +63,8 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         if (!policy.preserveRunes) appendRuneOwnershipWipe(player, set);
         if (resetPets != null) set.append("petSystem", resetPets);
         Document filter = new Document("_id", playerUuid.toString()).append("prestige.activeRun.runId", expectedRunId);
-        if (policy.crystalCost > 0) filter.append("crystals", new Document("$gte", policy.crystalCost));
+        if (policy.crystalCost > 0) appendCrystalDebit(filter, set, observedCrystals, policy.crystalCost);
         Document update = new Document("$set", set);
-        if (policy.crystalCost > 0) update.append("$inc", new Document("crystals", -policy.crystalCost));
         UpdateResult result = connection.collection("players").updateOne(filter, update);
         if (result != null && result.getMatchedCount() > 0) return ResetCommitResult.APPLIED;
 
@@ -68,7 +72,9 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         PrestigeState latest = latestPlayer == null ? new PrestigeState() : decode(latestPlayer.get("prestige", Document.class));
         if (expectedRunId != null && expectedRunId.equals(latest.lastResetRunId) && latest.activeRun == null) return ResetCommitResult.DUPLICATE;
         if (latest.activeRun != null && expectedRunId != null && expectedRunId.equals(latest.activeRun.runId)
-                && latestPlayer != null && crystals(latestPlayer) < policy.crystalCost) return ResetCommitResult.INSUFFICIENT_CRYSTALS;
+                && latestPlayer != null && decimal(latestPlayer.get("crystals"))
+                    .compareTo(BigDecimal.valueOf(policy.crystalCost)) < 0)
+            return ResetCommitResult.INSUFFICIENT_CRYSTALS;
         return ResetCommitResult.STALE;
     }
 
@@ -213,6 +219,16 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
             if (meta != null) for (String key : meta.keySet()) { Object value = meta.get(key); if (value instanceof Number) target.rankMetaLevels.put(key, Math.max(0, ((Number) value).intValue())); }
         }
         return state;
+    }
+
+    /** A string-valued wallet must never be decremented with MongoDB's numeric $inc. */
+    static void appendCrystalDebit(Document filter, Document set, Object observedCrystals, int cost) {
+        if (filter == null || set == null || cost <= 0) throw new IllegalArgumentException("invalid crystal debit");
+        BigDecimal current = decimal(observedCrystals);
+        if (current.compareTo(BigDecimal.valueOf(cost)) < 0)
+            throw new IllegalArgumentException("insufficient crystals");
+        filter.append("crystals", observedCrystals);
+        set.append("crystals", exact(current.subtract(BigDecimal.valueOf(cost))));
     }
 
     private static int crystals(Document player) {
