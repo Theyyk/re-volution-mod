@@ -15,6 +15,8 @@ public final class PrestigeState {
     public final Map<PrestigeBranch, BranchState> branches = new EnumMap<>(PrestigeBranch.class);
     public String lastResetRunId;
     public String pendingLocationReturnRunId;
+    /** Ordinary stage progress of the current reset cycle, independent from selecting a Mastery branch. */
+    public final Set<Integer> locationCycleUnlockedStages = new LinkedHashSet<>();
 
     public PrestigeState() {
         for (PrestigeBranch branch : PrestigeBranch.values()) branches.put(branch, new BranchState());
@@ -36,6 +38,7 @@ public final class PrestigeState {
         copy.activeRun = activeRun == null ? null : activeRun.copy();
         copy.lastResetRunId = lastResetRunId;
         copy.pendingLocationReturnRunId = pendingLocationReturnRunId;
+        copy.locationCycleUnlockedStages.addAll(locationCycleUnlockedStages);
         return copy;
     }
 
