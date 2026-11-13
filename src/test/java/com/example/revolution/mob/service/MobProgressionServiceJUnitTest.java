@@ -349,7 +349,7 @@ class MobProgressionServiceJUnitTest {
         });
         assertEquals("START", service.stageAccessSource(player, id(1, 2)));
         assertNotNull(service.unlockNext(player, id(1, 2)));
-        assertEquals("RUN", service.stageAccessSource(player, id(1, 5)));
+        assertEquals("CYCLE", service.stageAccessSource(player, id(1, 5)));
         assertEquals(0, repository.unlockWrites);
         // Choosing a Mastery Run later does not remove previously opened stages.
         active[0] = true;
@@ -361,7 +361,7 @@ class MobProgressionServiceJUnitTest {
         cycleStages.clear();
         assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
         assertNotNull(service.unlockNext(player, id(1, 2)));
-        assertEquals("RUN", service.stageAccessSource(player, id(1, 5)));
+        assertEquals("CYCLE", service.stageAccessSource(player, id(1, 5)));
         assertEquals(0, repository.unlockWrites);
     }
 
