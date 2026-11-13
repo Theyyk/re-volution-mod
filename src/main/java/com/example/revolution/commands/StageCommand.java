@@ -54,7 +54,8 @@ public final class StageCommand extends AdminOnlyCommand {
                 + " | /stage auto <on|off> [player]"
                 + " | /stage revoke <locationId> <mobSlotId> [player]"
                 + " | /stage reset <locationId> [player]"
-                + " | /stage classify-legacy-run <player> [confirm]";
+                + " | /stage classify-legacy-run <player> [confirm]"
+                + " | /stage access-audit <player>";
     }
 
     @Override
@@ -63,7 +64,7 @@ public final class StageCommand extends AdminOnlyCommand {
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(args,
                     "next", "previous", "teleport", "location", "setpoint", "clearpoint", "settrigger",
-                    "classify-legacy-run", "cleartrigger",
+                    "classify-legacy-run", "access-audit", "cleartrigger",
                     "setmessage", "clearmessage", "display", "auto", "revoke", "reset");
         }
         if (args.length >= 2 && "location".equalsIgnoreCase(args[0])) {
@@ -97,6 +98,8 @@ public final class StageCommand extends AdminOnlyCommand {
         if (args.length == 4 && ("teleport".equalsIgnoreCase(args[0]) || "tp".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
         }
+        if (args.length == 2 && "access-audit".equalsIgnoreCase(args[0]))
+            return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
         if (args.length == 2 && "classify-legacy-run".equalsIgnoreCase(args[0]))
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
         if (args.length == 3 && "classify-legacy-run".equalsIgnoreCase(args[0]))
@@ -141,6 +144,7 @@ public final class StageCommand extends AdminOnlyCommand {
             case "revoke": revoke(server, sender, args); return;
             case "reset": reset(server, sender, args); return;
             case "classify-legacy-run": classifyLegacyRun(server, sender, args); return;
+            case "access-audit": auditAccess(server, sender, args); return;
             default: break;
         }
 
@@ -353,6 +357,34 @@ public final class StageCommand extends AdminOnlyCommand {
         sender.sendMessage(new TextComponentString(
                 "Progression revoked for " + player.getName() + " from Location " + worldLocationId
                         + ", mobSlot " + mobSlotId + " onward, including all later Locations."));
+    }
+
+    /**
+     * Read-only DEV diagnostics. Print every configured stage and the exact effective
+     * unlock source used by server-side teleport validation.
+     */
+    private void auditAccess(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 2) throw new CommandException(getUsage(sender));
+        EntityPlayerMP player = getPlayer(server, sender, args[1]);
+        boolean activeRun = ServerLifecycle.services().prestige.isRunActive(player.getUniqueID());
+        String pending = ServerLifecycle.services().prestige.pendingLocationReturn(player.getUniqueID());
+        sender.sendMessage(new TextComponentString("§6Stage access for " + player.getName()
+                + ": activeRun=" + activeRun + ", pendingReturn=" + (pending != null)));
+        int unlocked = 0;
+        int locked = 0;
+        for (Integer location : progression.configuredWorldLocations()) {
+            for (Integer slot : progression.configuredSlots(location)) {
+                int id = MobZoneIds.encode(location, slot);
+                String source = progression.stageAccessSource(player.getUniqueID(), id);
+                boolean open = progression.isUnlocked(player.getUniqueID(), id);
+                if (open) unlocked++; else locked++;
+                sender.sendMessage(new TextComponentString((open ? "§a" : "§c")
+                        + "Location " + location + " stage " + slot + " = "
+                        + (open ? "UNLOCKED" : "LOCKED") + " [" + source + "]"));
+            }
+        }
+        sender.sendMessage(new TextComponentString("§6Summary: " + unlocked + " unlocked, " + locked
+                + " locked. This is the server-authoritative state, not a GUI cache."));
     }
 
     /** Deliberate per-player legacy reclassification; never automatically wipes unknown admin grants. */

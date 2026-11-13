@@ -302,7 +302,40 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(1, 5)));
     }
 
-        @Test void runOnlyStageUnlockDoesNotOverwritePermanentGrants() {
+        @Test void configuredStageUnlocksFailClosedWithoutActiveMasteryRun() {
+        final java.util.Set<Integer> stages = new java.util.HashSet<>();
+        final boolean[] active = {false};
+        service.setRunStageAccess(new MobProgressionService.RunStageAccess() {
+            @Override public boolean isRunActive(UUID uuid) { return active[0]; }
+            @Override public boolean isRunStageUnlocked(UUID uuid, int id) { return stages.contains(id); }
+            @Override public boolean unlockRunStage(UUID uuid, int id) { return stages.add(id); }
+        });
+        assertEquals("START", service.stageAccessSource(player, id(1, 2)));
+        assertNull(service.unlockNext(player, id(1, 2)), "Ordinary stage unlock cannot mint permanent grants outside Run");
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
+        assertEquals(0, repository.unlockWrites);
+        active[0] = true;
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertEquals("RUN", service.stageAccessSource(player, id(1, 5)));
+        active[0] = false;
+        stages.clear();
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
+        assertEquals(0, repository.unlockWrites);
+    }
+
+    @Test void stageAccessAuditReflectsLegacyClassificationAndNewAdminGrant() {
+        repository.seed(player, 1, 5);
+        service.reloadConfiguration(allZones(), allSpawns());
+        assertEquals("PERMANENT_OR_LEGACY", service.stageAccessSource(player, id(1, 5)));
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
+        assertTrue(service.grantStage(player, 1, 5));
+        assertEquals("PERMANENT_OR_LEGACY", service.stageAccessSource(player, id(1, 5)));
+    }
+
+    @Test void runOnlyStageUnlockDoesNotOverwritePermanentGrants() {
         final java.util.Set<Integer> runStages = new java.util.HashSet<>();
         final boolean[] active = {true};
         service.setRunStageAccess(new MobProgressionService.RunStageAccess() {

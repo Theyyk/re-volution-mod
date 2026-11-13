@@ -127,7 +127,7 @@ public final class MobProgressionService {
         int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
         int mobSlotId = MobZoneIds.mobSlotId(internalLocationId);
         List<Integer> configured = configuredSlots(worldLocationId);
-        if (configured.isEmpty() || !configured.contains(mobSlotId)) return true;
+        if (configured.isEmpty() || !configured.contains(mobSlotId)) return false;
         Set<Integer> explicit = unlockedSlots(playerUuid, worldLocationId);
         Integer firstLocation = firstConfiguredWorldLocationId();
         int firstSlot = configured.get(0);
@@ -136,6 +136,25 @@ public final class MobProgressionService {
         if (!firstLocationDefault && !firstUnlocked) return false;
         if (mobSlotId == firstSlot) return firstLocationDefault || firstUnlocked;
         return explicit.contains(mobSlotId) || (runStageAccess != null && runStageAccess.isRunStageUnlocked(playerUuid, internalLocationId));
+    }
+
+    /**
+     * Read-only explanation of effective progression. Used by admin QA diagnostics only;
+     * it does not alter any unlocks and shares the same source-of-truth as teleport.
+     */
+    public String stageAccessSource(UUID playerUuid, int internalLocationId) {
+        if (playerUuid == null || !MobZoneIds.isMobZoneId(internalLocationId)) return "INVALID";
+        int worldLocationId = MobZoneIds.worldLocationId(internalLocationId);
+        int slot = MobZoneIds.mobSlotId(internalLocationId);
+        List<Integer> configured = configuredSlots(worldLocationId);
+        if (!configured.contains(slot)) return "NOT_CONFIGURED";
+        if (!isUnlocked(playerUuid, internalLocationId)) return "LOCKED";
+        Integer first = firstConfiguredWorldLocationId();
+        if (first != null && first == worldLocationId && slot == configured.get(0)) return "START";
+        if (unlockedSlots(playerUuid, worldLocationId).contains(slot)) return "PERMANENT_OR_LEGACY";
+        if (runStageAccess != null && runStageAccess.isRunStageUnlocked(playerUuid, internalLocationId))
+            return "RUN";
+        return "LOCKED";
     }
 
     public Integer previousRequiredSlot(int internalLocationId) {
@@ -213,9 +232,13 @@ public final class MobProgressionService {
         if (unlocked.contains(nextSlot)) return null;
         if (isUnlocked(playerUuid, nextInternalId)) return null;
         RunStageAccess runAccess = runStageAccess;
-        if (runAccess != null && runAccess.isRunActive(playerUuid)) {
-            if (!runAccess.unlockRunStage(playerUuid, nextInternalId)) return null;
+        // In production, all gameplay unlocks must belong to an active Mastery Run.
+        // Never turn ordinary gameplay outside a Run into a permanent admin grant.
+        if (runAccess != null) {
+            if (!runAccess.isRunActive(playerUuid) || !runAccess.unlockRunStage(playerUuid, nextInternalId))
+                return null;
         } else {
+            // Unwired/test-only compatibility path, deliberately never used in ServerServices.
             if (!repository.unlockSlot(playerUuid, nextWorldLocationId, nextSlot)) return null;
             unlocked.add(nextSlot);
         }
