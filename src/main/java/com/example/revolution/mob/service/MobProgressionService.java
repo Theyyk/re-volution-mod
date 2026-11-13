@@ -156,7 +156,7 @@ public final class MobProgressionService {
             return "UNSUPPORTED".equals(storageSource) ? "PERMANENT_OR_LEGACY" : storageSource;
         }
         if (runStageAccess != null && runStageAccess.isRunStageUnlocked(playerUuid, internalLocationId))
-            return "RUN";
+            return "CYCLE";
         return "LOCKED";
     }
 
