@@ -164,6 +164,7 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         Document root = new Document("schemaVersion", SCHEMA_VERSION);
         if (state.lastResetRunId != null) root.append("lastResetRunId", state.lastResetRunId);
         if (state.pendingLocationReturnRunId != null) root.append("pendingLocationReturnRunId", state.pendingLocationReturnRunId);
+        root.append("locationCycleUnlockedStages", new ArrayList<>(state.locationCycleUnlockedStages));
         if (state.activeRun != null) root.append("activeRun", encodeRun(state.activeRun));
         Document branches = new Document();
         for (PrestigeBranch branch : PrestigeBranch.values()) branches.append(branch.name(), encodeBranch(state.branch(branch)));
@@ -201,6 +202,11 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         if (root == null) return state;
         state.lastResetRunId = root.getString("lastResetRunId");
         state.pendingLocationReturnRunId = root.getString("pendingLocationReturnRunId");
+        Object cycleStages = root.get("locationCycleUnlockedStages");
+        if (cycleStages instanceof List) for (Object raw : (List<?>) cycleStages) {
+            if (raw instanceof Number && MobZoneIds.isMobZoneId(((Number) raw).intValue()))
+                state.locationCycleUnlockedStages.add(((Number) raw).intValue());
+        }
         Document run = root.get("activeRun", Document.class);
         if (run != null) try {
             PrestigeState.RunState active = new PrestigeState.RunState();

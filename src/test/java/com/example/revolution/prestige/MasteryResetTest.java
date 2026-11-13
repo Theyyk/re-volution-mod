@@ -232,6 +232,37 @@ public final class MasteryResetTest {
     }
 
     @Test
+    public void locationCycleProgressDoesNotRequireStartingMasteryRun() {
+        MemoryRepository repository = new MemoryRepository();
+        UUID player = UUID.randomUUID();
+        PrestigeService service = service(repository, POLICY, ignored -> { });
+        int second = com.example.revolution.location.definition.MobZoneIds.encode(1, 5);
+        int third = com.example.revolution.location.definition.MobZoneIds.encode(1, 9);
+
+        assertFalse(service.isRunActive(player));
+        assertTrue(service.unlockRunStage(player, second));
+        assertTrue(service.hasRunStage(player, second));
+        assertTrue(repository.load(player).locationCycleUnlockedStages.contains(second));
+
+        PrestigeState.RunState run = service.startRun(player, PrestigeBranch.CLICK);
+        assertTrue(service.hasRunStage(player, second));
+        assertTrue(service.unlockRunStage(player, third));
+        assertTrue(service.hasRunStage(player, third));
+        assertEquals(2, service.snapshot(player).locationCycleUnlockedStages.size());
+
+        assertEquals(PrestigeResetService.ResetResult.APPLIED, service.reset(player, run.runId));
+        assertFalse(service.hasRunStage(player, second));
+        assertFalse(service.hasRunStage(player, third));
+        assertTrue(repository.load(player).locationCycleUnlockedStages.isEmpty());
+
+        assertTrue(service.completeLocationReturn(player, run.runId));
+        assertFalse(service.isRunActive(player));
+        assertTrue(service.unlockRunStage(player, second));
+        assertTrue(service.hasRunStage(player, second));
+        assertFalse(service.isRunActive(player));
+    }
+
+    @Test
     public void allFourResetModesPersistExactlyOneReturnIntent() {
         for (int variant = 0; variant < 4; variant++) {
             MemoryRepository repository = new MemoryRepository();
@@ -241,7 +272,10 @@ public final class MasteryResetTest {
             fillClickMeta(initial.branch(PrestigeBranch.CLICK), 5);
             repository.save(player, initial);
             PrestigeService service = service(repository, PREMIUM_POLICY, ignored -> { });
+            int preRunStage = com.example.revolution.location.definition.MobZoneIds.encode(1, 5);
+            assertTrue(service.unlockRunStage(player, preRunStage));
             PrestigeState.RunState run = service.startRun(player, PrestigeBranch.CLICK);
+            assertTrue(service.hasRunStage(player, preRunStage));
             int stage = com.example.revolution.location.definition.MobZoneIds.encode(2, 1);
             assertTrue(service.unlockRunStage(player, stage));
             if (variant == 0 || variant == 1) {
@@ -257,6 +291,8 @@ public final class MasteryResetTest {
             assertEquals(run.runId, service.pendingLocationReturn(player));
             assertNull(service.activeRun(player));
             assertFalse(service.hasRunStage(player, stage));
+            assertFalse(service.hasRunStage(player, preRunStage));
+            assertTrue(repository.load(player).locationCycleUnlockedStages.isEmpty());
             assertEquals((variant == 1 || variant == 3) ? 923 : 1000, repository.availableCrystals);
             assertTrue(service.completeLocationReturn(player, run.runId));
             assertNull(service.pendingLocationReturn(player));
