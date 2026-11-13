@@ -303,9 +303,10 @@ public final class MobProgressionService {
         if (playerUuid == null) return false;
         List<Integer> configured = configuredSlots(worldLocationId);
         if (!configured.contains(mobSlotId)) return false;
-        Set<Integer> granted = new LinkedHashSet<>(unlockedSlots(playerUuid, worldLocationId));
+        // Add only confirmed permanent admin slots; never flatten the legacy mask.
+        Set<Integer> granted = new LinkedHashSet<>();
         for (Integer slot : configured) if (slot <= mobSlotId) granted.add(slot);
-        if (!repository.replaceUnlockedSlots(playerUuid, worldLocationId, granted)) return false;
+        if (!repository.grantPermanentSlots(playerUuid, worldLocationId, granted)) return false;
         invalidateFromLocation(playerUuid, worldLocationId);
         return true;
     }
