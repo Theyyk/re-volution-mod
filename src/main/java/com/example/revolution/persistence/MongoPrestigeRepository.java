@@ -36,6 +36,14 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         connection.collection("players").updateOne(new Document("_id", playerUuid.toString()), new Document("$set", new Document("prestige", encode(state))), new UpdateOptions().upsert(true));
     }
 
+    @Override public boolean completeLocationReturn(UUID playerUuid, String runId) {
+        if (!enabled || !connection.isConnected() || playerUuid == null || runId == null) return false;
+        UpdateResult result = connection.collection("players").updateOne(
+                new Document("_id", playerUuid.toString()).append("prestige.pendingLocationReturnRunId", runId),
+                new Document("$unset", new Document("prestige.pendingLocationReturnRunId", "")));
+        return result != null && result.getModifiedCount() == 1;
+    }
+
     @Override public ResetCommitResult commitReset(UUID playerUuid, String expectedRunId, PrestigeState nextState) {
         return commitReset(playerUuid, expectedRunId, nextState, PrestigeRepository.ResetCommitPolicy.normal());
     }
