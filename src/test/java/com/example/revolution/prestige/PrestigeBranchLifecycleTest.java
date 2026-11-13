@@ -2,6 +2,7 @@ package com.example.revolution.prestige;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.gameplay.GameplayDamageSource;
