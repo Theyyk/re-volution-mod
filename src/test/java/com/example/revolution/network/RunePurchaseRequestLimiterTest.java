@@ -21,6 +21,25 @@ public final class RunePurchaseRequestLimiterTest {
         check(RunePurchaseRequestLimiter.tryAcquire(second, t + ms(10)), "independent player");
         check(RunePurchaseRequestLimiter.tryAcquire(first, t + ms(400)), "rejection never extends window");
         check(!RunePurchaseRequestLimiter.tryAcquire(null, t), "invalid player rejected");
+
+        // Crystal is more expensive on the server thread (265–402ms measured).
+        // The same atomic shared gate preserves ordinary 200ms pacing.
+        RunePurchaseRequestLimiter.reset();
+        check(RunePurchaseRequestLimiter.tryAcquireCrystal(first, t), "first Crystal roll accepted");
+        check(!RunePurchaseRequestLimiter.tryAcquireCrystal(first, t + ms(999)), "Crystal burst rejected before 1000ms");
+        check(RunePurchaseRequestLimiter.tryAcquireCrystal(first, t + ms(1000)), "Crystal exactly at 1000ms accepted");
+        check(!RunePurchaseRequestLimiter.tryAcquireCrystal(first, t + ms(1001)), "Crystal rejection cannot shift its window");
+        check(RunePurchaseRequestLimiter.tryAcquire(second, t + ms(200)), "another player remains independent");
+        RunePurchaseRequestLimiter.reset();
+        check(RunePurchaseRequestLimiter.tryAcquire(first, t), "ordinary first accepted");
+        check(RunePurchaseRequestLimiter.tryAcquire(first, t + ms(200)), "ordinary 200ms remains unchanged");
+        check(!RunePurchaseRequestLimiter.tryAcquireCrystal(first, t + ms(999)),
+                "Crystal shares the most recent accepted purchase timestamp");
+        check(RunePurchaseRequestLimiter.tryAcquireCrystal(first, t + ms(1200)),
+                "Crystal accepted 1000ms after ordinary purchase");
+        check(RunePurchaseRequestLimiter.tryAcquire(first, t + ms(1400)),
+                "ordinary can resume after 200ms without extending Crystal gate");
+        check(!RunePurchaseRequestLimiter.tryAcquireCrystal(null, t), "invalid Crystal player rejected");
         RunePurchaseRequestLimiter.reset();
         check(RunePurchaseRequestLimiter.tryAcquire(first, t + ms(1)), "shutdown clears cooldown");
 
