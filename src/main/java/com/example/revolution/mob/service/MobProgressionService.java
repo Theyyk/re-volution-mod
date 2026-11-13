@@ -132,8 +132,9 @@ public final class MobProgressionService {
         Integer firstLocation = firstConfiguredWorldLocationId();
         int firstSlot = configured.get(0);
         boolean firstLocationDefault = firstLocation != null && firstLocation == worldLocationId;
-        if (!firstLocationDefault && !explicit.contains(firstSlot)) return false;
-        if (mobSlotId == firstSlot) return firstLocationDefault || explicit.contains(firstSlot);
+        boolean firstUnlocked = explicit.contains(firstSlot) || (runStageAccess != null && runStageAccess.isRunStageUnlocked(playerUuid, MobZoneIds.encode(worldLocationId, firstSlot)));
+        if (!firstLocationDefault && !firstUnlocked) return false;
+        if (mobSlotId == firstSlot) return firstLocationDefault || firstUnlocked;
         return explicit.contains(mobSlotId) || (runStageAccess != null && runStageAccess.isRunStageUnlocked(playerUuid, internalLocationId));
     }
 
