@@ -1,9 +1,9 @@
 {
   "balanceSchemaVersion": 1,
   "values": {
-    "mastery.premium_preserve.enabled": "false",
-    "mastery.premium_preserve.preserve_runes": "false",
-    "mastery.premium_preserve.preserve_pets": "false"
+    "mastery.premium_preserve.enabled": "true",
+    "mastery.premium_preserve.preserve_runes": "true",
+    "mastery.premium_preserve.preserve_pets": "true"
   },
   "curves": {
     "mastery.rank_meta_level_cap": {

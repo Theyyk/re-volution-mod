@@ -29,6 +29,17 @@ public final class MasteryResetTest {
     }
 
     @Test
+    public void bundledPremiumPolicyIsEnabledForBothResetTypes() {
+        com.example.revolution.balance.service.BalanceService balance =
+                com.example.revolution.balance.service.BalanceBootstrap.activateBundledDefaults();
+        MasteryTierPolicy.TierDefinition tier = new BalanceMasteryTierPolicy(balance).tier(0);
+        assertTrue(tier.premiumPreserve.enabled);
+        assertTrue(tier.premiumPreserve.preserveRunes);
+        assertTrue(tier.premiumPreserve.preservePets);
+        assertEquals(100, tier.premiumPreserve.crystalCost);
+    }
+
+    @Test
     public void eligibleMasteryResetAdvancesTierAndPreservesMetaLevels() {
         MemoryRepository repository = new MemoryRepository();
         UUID player = UUID.fromString("00000000-0000-0000-0000-000000000501");
