@@ -26,6 +26,15 @@ public final class MongoMobProgressionLegacyVisibilityTest {
         assertEquals(Collections.singleton(5), MongoMobProgressionRepository.visibleSlots(doc));
     }
 
+    @Test public void addingPermanentSlotPreservesHistoricalMaskVisibility() {
+        Document doc = new Document("unlockedSlots", Arrays.asList(2, 5, 9))
+                .append("legacyRunSlots", Arrays.asList(2, 5, 9))
+                .append("permanentSlots", Arrays.asList(2, 5));
+        assertTrue(MongoMobProgressionRepository.visibleSlots(doc).contains(5));
+        assertFalse(MongoMobProgressionRepository.visibleSlots(doc).contains(9));
+        assertEquals(Arrays.asList(2, 5, 9), doc.get("legacyRunSlots"));
+    }
+
     @Test public void legacyAdminGrantsForOtherUnclassifiedPlayersRemainVisible() {
         Document adminLegacy = new Document("unlockedSlots", Arrays.asList(2, 5));
         assertTrue(MongoMobProgressionRepository.visibleSlots(adminLegacy).contains(5));

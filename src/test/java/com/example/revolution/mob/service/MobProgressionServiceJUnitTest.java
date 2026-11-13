@@ -35,6 +35,21 @@ class MobProgressionServiceJUnitTest {
         assertFalse(service.isUnlocked(player, id(3, 2)));
     }
 
+    @Test void adminGrantAfterLegacyMaskDoesNotReopenUnrelatedRunEarnedStages() {
+        repository.seed(player, 1, 2, 5, 9);
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+        assertTrue(service.grantStage(player, 1, 5));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+        // Existing historical grants must remain masked even after an admin writes.
+        assertTrue(repository.rawLegacyContains(player, 1, 9));
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+        assertEquals(0, repository.replaceWrites);
+    }
+
     @Test void adminGrantInvalidatesCacheWithoutAutomaticTravel() {
         assertFalse(service.isUnlocked(player, id(2, 9)));
         int[] events = {0}; service.setUnlockListener((uuid, result) -> events[0]++);

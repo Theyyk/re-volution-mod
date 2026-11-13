@@ -46,6 +46,23 @@ public final class MongoMobProgressionRepository implements MobProgressionReposi
     }
 
     @Override
+    public boolean grantPermanentSlots(UUID playerUuid, int worldLocationId, Set<Integer> slots) {
+        if (!valid(playerUuid, worldLocationId) || slots == null || slots.isEmpty()) return false;
+        List<Integer> sanitized = new ArrayList<>();
+        for (Integer slot : slots) {
+            if (slot == null || slot < 1 || slot > 99) return false;
+            sanitized.add(slot);
+        }
+        Document identity = new Document("playerUuid", playerUuid.toString()).append("locationId", worldLocationId);
+        // A single additive update: no $set on unlockedSlots, no $unset of legacyRunSlots.
+        Document update = new Document("$setOnInsert", identity)
+                .append("$addToSet", new Document("permanentSlots", new Document("$each", sanitized)));
+        UpdateResult result = connection.collection(COLLECTION).updateOne(
+                new Document("_id", key(playerUuid, worldLocationId)), update, new UpdateOptions().upsert(true));
+        return result != null && result.wasAcknowledged();
+    }
+
+    @Override
     public boolean replaceUnlockedSlots(UUID playerUuid, int worldLocationId, Set<Integer> unlockedSlots) {
         if (!valid(playerUuid, worldLocationId) || unlockedSlots == null) return false;
         List<Integer> sanitized = new ArrayList<>();

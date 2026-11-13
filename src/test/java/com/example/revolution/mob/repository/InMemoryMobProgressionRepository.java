@@ -48,6 +48,16 @@ public final class InMemoryMobProgressionRepository implements MobProgressionRep
                 .computeIfAbsent(location, ignored -> new HashSet<>()).add(slot);
     }
 
+    @Override public boolean grantPermanentSlots(UUID player, int location, Set<Integer> slots) {
+        if (failUnlock || slots == null || slots.isEmpty()) return false;
+        for (Integer slot : slots) {
+            if (slot == null || slot < 1 || slot > 99) return false;
+        }
+        newPermanent.computeIfAbsent(player, ignored -> new HashMap<>())
+                .computeIfAbsent(location, ignored -> new HashSet<>()).addAll(slots);
+        return true;
+    }
+
     @Override public boolean replaceUnlockedSlots(UUID player, int location, Set<Integer> slots) {
         replaceWrites++;
         if (failReplace) return false;
