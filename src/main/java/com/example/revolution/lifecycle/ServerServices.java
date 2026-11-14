@@ -407,6 +407,8 @@ public final class ServerServices implements AutoCloseable {
         mobAdmin = new MobAdminService(mobRepository, locationRepository, mobs);
         runeAdmin = new RuneAdminService(players, resources, stats, enhancements, sync);
         collections = new PlayerCollectionService(players, resources, stats);
+        stats.bindDamageProjection(new com.example.revolution.player.service.CombatDamageProjection(
+                effects, uniqueRuneModifiers, godModifiers, auraModifiers, mechanicUnlocks));
     }
 
     public void connect() {
