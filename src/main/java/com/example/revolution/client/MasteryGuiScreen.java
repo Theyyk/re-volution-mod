@@ -1,8 +1,10 @@
 package com.example.revolution.client;
 
 import com.example.revolution.client.network.MasteryClientState;
+import com.example.revolution.client.network.RunExchangeClientState;
 import com.example.revolution.network.MasteryActionPacket;
 import com.example.revolution.network.MasterySnapshotPacket;
+import com.example.revolution.network.RunExchangeActionPacket;
 import com.example.revolution.network.NetworkHandler;
 import java.io.IOException;
 import java.util.List;
@@ -73,6 +75,10 @@ public final class MasteryGuiScreen extends GuiScreen {
             buttonList.add(premium);
         }
         buttonList.add(new GuiButton(20, x + w - half - 12, active ? footerY - 26 : footerY, half, 20, "Обновить"));
+        // Exchange is a separate interface for the canonical existing Run Exchange service.
+        GuiButton exchange = new GuiControls.PanelButton(30, x + w - 95, y + 8, 85, 18, "Обмен");
+        exchange.enabled = !MasteryClientState.pending();
+        buttonList.add(exchange);
         // Premium selector and Refresh share the same row without overlapping.
         GuiButton refresh = buttonList.get(buttonList.size() - 1);
         if (active) {
@@ -97,6 +103,11 @@ public final class MasteryGuiScreen extends GuiScreen {
         }
         MasterySnapshotPacket state = MasteryClientState.snapshot();
         if (button.id == 20) { armedPreview = ""; request("sync", "", ""); return; }
+        if (button.id == 30) {
+            RunExchangeClientState.requestOpen();
+            NetworkHandler.INSTANCE.sendToServer(new RunExchangeActionPacket("sync", "", "", RunExchangeClientState.nextRequestId()));
+            return;
+        }
         if (state == null || !state.artsUnlocked) return;
         if (button.id == 10 && state.runId.isEmpty() && contains(branches, selectedBranch)) {
             request("start", selectedBranch, ""); return;
