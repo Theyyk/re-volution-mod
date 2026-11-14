@@ -23,10 +23,6 @@ public class PlayerStatsPacket implements IMessage {
     private int awakeningImprovedCost;
     private double resolvedClickDamage;
     private double resolvedPoisonDamage;
-    private double projectedClickDamage;
-    private double projectedPoisonDamage;
-    private String clickBreakdown = "";
-    private String poisonBreakdown = "";
 
     public PlayerStatsPacket() {}
 
@@ -51,14 +47,6 @@ public class PlayerStatsPacket implements IMessage {
         this.resolvedPoisonDamage = resolvedPoisonDamage;
     }
 
-    /** Normal-hit projection: target-specific effects, random procs, and future buff changes are excluded. */
-    public void setDamageProjection(double click, double poison, String clickDetails, String poisonDetails) {
-        projectedClickDamage = click;
-        projectedPoisonDamage = poison;
-        clickBreakdown = clickDetails == null ? "" : clickDetails;
-        poisonBreakdown = poisonDetails == null ? "" : poisonDetails;
-    }
-
     /** Server-authoritative balances. Offerings remains in God Worship persistence. */
     public void setUniqueWalletBalances(BigDecimal newPearls, BigDecimal newOfferings) {
         pearls = LargeNumbers.canonical(newPearls);
@@ -72,8 +60,6 @@ public class PlayerStatsPacket implements IMessage {
         purchaseResource = ByteBufUtils.readUTF8String(buf); purchaseUnitCost = buf.readInt();
         awakeningResource = ByteBufUtils.readUTF8String(buf); awakeningNormalCost = buf.readInt(); awakeningImprovedCost = buf.readInt();
         resolvedClickDamage = buf.readDouble(); resolvedPoisonDamage = buf.readDouble();
-        projectedClickDamage = buf.readDouble(); projectedPoisonDamage = buf.readDouble();
-        clickBreakdown = ByteBufUtils.readUTF8String(buf); poisonBreakdown = ByteBufUtils.readUTF8String(buf);
         pearls = ByteBufUtils.readUTF8String(buf); offerings = ByteBufUtils.readUTF8String(buf);
     }
 
@@ -84,8 +70,6 @@ public class PlayerStatsPacket implements IMessage {
         ByteBufUtils.writeUTF8String(buf, purchaseResource == null ? "coins" : purchaseResource); buf.writeInt(purchaseUnitCost);
         ByteBufUtils.writeUTF8String(buf, awakeningResource == null ? "" : awakeningResource); buf.writeInt(awakeningNormalCost); buf.writeInt(awakeningImprovedCost);
         buf.writeDouble(resolvedClickDamage); buf.writeDouble(resolvedPoisonDamage);
-        buf.writeDouble(projectedClickDamage); buf.writeDouble(projectedPoisonDamage);
-        ByteBufUtils.writeUTF8String(buf, clickBreakdown); ByteBufUtils.writeUTF8String(buf, poisonBreakdown);
         ByteBufUtils.writeUTF8String(buf, pearls); ByteBufUtils.writeUTF8String(buf, offerings);
     }
 
@@ -105,8 +89,4 @@ public class PlayerStatsPacket implements IMessage {
     public int getAwakeningImprovedCost() { return awakeningImprovedCost; }
     public double getResolvedClickDamage() { return resolvedClickDamage; }
     public double getResolvedPoisonDamage() { return resolvedPoisonDamage; }
-    public double getProjectedClickDamage() { return projectedClickDamage; }
-    public double getProjectedPoisonDamage() { return projectedPoisonDamage; }
-    public String getClickBreakdown() { return clickBreakdown; }
-    public String getPoisonBreakdown() { return poisonBreakdown; }
 }
