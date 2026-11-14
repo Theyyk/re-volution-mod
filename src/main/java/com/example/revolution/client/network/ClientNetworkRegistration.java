@@ -1,7 +1,6 @@
 package com.example.revolution.client.network;
 
 import com.example.revolution.network.AchievementActionPacket;
-import com.example.revolution.network.CombatProjectionPacket;
 import com.example.revolution.network.AchievementSnapshotPacket;
 import com.example.revolution.network.AuraActionPacket;
 import com.example.revolution.network.AuraSnapshotPacket;
@@ -57,7 +56,6 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(AchievementSnapshotPacketHandler.class, AchievementSnapshotPacket.class, 24, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneActionPacketClientHandler.class, UniqueRuneActionPacket.class, 25, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneSnapshotPacketHandler.class, UniqueRuneSnapshotPacket.class, 26, Side.CLIENT);
-        NetworkHandler.INSTANCE.registerMessage(CombatProjectionPacketHandler.class, CombatProjectionPacket.class, 31, Side.CLIENT);
         MechanicUnlockClientNetworkRegistration.register();
         MasteryClientNetworkRegistration.register();
     }
