@@ -1,5 +1,6 @@
 package com.example.revolution.network;
 
+import com.example.revolution.effect.EffectResolver;
 import com.example.revolution.lifecycle.ServerLifecycle;
 import com.example.revolution.lifecycle.ServerServices;
 import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
@@ -176,6 +177,9 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
         if (!packet.artsUnlocked && packet.unlockRequirement.isEmpty())
             packet.unlockRequirement = "Проверить требования ARTS в разблокировках";
         PrestigeState state = services.prestige.snapshot(id);
+        packet.masteryClickMultiplier = masteryMultiplier(services, id, EffectResolver.Stat.CLICK_DAMAGE_MULTIPLIER);
+        packet.masteryPoisonMultiplier = masteryMultiplier(services, id, EffectResolver.Stat.POISON_DAMAGE_MULTIPLIER);
+        packet.masteryAllMultiplier = masteryMultiplier(services, id, EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER);
         for (PrestigeBranch branch : services.prestige.branches()) {
             PrestigeState.BranchState permanent = state.branch(branch);
             int gain = 0;
@@ -214,6 +218,15 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
 
         }
         NetworkHandler.sendToClient(packet, player);
+    }
+    /** Mastery-only contribution sums: never presented as final combat damage. */
+    private static String masteryMultiplier(ServerServices services, UUID id, EffectResolver.Stat stat) {
+        BigDecimal value = BigDecimal.ONE;
+        for (EffectResolver.Contribution contribution : services.prestige.contributions(id, stat)) {
+            if (contribution != null && contribution.stat == stat)
+                value = value.add(contribution.additiveMultiplier);
+        }
+        return exact(value.max(BigDecimal.ZERO));
     }
     private static String exact(BigDecimal value) {
         return value == null ? "0" : value.stripTrailingZeros().toPlainString();
