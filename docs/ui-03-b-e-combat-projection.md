@@ -11,7 +11,7 @@ Owner reported E main menu showed Rune baseline (~1–1.08) while real managed-m
 - Stable base HUD remains explicitly labeled "База" rather than pretending to represent total damage. Existing game combat event handlers stay unchanged.
 - Mastery automatic rank thresholds, permanent bonuses and reset semantics remain unchanged.
 - On E open, existing stats request refreshes projection. Reopen E to read new values when active effects change.
-- Packet structure changed; **same DEV Gameplay/client binary required**. Do not mix old and new jars.
+- Existing PlayerStatsPacket byte contract remains unchanged. New CombatProjectionPacket is an additive channel at discriminator 31 (after Mastery 29/30); **same DEV Gameplay/client binary required**. Do not mix old and new jars.
 
 ## Tests and acceptance
 
