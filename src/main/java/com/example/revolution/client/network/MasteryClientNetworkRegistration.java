@@ -1,6 +1,7 @@
 package com.example.revolution.client.network;
 
 import com.example.revolution.network.MasteryActionPacket;
+import com.example.revolution.network.CombatProjectionPacket;
 import com.example.revolution.network.MasterySnapshotPacket;
 import com.example.revolution.network.NetworkHandler;
 import net.minecraftforge.fml.relauncher.Side;
@@ -11,5 +12,6 @@ public final class MasteryClientNetworkRegistration {
     public static void register() {
         NetworkHandler.INSTANCE.registerMessage(MasteryActionPacketClientHandler.class, MasteryActionPacket.class, 29, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(MasterySnapshotPacketHandler.class, MasterySnapshotPacket.class, 30, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(CombatProjectionPacketHandler.class, CombatProjectionPacket.class, 31, Side.CLIENT);
     }
 }

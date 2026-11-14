@@ -17,6 +17,10 @@ public final class ClientPlayerStats {
     private static int totalDamage;
     private static double resolvedClickDamage;
     private static double resolvedPoisonDamage;
+    private static double projectedClickDamage;
+    private static double projectedPoisonDamage;
+    private static String clickBreakdown = "";
+    private static String poisonBreakdown = "";
     private static int activeRuneStatusId = RuneStatusConfig.STATUS_POISON;
     private static String purchaseResource = "coins";
     private static int purchaseUnitCost = 100;
@@ -49,6 +53,13 @@ public final class ClientPlayerStats {
         resolvedPoisonDamage = finiteNonNegative(poisonDamage);
     }
 
+    public static void setDamageProjection(double click, double poison, String clickDetails, String poisonDetails) {
+        projectedClickDamage = finiteNonNegative(click);
+        projectedPoisonDamage = finiteNonNegative(poison);
+        clickBreakdown = clickDetails == null ? "" : clickDetails;
+        poisonBreakdown = poisonDetails == null ? "" : poisonDetails;
+    }
+
     private static double finiteNonNegative(double value) {
         return Double.isFinite(value) ? Math.max(0.0D, value) : 0.0D;
     }
@@ -76,6 +87,10 @@ public final class ClientPlayerStats {
     public static int getTotalDamage() { return totalDamage; }
     public static double getResolvedClickDamage() { return resolvedClickDamage; }
     public static double getResolvedPoisonDamage() { return resolvedPoisonDamage; }
+    public static double getProjectedClickDamage() { return projectedClickDamage; }
+    public static double getProjectedPoisonDamage() { return projectedPoisonDamage; }
+    public static String getClickBreakdown() { return clickBreakdown; }
+    public static String getPoisonBreakdown() { return poisonBreakdown; }
     public static int getActiveRuneStatusId() { return activeRuneStatusId; }
     public static String getPurchaseResource() { return purchaseResource; }
     public static int getPurchaseUnitCost() { return purchaseUnitCost; }

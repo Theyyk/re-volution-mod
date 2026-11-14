@@ -37,8 +37,8 @@ public final class PoisonStatsUiHandler {
         int valueAreaX = x + availableWidth / 2;
         int valueRight = x + availableWidth;
 
-        String clickValue = LargeNumbers.format(ClientPlayerStats.getResolvedClickDamage());
-        String poisonValue = LargeNumbers.format(ClientPlayerStats.getResolvedPoisonDamage());
+        String clickValue = LargeNumbers.format(ClientPlayerStats.getProjectedClickDamage());
+        String poisonValue = LargeNumbers.format(ClientPlayerStats.getProjectedPoisonDamage());
 
         GlStateManager.pushMatrix();
         GlStateManager.translate(layout.canvasX, layout.canvasY, 0.0F);
