@@ -44,8 +44,7 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
     @Override
     public void setBalance(UUID uuid, int balance) {
         if (!enabled || !connection.isConnected()) return;
-        connection.collection("players").updateOne(new Document("_id", uuid.toString()),
-                new Document("$set", new Document("balance", balance)), new UpdateOptions().upsert(true));
+        compareAndSetLegacyWallet(uuid, "coins", Math.max(0, balance));
     }
 
     @Override
@@ -58,8 +57,16 @@ public final class MongoPlayerRepository implements PlayerRepository, RuneCollec
     @Override
     public void setCrystals(UUID uuid, int crystals) {
         if (!enabled || !connection.isConnected()) return;
-        connection.collection("players").updateOne(new Document("_id", uuid.toString()),
-                new Document("$set", new Document("crystals", crystals)), new UpdateOptions().upsert(true));
+        compareAndSetLegacyWallet(uuid, "crystals", Math.max(0, crystals));
+    }
+
+    /** Legacy setters must not bypass the same reset-generation and wallet CAS. */
+    private void compareAndSetLegacyWallet(UUID uuid, String canonical, int next) {
+        MongoResourceRepository wallets = new MongoResourceRepository(connection);
+        com.example.revolution.resource.repository.ResourceRepository.ResourceSnapshot observed =
+                wallets.resourceSnapshot(uuid, canonical);
+        if (!wallets.compareAndSetPlayerResource(uuid, canonical, observed, BigDecimal.valueOf(next)))
+            throw new IllegalStateException("Concurrent legacy wallet update; retry action");
     }
 
     private static int legacyInt(Object raw) {
