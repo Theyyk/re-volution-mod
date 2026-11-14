@@ -16,6 +16,7 @@ import net.minecraft.client.gui.GuiScreen;
 
 /** Player navigation menu for already-unlocked configured mob stages. */
 public final class StageTravelGuiScreen extends GuiScreen {
+    private final GuiBackgroundBlur blur = new GuiBackgroundBlur();
     private static final int ITEM_BASE = 100;
     private static final int BACK = 1;
     private static final int PREVIOUS_PAGE = 2;
@@ -54,6 +55,7 @@ public final class StageTravelGuiScreen extends GuiScreen {
 
     @Override
     public void initGui() {
+        blur.enable(mc);
         buttonList.clear();
         visibleStageEntries.clear();
         visibleLocations.clear();
@@ -190,6 +192,11 @@ public final class StageTravelGuiScreen extends GuiScreen {
             drawCenteredString(fontRenderer, "Нет настроенных стадий", width / 2, 60, 0xAAAAAA);
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    @Override public void onGuiClosed() {
+        blur.disable(mc);
+        super.onGuiClosed();
     }
 
     @Override public boolean doesGuiPauseGame() { return false; }
