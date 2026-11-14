@@ -37,6 +37,9 @@ public final class MasteryNetworkPacketTest {
         original.masteryPending = "4";
         original.petPending = "8";
         original.ranks = "POISON_I";
+        original.masteryClickMultiplier = "1.02";
+        original.masteryPoisonMultiplier = "1.17";
+        original.masteryAllMultiplier = "1.01";
         original.startedAt = 1234L;
         original.masteryResetAvailable = true;
         original.premiumPreserveAvailable = true;
@@ -63,6 +66,9 @@ public final class MasteryNetworkPacketTest {
             assertEquals("4", copy.masteryPending);
             assertEquals("8", copy.petPending);
             assertEquals("POISON_I", copy.ranks);
+            assertEquals("1.02", copy.masteryClickMultiplier);
+            assertEquals("1.17", copy.masteryPoisonMultiplier);
+            assertEquals("1.01", copy.masteryAllMultiplier);
             assertEquals(1234L, copy.startedAt);
             assertTrue(copy.masteryResetAvailable);
             assertTrue(copy.premiumPreserveAvailable);

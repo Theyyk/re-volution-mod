@@ -56,6 +56,10 @@ public final class MasterySnapshotPacket implements IMessage {
     public String masteryPending = "0";
     public String petPending = "0";
     public String ranks = "";
+    /** Read-only server projections of the existing Mastery contribution layer, NOT final hit damage. */
+    public String masteryClickMultiplier = "1";
+    public String masteryPoisonMultiplier = "1";
+    public String masteryAllMultiplier = "1";
     public boolean masteryResetAvailable;
     public boolean premiumPreserveAvailable;
     public boolean premiumPreserveRunes;
@@ -78,6 +82,7 @@ public final class MasterySnapshotPacket implements IMessage {
         previewKind = read(buf); previewDetails = read(buf);
         runId = read(buf); activeBranch = read(buf); progress = read(buf); level = buf.readInt();
         fragments = read(buf); masteryPending = read(buf); petPending = read(buf); ranks = read(buf);
+        masteryClickMultiplier = read(buf); masteryPoisonMultiplier = read(buf); masteryAllMultiplier = read(buf);
         masteryResetAvailable = buf.readBoolean(); premiumPreserveAvailable = buf.readBoolean();
         premiumPreserveRunes = buf.readBoolean(); premiumPreservePets = buf.readBoolean();
         premiumCrystalCost = buf.readInt(); startedAt = buf.readLong();
@@ -107,6 +112,7 @@ public final class MasterySnapshotPacket implements IMessage {
         write(buf, previewKind); write(buf, previewDetails);
         write(buf, runId); write(buf, activeBranch); write(buf, progress); buf.writeInt(level);
         write(buf, fragments); write(buf, masteryPending); write(buf, petPending); write(buf, ranks);
+        write(buf, masteryClickMultiplier); write(buf, masteryPoisonMultiplier); write(buf, masteryAllMultiplier);
         buf.writeBoolean(masteryResetAvailable); buf.writeBoolean(premiumPreserveAvailable);
         buf.writeBoolean(premiumPreserveRunes); buf.writeBoolean(premiumPreservePets);
         buf.writeInt(premiumCrystalCost); buf.writeLong(startedAt);
