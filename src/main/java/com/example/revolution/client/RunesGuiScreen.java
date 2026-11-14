@@ -571,9 +571,9 @@ public class RunesGuiScreen extends GuiScreen {
 
         drawHeadingString("СТАТИСТИКА", x, y, textW, HEADING_TEXT_COLOR, true);
         y += scaled(21, 16);
-        drawStatLine(x, y, "Урон за клик", LargeNumbers.format(ClientPlayerStats.getResolvedClickDamage()), textW);
+        drawStatLine(x, y, "Урон за клик", LargeNumbers.format(ClientPlayerStats.getProjectedClickDamage()), textW);
         y += 13;
-        drawStatLine(x, y, "Урон яда", LargeNumbers.format(ClientPlayerStats.getResolvedPoisonDamage()), textW);
+        drawStatLine(x, y, "Урон яда", LargeNumbers.format(ClientPlayerStats.getProjectedPoisonDamage()), textW);
 
         if (this instanceof RuneResourcesGuiScreen) return;
 
@@ -585,6 +585,24 @@ public class RunesGuiScreen extends GuiScreen {
         drawStatLine(x, y, "Монеты", LargeNumbers.format(ClientPlayerStats.getCoins()), textW);
         y += scaled(16, 12);
         drawStatLine(x, y, "Кристаллы", LargeNumbers.format(ClientPlayerStats.getCrystals()), textW);
+    }
+
+    /** Hover on E damage values: server-derived deterministic layers with explicit exclusions. */
+    private void drawCombatBreakdownTooltip(int mouseX, int mouseY) {
+        int pad = scaled(8, 4);
+        int x = layout.leftPanelX + pad;
+        int y = layout.leftPanelY + pad + scaled(21, 16);
+        int right = layout.leftPanelX + layout.leftPanelWidth - pad;
+        if (mouseX < x || mouseX > right) return;
+        String details;
+        if (mouseY >= y && mouseY <= y + 11) details = ClientPlayerStats.getClickBreakdown();
+        else if (mouseY >= y + 13 && mouseY <= y + 24) details = ClientPlayerStats.getPoisonBreakdown();
+        else return;
+        if (details == null || details.isEmpty()) return;
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        lines.add("§eРасчётный урон по обычному мобу");
+        for (String line : details.split("\\n")) lines.add("§7" + line);
+        drawCanvasTooltip(lines, mouseX, mouseY);
     }
 
     private void drawStatLine(int x, int y, String name, String value, int availableWidth) {
@@ -1270,6 +1288,7 @@ public class RunesGuiScreen extends GuiScreen {
         if (isUniqueCollectionSelected()) drawInlineUniqueTooltip(mouseX, mouseY);
         else drawRuneTooltip(mouseX, mouseY);
         if (equipmentTooltip != null) drawCanvasTooltip(java.util.Collections.singletonList(equipmentTooltip), mouseX, mouseY);
+        drawCombatBreakdownTooltip(mouseX, mouseY);
         GlStateManager.popMatrix();
     }
 
