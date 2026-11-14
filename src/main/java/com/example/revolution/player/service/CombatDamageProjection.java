@@ -44,7 +44,9 @@ public final class CombatDamageProjection implements PlayerStatsSyncService.Dama
         BigDecimal sourceFactor = effects.multiplier(id, channel);
         BigDecimal allFactor = effects.multiplier(id, EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER);
         BigDecimal next = damage.multiply(allFactor).multiply(sourceFactor);
-        append(details, "Mastery/Pets x" + format(allFactor) + " x" + format(sourceFactor), damage, next);
+        append(details, "Эффекты (Все x" + format(allFactor) + ", канал x" + format(sourceFactor) + ")", damage, next);
+        appendSources(details, id, EffectResolver.Stat.ALL_DAMAGE_MULTIPLIER);
+        appendSources(details, id, channel);
         damage = next;
         if (unlocks.isUnlocked(id, BalanceMechanicUnlockPolicy.GOD_WORSHIP)) {
             next = gods.apply(id, source, damage, System.currentTimeMillis(),
@@ -60,6 +62,16 @@ public final class CombatDamageProjection implements PlayerStatsSyncService.Dama
         details.append("\nБез случайных проков, критов и эффектов конкретного моба");
         return new PlayerStatsSyncService.DamagePreview(
                 Math.max(0.0D, Math.min((double) Float.MAX_VALUE, damage.doubleValue())), details.toString());
+    }
+
+    private void appendSources(StringBuilder details, UUID id, EffectResolver.Stat stat) {
+        for (EffectResolver.Contribution contribution : effects.inspect(id, stat)) {
+            if (contribution == null || contribution.stat != stat || contribution.additiveMultiplier.signum() == 0) continue;
+            String name = contribution.origin.startsWith("mastery:") ? "Mastery" :
+                    contribution.origin.startsWith("pet") ? "Pets" : contribution.origin;
+            details.append("\\n  ").append(name).append(" [").append(stat.name()).append("] +")
+                    .append(format(contribution.additiveMultiplier));
+        }
     }
 
     private static void append(StringBuilder details, String name, BigDecimal before, BigDecimal after) {
