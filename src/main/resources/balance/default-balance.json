@@ -164,7 +164,7 @@
     "runes.poison.effect.infection_mark.1.type": "STAT",
     "runes.poison.effect.infection_mark.1.tags": "damage,vulnerability",
     "runes.poison.effect.infection_mark.1.target_selector": "SELF",
-    "runes.poison.effect.infection_mark.1.stat_type": "ALL_DAMAGE_VULNERABILITY",
+    "runes.poison.effect.infection_mark.1.stat_type": "POISON_VULNERABILITY",
     "runes.poison.effect.infection_mark.1.enhancement_step": "0.10",
     "runes.poison.effect.infection_mark.1.enhancement_field": "PRIMARY",
     "runes.poison.effect.infection_mark.1.rank.1.primary": "8",
