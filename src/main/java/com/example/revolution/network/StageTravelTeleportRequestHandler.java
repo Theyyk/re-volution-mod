@@ -3,6 +3,7 @@ package com.example.revolution.network;
 import com.example.revolution.lifecycle.ServerLifecycle;
 import com.example.revolution.lifecycle.ServerServices;
 import com.example.revolution.location.definition.MobZoneIds;
+import com.example.revolution.realm.definition.RealmCatalog;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -24,6 +25,9 @@ public final class StageTravelTeleportRequestHandler implements IMessageHandler<
             player.getEntityData().setLong(LAST_REQUEST_TICK, now);
 
             try {
+                if (!RealmCatalog.isRealmDimension(player.dimension)) {
+                    throw new IllegalStateException("переход доступен только в игровом Realm");
+                }
                 int worldLocationId = message.getWorldLocationId();
                 int mobSlotId = message.getMobSlotId();
                 int targetInternalId = MobZoneIds.encode(worldLocationId, mobSlotId);
