@@ -69,7 +69,7 @@ public final class CombatDamageProjection implements PlayerStatsSyncService.Dama
             if (contribution == null || contribution.stat != stat || contribution.additiveMultiplier.signum() == 0) continue;
             String name = contribution.origin.startsWith("mastery:") ? "Mastery" :
                     contribution.origin.startsWith("pet") ? "Pets" : contribution.origin;
-            details.append("\\n  ").append(name).append(" [").append(stat.name()).append("] +")
+            details.append("\n  ").append(name).append(" [").append(stat.name()).append("] +")
                     .append(format(contribution.additiveMultiplier));
         }
     }
