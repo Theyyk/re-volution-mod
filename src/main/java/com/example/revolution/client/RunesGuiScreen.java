@@ -602,7 +602,9 @@ public class RunesGuiScreen extends GuiScreen {
         java.util.List<String> lines = new java.util.ArrayList<>();
         lines.add("§eРасчётный урон по обычному мобу");
         for (String line : details.split("\\n")) lines.add("§7" + line);
-        drawCanvasTooltip(lines, mouseX, mouseY);
+        // Keep the breakdown off the hovered values; left-panel anchoring previously
+        // covered the Click/Poison rows and could obscure adjacent UI.
+        drawCanvasTooltip(lines, layout.leftPanelX + layout.leftPanelWidth + 12, mouseY);
     }
 
     private void drawStatLine(int x, int y, String name, String value, int availableWidth) {
@@ -1242,10 +1244,19 @@ public class RunesGuiScreen extends GuiScreen {
         }
     }
 
+    private int combatProjectionRefreshTicks;
+
     @Override
     public void updateScreen() {
         super.updateScreen();
         if (searchField != null) searchField.updateCursorCounter();
+        // Refresh server-authoritative E values once per second while this menu is open.
+        // Hit-triggered Rune effects are temporary and can expire without wallet changes;
+        // per-frame requests would unnecessarily flood the server.
+        if (++combatProjectionRefreshTicks >= 20) {
+            combatProjectionRefreshTicks = 0;
+            NetworkHandler.INSTANCE.sendToServer(new PingPacket("get_player_stats"));
+        }
     }
 
     @Override
