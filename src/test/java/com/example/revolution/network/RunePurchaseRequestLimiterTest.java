@@ -78,6 +78,40 @@ public final class RunePurchaseRequestLimiterTest {
         ready.await(); start.countDown(); finish.await();
         check(accepted.get() == 1, "network burst must enqueue exactly one purchase");
         RunePurchaseRequestLimiter.reset();
+
+        // UI-03-D: simultaneous Crystal and Offerings actions share one atomic admission.
+        // Neither packet type may bypass the other type's 1000ms budget.
+        RunePurchaseRequestLimiter.reset();
+        final CountDownLatch mixedReady = new CountDownLatch(threads);
+        final CountDownLatch mixedStart = new CountDownLatch(1);
+        final CountDownLatch mixedFinish = new CountDownLatch(threads);
+        final AtomicInteger mixedAccepted = new AtomicInteger();
+        for (int i = 0; i < threads; i++) {
+            final boolean crystal = i % 2 == 0;
+            new Thread(() -> {
+                mixedReady.countDown();
+                try {
+                    mixedStart.await();
+                    boolean ok = crystal
+                            ? RunePurchaseRequestLimiter.tryAcquireCrystal(first, ms(200_000))
+                            : RunePurchaseRequestLimiter.tryAcquireOfferings(first, ms(200_000));
+                    if (ok) mixedAccepted.incrementAndGet();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    mixedFinish.countDown();
+                }
+            }).start();
+        }
+        mixedReady.await(); mixedStart.countDown(); mixedFinish.await();
+        check(mixedAccepted.get() == 1, "mixed Crystal/Offerings burst must enqueue exactly one purchase");
+        check(!RunePurchaseRequestLimiter.tryAcquireCrystal(first, ms(200_999)),
+                "mixed burst must retain shared 1000ms cooldown");
+        check(RunePurchaseRequestLimiter.tryAcquireOfferings(first, ms(201_000)),
+                "Offerings admitted on shared 1000ms boundary");
+        check(RunePurchaseRequestLimiter.tryAcquireCrystal(second, ms(200_001)),
+                "mixed burst must not block another player");
+        RunePurchaseRequestLimiter.reset();
         System.out.println("RunePurchaseRequestLimiterTest passed");
     }
 }
