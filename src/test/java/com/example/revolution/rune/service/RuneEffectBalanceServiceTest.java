@@ -59,7 +59,7 @@ public final class RuneEffectBalanceServiceTest {
 
         RuneEffectBalanceService.ResolvedEffect mark = only(service.effects(
                 RuneStatusConfig.STATUS_POISON, 22, 3, 0));
-        check(mark.statType == RuneStatType.ALL_DAMAGE_VULNERABILITY, "infection mark affects click and poison");
+        check(mark.statType == RuneStatType.POISON_VULNERABILITY, "infection mark affects poison only");
         check(close(mark.primaryValue, 30.0D), "Advanced vulnerability +30%");
 
         RuneEffectBalanceService.ResolvedEffect relic = only(service.effects(
