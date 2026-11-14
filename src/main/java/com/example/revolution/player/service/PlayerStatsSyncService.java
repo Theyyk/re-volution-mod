@@ -139,7 +139,12 @@ public final class PlayerStatsSyncService {
                 statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost,
                 awakeningImprovedCost, resolvedClickDamage, resolvedPoisonDamage);
         if (damageProjection != null) {
-            DamagePreview clickPreview = damageProjection.project(uuid, GameplayDamageSource.CLICK, resolvedClickDamage);
+            // DamageBonusHandler uses legacy additive stats when no RuneCombat snapshot exists.
+            // Match that authoritative fallback instead of advertising only vanilla base damage.
+            double clickBase = stableCombat == null
+                    ? Math.max(0.0D, baseDamage + playerStats.getTotalDamageBonusValue(uuid))
+                    : resolvedClickDamage;
+            DamagePreview clickPreview = damageProjection.project(uuid, GameplayDamageSource.CLICK, clickBase);
             DamagePreview poisonPreview = damageProjection.project(uuid, GameplayDamageSource.POISON, resolvedPoisonDamage);
             snapshot.setDamageProjection(clickPreview.amount, poisonPreview.amount,
                     clickPreview.breakdown, poisonPreview.breakdown);
