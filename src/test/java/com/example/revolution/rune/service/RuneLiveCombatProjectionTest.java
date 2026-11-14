@@ -27,6 +27,7 @@ public final class RuneLiveCombatProjectionTest {
                 + "\"runes.poison.slot.0.group\":\"temp_all\","
                 + "\"runes.poison.effect.temp_all.count\":\"1\","
                 + "\"runes.poison.effect.temp_all.1.type\":\"TEMPORARY_ALL_DAMAGE_MULTIPLIER\","
+                + "\"runes.poison.effect.temp_all.1.tags\":\"all,temp\","
                 + "\"runes.poison.effect.temp_all.1.trigger\":\"HIT_MOB\","
                 + "\"runes.poison.effect.temp_all.1.max_stacks\":\"1\","
                 + "\"runes.poison.effect.temp_all.1.rank.1.primary\":\"1.5\","
