@@ -72,6 +72,24 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         if (!policy.preserveRunes) appendRuneOwnershipWipe(player, set);
         if (resetPets != null) set.append("petSystem", resetPets);
         Document filter = new Document("_id", playerUuid.toString()).append("prestige.activeRun.runId", expectedRunId);
+        // A runId alone does not guard concurrent progress, rune, pet or wallet writes.
+        // The reset must not overwrite a newer observed player state.
+        filter.append("prestige", player.get("prestige"));
+        if (set.containsKey("decks")) filter.append("decks", player.get("decks"));
+        if (set.containsKey("petSystem")) filter.append("petSystem", player.get("petSystem"));
+        for (String path : set.keySet()) {
+            if (path.startsWith("runeCollections.collections.") && path.endsWith(".slots")) {
+                filter.append(path, nested(player, path));
+            }
+        }
+        // Canonical resources are decimal strings; one atomic update resets all four.
+        // No Crystal wipe: Premium Crystal debit is handled separately by the existing CAS.
+        for (String field : RESET_RESOURCE_FIELDS) {
+            filter.append(field, nested(player, field));
+            set.append(field, "0");
+        }
+        filter.append("resourceResetEpoch", player.get("resourceResetEpoch"));
+        set.append("resourceResetEpoch", expectedRunId);
         if (policy.crystalCost > 0) appendCrystalDebit(filter, set, observedCrystals, policy.crystalCost);
         Document update = new Document("$set", set);
         UpdateResult result = connection.collection("players").updateOne(filter, update);
@@ -252,6 +270,19 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
             throw new IllegalArgumentException("insufficient crystals");
         filter.append("crystals", observedCrystals);
         set.append("crystals", exact(current.subtract(BigDecimal.valueOf(cost))));
+    }
+
+    private static final String[] RESET_RESOURCE_FIELDS = {
+            "balance", "resources.rune_dust", "resources.rune_shards", "resources.rune_cores"
+    };
+
+    private static Object nested(Document player, String path) {
+        Object value = player;
+        for (String segment : path.split("\\.")) {
+            if (!(value instanceof Document)) return null;
+            value = ((Document) value).get(segment);
+        }
+        return value;
     }
 
     private static int crystals(Document player) {
