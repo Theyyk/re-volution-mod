@@ -188,7 +188,8 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                 int cap = Math.max(0, permanent.rankMetaLevelCap);
                 int level = Math.max(0, Math.min(cap, permanent.rankMetaLevels.getOrDefault(rank.rankId, 0)));
                 packet.addPermanentRank(new MasterySnapshotPacket.RankEntry(branch.name(), rank.rankId,
-                        exact(rank.unlockProgress), level, cap));
+                        exact(rank.unlockProgress), level, cap,
+                        rank.effectStat.name(), exact(rank.effectAtMetaLevel(level))));
             }
         }
         PrestigeState.RunState run = state.activeRun;

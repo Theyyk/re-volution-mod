@@ -44,7 +44,8 @@ public final class MasteryNetworkPacketTest {
         original.premiumPreservePets = false;
         original.premiumCrystalCost = 12;
         original.addBranch(new MasterySnapshotPacket.BranchEntry("POISON", "POISON_DAMAGE", "999", 2, 15, 3));
-        original.addPermanentRank(new MasterySnapshotPacket.RankEntry("POISON", "POISON_I", "100", 2, 15));
+        original.addPermanentRank(new MasterySnapshotPacket.RankEntry("POISON", "POISON_I", "100", 2, 15,
+                "POISON_DAMAGE_MULTIPLIER", "0.06"));
         original.addPermanentRank(new MasterySnapshotPacket.RankEntry("POISON", "POISON_II", "500", 0, 15));
         ByteBuf buf = Unpooled.buffer();
         try {
@@ -76,6 +77,8 @@ public final class MasteryNetworkPacketTest {
             assertEquals("100", copy.getPermanentRanks().get(0).threshold);
             assertEquals(2, copy.getPermanentRanks().get(0).metaLevel);
             assertEquals(15, copy.getPermanentRanks().get(0).metaCap);
+            assertEquals("POISON_DAMAGE_MULTIPLIER", copy.getPermanentRanks().get(0).effectStat);
+            assertEquals("0.06", copy.getPermanentRanks().get(0).effectValue);
             assertEquals("POISON_II", copy.getPermanentRanks().get(1).id);
             assertFalse(buf.isReadable());
         } finally { buf.release(); }

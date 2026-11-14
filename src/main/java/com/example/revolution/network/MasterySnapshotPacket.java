@@ -28,10 +28,18 @@ public final class MasterySnapshotPacket implements IMessage {
         public String threshold = "0";
         public int metaLevel;
         public int metaCap;
+        /** Server-projected existing rank contribution; no new modifier balance. */
+        public String effectStat = "";
+        public String effectValue = "0";
         public RankEntry() {}
         public RankEntry(String branch, String id, String threshold, int metaLevel, int metaCap) {
             this.branch = branch; this.id = id; this.threshold = threshold;
             this.metaLevel = metaLevel; this.metaCap = metaCap;
+        }
+        public RankEntry(String branch, String id, String threshold, int metaLevel, int metaCap,
+                         String effectStat, String effectValue) {
+            this(branch, id, threshold, metaLevel, metaCap);
+            this.effectStat = effectStat; this.effectValue = effectValue;
         }
     }
     public long requestId;
@@ -89,6 +97,7 @@ public final class MasterySnapshotPacket implements IMessage {
             RankEntry rank = new RankEntry();
             rank.branch = read(buf); rank.id = read(buf); rank.threshold = read(buf);
             rank.metaLevel = buf.readInt(); rank.metaCap = buf.readInt();
+            rank.effectStat = read(buf); rank.effectValue = read(buf);
             permanentRanks.add(rank);
         }
     }
@@ -110,6 +119,7 @@ public final class MasterySnapshotPacket implements IMessage {
         for (RankEntry rank : permanentRanks) {
             write(buf, rank.branch); write(buf, rank.id); write(buf, rank.threshold);
             buf.writeInt(rank.metaLevel); buf.writeInt(rank.metaCap);
+            write(buf, rank.effectStat); write(buf, rank.effectValue);
         }
     }
     private static String read(ByteBuf buf) { return ByteBufUtils.readUTF8String(buf); }
