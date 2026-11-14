@@ -89,7 +89,8 @@ public final class RunExchangeService {
         BigDecimal reward = percentageOf(factualTargetBalance, rewardPercent);
         Result charge = charge(playerUuid, expectedRunId, run, offer.paymentCurrency, cost);
         if (charge != Result.APPLIED) return charge;
-        if (!resources.grantPlayerResource(playerUuid, target, reward)) throw new IllegalStateException("Validated Run Exchange target could not be granted");
+        if (!resources.grantPlayerResourceForRun(playerUuid, target, reward, expectedRunId))
+            throw new IllegalStateException("Run Exchange reward rejected: run ended or wallet changed");
         if (!prestige.recordRunExchangePurchase(playerUuid, expectedRunId, offer.offerId, purchaseCount))
             throw new IllegalStateException("Run Exchange purchase counter changed during authoritative purchase");
         emitPurchase(playerUuid, offer);
@@ -149,7 +150,8 @@ public final class RunExchangeService {
         }
         if (currency == RunExchangeOffer.PaymentCurrency.CRYSTALS) {
             if (!resources.canAfford(playerUuid, "crystals", cost)) return Result.INSUFFICIENT_CRYSTALS;
-            return resources.spendPlayerResource(playerUuid, "crystals", cost) ? Result.APPLIED : Result.INSUFFICIENT_CRYSTALS;
+            return resources.spendPlayerResourceForRun(playerUuid, "crystals", cost, expectedRunId)
+                    ? Result.APPLIED : Result.STALE_RUN;
         }
         return Result.LOCKED;
     }
