@@ -97,10 +97,13 @@ public final class PlayerStatsSyncService {
         int activeCollection = players.getActiveCollection(uuid);
         int statusId = RuneStatusConfig.statusForCollection(activeCollection);
 
-        RuneCombatMath.Snapshot stableCombat = combat.resolveStable(uuid);
+        // Read the same tick-aware Rune snapshot used for actual CLICK/POISON damage.
+        // Proc remains false: E shows deterministic damage, not a guaranteed random proc.
+        // This also exposes an already-active hit-triggered temporary buff until it expires.
+        RuneCombatMath.Snapshot liveCombat = combat.resolve(uuid, player.getServerWorld().getTotalWorldTime());
         double baseDamage = player.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).getAttributeValue();
-        double resolvedClickDamage = RuneCombatMath.clickDamage(baseDamage, stableCombat, false);
-        double resolvedPoisonDamage = RuneCombatMath.poisonDamage(stableCombat);
+        double resolvedClickDamage = RuneCombatMath.clickDamage(baseDamage, liveCombat, false);
+        double resolvedPoisonDamage = RuneCombatMath.poisonDamage(liveCombat);
 
         String purchaseResource = RuneEconomyConfig.purchaseResourceForStatus(statusId);
         String canonicalPurchaseResource = ResourceDefinitions.findCanonicalName(purchaseResource);
@@ -141,7 +144,7 @@ public final class PlayerStatsSyncService {
         if (damageProjection != null) {
             // DamageBonusHandler uses legacy additive stats when no RuneCombat snapshot exists.
             // Match that authoritative fallback instead of advertising only vanilla base damage.
-            double clickBase = stableCombat == null
+            double clickBase = liveCombat == null
                     ? Math.max(0.0D, baseDamage + playerStats.getTotalDamageBonusValue(uuid))
                     : resolvedClickDamage;
             DamagePreview clickPreview = damageProjection.project(uuid, GameplayDamageSource.CLICK, clickBase);
