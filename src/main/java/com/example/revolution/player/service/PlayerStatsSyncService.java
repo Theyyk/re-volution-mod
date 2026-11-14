@@ -146,8 +146,9 @@ public final class PlayerStatsSyncService {
                     : resolvedClickDamage;
             DamagePreview clickPreview = damageProjection.project(uuid, GameplayDamageSource.CLICK, clickBase);
             DamagePreview poisonPreview = damageProjection.project(uuid, GameplayDamageSource.POISON, resolvedPoisonDamage);
-            snapshot.setDamageProjection(clickPreview.amount, poisonPreview.amount,
-                    clickPreview.breakdown, poisonPreview.breakdown);
+            NetworkHandler.sendToClient(new com.example.revolution.network.CombatProjectionPacket(
+                    clickPreview.amount, poisonPreview.amount,
+                    clickPreview.breakdown, poisonPreview.breakdown), player);
         }
         if (uniqueRunes != null) snapshot.setUniqueWalletBalances(
                 uniqueRunes.pearlBalance(uuid), uniqueRunes.offeringsBalance(uuid));
