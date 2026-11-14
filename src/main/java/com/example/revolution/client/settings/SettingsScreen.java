@@ -1,5 +1,7 @@
 package com.example.revolution.client.settings;
 
+import com.example.revolution.client.GuiBackgroundBlur;
+import com.example.revolution.client.UnifiedMainMenuChrome;
 import com.example.revolution.number.LargeNumberDisplayMode;
 import com.example.revolution.number.LargeNumbers;
 import java.io.IOException;
@@ -12,9 +14,12 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 public class SettingsScreen extends GuiScreen {
     private static final int BUTTON_W = 180;
     private static final int BUTTON_H = 20;
+    private static final int CLOSE_BUTTON = 100;
+    private final GuiBackgroundBlur blur = new GuiBackgroundBlur();
 
     @Override
     public void initGui() {
+        blur.enable(mc);
         buttonList.clear();
         int x = width / 2 - BUTTON_W / 2;
         int y = height / 2 - 12;
@@ -22,10 +27,13 @@ public class SettingsScreen extends GuiScreen {
         for (int i = 0; i < modes.length; i++) {
             buttonList.add(new GuiButton(i, x, y + i * 24, BUTTON_W, BUTTON_H, label(modes[i])));
         }
+        buttonList.add(UnifiedMainMenuChrome.panelButton(CLOSE_BUTTON, x, y + modes.length * 24 + 8,
+                BUTTON_W, BUTTON_H, "Закрыть"));
     }
 
     @Override
     protected void actionPerformed(GuiButton button) throws IOException {
+        if (button.id == CLOSE_BUTTON) { mc.displayGuiScreen(null); return; }
         if (button.id < 0 || button.id >= LargeNumberDisplayMode.values().length) return;
         LargeNumbers.setDisplayMode(LargeNumberDisplayMode.values()[button.id]);
         initGui();
@@ -37,6 +45,12 @@ public class SettingsScreen extends GuiScreen {
         drawCenteredString(fontRenderer, "RE:volution - Настройки", width / 2, height / 2 - 78, 0xFFFFFF);
         drawCenteredString(fontRenderer, "Формат больших чисел", width / 2, height / 2 - 58, 0xBFBFBF);
         super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    @Override
+    public void onGuiClosed() {
+        blur.disable(mc);
+        super.onGuiClosed();
     }
 
     @Override

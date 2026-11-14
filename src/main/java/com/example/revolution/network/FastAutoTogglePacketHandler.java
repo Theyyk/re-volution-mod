@@ -11,8 +11,10 @@ public final class FastAutoTogglePacketHandler implements IMessageHandler<FastAu
     @Override
     public IMessage onMessage(FastAutoTogglePacket message, MessageContext ctx) {
         EntityPlayerMP player = ctx.getServerHandler().player;
-        player.getServer().addScheduledTask(() ->
-                ServerLifecycle.services().fastAuto.setEnabled(player.getUniqueID(), message.isEnabled()));
+        player.getServer().addScheduledTask(() -> {
+            ServerLifecycle.services().fastAuto.setEnabled(player.getUniqueID(), message.isEnabled());
+            StageTravelMenuRequestHandler.sendSnapshot(player);
+        });
         return null;
     }
 }

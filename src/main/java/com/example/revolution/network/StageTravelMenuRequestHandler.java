@@ -16,7 +16,12 @@ public final class StageTravelMenuRequestHandler implements IMessageHandler<Stag
     @Override
     public IMessage onMessage(StageTravelMenuRequestPacket message, MessageContext ctx) {
         EntityPlayerMP player = ctx.getServerHandler().player;
-        player.getServer().addScheduledTask(() -> {
+        player.getServer().addScheduledTask(() -> sendSnapshot(player));
+        return null;
+    }
+
+    /** Reuse the canonical server snapshot after Fast Auto preference changes. */
+    static void sendSnapshot(EntityPlayerMP player) {
             ServerServices services = ServerLifecycle.services();
             List<StageTravelMenuPacket.Entry> entries = new ArrayList<>();
             for (LocationDefinition zone : services.mobZoneOverlay.snapshot()) {
@@ -34,7 +39,5 @@ public final class StageTravelMenuRequestHandler implements IMessageHandler<Stag
             }
             NetworkHandler.sendToClient(new StageTravelMenuPacket(
                     entries, services.fastAuto.isEnabled(player.getUniqueID())), player);
-        });
-        return null;
     }
 }

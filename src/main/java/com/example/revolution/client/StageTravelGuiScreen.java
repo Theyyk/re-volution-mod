@@ -16,6 +16,7 @@ import net.minecraft.client.gui.GuiScreen;
 
 /** Player navigation menu for already-unlocked configured mob stages. */
 public final class StageTravelGuiScreen extends GuiScreen {
+    private final GuiBackgroundBlur blur = new GuiBackgroundBlur();
     private static final int ITEM_BASE = 100;
     private static final int BACK = 1;
     private static final int PREVIOUS_PAGE = 2;
@@ -30,6 +31,7 @@ public final class StageTravelGuiScreen extends GuiScreen {
     private int selectedLocation = -1;
     private int page = 0;
     private boolean fastAutoEnabled;
+    private boolean fastAutoPending;
 
     public StageTravelGuiScreen(List<StageTravelMenuPacket.Entry> entries, boolean fastAutoEnabled) {
         if (entries != null) this.entries.addAll(entries);
@@ -39,8 +41,21 @@ public final class StageTravelGuiScreen extends GuiScreen {
                 .thenComparingInt(StageTravelMenuPacket.Entry::getMobSlotId));
     }
 
+    /** Apply the server's authoritative state without losing the selected location. */
+    public void applyServerSnapshot(List<StageTravelMenuPacket.Entry> nextEntries, boolean enabled) {
+        entries.clear();
+        if (nextEntries != null) entries.addAll(nextEntries);
+        Collections.sort(entries, Comparator
+                .comparingInt(StageTravelMenuPacket.Entry::getWorldLocationId)
+                .thenComparingInt(StageTravelMenuPacket.Entry::getMobSlotId));
+        fastAutoEnabled = enabled;
+        fastAutoPending = false;
+        initGui();
+    }
+
     @Override
     public void initGui() {
+        blur.enable(mc);
         buttonList.clear();
         visibleStageEntries.clear();
         visibleLocations.clear();
@@ -53,8 +68,10 @@ public final class StageTravelGuiScreen extends GuiScreen {
         if (selectedLocation >= 0) {
             buttonList.add(new GuiButton(BACK, width / 2 - 155, bottom, 90, 20, "Назад"));
         } else {
-            buttonList.add(new GuiButton(FAST_AUTO, width / 2 - 155, bottom, 130, 20,
-                    "Fast-auto: " + (fastAutoEnabled ? "ON" : "OFF")));
+            GuiButton fastAuto = new GuiButton(FAST_AUTO, width / 2 - 155, bottom, 130, 20,
+                    "Fast-auto: " + (fastAutoEnabled ? "ON" : "OFF"));
+            fastAuto.enabled = !fastAutoPending;
+            buttonList.add(fastAuto);
         }
     }
 
@@ -127,8 +144,9 @@ public final class StageTravelGuiScreen extends GuiScreen {
             return;
         }
         if (button.id == FAST_AUTO) {
-            fastAutoEnabled = !fastAutoEnabled;
-            NetworkHandler.INSTANCE.sendToServer(new FastAutoTogglePacket(fastAutoEnabled));
+            if (fastAutoPending) return;
+            fastAutoPending = true;
+            NetworkHandler.INSTANCE.sendToServer(new FastAutoTogglePacket(!fastAutoEnabled));
             initGui();
             return;
         }
@@ -174,6 +192,11 @@ public final class StageTravelGuiScreen extends GuiScreen {
             drawCenteredString(fontRenderer, "Нет настроенных стадий", width / 2, 60, 0xAAAAAA);
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    @Override public void onGuiClosed() {
+        blur.disable(mc);
+        super.onGuiClosed();
     }
 
     @Override public boolean doesGuiPauseGame() { return false; }
