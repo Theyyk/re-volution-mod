@@ -75,13 +75,21 @@ public final class ResourceService {
 
     /** A retry may use a newer balance, but never an older reset generation. */
     private boolean mutate(UUID uuid, String canonical, BigDecimal change, boolean spend) {
+        return mutate(uuid, canonical, change, spend, null);
+    }
+
+    private boolean mutate(UUID uuid, String canonical, BigDecimal change, boolean spend,
+                           String expectedRunId) {
         ResourceRepository.ResourceSnapshot snapshot = repository.resourceSnapshot(uuid, canonical);
         String generation = snapshot.resetEpoch;
         for (int attempt = 0; attempt < MAX_WALLET_RETRIES; attempt++) {
             BigDecimal next = spend ? snapshot.value.subtract(change) : snapshot.value.add(change);
             if (next.signum() < 0) return false;
             next = LargeNumbers.normalize(next);
-            if (repository.compareAndSetPlayerResource(uuid, canonical, snapshot, next)) {
+            boolean committed = expectedRunId == null
+                    ? repository.compareAndSetPlayerResource(uuid, canonical, snapshot, next)
+                    : repository.compareAndSetPlayerResourceForRun(uuid, canonical, snapshot, next, expectedRunId);
+            if (committed) {
                 notifyChanged(uuid);
                 return true;
             }
@@ -110,6 +118,24 @@ public final class ResourceService {
         if (canonical == null || uuid == null || amount == null || amount.signum() < 0) return false;
         if (amount.signum() == 0) return true;
         return mutate(uuid, canonical, amount, false);
+    }
+
+    /** Run-bound exchange rewards and purchases must not cross a Prestige Reset. */
+    public synchronized boolean grantPlayerResourceForRun(UUID uuid, String resource,
+                                                           BigDecimal amount, String expectedRunId) {
+        String canonical = findCanonicalName(resource);
+        if (canonical == null || uuid == null || amount == null || amount.signum() < 0
+                || expectedRunId == null || expectedRunId.isEmpty()) return false;
+        if (amount.signum() == 0) return true;
+        return mutate(uuid, canonical, amount, false, expectedRunId);
+    }
+
+    public synchronized boolean spendPlayerResourceForRun(UUID uuid, String resource,
+                                                           BigDecimal amount, String expectedRunId) {
+        String canonical = findCanonicalName(resource);
+        if (canonical == null || uuid == null || amount == null || amount.signum() < 0
+                || expectedRunId == null || expectedRunId.isEmpty()) return false;
+        return mutate(uuid, canonical, amount, true, expectedRunId);
     }
 
     /**
