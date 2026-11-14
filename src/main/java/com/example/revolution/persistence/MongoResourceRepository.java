@@ -75,16 +75,30 @@ public final class MongoResourceRepository implements ResourceRepository {
     @Override
     public boolean compareAndSetPlayerResource(UUID uuid, String canonical,
                                                ResourceSnapshot observed, BigDecimal next) {
+        return writeGuarded(uuid, canonical, observed, next, null);
+    }
+
+    @Override
+    public boolean compareAndSetPlayerResourceForRun(UUID uuid, String canonical,
+                                                      ResourceSnapshot observed, BigDecimal next,
+                                                      String expectedRunId) {
+        if (expectedRunId == null || expectedRunId.isEmpty()) return false;
+        return writeGuarded(uuid, canonical, observed, next, expectedRunId);
+    }
+
+    private boolean writeGuarded(UUID uuid, String canonical, ResourceSnapshot observed,
+                                 BigDecimal next, String expectedRunId) {
         if (uuid == null || observed == null || next == null || next.signum() < 0) return false;
         String field = playerResourceField(canonical);
         Document filter = new Document("_id", uuid.toString())
                 .append(field, observed.observedValue)
                 .append("resourceResetEpoch", observed.resetEpoch);
+        if (expectedRunId != null) filter.append("prestige.activeRun.runId", expectedRunId);
         try {
             UpdateResult result = connection.collection("players").updateOne(filter,
                     new Document("$set", new Document(field, LargeNumbers.canonical(next))),
-                    new UpdateOptions().upsert(true));
-            return result != null && result.getMatchedCount() > 0 || result.getUpsertedId() != null;
+                    new UpdateOptions().upsert(expectedRunId == null));
+            return result != null && (result.getMatchedCount() > 0 || result.getUpsertedId() != null);
         } catch (MongoWriteException duplicate) {
             if (duplicate.getError().getCode() == 11000) return false;
             throw duplicate;
