@@ -156,8 +156,8 @@ public final class MasteryGuiScreen extends GuiScreen {
                 line("Забег: " + branchName(state.activeBranch), infoX, row, infoW, 0xFF89DBA4);
                 line("Уровень: " + state.level + "  Прогресс: " + state.progress, infoX, row + 15, infoW, 0xFFD8E1E9);
                 line("Фрагменты: " + state.fragments, infoX, row + 30, infoW, 0xFFD8E1E9);
-                line("Mastery pending: " + state.masteryPending, infoX, row + 45, infoW, 0xFFD8E1E9);
-                line("Pets pending: " + state.petPending, infoX, row + 60, infoW, 0xFFD8E1E9);
+                line("Награда Mastery (ожидает): " + state.masteryPending, infoX, row + 45, infoW, 0xFFD8E1E9);
+                line("Награда Pets (ожидает): " + state.petPending, infoX, row + 60, infoW, 0xFFD8E1E9);
                 line("Ранги: " + (state.ranks.isEmpty() ? "нет" : state.ranks), infoX, row + 75, infoW, 0xFFB8C6D1);
                 line("Run ID: " + state.runId, infoX, row + 90, infoW, 0xFF82929F);
             }
@@ -165,13 +165,15 @@ public final class MasteryGuiScreen extends GuiScreen {
             String rankBranch = state.runId.isEmpty() ? selectedBranch : state.activeBranch;
             int rankY = y + 164;
             if (!rankBranch.isEmpty()) {
-                line("Постоянные ранги: " + branchName(rankBranch), x + 10, rankY, w - 20, 0xFFE9CA8D);
+                line("Ранги / автоэффекты: " + branchName(rankBranch), x + 10, rankY, w - 20, 0xFFE9CA8D);
                 int rowIndex = 0;
                 for (MasterySnapshotPacket.RankEntry rank : state.getPermanentRanks()) {
                     if (!rankBranch.equals(rank.branch)) continue;
                     String reached = !state.runId.isEmpty() && state.ranks.contains(rank.id) ? " ✓" : "";
                     line(rank.id + " | " + rank.metaLevel + "/" + rank.metaCap
-                            + " | порог " + rank.threshold + reached,
+                            + " | порог " + rank.threshold + reached
+                            + " | " + (reached.isEmpty() ? "ожидает" : "авто")
+                            + " +" + rank.effectValue + " " + effectName(rank.effectStat),
                             x + 10, rankY + 15 + rowIndex * 13, w - 20, 0xFFD8E1E9);
                     rowIndex++;
                 }
@@ -235,6 +237,16 @@ public final class MasteryGuiScreen extends GuiScreen {
             case "RUNE_RESOURCES": return "Ресурсы рун";
             case "ALL_DAMAGE": return "Общий урон";
             default: return id;
+        }
+    }
+    private static String effectName(String stat) {
+        switch (stat) {
+            case "CLICK_DAMAGE_MULTIPLIER": return "клик";
+            case "POISON_DAMAGE_MULTIPLIER": return "яд";
+            case "COIN_REWARD_MULTIPLIER": return "монеты";
+            case "RUNE_RESOURCE_REWARD_MULTIPLIER": return "руны";
+            case "ALL_DAMAGE_MULTIPLIER": return "урон";
+            default: return stat;
         }
     }
     @Override public boolean doesGuiPauseGame() { return false; }
