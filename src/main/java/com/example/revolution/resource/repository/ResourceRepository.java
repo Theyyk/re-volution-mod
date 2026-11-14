@@ -32,4 +32,11 @@ public interface ResourceRepository {
         writePlayerResource(uuid, canonical, next);
         return true;
     }
+
+    /** Run-scoped mutations must not spill into a new run after a reset. */
+    default boolean compareAndSetPlayerResourceForRun(UUID uuid, String canonical,
+                                                      ResourceSnapshot observed, BigDecimal next,
+                                                      String expectedRunId) {
+        return compareAndSetPlayerResource(uuid, canonical, observed, next);
+    }
 }
