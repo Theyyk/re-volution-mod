@@ -15,8 +15,10 @@ public final class RunePurchaseProfiling {
     private static final long NANOS_PER_MS = 1000000L;
     private static final String ORDINARY = "ordinary";
     private static final String CRYSTAL = "crystal";
+    private static final String OFFERINGS = "offerings";
     private static final AtomicInteger ordinaryPending = new AtomicInteger();
     private static final AtomicInteger crystalPending = new AtomicInteger();
+    private static final AtomicInteger offeringsPending = new AtomicInteger();
     private static final ThreadLocal<Sample> ACTIVE = new ThreadLocal<>();
     private static final Map<String, Window> WINDOWS = new ConcurrentHashMap<>();
 
@@ -76,7 +78,9 @@ public final class RunePurchaseProfiling {
     }
 
     private static AtomicInteger pending(String path) {
-        return CRYSTAL.equals(path) ? crystalPending : ordinaryPending;
+        if (CRYSTAL.equals(path)) return crystalPending;
+        if (OFFERINGS.equals(path)) return offeringsPending;
+        return ordinaryPending;
     }
 
     private static long millis(long nanos) { return Math.max(0L, nanos) / NANOS_PER_MS; }

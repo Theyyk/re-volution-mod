@@ -7,8 +7,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * One shared per-player prequeue cooldown for ordinary and Crystal purchases.
- * Crystal purchases have a longer budget because release QA measured 265–402ms
+ * One shared per-player prequeue cooldown for ordinary, Crystal and Offerings purchases.
+ * Crystal and Offerings use the same protected purchase budget. Release QA measured 265–402ms
  * server-thread execution, exceeding the previous shared 200ms admission rate.
  * Runs on the network handler BEFORE addScheduledTask, so rejected autoclick
  * traffic never enters the Minecraft server queue or changes wallet/nonce.
@@ -28,7 +28,16 @@ public final class RunePurchaseRequestLimiter {
         return tryAcquire(playerId, System.nanoTime());
     }
 
-    /** Enforce a longer Crystal-specific interval without changing ordinary purchase pacing. */
+    /** Enforce a longer unique-rune interval without changing ordinary purchase pacing. */
+    public static boolean tryAcquireOfferings(UUID playerId) {
+        return tryAcquireCrystal(playerId);
+    }
+
+    static boolean tryAcquireOfferings(UUID playerId, long nowNanos) {
+        return tryAcquireCrystal(playerId, nowNanos);
+    }
+
+    /** Shared unique-rune gate, covering both Crystal and Offerings, with one accepted timestamp. */
     public static boolean tryAcquireCrystal(UUID playerId) {
         return tryAcquireCrystal(playerId, System.nanoTime());
     }

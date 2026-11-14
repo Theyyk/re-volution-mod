@@ -26,6 +26,13 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
             RunePurchaseProfiling.queued("crystal");
             player.getServerWorld().addScheduledTask(() -> RunePurchaseProfiling.process(
                     "crystal", enqueuedAt, () -> handle(player, message)));
+        } else if ("purchase_offerings".equals(message.getAction())) {
+            // Offerings must not bypass the same per-player prequeue budget as Crystal.
+            if (!RunePurchaseRequestLimiter.tryAcquireOfferings(player.getUniqueID())) return null;
+            long enqueuedAt = System.nanoTime();
+            RunePurchaseProfiling.queued("offerings");
+            player.getServerWorld().addScheduledTask(() -> RunePurchaseProfiling.process(
+                    "offerings", enqueuedAt, () -> handle(player, message)));
         } else {
             player.getServerWorld().addScheduledTask(() -> handle(player, message));
         }
@@ -41,7 +48,8 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         UniqueRuneService.Result crystalRoll = null;
         if ("purchase_crystal".equals(action)) crystalRoll = RunePurchaseProfiling.phase("purchase",
                 () -> services.uniqueRunes.purchaseCrystal(player.getUniqueID(), request.getRequestNonce()));
-        else if ("purchase_offerings".equals(action)) services.uniqueRunes.purchaseOfferings(player.getUniqueID(), request.getRequestNonce());
+        else if ("purchase_offerings".equals(action)) RunePurchaseProfiling.phase("purchase",
+                () -> services.uniqueRunes.purchaseOfferings(player.getUniqueID(), request.getRequestNonce()));
         else if ("daily".equals(action)) services.uniqueRunes.claimDailyAtMillis(player.getUniqueID(), System.currentTimeMillis(), request.getRequestNonce());
         else if ("enhance".equals(action)) services.uniqueRunes.enhance(player.getUniqueID(), request.getRequestNonce());
         else if ("awaken".equals(action) && collection != null) {
@@ -69,6 +77,8 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         if ("purchase_crystal".equals(action)) {
             final UniqueRuneService.Result result = crystalRoll;
             RunePurchaseProfiling.phase("snapshot", () -> sendSnapshot(player, services, result));
+        } else if ("purchase_offerings".equals(action)) {
+            RunePurchaseProfiling.phase("snapshot", () -> sendSnapshot(player, services));
         } else sendSnapshot(player, services, crystalRoll);
     }
 

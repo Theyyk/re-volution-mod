@@ -40,6 +40,18 @@ public final class RunePurchaseRequestLimiterTest {
         check(RunePurchaseRequestLimiter.tryAcquire(first, t + ms(1400)),
                 "ordinary can resume after 200ms without extending Crystal gate");
         check(!RunePurchaseRequestLimiter.tryAcquireCrystal(null, t), "invalid Crystal player rejected");
+
+        // Offerings must be covered by the same 1000ms gate as Crystal, not
+        // enqueue every click while the main server thread is busy.
+        RunePurchaseRequestLimiter.reset();
+        check(RunePurchaseRequestLimiter.tryAcquireOfferings(first, t), "first Offerings roll accepted");
+        check(!RunePurchaseRequestLimiter.tryAcquireOfferings(first, t + ms(999)), "Offerings burst rejected before 1000ms");
+        check(!RunePurchaseRequestLimiter.tryAcquireCrystal(first, t + ms(999)), "Crystal shares Offerings cooldown");
+        check(RunePurchaseRequestLimiter.tryAcquireCrystal(first, t + ms(1000)), "Crystal accepted after Offerings boundary");
+        check(!RunePurchaseRequestLimiter.tryAcquireOfferings(first, t + ms(1500)), "Offerings shares most recent Crystal acceptance");
+        check(RunePurchaseRequestLimiter.tryAcquireOfferings(first, t + ms(2000)), "Offerings accepted at next boundary");
+        check(RunePurchaseRequestLimiter.tryAcquireOfferings(second, t + ms(10)), "other player independent on Offerings");
+        check(!RunePurchaseRequestLimiter.tryAcquireOfferings(null, t), "invalid Offerings player rejected");
         RunePurchaseRequestLimiter.reset();
         check(RunePurchaseRequestLimiter.tryAcquire(first, t + ms(1)), "shutdown clears cooldown");
 
