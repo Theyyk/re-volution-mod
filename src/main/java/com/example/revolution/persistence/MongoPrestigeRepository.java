@@ -82,14 +82,7 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
                 filter.append(path, nested(player, path));
             }
         }
-        // Canonical resources are decimal strings; one atomic update resets all four.
-        // No Crystal wipe: Premium Crystal debit is handled separately by the existing CAS.
-        for (String field : RESET_RESOURCE_FIELDS) {
-            filter.append(field, nested(player, field));
-            set.append(field, "0");
-        }
-        filter.append("resourceResetEpoch", player.get("resourceResetEpoch"));
-        set.append("resourceResetEpoch", expectedRunId);
+        appendResourceReset(player, filter, set, expectedRunId);
         if (policy.crystalCost > 0) appendCrystalDebit(filter, set, observedCrystals, policy.crystalCost);
         Document update = new Document("$set", set);
         UpdateResult result = connection.collection("players").updateOne(filter, update);
@@ -275,6 +268,21 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
     private static final String[] RESET_RESOURCE_FIELDS = {
             "balance", "resources.rune_dust", "resources.rune_shards", "resources.rune_cores"
     };
+
+    /**
+     * Testable resource part of the guarded single-document reset.
+     * The observed values and epoch prevent overwriting concurrent wallet writes.
+     */
+    public static void appendResourceReset(Document player, Document filter, Document set, String runId) {
+        if (player == null || filter == null || set == null || runId == null || runId.isEmpty())
+            throw new IllegalArgumentException("Reset resource inputs required");
+        for (String field : RESET_RESOURCE_FIELDS) {
+            filter.append(field, nested(player, field));
+            set.append(field, "0");
+        }
+        filter.append("resourceResetEpoch", player.get("resourceResetEpoch"));
+        set.append("resourceResetEpoch", runId);
+    }
 
     private static Object nested(Document player, String path) {
         Object value = player;
