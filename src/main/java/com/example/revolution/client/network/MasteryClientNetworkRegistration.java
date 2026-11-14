@@ -15,5 +15,7 @@ public final class MasteryClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(MasteryActionPacketClientHandler.class, MasteryActionPacket.class, 29, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(MasterySnapshotPacketHandler.class, MasterySnapshotPacket.class, 30, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(CombatProjectionPacketHandler.class, CombatProjectionPacket.class, 31, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(RunExchangeActionPacketClientHandler.class, RunExchangeActionPacket.class, 32, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(RunExchangeSnapshotPacketHandler.class, RunExchangeSnapshotPacket.class, 33, Side.CLIENT);
     }
 }
