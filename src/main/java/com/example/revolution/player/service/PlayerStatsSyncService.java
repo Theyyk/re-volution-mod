@@ -1,5 +1,6 @@
 package com.example.revolution.player.service;
 
+import com.example.revolution.gameplay.GameplayDamageSource;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PlayerStatsPacket;
 import com.example.revolution.player.repository.PlayerRepository;
@@ -31,6 +32,23 @@ public final class PlayerStatsSyncService {
     private RunePurchaseBalanceService purchaseBalance;
     private RuneRankUpBalanceService rankUpBalance;
     private UniqueRuneService uniqueRunes;
+    /** Read-only server evaluator of all deterministic managed-mob combat layers. */
+    public interface DamageProjection {
+        DamagePreview project(UUID playerUuid, GameplayDamageSource channel, double runeBase);
+    }
+    public static final class DamagePreview {
+        public final double amount;
+        public final String breakdown;
+        public DamagePreview(double amount, String breakdown) {
+            this.amount = Double.isFinite(amount) ? Math.max(0.0D, amount) : 0.0D;
+            this.breakdown = breakdown == null ? "" : breakdown;
+        }
+    }
+    private DamageProjection damageProjection;
+    public void bindDamageProjection(DamageProjection provider) {
+        if (provider == null || damageProjection != null) throw new IllegalStateException("Damage projection already bound or null");
+        damageProjection = provider;
+    }
 
     public PlayerStatsSyncService(
             PlayerRepository players,
@@ -120,6 +138,12 @@ public final class PlayerStatsSyncService {
         PlayerStatsPacket snapshot = new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage,
                 statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost,
                 awakeningImprovedCost, resolvedClickDamage, resolvedPoisonDamage);
+        if (damageProjection != null) {
+            DamagePreview clickPreview = damageProjection.project(uuid, GameplayDamageSource.CLICK, resolvedClickDamage);
+            DamagePreview poisonPreview = damageProjection.project(uuid, GameplayDamageSource.POISON, resolvedPoisonDamage);
+            snapshot.setDamageProjection(clickPreview.amount, poisonPreview.amount,
+                    clickPreview.breakdown, poisonPreview.breakdown);
+        }
         if (uniqueRunes != null) snapshot.setUniqueWalletBalances(
                 uniqueRunes.pearlBalance(uuid), uniqueRunes.offeringsBalance(uuid));
         NetworkHandler.sendToClient(snapshot, player);
