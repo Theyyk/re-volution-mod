@@ -160,6 +160,8 @@ public final class MasteryGuiScreen extends GuiScreen {
                 line("Награда Pets (ожидает): " + state.petPending, infoX, row + 60, infoW, 0xFFD8E1E9);
                 line("Ранги: " + (state.ranks.isEmpty() ? "нет" : state.ranks), infoX, row + 75, infoW, 0xFFB8C6D1);
                 line("Run ID: " + state.runId, infoX, row + 90, infoW, 0xFF82929F);
+                line("Mastery: клик x" + state.masteryClickMultiplier + " | яд x" + state.masteryPoisonMultiplier
+                        + " | общий x" + state.masteryAllMultiplier, infoX, row + 105, infoW, 0xFF89DBA4);
             }
             // Canonical server-authored permanent ranks for the selected or active direction.
             String rankBranch = state.runId.isEmpty() ? selectedBranch : state.activeBranch;
