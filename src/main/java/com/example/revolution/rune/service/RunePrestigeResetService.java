@@ -2,17 +2,24 @@ package com.example.revolution.rune.service;
 
 import com.example.revolution.player.repository.PlayerRepository;
 import com.example.revolution.rune.definition.RuneCollectionId;
-import com.example.revolution.rune.repository.RuneCollectionStateRepository;
 import com.example.revolution.rune.repository.RuneEnhancementRepository;
 import com.example.revolution.rune.repository.RuneRecord;
-import com.example.revolution.rune.rules.RunePrestigeResetRules;
+import com.example.revolution.rune.rules.RuneProgression;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-/** Applies the Prestige selective-wipe policy to factual rune state. */
+/**
+ * Post-commit verification and fallback selective ownership removal.
+ * The Mongo prestige repository commits the same removal atomically with the run.
+ * Only ORDINARY and IMPROVED vanish. ADVANCED+ are preserved with enhancements.
+ */
 public final class RunePrestigeResetService {
+    private static final Logger LOG = LogManager.getLogger(RunePrestigeResetService.class);
     private final PlayerRepository players;
     private final RuneEnhancementRepository enhancements;
 
@@ -24,61 +31,41 @@ public final class RunePrestigeResetService {
     }
 
     public void reset(UUID playerUuid) {
-        Set<RuneCollectionId> unlocked = unlockedCollections(playerUuid);
-        for (RuneCollectionId collectionId : RuneCollectionId.values()) {
-            if (!unlocked.contains(collectionId)) continue;
-            resetCollection(playerUuid, collectionId.legacyIndex());
+        int removed = 0;
+        int remainingLowRank = 0;
+        for (RuneCollectionId collection : RuneCollectionId.values()) {
+            int index = collection.legacyIndex();
+            List<RuneRecord> records = players.getRunesInCollection(playerUuid, index);
+            List<RuneRecord> retained = new ArrayList<>();
+            Set<Integer> retainedIndices = new HashSet<>();
+            Set<Integer> removedIndices = new HashSet<>();
+            for (RuneRecord record : records) {
+                if (record.layer >= RuneProgression.ADVANCED_RANK) {
+                    retained.add(record);
+                    retainedIndices.add(record.runeIndex);
+                } else {
+                    removedIndices.add(record.runeIndex);
+                    removed++;
+                }
+            }
+            if (!removedIndices.isEmpty()) {
+                // Usually no-op for Mongo: the guarded commit has already removed
+                // these records. For alternate repositories, reconstruct only the
+                // retained ADVANCED+ records without dropping their enhancements.
+                players.clearCollection(playerUuid, index);
+                for (RuneRecord rune : retained)
+                    players.addRuneToCollection(playerUuid, index,
+                            rune.slot, rune.runeIndex, rune.layer, rune.level);
+                for (Integer runeIndex : removedIndices)
+                    if (!retainedIndices.contains(runeIndex))
+                        enhancements.resetRune(playerUuid, index, runeIndex);
+            }
+            for (RuneRecord rune : players.getRunesInCollection(playerUuid, index))
+                if (rune.layer < RuneProgression.ADVANCED_RANK) remainingLowRank++;
         }
-    }
-
-    private void resetCollection(UUID playerUuid, int collectionIndex) {
-        List<RuneRecord> initial = players.getRunesInCollection(playerUuid, collectionIndex);
-        Set<Integer> processedRuneIndexes = new HashSet<>();
-        for (RuneRecord record : initial) {
-            if (!processedRuneIndexes.add(record.runeIndex)) continue;
-            resetRune(playerUuid, collectionIndex, record.runeIndex, initial.size());
-        }
-    }
-
-    /**
-     * The factual pre-reset rank decides both parts of the selective wipe:
-     * ranks below Advanced return to Ordinary and lose enhancement progress; Advanced+ preserves both.
-     * Legacy saves may contain more than one physical record for the same runeIndex, so repeat until
-     * the factual best rank reaches the policy target. The record-count bound prevents endless loops.
-     */
-    private void resetRune(UUID playerUuid, int collectionIndex, int runeIndex, int maxAttempts) {
-        for (int attempt = 0; attempt <= maxAttempts; attempt++) {
-            List<RuneRecord> records = players.getRunesInCollection(playerUuid, collectionIndex);
-            int bestRank = bestRank(records, runeIndex);
-            if (!RunePrestigeResetRules.shouldReset(bestRank)) return;
-
-            int targetRank = RunePrestigeResetRules.rankAfterReset(bestRank);
-            if (targetRank != bestRank && !players.setRuneRank(playerUuid, collectionIndex, runeIndex, targetRank)) return;
-
-            enhancements.resetRune(playerUuid, collectionIndex, runeIndex);
-            if (targetRank == bestRank) return;
-        }
-    }
-
-    private Set<RuneCollectionId> unlockedCollections(UUID playerUuid) {
-        if (players instanceof RuneCollectionStateRepository) {
-            return ((RuneCollectionStateRepository) players).getUnlockedCollections(playerUuid);
-        }
-        java.util.EnumSet<RuneCollectionId> all = java.util.EnumSet.noneOf(RuneCollectionId.class);
-        int count = Math.min(players.getCollectionNames(playerUuid).size(), RuneCollectionId.values().length);
-        for (int i = 0; i < count; i++) {
-            RuneCollectionId id = RuneCollectionId.fromLegacyIndex(i);
-            if (id != null) all.add(id);
-        }
-        if (all.isEmpty()) all.add(RuneCollectionId.COLLECTION_01);
-        return all;
-    }
-
-    private static int bestRank(List<RuneRecord> records, int runeIndex) {
-        int best = 0;
-        for (RuneRecord record : records) {
-            if (record.runeIndex == runeIndex && record.layer > best) best = record.layer;
-        }
-        return best;
+        LOG.info("Mastery selective rune ownership reset audit: removed=" + removed +
+                ", remainingLowRank=" + remainingLowRank);
+        if (remainingLowRank != 0) LOG.error(
+                "Mastery selective rune ownership reset incomplete: remainingLowRank=" + remainingLowRank);
     }
 }

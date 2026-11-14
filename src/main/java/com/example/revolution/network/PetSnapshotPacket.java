@@ -22,6 +22,8 @@ public final class PetSnapshotPacket implements IMessage {
         public long cooldownUntil;
         public String purchaseCost = "0";
         public String effects = "";
+        /** Server-derived physical board cell, -1 when not assigned. */
+        public int slotIndex = -1;
 
         public Entry() {}
         public Entry(String petId, String rank, String level, String xp, String nextLevelThreshold, boolean levelUpReady,
@@ -30,6 +32,14 @@ public final class PetSnapshotPacket implements IMessage {
             this.nextLevelThreshold = nextLevelThreshold; this.levelUpReady = levelUpReady; this.owned = owned;
             this.selected = selected; this.premiumSlot = premiumSlot; this.cooldownUntil = cooldownUntil;
             this.purchaseCost = purchaseCost; this.effects = effects;
+        }
+
+        public Entry(String petId, String rank, String level, String xp, String nextLevelThreshold, boolean levelUpReady,
+                     boolean owned, boolean selected, boolean premiumSlot, long cooldownUntil, String purchaseCost,
+                     String effects, int slotIndex) {
+            this(petId, rank, level, xp, nextLevelThreshold, levelUpReady, owned, selected, premiumSlot,
+                    cooldownUntil, purchaseCost, effects);
+            this.slotIndex = slotIndex;
         }
     }
 
@@ -67,7 +77,8 @@ public final class PetSnapshotPacket implements IMessage {
             e.level = ByteBufUtils.readUTF8String(buf); e.xp = ByteBufUtils.readUTF8String(buf);
             e.nextLevelThreshold = ByteBufUtils.readUTF8String(buf); e.levelUpReady = buf.readBoolean();
             e.owned = buf.readBoolean(); e.selected = buf.readBoolean(); e.premiumSlot = buf.readBoolean();
-            e.cooldownUntil = buf.readLong(); e.purchaseCost = ByteBufUtils.readUTF8String(buf); e.effects = ByteBufUtils.readUTF8String(buf); entries.add(e);
+            e.cooldownUntil = buf.readLong(); e.purchaseCost = ByteBufUtils.readUTF8String(buf); e.effects = ByteBufUtils.readUTF8String(buf);
+            e.slotIndex = buf.readInt(); entries.add(e);
         }
     }
     @Override public void toBytes(ByteBuf buf) {
@@ -79,7 +90,8 @@ public final class PetSnapshotPacket implements IMessage {
             ByteBufUtils.writeUTF8String(buf, e.level); ByteBufUtils.writeUTF8String(buf, e.xp);
             ByteBufUtils.writeUTF8String(buf, e.nextLevelThreshold); buf.writeBoolean(e.levelUpReady);
             buf.writeBoolean(e.owned); buf.writeBoolean(e.selected); buf.writeBoolean(e.premiumSlot);
-            buf.writeLong(e.cooldownUntil); ByteBufUtils.writeUTF8String(buf, e.purchaseCost); ByteBufUtils.writeUTF8String(buf, e.effects);
+            buf.writeLong(e.cooldownUntil); ByteBufUtils.writeUTF8String(buf, e.purchaseCost);
+            ByteBufUtils.writeUTF8String(buf, e.effects); buf.writeInt(e.slotIndex);
         }
     }
 }

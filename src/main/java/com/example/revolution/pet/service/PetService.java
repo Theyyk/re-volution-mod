@@ -19,6 +19,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /** Server-authoritative Pet gameplay service. */
@@ -95,7 +99,64 @@ public final class PetService {
         if (normalUsed < ctx.run.normalSlotsUnlockedThisRun) premium = false;
         else if (premiumUsed < ctx.state.premiumPetSlotsUnlocked) premium = true;
         else return Result.NO_FREE_SLOT;
-        ctx.run.selectedPets.add(new PetPlayerState.SelectedPet(petId, premium, nextOrder(ctx.run))); normalize(ctx.state, ctx.run); repository.save(playerUuid, ctx.state); return Result.APPLIED;
+        PetPlayerState.SelectedPet choice = new PetPlayerState.SelectedPet(petId, premium, nextOrder(ctx.run));
+        Map<String, Integer> occupied = assignedSlots(ctx.run);
+        Set<Integer> used = new HashSet<>(occupied.values());
+        int first = premium ? NORMAL_SLOT_COUNT : 0;
+        int last = premium ? NORMAL_SLOT_COUNT + PREMIUM_SLOT_COUNT : NORMAL_SLOT_COUNT;
+        for (int i = first; i < last; i++) if (!used.contains(i)) { choice.slotIndex = i; break; }
+        if (choice.slotIndex < 0) return Result.NO_FREE_SLOT;
+        ctx.run.selectedPets.add(choice); normalize(ctx.state, ctx.run); repository.save(playerUuid, ctx.state); return Result.APPLIED;
+    }
+
+    /** Explicit physical slot assignment; server rejects locked/occupied/invalid cells. */
+    public synchronized Result selectPetAtSlot(UUID playerUuid, String petId, int slotIndex, String expectedRunId) {
+        if (!catalog.contains(petId)) return Result.UNKNOWN_PET;
+        RunContext ctx = run(playerUuid, true); if (ctx == null) return Result.NO_ACTIVE_RUN;
+        if (expectedRunId == null || !expectedRunId.equals(ctx.run.runId)) return Result.STALE_RUN;
+        if (slotIndex < 0 || slotIndex >= NORMAL_SLOT_COUNT + PREMIUM_SLOT_COUNT) return Result.INVALID;
+        boolean premium = slotIndex >= NORMAL_SLOT_COUNT;
+        if (premium ? (slotIndex - NORMAL_SLOT_COUNT >= ctx.state.premiumPetSlotsUnlocked)
+                : (slotIndex >= ctx.run.normalSlotsUnlockedThisRun)) return Result.SLOT_LIMIT;
+        if (!owns(ctx.state, ctx.run, petId)) return Result.NOT_OWNED;
+        Map<String, Integer> occupied = assignedSlots(ctx.run);
+        for (Map.Entry<String, Integer> entry : occupied.entrySet())
+            if (entry.getValue() == slotIndex && !entry.getKey().equals(petId)) return Result.NO_FREE_SLOT;
+        PetPlayerState.SelectedPet chosen = selected(ctx.run, petId);
+        if (chosen == null) {
+            removeExpiredCooldowns(ctx.state, System.currentTimeMillis());
+            Long cooldown = ctx.run.cooldownUntil.get(petId);
+            if (cooldown != null && cooldown > System.currentTimeMillis()) return Result.COOLDOWN;
+            chosen = new PetPlayerState.SelectedPet(petId, premium, nextOrder(ctx.run));
+            ctx.run.selectedPets.add(chosen);
+        } else if (Integer.valueOf(slotIndex).equals(occupied.get(petId)) && chosen.slotIndex == slotIndex) {
+            return Result.SELECTED;
+        }
+        chosen.premiumSlot = premium;
+        chosen.slotIndex = slotIndex;
+        normalize(ctx.state, ctx.run); repository.save(playerUuid, ctx.state);
+        return Result.APPLIED;
+    }
+
+    /** Maps selected pets to stable physical cells, including legacy selections without slotIndex. */
+    public static Map<String, Integer> assignedSlots(PetPlayerState.RunState run) {
+        Map<String, Integer> result = new LinkedHashMap<>();
+        if (run == null) return result;
+        Set<Integer> used = new HashSet<>();
+        for (PetPlayerState.SelectedPet pet : run.selectedPets) {
+            int i = pet.slotIndex;
+            if (i >= 0 && i < NORMAL_SLOT_COUNT + PREMIUM_SLOT_COUNT
+                    && (i >= NORMAL_SLOT_COUNT) == pet.premiumSlot && used.add(i))
+                result.put(pet.petId, i);
+        }
+        for (PetPlayerState.SelectedPet pet : run.selectedPets) {
+            if (result.containsKey(pet.petId)) continue;
+            int first = pet.premiumSlot ? NORMAL_SLOT_COUNT : 0;
+            int last = pet.premiumSlot ? NORMAL_SLOT_COUNT + PREMIUM_SLOT_COUNT : NORMAL_SLOT_COUNT;
+            for (int i = first; i < last; i++)
+                if (used.add(i)) { result.put(pet.petId, i); break; }
+        }
+        return result;
     }
 
     /** Single authoritative path for manual level-up and future AUTO_PET_LEVEL_UP. */
@@ -124,11 +185,22 @@ public final class PetService {
 
     public synchronized Result awaken(UUID playerUuid, String petId) {
         RunContext ctx = run(playerUuid, true); if (ctx == null) return Result.NO_ACTIVE_RUN;
-        int accessible = ctx.run.normalSlotsUnlockedThisRun + ctx.state.premiumPetSlotsUnlocked;
-        if (accessible <= 0 || ctx.run.selectedPets.size() != accessible) return Result.BOARD_NOT_FULL;
+        // Awakening requires all eight normal slots and every unlocked premium slot to be occupied.
+        int required = NORMAL_SLOT_COUNT + ctx.state.premiumPetSlotsUnlocked;
+        if (ctx.run.normalSlotsUnlockedThisRun < NORMAL_SLOT_COUNT
+                || ctx.run.selectedPets.size() != required) return Result.BOARD_NOT_FULL;
         PetPlayerState.SelectedPet target = selected(ctx.run, petId); if (target == null) return Result.NOT_ELIGIBLE;
         PetPlayerState.PetProgress targetProgress = ctx.state.pets.get(petId); if (targetProgress == null || targetProgress.rank.isGameplayMaximum()) return Result.NOT_ELIGIBLE;
-        PetRank sourceRank = targetProgress.rank; targetProgress.rank = sourceRank.nextGameplayRank(); target.order = nextOrder(ctx.run);
+        PetRank sourceRank = targetProgress.rank;
+        // Every occupied cell must be at least the target's current rank.
+        // ORDINARY -> IMPROVED: all ORDINARY+; IMPROVED -> ADVANCED: all IMPROVED+;
+        // ADVANCED -> MYTHIC: all ADVANCED+. Higher-rank pets remain eligible.
+        for (PetPlayerState.SelectedPet selected : ctx.run.selectedPets) {
+            PetPlayerState.PetProgress progress = ctx.state.pets.get(selected.petId);
+            if (progress == null || progress.rank.progressionOrder() < sourceRank.progressionOrder())
+                return Result.NOT_ELIGIBLE;
+        }
+        targetProgress.rank = sourceRank.nextGameplayRank(); target.order = nextOrder(ctx.run);
         long now = System.currentTimeMillis(); long cooldownMillis = balance.cooldownMillis(); List<PetPlayerState.SelectedPet> preserved = new ArrayList<>();
         for (PetPlayerState.SelectedPet selected : ctx.run.selectedPets) {
             PetPlayerState.PetProgress selectedProgress = ctx.state.pets.get(selected.petId);

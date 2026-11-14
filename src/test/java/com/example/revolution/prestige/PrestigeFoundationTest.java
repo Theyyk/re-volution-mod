@@ -54,6 +54,7 @@ public final class PrestigeFoundationTest {
         assertEquals(0, effects.multiplier(player, EffectResolver.Stat.CLICK_DAMAGE_MULTIPLIER)
                 .compareTo(new BigDecimal("1.02")));
 
+        assertTrue(prestige.completeLocationReturn(player, first.runId));
         PrestigeState.RunState weaker = prestige.startRun(player, PrestigeBranch.CLICK);
         prestige.recordProgress(player, PrestigeBranch.CLICK, new BigDecimal("200"));
         assertEquals(PrestigeResetService.ResetResult.STALE, prestige.reset(player, first.runId));
@@ -74,28 +75,32 @@ public final class PrestigeFoundationTest {
     }
 
     @Test
-    public void selectiveRuneResetPreservesAdvancedEnhancementsAndCrystals() {
-        Document ordinary = new Document("slot", 1).append("cardIndex", 1).append("layer", 1).append("level", 7);
-        Document improved = new Document("slot", 2).append("cardIndex", 2).append("layer", 2).append("level", 9);
-        Document advanced = new Document("slot", 3).append("cardIndex", 3).append("layer", 3).append("level", 11);
+    public void resetRemovesOrdinaryAndImprovedButPreservesAdvancedAndCrystals() {
+        Document ordinary = new Document("slot", 1).append("cardIndex", 1).append("layer", 1);
+        Document improved = new Document("slot", 2).append("cardIndex", 2).append("layer", 2);
+        Document advanced = new Document("slot", 3).append("cardIndex", 3).append("layer", 3);
         Document enhancements = new Document("1", 44).append("2", 55).append("3", 66);
         Document collection = new Document("name", "A")
                 .append("cards", new ArrayList<>(Arrays.asList(ordinary, improved, advanced)))
                 .append("runeEnhancements", enhancements);
         Document player = new Document("crystals", 777).append("decks", new ArrayList<>(Arrays.asList(collection)));
+        Document set = new Document("prestige", new Document("lastResetRunId", "r1"));
 
-        List<Document> reset = MongoPrestigeRepository.resetRuneRanks(player);
-        assertNotNull(reset);
-        @SuppressWarnings("unchecked") List<Document> runes = (List<Document>) reset.get(0).get("cards");
-        assertEquals(1, runes.get(0).getInteger("layer"));
-        assertEquals(1, runes.get(1).getInteger("layer"));
-        assertEquals(3, runes.get(2).getInteger("layer"));
-        assertEquals(7, runes.get(0).getInteger("level"));
-        assertEquals(9, runes.get(1).getInteger("level"));
-        assertEquals(11, runes.get(2).getInteger("level"));
-        assertEquals(enhancements, reset.get(0).get("runeEnhancements"));
+        MongoPrestigeRepository.appendRuneOwnershipWipe(player, set);
+
+        @SuppressWarnings("unchecked")
+        List<Document> collections = (List<Document>) set.get("decks");
+        assertNotNull(collections);
+        @SuppressWarnings("unchecked")
+        List<Document> runes = (List<Document>) collections.get(0).get("cards");
+        assertEquals(1, runes.size());
+        assertEquals(3, runes.get(0).getInteger("layer").intValue());
+        assertEquals(1, collections.get(0).get("runeEnhancements", Document.class).size());
+        assertEquals(66, collections.get(0).get("runeEnhancements", Document.class).getInteger("3").intValue());
+        assertEquals("A", collections.get(0).getString("name"));
         assertEquals(777, player.getInteger("crystals"));
-        assertFalse(reset.get(0).get("runeEnhancements") == null);
+        assertEquals(3, ((List<?>) collection.get("cards")).size());
+        assertFalse(set.containsKey("crystals"));
     }
 
     private static final class MemoryRepository implements PrestigeRepository {

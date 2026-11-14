@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -26,6 +27,17 @@ public final class MasteryResetTest {
             if (tier == 2) return new MasteryTierPolicy.TierDefinition(2, 15, 3, premium);
             throw new IllegalArgumentException("tier is not configured");
         };
+    }
+
+    @Test
+    public void bundledPremiumPolicyIsEnabledForBothResetTypes() {
+        com.example.revolution.balance.service.BalanceService balance =
+                com.example.revolution.balance.service.BalanceBootstrap.activateBundledDefaults();
+        MasteryTierPolicy.TierDefinition tier = new BalanceMasteryTierPolicy(balance).tier(0);
+        assertTrue(tier.premiumPreserve.enabled);
+        assertTrue(tier.premiumPreserve.preserveRunes);
+        assertTrue(tier.premiumPreserve.preservePets);
+        assertEquals(100, tier.premiumPreserve.crystalCost);
     }
 
     @Test
@@ -174,6 +186,8 @@ public final class MasteryResetTest {
         assertEquals(5, afterOrdinaryReset.branch(PrestigeBranch.CLICK).rankMetaLevels.get("CLICK_III"));
         assertNull(afterOrdinaryReset.activeRun);
 
+        assertEquals(run.runId, service.pendingLocationReturn(player));
+        assertTrue(service.completeLocationReturn(player, run.runId));
         service.startRun(player, PrestigeBranch.CLICK);
         assertTrue(service.masteryResetAvailable(player));
         assertEquals(0, service.snapshot(player).branch(PrestigeBranch.CLICK).masteryTier);
@@ -194,7 +208,98 @@ public final class MasteryResetTest {
         assertEquals(1, service.snapshot(player).branch(PrestigeBranch.CLICK).masteryTier);
     }
 
-    private static PrestigeService service(MemoryRepository repository, MasteryTierPolicy policy,
+    @Test
+    public void runStageUnlocksDisappearOnResetButPermanentRanksSurvive() {
+        MemoryRepository repository = new MemoryRepository();
+        UUID player = UUID.randomUUID();
+        PrestigeService service = service(repository, POLICY, ignored -> { });
+        PrestigeState.RunState run = service.startRun(player, PrestigeBranch.CLICK);
+        int zone = com.example.revolution.location.definition.MobZoneIds.encode(1, 5);
+        assertTrue(service.unlockRunStage(player, zone));
+        assertTrue(service.hasRunStage(player, zone));
+        assertEquals(PrestigeResetService.ResetResult.APPLIED, service.reset(player, run.runId));
+        assertEquals(run.runId, service.pendingLocationReturn(player));
+        assertFalse(service.hasRunStage(player, zone));
+        assertThrows(IllegalStateException.class, () -> service.startRun(player, PrestigeBranch.POISON));
+        assertFalse(service.completeLocationReturn(player, "stale-run"));
+        assertTrue(service.completeLocationReturn(player, run.runId));
+        assertNull(service.pendingLocationReturn(player));
+        assertFalse(service.completeLocationReturn(player, run.runId));
+        PrestigeState.RunState next = service.startRun(player, PrestigeBranch.POISON);
+        assertTrue(next.runUnlockedStages.isEmpty());
+        assertEquals(PrestigeResetService.ResetResult.STALE, service.reset(player, run.runId));
+        assertNotNull(service.activeRun(player));
+    }
+
+    @Test
+    public void locationCycleProgressDoesNotRequireStartingMasteryRun() {
+        MemoryRepository repository = new MemoryRepository();
+        UUID player = UUID.randomUUID();
+        PrestigeService service = service(repository, POLICY, ignored -> { });
+        int second = com.example.revolution.location.definition.MobZoneIds.encode(1, 5);
+        int third = com.example.revolution.location.definition.MobZoneIds.encode(1, 9);
+
+        assertFalse(service.isRunActive(player));
+        assertTrue(service.unlockRunStage(player, second));
+        assertTrue(service.hasRunStage(player, second));
+        assertTrue(repository.load(player).locationCycleUnlockedStages.contains(second));
+
+        PrestigeState.RunState run = service.startRun(player, PrestigeBranch.CLICK);
+        assertTrue(service.hasRunStage(player, second));
+        assertTrue(service.unlockRunStage(player, third));
+        assertTrue(service.hasRunStage(player, third));
+        assertEquals(2, service.snapshot(player).locationCycleUnlockedStages.size());
+
+        assertEquals(PrestigeResetService.ResetResult.APPLIED, service.reset(player, run.runId));
+        assertFalse(service.hasRunStage(player, second));
+        assertFalse(service.hasRunStage(player, third));
+        assertTrue(repository.load(player).locationCycleUnlockedStages.isEmpty());
+
+        assertTrue(service.completeLocationReturn(player, run.runId));
+        assertFalse(service.isRunActive(player));
+        assertTrue(service.unlockRunStage(player, second));
+        assertTrue(service.hasRunStage(player, second));
+        assertFalse(service.isRunActive(player));
+    }
+
+    @Test
+    public void allFourResetModesPersistExactlyOneReturnIntent() {
+        for (int variant = 0; variant < 4; variant++) {
+            MemoryRepository repository = new MemoryRepository();
+            repository.availableCrystals = 1000;
+            UUID player = UUID.randomUUID();
+            PrestigeState initial = new PrestigeState();
+            fillClickMeta(initial.branch(PrestigeBranch.CLICK), 5);
+            repository.save(player, initial);
+            PrestigeService service = service(repository, PREMIUM_POLICY, ignored -> { });
+            int preRunStage = com.example.revolution.location.definition.MobZoneIds.encode(1, 5);
+            assertTrue(service.unlockRunStage(player, preRunStage));
+            PrestigeState.RunState run = service.startRun(player, PrestigeBranch.CLICK);
+            assertTrue(service.hasRunStage(player, preRunStage));
+            int stage = com.example.revolution.location.definition.MobZoneIds.encode(2, 1);
+            assertTrue(service.unlockRunStage(player, stage));
+            if (variant == 0 || variant == 1) {
+                boolean premium = variant == 1;
+                assertEquals(PrestigeResetService.ResetResult.APPLIED, service.reset(player, run.runId, premium));
+                assertEquals(PrestigeResetService.ResetResult.DUPLICATE, service.reset(player, run.runId, premium));
+            } else {
+                MasteryResetMode mode = variant == 3 ? MasteryResetMode.PREMIUM_PRESERVE : MasteryResetMode.NORMAL;
+                assertEquals(PrestigeResetService.MasteryResetResult.APPLIED, service.masteryReset(player, run.runId, mode));
+                assertEquals(PrestigeResetService.MasteryResetResult.DUPLICATE, service.masteryReset(player, run.runId, mode));
+                assertEquals(1, service.snapshot(player).branch(PrestigeBranch.CLICK).masteryTier);
+            }
+            assertEquals(run.runId, service.pendingLocationReturn(player));
+            assertNull(service.activeRun(player));
+            assertFalse(service.hasRunStage(player, stage));
+            assertFalse(service.hasRunStage(player, preRunStage));
+            assertTrue(repository.load(player).locationCycleUnlockedStages.isEmpty());
+            assertEquals((variant == 1 || variant == 3) ? 923 : 1000, repository.availableCrystals);
+            assertTrue(service.completeLocationReturn(player, run.runId));
+            assertNull(service.pendingLocationReturn(player));
+        }
+    }
+
+        private static PrestigeService service(MemoryRepository repository, MasteryTierPolicy policy,
                                            PrestigeService.AppliedResetParticipant participant) {
         PrestigeBranchRegistry registry = new PrestigeBranchRegistry();
         return new PrestigeService(repository, registry,

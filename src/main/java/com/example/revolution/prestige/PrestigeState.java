@@ -6,12 +6,17 @@ import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.LinkedHashSet;
 
 /** Persistence-neutral Mastery state. Legacy Prestige names remain for compatibility. */
 public final class PrestigeState {
     public RunState activeRun;
     public final Map<PrestigeBranch, BranchState> branches = new EnumMap<>(PrestigeBranch.class);
     public String lastResetRunId;
+    public String pendingLocationReturnRunId;
+    /** Ordinary stage progress of the current reset cycle, independent from selecting a Mastery branch. */
+    public final Set<Integer> locationCycleUnlockedStages = new LinkedHashSet<>();
 
     public PrestigeState() {
         for (PrestigeBranch branch : PrestigeBranch.values()) branches.put(branch, new BranchState());
@@ -32,6 +37,8 @@ public final class PrestigeState {
         for (Map.Entry<PrestigeBranch, BranchState> entry : branches.entrySet()) copy.branches.put(entry.getKey(), entry.getValue().copy());
         copy.activeRun = activeRun == null ? null : activeRun.copy();
         copy.lastResetRunId = lastResetRunId;
+        copy.pendingLocationReturnRunId = pendingLocationReturnRunId;
+        copy.locationCycleUnlockedStages.addAll(locationCycleUnlockedStages);
         return copy;
     }
 
@@ -49,6 +56,7 @@ public final class PrestigeState {
         /** Resource-offer purchase counts only. Pet Slot keeps its canonical counter in Pet state. */
         public final Map<String, Integer> runExchangePurchaseCounts = new LinkedHashMap<>();
         public final Map<String, BigDecimal> runModifiers = new LinkedHashMap<>();
+        public final Set<Integer> runUnlockedStages = new LinkedHashSet<>();
 
         public RunState copy() {
             RunState copy = new RunState();
@@ -63,6 +71,7 @@ public final class PrestigeState {
             copy.petPendingFragments = petPendingFragments;
             copy.runExchangePurchaseCounts.putAll(runExchangePurchaseCounts);
             copy.runModifiers.putAll(runModifiers);
+            copy.runUnlockedStages.addAll(runUnlockedStages);
             return copy;
         }
     }

@@ -44,6 +44,7 @@ import com.example.revolution.location.service.LocationProvisioningService;
 import com.example.revolution.location.service.MobZoneOverlayService;
 import com.example.revolution.location.service.StageMobBootstrapService;
 import com.example.revolution.location.service.StageTransitionService;
+import com.example.revolution.location.service.LocationResetReturnService;
 import com.example.revolution.location.service.StageTransitionTriggerService;
 import com.example.revolution.location.world.REBuilderAdapter;
 import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
@@ -159,6 +160,7 @@ public final class ServerServices implements AutoCloseable {
     public final LocationProvisioningService locationProvisioning;
     public final REBuilderAdapter physicalBuilds;
     public final StageTransitionService stageTransitions;
+    public final LocationResetReturnService locationReturn;
     public final StageTransitionTriggerService stageTransitionTriggers;
     public final FastAutoService fastAuto;
     public final PlayerSessionService sessions;
@@ -320,6 +322,11 @@ public final class ServerServices implements AutoCloseable {
         runeAwakening.setGameplayEventSink(gameplayEvents);
         runeActions = new RuneActionService(players, stats, runePurchase, runeEnhancement, runeAwakening, sync, mechanicUnlocks);
         mobProgression = new MobProgressionService(progressionRepository);
+        mobProgression.setRunStageAccess(new MobProgressionService.RunStageAccess() {
+            @Override public boolean isRunActive(UUID playerUuid) { return prestige.isRunActive(playerUuid); }
+            @Override public boolean isRunStageUnlocked(UUID playerUuid, int locationId) { return prestige.hasRunStage(playerUuid, locationId); }
+            @Override public boolean unlockRunStage(UUID playerUuid, int locationId) { return prestige.unlockRunStage(playerUuid, locationId); }
+        });
 
         uniqueRunes = new UniqueRuneService(
                 uniqueRuneRepository,
@@ -373,6 +380,7 @@ public final class ServerServices implements AutoCloseable {
                 bootstrappingGenerations);
         stageTransitions = new StageTransitionService(locationRepository, mobProgression);
         stageTransitions.setGameplayEventSink(gameplayEvents);
+        locationReturn = new LocationResetReturnService(prestige, mobProgression, stageTransitions, realms, logger);
         stageTransitionTriggers = new StageTransitionTriggerService(
                 triggerRepository, transitionPreferences, locationRepository, mobProgression, stageTransitions);
         fastAuto = new FastAutoService(fastAutoPreferences, mobProgression);

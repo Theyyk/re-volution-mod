@@ -79,6 +79,8 @@ public final class PetPlayerState {
         public boolean premiumSlot;
         /** Stable ordering key assigned on first selection/awakening normalization. */
         public long order;
+        /** Physical normal 0..7 / premium 8..9; -1 for legacy auto-assigned entries. */
+        public int slotIndex = -1;
 
         public SelectedPet() {}
 
@@ -88,6 +90,10 @@ public final class PetPlayerState {
             this.order = order;
         }
 
-        public SelectedPet copy() { return new SelectedPet(petId, premiumSlot, order); }
+        public SelectedPet copy() {
+            SelectedPet copy = new SelectedPet(petId, premiumSlot, order);
+            copy.slotIndex = slotIndex;
+            return copy;
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.example.revolution.client.mechanic;
 
 import com.example.revolution.client.UnifiedMainMenuChrome;
+import com.example.revolution.client.GuiBackgroundBlur;
 import com.example.revolution.client.ui.UiMenuSection;
 import com.example.revolution.network.MechanicUnlockActionPacket;
 import com.example.revolution.network.MechanicUnlockSnapshotPacket;
@@ -20,6 +21,7 @@ import org.lwjgl.input.Mouse;
  * Missing/hidden server entries never appear, and every action is rechecked.
  */
 public final class MechanicUnlockGuiScreen extends GuiScreen {
+    private final GuiBackgroundBlur backgroundBlur = new GuiBackgroundBlur();
     private static final AtomicLong NONCE = new AtomicLong(System.currentTimeMillis());
     private static final int GAP = 10;
     private static final int CHILD_H = 33;
@@ -109,6 +111,16 @@ public final class MechanicUnlockGuiScreen extends GuiScreen {
         super.initGui();
         NetworkHandler.INSTANCE.sendToServer(new MechanicUnlockActionPacket("sync", "", 0L));
         refreshButtons();
+        backgroundBlur.enable(mc);
+    }
+
+
+    @Override public void onGuiClosed() {
+        try {
+            backgroundBlur.disable(mc);
+        } finally {
+            super.onGuiClosed();
+        }
     }
 
     /** Retained for the packet handler; actual entries are rendered from live snapshots. */

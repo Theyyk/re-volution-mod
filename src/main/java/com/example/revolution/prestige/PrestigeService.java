@@ -79,6 +79,7 @@ public final class PrestigeService implements EffectResolver.Source {
     public synchronized PrestigeState.RunState startRun(UUID playerUuid, PrestigeBranch branch) {
         PrestigeState state = repository.load(playerUuid);
         if (state.activeRun != null) throw new IllegalStateException("A Mastery run is already active; reset it before switching branch");
+        if (state.pendingLocationReturnRunId != null) throw new IllegalStateException("STARTING_ZONE_RETURN_PENDING");
         registry.get(branch);
         PrestigeState.RunState run = new PrestigeState.RunState();
         run.runId = UUID.randomUUID().toString();
@@ -168,17 +169,59 @@ public final class PrestigeService implements EffectResolver.Source {
         return pending;
     }
 
+    /** Mastery Run selection does not gate ordinary location progression. */
+    public synchronized boolean isRunActive(UUID playerUuid) {
+        return repository.load(playerUuid).activeRun != null;
+    }
+    public synchronized boolean hasRunStage(UUID playerUuid, int internalLocationId) {
+        PrestigeState state = repository.load(playerUuid);
+        // Legacy R1 candidates stored locations under activeRun; preserve read compatibility.
+        return state.locationCycleUnlockedStages.contains(internalLocationId)
+                || (state.activeRun != null && state.activeRun.runUnlockedStages.contains(internalLocationId));
+    }
+    public synchronized boolean unlockRunStage(UUID playerUuid, int internalLocationId) {
+        if (playerUuid == null
+                || !com.example.revolution.location.definition.MobZoneIds.isMobZoneId(internalLocationId)) return false;
+        PrestigeState state = repository.load(playerUuid);
+        if (state.locationCycleUnlockedStages.contains(internalLocationId)
+                || (state.activeRun != null && state.activeRun.runUnlockedStages.contains(internalLocationId)))
+            return false;
+        // Current-cycle grants are gameplay state, never permanent/admin grants.
+        // They persist regardless of whether a Mastery Run has been started.
+        if (!state.locationCycleUnlockedStages.add(internalLocationId)) return false;
+        repository.save(playerUuid, state);
+        return true;
+    }
+    public synchronized String pendingLocationReturn(UUID playerUuid) {
+        return repository.load(playerUuid).pendingLocationReturnRunId;
+    }
+    public synchronized boolean completeLocationReturn(UUID playerUuid, String runId) {
+        return repository.completeLocationReturn(playerUuid, runId);
+    }
     public synchronized PrestigeState.RunState activeRun(UUID playerUuid) {
         PrestigeState state = repository.load(playerUuid);
         return state.activeRun == null ? null : state.activeRun.copy();
     }
 
     public synchronized PrestigeResetService.ResetPreview previewReset(UUID playerUuid, String expectedRunId) { return resets.preview(playerUuid, expectedRunId); }
+    public synchronized MasteryTierPolicy.PremiumPreservePolicy premiumPreservePolicy(UUID playerUuid, String expectedRunId) {
+        return resets.premiumPreservePolicy(playerUuid, expectedRunId);
+    }
     public synchronized PrestigeResetService.ResetResult reset(UUID playerUuid, String expectedRunId) {
+        return reset(playerUuid, expectedRunId, false);
+    }
+    public synchronized PrestigeResetService.ResetResult reset(UUID playerUuid, String expectedRunId, boolean premiumPreserve) {
         PrestigeState.RunState before = activeRun(playerUuid);
-        PrestigeResetService.ResetResult result = resets.reset(playerUuid, expectedRunId);
+        boolean preserveRunes = false;
+        if (premiumPreserve) {
+            try {
+                MasteryTierPolicy.PremiumPreservePolicy premium = resets.premiumPreservePolicy(playerUuid, expectedRunId);
+                preserveRunes = premium.enabled && premium.preserveRunes;
+            } catch (RuntimeException ignored) { preserveRunes = false; }
+        }
+        PrestigeResetService.ResetResult result = resets.reset(playerUuid, expectedRunId, premiumPreserve);
         if (result == PrestigeResetService.ResetResult.APPLIED) {
-            appliedResetParticipant.afterAppliedReset(playerUuid);
+            if (!preserveRunes) appliedResetParticipant.afterAppliedReset(playerUuid);
             emitMasteryReset(playerUuid, before);
         }
         return result;
@@ -224,6 +267,10 @@ public final class PrestigeService implements EffectResolver.Source {
 
     public synchronized PrestigeState snapshot(UUID playerUuid) { return repository.load(playerUuid).copy(); }
     public List<PrestigeBranch> branches() { return registry.branches(); }
+    /** Read-only canonical rank definitions for server-authored Mastery projections. */
+    public List<PrestigeBranchRegistry.RankDefinition> rankDefinitions(PrestigeBranch branch) {
+        return registry.get(branch).ranks;
+    }
     public String progressSource(PrestigeBranch branch) { return registry.get(branch).progressSource.toString(); }
 
     @Override public synchronized List<EffectResolver.Contribution> contributions(UUID playerUuid, EffectResolver.Stat stat) {

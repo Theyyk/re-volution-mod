@@ -57,5 +57,6 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneActionPacketClientHandler.class, UniqueRuneActionPacket.class, 25, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneSnapshotPacketHandler.class, UniqueRuneSnapshotPacket.class, 26, Side.CLIENT);
         MechanicUnlockClientNetworkRegistration.register();
+        MasteryClientNetworkRegistration.register();
     }
 }

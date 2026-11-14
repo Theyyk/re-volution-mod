@@ -7,6 +7,7 @@ import com.example.revolution.location.definition.MovementMode;
 import com.example.revolution.location.definition.SpawnMode;
 import com.example.revolution.location.definition.SpawnRealmScope;
 import com.example.revolution.location.definition.StoredMobSpawn;
+import com.example.revolution.location.service.LocationResetReturnService;
 import com.example.revolution.mob.repository.InMemoryMobProgressionRepository;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +33,21 @@ class MobProgressionServiceJUnitTest {
         assertTrue(service.isUnlocked(player, id(1, 2)));
         assertFalse(service.isUnlocked(player, id(2, 2)));
         assertFalse(service.isUnlocked(player, id(3, 2)));
+    }
+
+    @Test void adminGrantAfterLegacyMaskDoesNotReopenUnrelatedRunEarnedStages() {
+        repository.seed(player, 1, 2, 5, 9);
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+        assertTrue(service.grantStage(player, 1, 5));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+        // Existing historical grants must remain masked even after an admin writes.
+        assertTrue(repository.rawLegacyContains(player, 1, 9));
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+        assertEquals(0, repository.replaceWrites);
     }
 
     @Test void adminGrantInvalidatesCacheWithoutAutomaticTravel() {
@@ -255,6 +271,145 @@ class MobProgressionServiceJUnitTest {
         repository.seed(player, 2);
         loadThreeLocations();
         assertFalse(service.isUnlocked(player, id(2, 5)));
+    }
+
+    @Test void startingZoneIsFirstConfiguredStageAndCanLaterBeReplaced() {
+        LocationResetReturnService returns = new LocationResetReturnService(null, service, null, null, null);
+        assertEquals(id(1, 2), returns.startingStageId());
+        service.reloadConfiguration(Arrays.asList(zone(4, 3), zone(4, 8)), Collections.emptyList());
+        assertEquals(id(4, 3), returns.startingStageId());
+        service.clear();
+        assertThrows(IllegalStateException.class, returns::startingStageId);
+    }
+
+    @Test void repeatClassificationReconcilesNewlyDiscoveredUnmaskedOldStages() {
+        UUID unaffected = UUID.fromString("00000000-0000-0000-0000-000000009033");
+        repository.seed(player, 1, 2);
+        repository.seed(unaffected, 1, 5, 9);
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        // Simulate a partially migrated historical row that later exposes more old slots.
+        repository.seed(player, 1, 2, 5, 9);
+        // A direct storage mutation does not invalidate the service cache; the admin
+        // reconciliation itself must refresh it and mask the newly discovered slots.
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 9)));
+        assertTrue(repository.rawLegacyContains(player, 1, 9));
+        assertTrue(service.isUnlocked(unaffected, id(1, 5)));
+        // A later confirmed admin grant remains permanent despite reclassification.
+        assertTrue(service.grantStage(player, 1, 5));
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertEquals("PERMANENT_OR_LEGACY", service.stageAccessSource(player, id(1, 5)));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 9)));
+    }
+
+    @Test void confirmedHistoricalOrdinaryStagesAreMaskedWithoutDeletingOtherPlayersGrants() {
+        UUID otherPlayer = UUID.fromString("00000000-0000-0000-0000-000000001311");
+        repository.seed(player, 1, 5, 9);
+        repository.seed(otherPlayer, 1, 5, 9);
+        service.reloadConfiguration(allZones(), allSpawns());
+
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertTrue(service.isUnlocked(otherPlayer, id(1, 5)));
+
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertTrue(service.isUnlocked(player, id(1, 2)));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+        assertTrue(service.isUnlocked(otherPlayer, id(1, 5)));
+        assertTrue(service.isUnlocked(otherPlayer, id(1, 9)));
+        assertTrue(repository.rawLegacyContains(player, 1, 5));
+
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        assertTrue(service.grantStage(player, 1, 5));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertFalse(service.isUnlocked(player, id(1, 9)));
+    }
+
+    @Test void failedHistoricalClassificationCanBeSafelyRetried() {
+        repository.seed(player, 1, 5);
+        service.reloadConfiguration(allZones(), allSpawns());
+        repository.failClassification = true;
+        assertFalse(service.classifyLegacyRunProgress(player));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        repository.failClassification = false;
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+    }
+
+        @Test void configuredStagesUnlockOutsideMasteryRunWithoutPermanentWrite() {
+        final java.util.Set<Integer> cycleStages = new java.util.HashSet<>();
+        final boolean[] active = {false};
+        service.setRunStageAccess(new MobProgressionService.RunStageAccess() {
+            @Override public boolean isRunActive(UUID uuid) { return active[0]; }
+            @Override public boolean isRunStageUnlocked(UUID uuid, int id) { return cycleStages.contains(id); }
+            @Override public boolean unlockRunStage(UUID uuid, int id) { return cycleStages.add(id); }
+        });
+        assertEquals("START", service.stageAccessSource(player, id(1, 2)));
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertEquals("CYCLE", service.stageAccessSource(player, id(1, 5)));
+        assertEquals(0, repository.unlockWrites);
+        // Choosing a Mastery Run later does not remove previously opened stages.
+        active[0] = true;
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertNotNull(service.unlockNext(player, id(1, 5)));
+        active[0] = false;
+        assertTrue(service.isUnlocked(player, id(1, 9)));
+        // Reset clears cycle state, not the permanent mob progression repository.
+        cycleStages.clear();
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertEquals("CYCLE", service.stageAccessSource(player, id(1, 5)));
+        assertEquals(0, repository.unlockWrites);
+    }
+
+    @Test void stageAccessAuditReflectsLegacyClassificationAndNewAdminGrant() {
+        repository.seed(player, 1, 5);
+        service.reloadConfiguration(allZones(), allSpawns());
+        assertEquals("PERMANENT_OR_LEGACY", service.stageAccessSource(player, id(1, 5)));
+        assertTrue(service.classifyLegacyRunProgress(player));
+        assertEquals("LOCKED", service.stageAccessSource(player, id(1, 5)));
+        assertTrue(service.grantStage(player, 1, 5));
+        assertEquals("PERMANENT_OR_LEGACY", service.stageAccessSource(player, id(1, 5)));
+    }
+
+    @Test void runOnlyStageUnlockDoesNotOverwritePermanentGrants() {
+        final java.util.Set<Integer> runStages = new java.util.HashSet<>();
+        final boolean[] active = {true};
+        service.setRunStageAccess(new MobProgressionService.RunStageAccess() {
+            @Override public boolean isRunActive(UUID uuid) { return active[0]; }
+            @Override public boolean isRunStageUnlocked(UUID uuid, int stage) { return runStages.contains(stage); }
+            @Override public boolean unlockRunStage(UUID uuid, int stage) { return runStages.add(stage); }
+        });
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertTrue(service.isUnlocked(player, id(1, 5)));
+        assertEquals(0, repository.unlockWrites);
+        assertTrue(service.grantStage(player, 2, 5));
+        assertTrue(service.isUnlocked(player, id(2, 5)));
+        runStages.clear();
+        active[0] = false;
+        assertFalse(service.isUnlocked(player, id(1, 5)));
+        assertTrue(service.isUnlocked(player, id(2, 5)));
+        assertTrue(service.isUnlocked(player, id(1, 2)));
+    }
+
+    @Test void runUnlockOfNextLocationFirstStageIsVisibleAndReversible() {
+        final java.util.Set<Integer> runStages = new java.util.HashSet<>();
+        service.setRunStageAccess(new MobProgressionService.RunStageAccess() {
+            @Override public boolean isRunActive(UUID uuid) { return true; }
+            @Override public boolean isRunStageUnlocked(UUID uuid, int stage) { return runStages.contains(stage); }
+            @Override public boolean unlockRunStage(UUID uuid, int stage) { return runStages.add(stage); }
+        });
+        assertNotNull(service.unlockNext(player, id(1, 2)));
+        assertNotNull(service.unlockNext(player, id(1, 5)));
+        assertNotNull(service.unlockNext(player, id(1, 9)));
+        assertTrue(service.isUnlocked(player, id(2, 2)));
+        assertEquals(0, repository.unlockWrites);
+        runStages.clear();
+        assertFalse(service.isUnlocked(player, id(2, 2)));
+        assertFalse(service.isUnlocked(player, id(1, 5)));
     }
 
     private void unlockLocationOneThroughBoss() {

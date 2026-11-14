@@ -2,6 +2,8 @@ package com.example.revolution.commands;
 
 import com.example.revolution.mechanic.MechanicUnlockModel;
 import com.example.revolution.mechanic.MechanicUnlockService;
+import com.example.revolution.lifecycle.ServerLifecycle;
+import com.example.revolution.network.MechanicUnlockActionPacketHandler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -39,6 +41,9 @@ public final class MechanicUnlockCommand extends AdminOnlyCommand {
                 if ("unlock".equals(action)) unlocks.forceUnlock(player.getUniqueID(), args[2]);
                 else if ("lock".equals(action)) unlocks.forceLock(player.getUniqueID(), args[2]);
                 else unlocks.clearOverride(player.getUniqueID(), args[2]);
+                // Admin override changes must be pushed immediately; otherwise HUD and shortcut
+                // retain the old client snapshot until the player next opens the E menu.
+                MechanicUnlockActionPacketHandler.sendSnapshot(player, ServerLifecycle.services());
                 sender.sendMessage(new TextComponentString("§a" + action + " applied: " + args[2]));
                 return;
             }
@@ -46,6 +51,7 @@ public final class MechanicUnlockCommand extends AdminOnlyCommand {
                 MechanicUnlockModel.Rarity rarity = MechanicUnlockModel.Rarity.valueOf(args[2].toUpperCase(java.util.Locale.ROOT));
                 int value = Integer.parseInt(args[3]);
                 unlocks.setMaxProgress(player.getUniqueID(), rarity, value);
+                MechanicUnlockActionPacketHandler.sendSnapshot(player, ServerLifecycle.services());
                 sender.sendMessage(new TextComponentString("§a" + rarity + " max set to " + Math.max(0, value)));
                 return;
             }

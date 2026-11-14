@@ -1,9 +1,13 @@
 package com.example.revolution.persistence;
 
 import com.example.revolution.prestige.PrestigeBranch;
+import com.example.revolution.location.definition.MobZoneIds;
 import com.example.revolution.prestige.PrestigeRepository;
 import com.example.revolution.prestige.PrestigeState;
+import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.rules.RuneStorageRules;
+import java.util.HashSet;
+import java.util.Set;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.result.UpdateResult;
 import java.math.BigDecimal;
@@ -32,6 +36,14 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         connection.collection("players").updateOne(new Document("_id", playerUuid.toString()), new Document("$set", new Document("prestige", encode(state))), new UpdateOptions().upsert(true));
     }
 
+    @Override public boolean completeLocationReturn(UUID playerUuid, String runId) {
+        if (!enabled || !connection.isConnected() || playerUuid == null || runId == null) return false;
+        UpdateResult result = connection.collection("players").updateOne(
+                new Document("_id", playerUuid.toString()).append("prestige.pendingLocationReturnRunId", runId),
+                new Document("$unset", new Document("prestige.pendingLocationReturnRunId", "")));
+        return result != null && result.getModifiedCount() == 1;
+    }
+
     @Override public ResetCommitResult commitReset(UUID playerUuid, String expectedRunId, PrestigeState nextState) {
         return commitReset(playerUuid, expectedRunId, nextState, PrestigeRepository.ResetCommitPolicy.normal());
     }
@@ -45,17 +57,23 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         PrestigeState current = decode(player.get("prestige", Document.class));
         if (current.activeRun == null) return expectedRunId != null && expectedRunId.equals(current.lastResetRunId) ? ResetCommitResult.DUPLICATE : ResetCommitResult.STALE;
         if (expectedRunId == null || !expectedRunId.equals(current.activeRun.runId)) return ResetCommitResult.STALE;
-        if (crystals(player) < policy.crystalCost) return ResetCommitResult.INSUFFICIENT_CRYSTALS;
+        // The canonical wallet is stored as a decimal STRING, not a BSON number.
+        // Keep the runId and the exact observed wallet value in one CAS filter.
+        Object observedCrystals = player.get("crystals");
+        BigDecimal wallet = decimal(observedCrystals);
+        if (wallet.compareTo(BigDecimal.valueOf(policy.crystalCost)) < 0)
+            return ResetCommitResult.INSUFFICIENT_CRYSTALS;
 
-        List<Document> resetCollections = policy.preserveRunes ? null : resetRuneRanks(player);
         Document resetPets = policy.preservePets ? null : MongoPetRepository.resetForPrestige(player);
         Document set = new Document("prestige", encode(nextState));
-        if (resetCollections != null) set.append("decks", resetCollections);
+        // Commit removal of owned standard runes and their upgrades in the SAME
+        // runId-guarded Mongo update as the Mastery result. A crashed server must
+        // not persist "run already reset" while leaving the owned runes behind.
+        if (!policy.preserveRunes) appendRuneOwnershipWipe(player, set);
         if (resetPets != null) set.append("petSystem", resetPets);
         Document filter = new Document("_id", playerUuid.toString()).append("prestige.activeRun.runId", expectedRunId);
-        if (policy.crystalCost > 0) filter.append("crystals", new Document("$gte", policy.crystalCost));
+        if (policy.crystalCost > 0) appendCrystalDebit(filter, set, observedCrystals, policy.crystalCost);
         Document update = new Document("$set", set);
-        if (policy.crystalCost > 0) update.append("$inc", new Document("crystals", -policy.crystalCost));
         UpdateResult result = connection.collection("players").updateOne(filter, update);
         if (result != null && result.getMatchedCount() > 0) return ResetCommitResult.APPLIED;
 
@@ -63,36 +81,90 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         PrestigeState latest = latestPlayer == null ? new PrestigeState() : decode(latestPlayer.get("prestige", Document.class));
         if (expectedRunId != null && expectedRunId.equals(latest.lastResetRunId) && latest.activeRun == null) return ResetCommitResult.DUPLICATE;
         if (latest.activeRun != null && expectedRunId != null && expectedRunId.equals(latest.activeRun.runId)
-                && latestPlayer != null && crystals(latestPlayer) < policy.crystalCost) return ResetCommitResult.INSUFFICIENT_CRYSTALS;
+                && latestPlayer != null && decimal(latestPlayer.get("crystals"))
+                    .compareTo(BigDecimal.valueOf(policy.crystalCost)) < 0)
+            return ResetCommitResult.INSUFFICIENT_CRYSTALS;
         return ResetCommitResult.STALE;
     }
 
-    @SuppressWarnings("unchecked") public static List<Document> resetRuneRanks(Document player) {
-        if (player == null) return null;
-        List<Document> storedCollections = (List<Document>) player.get("decks");
-        if (storedCollections == null) return null;
-        List<Document> collections = new ArrayList<>();
-        for (Document storedCollection : storedCollections) {
-            Document collection = new Document(storedCollection);
-            List<Document> storedRunes = (List<Document>) storedCollection.get("cards");
-            if (storedRunes != null) {
-                List<Document> resetRunes = new ArrayList<>();
-                for (Document storedRune : storedRunes) {
-                    Document rune = new Document(storedRune);
-                    int rank = rune.getInteger("layer", RuneStorageRules.NORMAL_RANK);
-                    if (rank < RuneStorageRules.ADVANCED_RANK) rune.put("layer", RuneStorageRules.NORMAL_RANK);
-                    resetRunes.add(rune);
-                }
-                collection.put("cards", resetRunes);
+    /**
+     * A confirmed non-premium reset removes ORDINARY/IMPROVED rune ownership
+     * while preserving ADVANCED+ ownership and enhancement progress. Factual
+     * ownership is stored in legacy collection 1 and fixed collections 2..7.
+     * All affected paths are committed atomically under the Prestige runId guard.
+     * Unique rune state, permanent collection unlocks and metadata are untouched.
+     */
+    @SuppressWarnings("unchecked")
+    public static void appendRuneOwnershipWipe(Document player, Document set) {
+        Document root = player.get("runeCollections", Document.class);
+        Document fixed = root == null ? null : root.get("collections", Document.class);
+        List<Document> stored = (List<Document>) player.get("decks");
+        List<Document> updated = new ArrayList<>();
+        if (stored != null) {
+            for (int index = 0; index < stored.size(); index++) {
+                Document original = stored.get(index);
+                Document next = new Document(original);
+                List<Document> legacyRunes = (List<Document>) original.get("cards");
+                if (legacyRunes != null) next.put("cards", retainedRunes(legacyRunes));
+
+                RuneCollectionId collection = RuneCollectionId.fromLegacyIndex(index);
+                Document fixedCollection = fixed == null || collection == null ||
+                        collection == RuneCollectionId.COLLECTION_01 ? null :
+                        fixed.get(collection.id(), Document.class);
+                List<Document> actualRunes = fixedCollection == null ? legacyRunes :
+                        (List<Document>) fixedCollection.get("slots");
+                if (actualRunes == null) actualRunes = legacyRunes;
+                Document levels = original.get("runeEnhancements", Document.class);
+                if (levels != null) next.put("runeEnhancements",
+                        retainedEnhancements(levels, actualRunes));
+                updated.add(next);
             }
-            collections.add(collection);
+            set.append("decks", updated);
         }
-        return collections;
+
+        if (fixed == null) return;
+        for (RuneCollectionId collection : RuneCollectionId.values()) {
+            if (collection == RuneCollectionId.COLLECTION_01) continue;
+            Document fixedCollection = fixed.get(collection.id(), Document.class);
+            if (fixedCollection == null) continue;
+            Object raw = fixedCollection.get("slots");
+            if (raw instanceof List) {
+                set.append("runeCollections.collections." + collection.id() + ".slots",
+                        retainedRunes((List<Document>) raw));
+            }
+        }
+    }
+
+    private static List<Document> retainedRunes(List<Document> original) {
+        List<Document> kept = new ArrayList<>();
+        if (original == null) return kept;
+        for (Document rune : original) {
+            if (rune.getInteger("layer", RuneStorageRules.NORMAL_RANK) >= RuneStorageRules.ADVANCED_RANK)
+                kept.add(new Document(rune));
+        }
+        return kept;
+    }
+
+    private static Document retainedEnhancements(Document levels, List<Document> factualRunes) {
+        Set<String> keptRuneIds = new HashSet<>();
+        if (factualRunes != null) {
+            for (Document rune : factualRunes) {
+                if (rune.getInteger("layer", RuneStorageRules.NORMAL_RANK) >= RuneStorageRules.ADVANCED_RANK)
+                    keptRuneIds.add(String.valueOf(rune.getInteger("cardIndex", -1)));
+            }
+        }
+        Document result = new Document();
+        for (String key : levels.keySet()) {
+            if (keptRuneIds.contains(key)) result.put(key, levels.get(key));
+        }
+        return result;
     }
 
     private Document encode(PrestigeState state) {
         Document root = new Document("schemaVersion", SCHEMA_VERSION);
         if (state.lastResetRunId != null) root.append("lastResetRunId", state.lastResetRunId);
+        if (state.pendingLocationReturnRunId != null) root.append("pendingLocationReturnRunId", state.pendingLocationReturnRunId);
+        root.append("locationCycleUnlockedStages", new ArrayList<>(state.locationCycleUnlockedStages));
         if (state.activeRun != null) root.append("activeRun", encodeRun(state.activeRun));
         Document branches = new Document();
         for (PrestigeBranch branch : PrestigeBranch.values()) branches.append(branch.name(), encodeBranch(state.branch(branch)));
@@ -114,7 +186,8 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
                 .append("masteryPendingFragments", exact(run.masteryPendingFragments))
                 .append("petPendingFragments", exact(run.petPendingFragments))
                 .append("runExchange", new Document("purchases", purchases))
-                .append("runModifiers", modifiers);
+                .append("runModifiers", modifiers)
+                .append("runUnlockedStages", new ArrayList<>(run.runUnlockedStages));
     }
 
     private Document encodeBranch(PrestigeState.BranchState state) {
@@ -128,6 +201,12 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
         PrestigeState state = new PrestigeState();
         if (root == null) return state;
         state.lastResetRunId = root.getString("lastResetRunId");
+        state.pendingLocationReturnRunId = root.getString("pendingLocationReturnRunId");
+        Object cycleStages = root.get("locationCycleUnlockedStages");
+        if (cycleStages instanceof List) for (Object raw : (List<?>) cycleStages) {
+            if (raw instanceof Number && MobZoneIds.isMobZoneId(((Number) raw).intValue()))
+                state.locationCycleUnlockedStages.add(((Number) raw).intValue());
+        }
         Document run = root.get("activeRun", Document.class);
         if (run != null) try {
             PrestigeState.RunState active = new PrestigeState.RunState();
@@ -146,6 +225,11 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
             }
             Document modifiers = run.get("runModifiers", Document.class);
             if (modifiers != null) for (String key : modifiers.keySet()) active.runModifiers.put(key, decimal(modifiers.get(key)));
+            Object storedStages = run.get("runUnlockedStages");
+            if (storedStages instanceof List) for (Object raw : (List<?>) storedStages) {
+                if (raw instanceof Number && MobZoneIds.isMobZoneId(((Number) raw).intValue()))
+                    active.runUnlockedStages.add(((Number) raw).intValue());
+            }
             if (active.runId != null) state.activeRun = active;
         } catch (RuntimeException ignored) { state.activeRun = null; }
         Document branches = root.get("branches", Document.class);
@@ -158,6 +242,16 @@ public final class MongoPrestigeRepository implements PrestigeRepository {
             if (meta != null) for (String key : meta.keySet()) { Object value = meta.get(key); if (value instanceof Number) target.rankMetaLevels.put(key, Math.max(0, ((Number) value).intValue())); }
         }
         return state;
+    }
+
+    /** A string-valued wallet must never be decremented with MongoDB's numeric $inc. */
+    static void appendCrystalDebit(Document filter, Document set, Object observedCrystals, int cost) {
+        if (filter == null || set == null || cost <= 0) throw new IllegalArgumentException("invalid crystal debit");
+        BigDecimal current = decimal(observedCrystals);
+        if (current.compareTo(BigDecimal.valueOf(cost)) < 0)
+            throw new IllegalArgumentException("insufficient crystals");
+        filter.append("crystals", observedCrystals);
+        set.append("crystals", exact(current.subtract(BigDecimal.valueOf(cost))));
     }
 
     private static int crystals(Document player) {
