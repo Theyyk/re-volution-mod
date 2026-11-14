@@ -57,7 +57,7 @@ public final class ClientNetworkRegistration {
         NetworkHandler.INSTANCE.registerMessage(AchievementSnapshotPacketHandler.class, AchievementSnapshotPacket.class, 24, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneActionPacketClientHandler.class, UniqueRuneActionPacket.class, 25, Side.CLIENT);
         NetworkHandler.INSTANCE.registerMessage(UniqueRuneSnapshotPacketHandler.class, UniqueRuneSnapshotPacket.class, 26, Side.CLIENT);
-        NetworkHandler.INSTANCE.registerMessage(CombatProjectionPacketHandler.class, CombatProjectionPacket.class, 27, Side.CLIENT);
+        NetworkHandler.INSTANCE.registerMessage(CombatProjectionPacketHandler.class, CombatProjectionPacket.class, 31, Side.CLIENT);
         MechanicUnlockClientNetworkRegistration.register();
         MasteryClientNetworkRegistration.register();
     }
