@@ -97,8 +97,6 @@ public final class ClientUiBridge {
         );
         ClientPlayerStats.setUniqueWalletBalances(message.getPearls(), message.getOfferings());
         ClientPlayerStats.setResolvedCombat(message.getResolvedClickDamage(), message.getResolvedPoisonDamage());
-        ClientPlayerStats.setDamageProjection(message.getProjectedClickDamage(), message.getProjectedPoisonDamage(),
-                message.getClickBreakdown(), message.getPoisonBreakdown());
         RuneGuiPreloader.noteStats();
         RevolutionMod.logger.info("Player stats updated on client: coins=" + message.getCoins()
                 + ", crystals=" + message.getCrystals()
