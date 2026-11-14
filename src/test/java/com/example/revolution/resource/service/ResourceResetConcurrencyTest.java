@@ -16,6 +16,8 @@ public final class ResourceResetConcurrencyTest {
         ResourceService service = new ResourceService(wallet);
         final int[] earnedEvents = {0};
         service.setGameplayEventSink(new com.example.revolution.gameplay.GameplayEventSink() {
+            @Override public void confirmedDamage(UUID id,
+                    com.example.revolution.gameplay.GameplayDamageSource source, BigDecimal amount) {}
             @Override public void earnedResource(UUID id, String resource, BigDecimal amount) {
                 earnedEvents[0]++;
             }
