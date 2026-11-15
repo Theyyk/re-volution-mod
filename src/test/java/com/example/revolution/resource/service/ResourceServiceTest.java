@@ -19,6 +19,18 @@ public final class ResourceServiceTest {
                 new Class<?>[]{ResourceRepository.class}, (target, method, values) -> {
                     if (method.getName().equals("getPlayerResourceValue")) return balances.getOrDefault(values[1], BigDecimal.ZERO);
                     if (method.getName().equals("writePlayerResource")) { balances.put((String) values[1], (BigDecimal) values[2]); return null; }
+                    if (method.getName().equals("resourceSnapshot")) {
+                        BigDecimal current = balances.getOrDefault(values[1], BigDecimal.ZERO);
+                        return new ResourceRepository.ResourceSnapshot(current, current.toPlainString(), null);
+                    }
+                    if (method.getName().equals("compareAndSetPlayerResource")
+                            || method.getName().equals("compareAndSetPlayerResourceForRun")) {
+                        ResourceRepository.ResourceSnapshot observed = (ResourceRepository.ResourceSnapshot) values[2];
+                        BigDecimal current = balances.getOrDefault(values[1], BigDecimal.ZERO);
+                        if (current.compareTo(observed.value) != 0) return false;
+                        balances.put((String) values[1], (BigDecimal) values[3]);
+                        return true;
+                    }
                     throw new AssertionError("Unexpected resource operation: " + method.getName());
                 });
         ResourceService service = new ResourceService(repository);

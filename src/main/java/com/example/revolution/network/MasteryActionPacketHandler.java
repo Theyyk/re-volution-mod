@@ -23,6 +23,63 @@ import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 /** All Mastery mutations execute on the server thread and reuse the canonical PrestigeService. */
 public final class MasteryActionPacketHandler implements IMessageHandler<MasteryActionPacket, IMessage> {
     private static final ConcurrentMap<UUID, Long> LAST_MUTATION = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<UUID, PremiumPreviewTicket> PREMIUM_PREVIEWS = new ConcurrentHashMap<>();
+    private static final long PREVIEW_LIFETIME_MILLIS = 120_000L;
+
+    /** Server-owned confirmation. The client never supplies price or preserve permissions. */
+    static final class PremiumPreviewTicket {
+        final String runId;
+        final String kind;
+        final String balanceRevision;
+        final int crystalCost;
+        final boolean preserveRunes;
+        final boolean preservePets;
+        final long expiresAt;
+
+        PremiumPreviewTicket(String runId, String kind, String balanceRevision,
+                             MasteryTierPolicy.PremiumPreservePolicy policy, long now) {
+            this.runId = runId;
+            this.kind = kind;
+            this.balanceRevision = balanceRevision;
+            this.crystalCost = policy.crystalCost;
+            this.preserveRunes = policy.preserveRunes;
+            this.preservePets = policy.preservePets;
+            this.expiresAt = now + PREVIEW_LIFETIME_MILLIS;
+        }
+
+        boolean matches(String expectedRunId, String expectedKind, String currentRevision,
+                        MasteryTierPolicy.PremiumPreservePolicy current, long now) {
+            return now <= expiresAt && runId.equals(expectedRunId) && kind.equals(expectedKind)
+                    && balanceRevision.equals(currentRevision) && current.enabled
+                    && crystalCost == current.crystalCost && preserveRunes == current.preserveRunes
+                    && preservePets == current.preservePets;
+        }
+    }
+
+    private static String revision(ServerServices services) {
+        return services.balance.getActiveSnapshot().getRevision();
+    }
+
+    private static void rememberPremiumPreview(UUID playerId, String expectedRunId, String kind,
+                                               ServerServices services, String beforeRevision,
+                                               MasteryTierPolicy.PremiumPreservePolicy policy) {
+        if (!beforeRevision.equals(revision(services))) throw new IllegalStateException("PREVIEW_STALE");
+        PREMIUM_PREVIEWS.put(playerId, new PremiumPreviewTicket(expectedRunId, kind, beforeRevision,
+                policy, System.currentTimeMillis()));
+    }
+
+    private static void requirePremiumPreview(UUID playerId, String expectedRunId, String kind,
+                                              ServerServices services) {
+        PremiumPreviewTicket preview = PREMIUM_PREVIEWS.remove(playerId);
+        if (preview == null) throw new IllegalStateException("PREVIEW_STALE");
+        String beforeRevision = revision(services);
+        MasteryTierPolicy.PremiumPreservePolicy current =
+                services.prestige.premiumPreservePolicy(playerId, expectedRunId);
+        if (!preview.matches(expectedRunId, kind, beforeRevision, current, System.currentTimeMillis())
+                || !beforeRevision.equals(revision(services)))
+            throw new IllegalStateException("PREVIEW_STALE");
+    }
+
 
     @Override public IMessage onMessage(MasteryActionPacket request, MessageContext ctx) {
         EntityPlayerMP player = ctx.getServerHandler().player;
@@ -54,6 +111,7 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                 if ("start".equals(action)) {
                     PrestigeBranch branch = PrestigeBranch.valueOf(request.getBranch());
                     if (!services.prestige.branches().contains(branch)) throw new IllegalStateException("BRANCH_UNAVAILABLE");
+                    PREMIUM_PREVIEWS.remove(playerId);
                     services.prestige.startRun(playerId, branch);
                     response = "RUN_STARTED";
                 } else {
@@ -71,9 +129,11 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                                 " | Meta: +" + preview.metaLevelGainPerRun +
                                 " | Ранги: " + preview.ranksUpgraded;
                     } else if ("preview_reset_premium".equals(action)) {
+                        String rev = revision(services);
                         PrestigeResetService.ResetPreview preview = services.prestige.previewReset(playerId, expected);
                         MasteryTierPolicy.PremiumPreservePolicy policy = services.prestige.premiumPreservePolicy(playerId, expected);
                         if (!policy.enabled) throw new IllegalStateException("OPTION_UNAVAILABLE");
+                        rememberPremiumPreview(playerId, expected, "reset_premium", services, rev, policy);
                         previewKind = "reset_premium";
                         previewDetails = "Сохранится: " + exact(preview.savedCandidate) +
                                 " | Ранги: " + preview.ranksUpgraded +
@@ -81,6 +141,8 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                                 " | Руны: " + policy.preserveRunes + ", питомцы: " + policy.preservePets;
                     } else if ("reset".equals(action) || "reset_premium".equals(action)) {
                         boolean premium = "reset_premium".equals(action);
+                        if (premium) requirePremiumPreview(playerId, expected, "reset_premium", services);
+                        else PREMIUM_PREVIEWS.remove(playerId);
                         PrestigeResetService.ResetResult result = services.prestige.reset(playerId, expected, premium);
                         response = (premium ? "RESET_PREMIUM_" : "RESET_") + result.name();
                         if (result == PrestigeResetService.ResetResult.APPLIED) {
@@ -95,6 +157,7 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                                 " | Meta cap " + preview.currentRankMetaLevelCap + " -> " + preview.nextRankMetaLevelCap +
                                 " | Сброс рун и питомцев по правилам сервера";
                     } else if ("mastery".equals(action)) {
+                        PREMIUM_PREVIEWS.remove(playerId);
                         PrestigeResetService.MasteryResetResult result =
                                 services.prestige.masteryReset(playerId, expected, MasteryResetMode.NORMAL);
                         response = "MASTERY_" + result.name();
@@ -104,14 +167,19 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                             services.statsSync.sendTo(player);
                         }
                     } else if ("preview_premium".equals(action)) {
+                        String rev = revision(services);
                         PrestigeResetService.MasteryResetPreview preview = services.prestige.previewMasteryReset(playerId, expected);
                         if (!preview.premiumPreserveEnabled) throw new IllegalStateException("OPTION_UNAVAILABLE");
+                        MasteryTierPolicy.PremiumPreservePolicy currentPolicy =
+                                services.prestige.premiumPreservePolicy(playerId, expected);
+                        rememberPremiumPreview(playerId, expected, "premium", services, rev, currentPolicy);
                         previewKind = "premium";
                         previewDetails = "Tier " + preview.currentMasteryTier + " -> " + preview.nextMasteryTier +
                                 " | Crystals: " + preview.premiumPreserveCrystalCost +
                                 " | Сохранить руны: " + preview.premiumPreserveRunes +
                                 " | питомцев: " + preview.premiumPreservePets;
                     } else if ("premium".equals(action)) {
+                        requirePremiumPreview(playerId, expected, "premium", services);
                         PrestigeResetService.MasteryResetPreview preview =
                                 services.prestige.previewMasteryReset(playerId, expected);
                         PrestigeResetService.MasteryResetResult result =
@@ -155,7 +223,7 @@ public final class MasteryActionPacketHandler implements IMessageHandler<Mastery
                     : LAST_MUTATION.replace(playerId, last, nonce)) return true;
         }
     }
-    public static void clear() { LAST_MUTATION.clear(); }
+    public static void clear() { LAST_MUTATION.clear(); PREMIUM_PREVIEWS.clear(); }
 
     public static void sendSnapshot(EntityPlayerMP player, ServerServices services, long requestId,
                                     String response, String previewKind, String previewDetails) {

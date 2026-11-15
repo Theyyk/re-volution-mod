@@ -71,14 +71,71 @@ public final class ResourceService {
         return Math.max(0L, value.longValue());
     }
 
+    private static final int MAX_WALLET_RETRIES = 16;
+
+    /** A retry may use a newer balance, but never an older reset generation. */
+    private boolean mutate(UUID uuid, String canonical, BigDecimal change, boolean spend) {
+        return mutate(uuid, canonical, change, spend, null);
+    }
+
+    private boolean mutate(UUID uuid, String canonical, BigDecimal change, boolean spend,
+                           String expectedRunId) {
+        ResourceRepository.ResourceSnapshot snapshot = repository.resourceSnapshot(uuid, canonical);
+        String generation = snapshot.resetEpoch;
+        for (int attempt = 0; attempt < MAX_WALLET_RETRIES; attempt++) {
+            BigDecimal next = spend ? snapshot.value.subtract(change) : snapshot.value.add(change);
+            if (next.signum() < 0) return false;
+            next = LargeNumbers.normalize(next);
+            boolean committed = expectedRunId == null
+                    ? repository.compareAndSetPlayerResource(uuid, canonical, snapshot, next)
+                    : repository.compareAndSetPlayerResourceForRun(uuid, canonical, snapshot, next, expectedRunId);
+            if (committed) {
+                notifyChanged(uuid);
+                return true;
+            }
+            snapshot = repository.resourceSnapshot(uuid, canonical);
+            if (!java.util.Objects.equals(generation, snapshot.resetEpoch)) return false;
+        }
+        return false;
+    }
+
+    private boolean replace(UUID uuid, String canonical, BigDecimal value) {
+        ResourceRepository.ResourceSnapshot snapshot = repository.resourceSnapshot(uuid, canonical);
+        String generation = snapshot.resetEpoch;
+        for (int attempt = 0; attempt < MAX_WALLET_RETRIES; attempt++) {
+            if (repository.compareAndSetPlayerResource(uuid, canonical, snapshot, value)) {
+                notifyChanged(uuid);
+                return true;
+            }
+            snapshot = repository.resourceSnapshot(uuid, canonical);
+            if (!java.util.Objects.equals(generation, snapshot.resetEpoch)) return false;
+        }
+        return false;
+    }
+
     public synchronized boolean grantPlayerResource(UUID uuid, String resource, BigDecimal amount) {
         String canonical = findCanonicalName(resource);
         if (canonical == null || uuid == null || amount == null || amount.signum() < 0) return false;
         if (amount.signum() == 0) return true;
-        BigDecimal next = LargeNumbers.normalize(repository.getPlayerResourceValue(uuid, canonical).add(amount));
-        repository.writePlayerResource(uuid, canonical, next);
-        notifyChanged(uuid);
-        return true;
+        return mutate(uuid, canonical, amount, false);
+    }
+
+    /** Run-bound exchange rewards and purchases must not cross a Prestige Reset. */
+    public synchronized boolean grantPlayerResourceForRun(UUID uuid, String resource,
+                                                           BigDecimal amount, String expectedRunId) {
+        String canonical = findCanonicalName(resource);
+        if (canonical == null || uuid == null || amount == null || amount.signum() < 0
+                || expectedRunId == null || expectedRunId.isEmpty()) return false;
+        if (amount.signum() == 0) return true;
+        return mutate(uuid, canonical, amount, false, expectedRunId);
+    }
+
+    public synchronized boolean spendPlayerResourceForRun(UUID uuid, String resource,
+                                                           BigDecimal amount, String expectedRunId) {
+        String canonical = findCanonicalName(resource);
+        if (canonical == null || uuid == null || amount == null || amount.signum() < 0
+                || expectedRunId == null || expectedRunId.isEmpty()) return false;
+        return mutate(uuid, canonical, amount, true, expectedRunId);
     }
 
     /**
@@ -95,9 +152,7 @@ public final class ResourceService {
         BigDecimal late = safeMultiplier(lateRewardMultiplier.multiplier(uuid, canonical));
         BigDecimal granted = LargeNumbers.normalize(baseAmount.multiply(normal).multiply(uniqueRune).multiply(achievement).multiply(late));
         if (granted.signum() <= 0) return true;
-        BigDecimal next = LargeNumbers.normalize(repository.getPlayerResourceValue(uuid, canonical).add(granted));
-        repository.writePlayerResource(uuid, canonical, next);
-        notifyChanged(uuid);
+        if (!mutate(uuid, canonical, granted, false)) return false;
         gameplayEvents.earnedResource(uuid, canonical, granted);
         return true;
     }
@@ -128,11 +183,7 @@ public final class ResourceService {
         if (uuid == null || amount == null || amount.signum() < 0) return false;
         String canonical = findCanonicalName(resource);
         if (canonical == null) return false;
-        BigDecimal current = repository.getPlayerResourceValue(uuid, canonical);
-        if (current.compareTo(amount) < 0) return false;
-        repository.writePlayerResource(uuid, canonical, LargeNumbers.normalize(current.subtract(amount)));
-        notifyChanged(uuid);
-        return true;
+        return mutate(uuid, canonical, amount, true);
     }
 
     public boolean spendPlayerResource(UUID uuid, String resource, int amount) {
@@ -165,19 +216,13 @@ public final class ResourceService {
     public synchronized boolean setPlayerResourceValue(UUID uuid, String resource, BigDecimal value) {
         String canonical = findCanonicalName(resource);
         if (canonical == null || uuid == null || value == null || value.signum() < 0) return false;
-        repository.writePlayerResource(uuid, canonical, LargeNumbers.normalize(value));
-        notifyChanged(uuid);
-        return true;
+        return replace(uuid, canonical, LargeNumbers.normalize(value));
     }
 
     public synchronized boolean addPlayerResourceValue(UUID uuid, String resource, BigDecimal amount) {
         String canonical = findCanonicalName(resource);
         if (canonical == null || uuid == null || amount == null) return false;
-        BigDecimal next = repository.getPlayerResourceValue(uuid, canonical).add(amount);
-        if (next.signum() < 0) return false;
-        repository.writePlayerResource(uuid, canonical, LargeNumbers.normalize(next));
-        notifyChanged(uuid);
-        return true;
+        return mutate(uuid, canonical, amount.abs(), amount.signum() < 0);
     }
 
     /** Read-only access to the exact shared resolver used by gameplay reward calculations. */
