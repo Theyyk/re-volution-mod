@@ -9,6 +9,7 @@ import com.example.revolution.client.network.AuraClientState;
 import com.example.revolution.client.network.GodWorshipClientState;
 import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.network.AuraActionPacket;
+import com.example.revolution.network.MechanicUnlockActionPacket;
 import com.example.revolution.network.GodWorshipActionPacket;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.MasteryActionPacket;
@@ -38,6 +39,7 @@ public class KeyInputHandler {
     private boolean auraWasPressed = false;
     private boolean masteryWasPressed = false;
     private boolean vanillaBindingsConfigured = false;
+    private final ClientJoinSnapshotGate joinSnapshots = new ClientJoinSnapshotGate();
 
     public static void register() {
         keyOpenMenu = new KeyBinding("key.revolution.menu", Keyboard.KEY_E, "key.categories.revolution");
@@ -64,6 +66,12 @@ public class KeyInputHandler {
             MasteryClientState.reset();
             ClientUniqueRunes.reset();
             UnifiedMainMenuChrome.forgetRunes();
+        }
+        // Opening E must not be required to unlock Aura after reconnect.
+        // Server remains authoritative for both gate visibility and Aura inventory.
+        if (joinSnapshots.shouldRequest(minecraft.getConnection() != null, minecraft.player != null)) {
+            NetworkHandler.INSTANCE.sendToServer(new MechanicUnlockActionPacket("sync", "", 0L));
+            NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket("sync", "", "", 0L));
         }
         configureVanillaBindings(minecraft);
         if (minecraft.gameSettings.attackIndicator != 0) minecraft.gameSettings.attackIndicator = 0;
