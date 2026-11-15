@@ -38,6 +38,9 @@ jobs:
         id: changes
         run: python3 .github/ci/changes.py
 
+      - name: Test version consistency guard
+        run: python3 .github/scripts/test-version-consistency.py
+
       - name: Validate version consistency
         run: python3 .github/scripts/check-version-consistency.py
 
