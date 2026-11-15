@@ -27,6 +27,7 @@ import com.example.revolution.god.BalanceGodWorshipPolicy;
 import com.example.revolution.god.GodWorshipAutomationService;
 import com.example.revolution.god.GodWorshipModel;
 import com.example.revolution.god.GodWorshipRepository;
+import com.example.revolution.god.GodResetPreservationService;
 import com.example.revolution.god.GodWorshipModifierService;
 import com.example.revolution.god.GodWorshipService;
 import com.example.revolution.location.definition.MobZoneIds;
@@ -232,18 +233,19 @@ public final class ServerServices implements AutoCloseable {
         auraPolicy = new BalanceAuraPolicy(balance);
         PrestigeBranchRegistry prestigeBranches = new PrestigeBranchRegistry();
         RunePrestigeResetService runePrestigeReset = new RunePrestigeResetService(players, enhancements);
+        GodResetPreservationService godResetPreservation =
+                new GodResetPreservationService(
+                        godRepository,
+                        () -> godPolicy.featureEnabled(GodWorshipModel.FeatureGate.GOD_RESET_PRESERVATION),
+                        playerUuid -> mechanicUnlocks.isUnlocked(
+                                playerUuid, BalanceMechanicUnlockPolicy.GOD_RESET_PRESERVATION));
         prestige = new PrestigeService(
                 new MongoPrestigeRepository(connection, persistentGameplay),
                 prestigeBranches,
                 (playerUuid, branch) -> prestigeBranches.get(branch).defaultSaveMultiplier,
                 runePrestigeReset::reset,
                 new BalanceMasteryTierPolicy(balance),
-                (playerUuid, mode) -> {
-                    if (!godPolicy.featureEnabled(GodWorshipModel.FeatureGate.GOD_RESET_PRESERVATION)
-                            || !mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.GOD_RESET_PRESERVATION)) {
-                        godRepository.resetRunState(playerUuid);
-                    }
-                });
+                (playerUuid, mode) -> godResetPreservation.afterAppliedReset(playerUuid));
         prestige.setFragmentRewardProvider(branch -> new BigDecimal(balance.getActiveValue(
                 "prestige.fragment_reward." + branch.name().toLowerCase(Locale.ROOT) + ".per_level")));
         prestige.setEffectAccessGate(playerUuid -> mechanicUnlocks.isUnlocked(playerUuid, BalanceMechanicUnlockPolicy.ARTS));
