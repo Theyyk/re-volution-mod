@@ -4,7 +4,7 @@
 
 **Стабильная версия: `v2.12.2`.**
 
-Опубликованный Stable Gameplay — v2.12.2. Следующая целевая версия v2.13.0 Variant A находится в подготовке и ещё не выпущена. **GitHub Release и установка в PROD — разные этапы:** публикация JAR не обновляет игровой сервер или подписанный production manifest.
+Опубликованный Stable Gameplay — v2.12.2. Исходный код ветки develop содержит кандидат v2.13.0 Variant A; опубликованной Stable-версией остаётся v2.12.2 до отдельного release promotion. **GitHub Release и установка в PROD — разные этапы:** публикация JAR не обновляет игровой сервер или подписанный production manifest.
 
 [Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.12.2](docs/releases/v2.12.2.md) · [История релизов](docs/releases/README.md)
 
@@ -178,7 +178,7 @@ Namespace rune-ассетов: `customguimod`. При отсутствии ну�
 
 Gameplay-изменения проходят через feature/fix branch → PR в `develop` → exact-head CI → обычный merge → post-merge CI. Stable promotion в `main` выполняется отдельно; squash/rebase для release history не используются.
 
-Перед stable promotion CI дополнительно требует, чтобы version metadata, строка стабильной версии README и ссылка README на текущий release contract совпадали. Поэтому тег нельзя штатно выпустить с устаревшим README.
+CI требует, чтобы source version metadata совпадали между Gradle, mcmod.info и Java. На development-ветках README может указывать последний опубликованный Stable и его контракт. При создании release tag все версии, README Stable-маркер и ссылка на контракт обязаны совпадать с тегом. До Stable promotion исходный кандидат v2.13.0 не является опубликованным Stable.
 
 CI проверяет:
 

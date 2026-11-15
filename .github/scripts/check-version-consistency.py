@@ -86,11 +86,36 @@ def main():
         print(f"{path}: {version}")
 
     expected = versions["build.gradle"]
+    # Development source may be ahead of the published Stable. Tags remain strict.
+    source_paths = (
+        "build.gradle",
+        "src/main/resources/mcmod.info",
+        "src/main/java/com/example/revolution/RevolutionMod.java",
+    )
+    stable = versions["README.md stable version"]
+    contract = versions["README.md current release contract"]
     mismatches = [
-        f"{path}={version} (expected {expected})"
-        for path, version in versions.items()
-        if version != expected
+        f"{path}={versions[path]} (expected {expected})"
+        for path in source_paths
+        if versions[path] != expected
     ]
+    if stable != contract:
+        mismatches.append(
+            f"README.md release contract={contract} (expected published Stable {stable})"
+        )
+
+    def semantic_tuple(value):
+        if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
+            raise ValueError(f"Invalid semantic version: {value}")
+        return tuple(int(piece) for piece in value.split("."))
+
+    try:
+        if semantic_tuple(stable) > semantic_tuple(expected):
+            mismatches.append(
+                f"README.md published Stable={stable} newer than source version {expected}"
+            )
+    except ValueError as exc:
+        mismatches.append(str(exc))
 
     if args.tag:
         if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", args.tag):
@@ -99,6 +124,15 @@ def main():
             tag_version = args.tag[1:]
             if tag_version != expected:
                 mismatches.append(f"tag={args.tag} (expected v{expected})")
+            # Tag publication requires that the README no longer points at old Stable.
+            if stable != expected:
+                mismatches.append(
+                    f"README.md stable version={stable} (tag requires {expected})"
+                )
+            if contract != expected:
+                mismatches.append(
+                    f"README.md release contract={contract} (tag requires {expected})"
+                )
 
     if mismatches:
         print("Version metadata mismatch detected:")
@@ -109,7 +143,7 @@ def main():
     if args.tag:
         print(f"Version metadata, README and release tag are consistent: {args.tag}")
     else:
-        print(f"Version metadata and README are consistent: {expected}")
+        print(f"Source metadata consistent: {expected}; published Stable README: {stable}")
     return 0
 
 
