@@ -9,8 +9,8 @@ final class RunePurchaseAvailability {
     /** Keep pending synchronization invisible to players; the separate eligibility gate stays closed. */
     static String purchaseLabel(boolean snapshotReady, int nextAttemptCost, int amount, String resourceName) {
         if (!snapshotReady) return "Купить руну";
-        if (nextAttemptCost <= 0) return "Купить руну:\\nНедоступно";
-        return "Купить руну:\\n" + (amount > 1 ? "от " : "")
+        if (nextAttemptCost <= 0) return "Купить руну:\nНедоступно";
+        return "Купить руну:\n" + (amount > 1 ? "от " : "")
                 + nextAttemptCost + " " + resourceName;
     }
 
