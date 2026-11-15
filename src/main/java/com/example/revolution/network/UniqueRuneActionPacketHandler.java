@@ -127,7 +127,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 UniqueRuneModel.RuneDefinition rune = definition.rune(owned.getKey()); if (rune == null) continue;
                 UniqueRuneService.SharePayload payload = services.uniqueRunes.shareFromSnapshot(state, id, rune.runeId); if (payload == null) continue;
                 UniqueRuneSnapshotPacket.Entry entry = new UniqueRuneSnapshotPacket.Entry(); entry.collectionId = id.name(); entry.runeId = rune.runeId;
-                entry.name = rune.displayName; entry.rarity = owned.getValue().name(); entry.enhancement = payload.enhancement;
+                entry.name = UniqueRuneUiText.runeName(rune.runeId, rune.displayName); entry.rarity = owned.getValue().name(); entry.enhancement = payload.enhancement;
                 entry.canAwaken = collection.canAwaken(rune.runeId) && out.unlocked;
                 entry.canRollback = canRollback(id, collection, rune.runeId) && out.unlocked;
                 entry.acquiredCommon = collection.ownsAtCurrent(rune.runeId);
