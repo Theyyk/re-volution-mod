@@ -441,10 +441,8 @@ public class RunesGuiScreen extends GuiScreen {
                     String resourceName = com.example.revolution.resource.definition.ResourceDefinitions.getDisplayName(resource);
                     // Batch purchases can stop early; per-attempt price changes with Rune progression.
                     // Show the authoritative next-attempt cost, not an invented linear batch total.
-                    button.displayString = !known ? "Купить руну:\nОжидание данных"
-                            : unitCost <= 0 ? "Купить руну:\nНедоступно"
-                            : "Купить руну:\n" + (buyAmount > 1 ? "от " : "")
-                                    + unitCost + " " + resourceName;
+                    button.displayString = RunePurchaseAvailability.purchaseLabel(
+                            known, unitCost, buyAmount, resourceName);
                 }
             } else if (button.id == AMOUNT_BUTTON_START_ID) {
                 button.enabled = !full;
