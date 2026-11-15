@@ -7,6 +7,8 @@ import com.example.revolution.network.PongPacket;
 import com.example.revolution.network.ShareChatDelivery;
 import com.example.revolution.rune.definition.PrimaryRuneCatalog;
 import com.example.revolution.rune.definition.RuneTechnicalCatalog;
+import com.example.revolution.rune.definition.TechnicalRuneUiLabels;
+import com.example.revolution.rune.rules.RuneProgression;
 import com.example.revolution.rune.definition.RuneStat;
 import com.example.revolution.rune.definition.RuneTargetedPower;
 import com.example.revolution.rune.definition.RuneCompositeEffect;
@@ -251,27 +253,29 @@ public final class RuneActionService {
             PrimaryRuneCatalog.Definition rune = PrimaryRuneCatalog.at(runeIndex);
             if (rune == null) return;
             name = rune.name;
-            details.append("Type: ").append(rune.type);
+            details.append("Тип: ").append(rune.type);
             for (String statLine : RuneShareStatFormatter.finalStatLines(
                     rune, runeIndex, rank, enhancementMultiplier, ownedRunes,
                     slot -> sync.enhancementMultiplier(collection,
                             sync.enhancementLevel(player.getUniqueID(), collectionIndex, slot))))
-                details.append("\nEffect: ").append(statLine);
+                details.append("\nЭффект: ").append(statLine);
             for (RuneTargetedPower power : rune.targetedPowers)
-                details.append("\nTarget: ").append(power.tooltipLine(rank, enhancementMultiplier));
+                details.append("\nЦель: ").append(power.tooltipLine(rank, enhancementMultiplier));
             for (RuneCompositeEffect effect : rune.compositeEffects)
                 for (String line : effect.tooltipLines(rank, enhancementMultiplier))
                     details.append("\nEffect: ").append(line);
         } else {
-            name = "Rune " + (runeIndex + 1);
+            name = TechnicalRuneUiLabels.runeName(collectionIndex, runeIndex);
             for (RuneTechnicalCatalog.EffectLabel effect : RuneTechnicalCatalog.effects(collection, runeIndex)) {
-                details.append(details.length() == 0 ? "" : "\n").append("Effect: ")
-                        .append(effect.type).append(effect.channel == null ? "" : " (" + effect.channel.name() + ")");
+                details.append(details.length() == 0 ? "" : "\n").append("Эффект: ")
+                        .append(TechnicalRuneUiLabels.effect(effect.type))
+                        .append(effect.channel == null ? "" : " (" + TechnicalRuneUiLabels.channel(effect.channel) + ")")
+                        .append(effect.runtimeNoOp ? " (не действует)" : "");
             }
         }
-        String tooltip = name + "\nCollection: " + collection.id() + "\nRank: " + rank
-                + "\nEnhancement: +" + enhancement + (details.length() == 0 ? "" : "\n" + details);
-        ShareChatDelivery.send(player, "Rune: " + name, tooltip);
+        String tooltip = name + "\nКоллекция: " + (collectionIndex + 1) + "\nРанг: " + RuneProgression.rankName(rank)
+                + "\nУсиление: +" + enhancement + (details.length() == 0 ? "" : "\n" + details);
+        ShareChatDelivery.send(player, "Руна: " + name, tooltip);
     }
 
     private boolean isCollectionUnlocked(EntityPlayerMP player, int collectionIndex) {
