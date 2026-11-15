@@ -111,12 +111,14 @@ public final class PlayerStatsSyncService {
         int purchaseUnitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
         int[] bestRanks = null;
         RuneCollectionId fixedCollection = RuneCollectionId.fromLegacyIndex(activeCollection);
-        if (fixedCollection != null && RuneStatusConfig.isRuneStatus(statusId)) {
+        if (fixedCollection != null) {
             bestRanks = loadBestRanks(uuid, activeCollection);
             if (purchaseBalance != null) {
                 RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(bestRanks);
-                canonicalPurchaseResource = purchaseBalance.purchaseResource(statusId);
-                purchaseUnitCost = resolvePurchaseUnitCost(purchaseBalance, statusId, progression);
+                canonicalPurchaseResource = purchaseBalance.purchaseResource(fixedCollection);
+                purchaseUnitCost = progression.isComplete() ? 0 : purchaseBalance.purchaseCost(
+                        fixedCollection, progression.stageRank(), progression.lowerProgress(),
+                        progression.higherRuneCount());
             }
         }
 
