@@ -11,6 +11,7 @@ import net.minecraft.client.gui.GuiScreen;
 
 /** Functional v2.7.0 Quest UI. Visual polish is intentionally deferred. */
 public final class QuestGuiScreen extends GuiScreen {
+    private final GuiBackgroundBlur backgroundBlur = new GuiBackgroundBlur();
     private final List<QuestSnapshotPacket.Entry> entries;
     private final long cooldownUntil;
     private final int rerollsRemaining;
@@ -39,6 +40,7 @@ public final class QuestGuiScreen extends GuiScreen {
         buttonList.add(reroll);
         buttonList.add(new GuiButton(11, left + 128, top + 154, 80, 20, "Обновить"));
         buttonList.add(new GuiButton(12, left + 216, top + 154, 77, 20, "Закрыть"));
+        backgroundBlur.enable(mc);
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
@@ -76,6 +78,14 @@ public final class QuestGuiScreen extends GuiScreen {
             drawString(fontRenderer, "До обновления: " + formatDuration(seconds), left, top + 142, 0xAAAAAA);
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    @Override public void onGuiClosed() {
+        try {
+            backgroundBlur.disable(mc);
+        } finally {
+            super.onGuiClosed();
+        }
     }
 
     @Override public boolean doesGuiPauseGame() { return false; }
