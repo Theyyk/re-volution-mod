@@ -64,6 +64,7 @@ public class KeyInputHandler {
         if (minecraft.getConnection() == null) {
             ClientMechanicUnlocks.reset();
             MasteryClientState.reset();
+            AuraClientState.reset();
             ClientUniqueRunes.reset();
             UnifiedMainMenuChrome.forgetRunes();
         }
