@@ -65,6 +65,7 @@ public class KeyInputHandler {
             ClientMechanicUnlocks.reset();
             MasteryClientState.reset();
             AuraClientState.reset();
+            GodWorshipClientState.clear();
             ClientUniqueRunes.reset();
             UnifiedMainMenuChrome.forgetRunes();
         }
