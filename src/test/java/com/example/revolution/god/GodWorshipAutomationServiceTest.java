@@ -138,6 +138,55 @@ final class GodWorshipAutomationServiceTest {
         assertEquals(GodId.GOD_2, repository.persistent.preferences.get(GodId.GOD_1).linkedGodId);
     }
 
+    @Test
+    void autoActivationNeedsBothFeatureFlagAndMechanicUnlockAndDoesNotReplay() {
+        FakeRepository repository = new FakeRepository();
+        FakePolicy policy = new FakePolicy();
+        State god = repository.run.gods.get(GodId.GOD_1);
+        god.unlocked = true;
+        god.level = 1L;
+        god.phase = Phase.CHARGE;
+        god.chargeProgress = 10L;
+        repository.persistent.preferences.get(GodId.GOD_1).activationMode = ActivationMode.AUTO_WHEN_READY;
+        GodWorshipAutomationService service = new GodWorshipAutomationService(repository, policy);
+
+        assertEquals(0, service.tick(PLAYER, 1_000L, true, false).activations,
+                "disabled feature must not auto-activate");
+        policy.gates.add(FeatureGate.GOD_AUTO_ACTIVATION);
+        assertEquals(0, service.tick(PLAYER, 2_000L, false, false).activations,
+                "locked mechanic must not auto-activate");
+        assertEquals(1, service.tick(PLAYER, 3_000L, true, false).activations);
+        assertEquals(Phase.BUFF_ACTIVE, god.phase);
+        assertEquals(0, service.tick(PLAYER, 3_000L, true, false).activations,
+                "same-timestamp tick must not activate twice");
+        assertEquals(0, service.tick(PLAYER, 4_000L, true, false).activations,
+                "active buff must not be reactivated");
+    }
+
+    @Test
+    void switchingLinkedModeBackToManualClearsLinkAndSurvivesServiceRecreation() {
+        FakeRepository repository = new FakeRepository();
+        FakePolicy policy = new FakePolicy();
+        policy.gates.add(FeatureGate.GOD_AUTO_ACTIVATION);
+        GodWorshipAutomationService service = new GodWorshipAutomationService(repository, policy);
+
+        assertTrue(service.setActivationMode(PLAYER, GodId.GOD_1, ActivationMode.AUTO_WHEN_READY, null));
+        assertTrue(service.setActivationMode(PLAYER, GodId.GOD_1, ActivationMode.LINKED_TO_GOD, GodId.GOD_2));
+        assertEquals(GodId.GOD_2, repository.persistent.preferences.get(GodId.GOD_1).linkedGodId);
+        assertTrue(service.setActivationMode(PLAYER, GodId.GOD_1, ActivationMode.MANUAL, null));
+        assertEquals(ActivationMode.MANUAL, repository.persistent.preferences.get(GodId.GOD_1).activationMode);
+        assertEquals(null, repository.persistent.preferences.get(GodId.GOD_1).linkedGodId);
+
+        State god = repository.run.gods.get(GodId.GOD_1);
+        god.unlocked = true;
+        god.level = 1L;
+        god.phase = Phase.CHARGE;
+        god.chargeProgress = 10L;
+        GodWorshipAutomationService reconnected = new GodWorshipAutomationService(repository, policy);
+        assertEquals(0, reconnected.tick(PLAYER, 9_000L, true, false).activations);
+        assertEquals(Phase.CHARGE, god.phase);
+    }
+
     private static final class FakeRepository implements GodWorshipRepository {
         private RunState run = new RunState();
         private PersistentState persistent = new PersistentState();

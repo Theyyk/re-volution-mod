@@ -62,7 +62,7 @@
   "src/main/resources/balance/v2.5.0-mastery-reset.json": "7062367866e00fe2295a4504a27da6a615fa725058ee34622d23f506c6c58721",
   "src/main/resources/balance/v2.6.0-run-exchange.json": "c804a7cb188838421bd61c14854b14e85f0b19e9e575b0137e94b68b801bc7d1",
   "src/main/resources/balance/v2.7.0-quests.json": "5e4f5688faff16274d6bc148358c990e273064b9df87e468368658adfbb95376",
-  "src/main/resources/balance/v2.8.0-god-worship.json": "92a4b3abe788aa603e4894e5ab3ed7023c39e04900af7eca6f1b1c0058f7ebb7",
+  "src/main/resources/balance/v2.8.0-god-worship.json": "9dba3e8864b01c9ba6ab9ecd10ebf1decc5d4fe2e6ec4c255b01f945980df895",
   "src/main/resources/balance/v2.9.0-auras.json": "17735504f5a82765208cd217ca27e8b7785be1b5610546003bf7300f314c1ce2",
   "src/main/resources/pack.mcmeta": "a94f455eda44e4abab68a6425353cac65c10a0dcd1f4fcad8143f7965a866fe4"
 }

@@ -159,10 +159,10 @@ public final class GodWorshipGuiScreen extends GuiScreen {
         return ++nextNonce;
     }
 
-    private static String nextMode(String mode) {
+    static String nextMode(String mode) {
         if ("MANUAL".equals(mode)) return "AUTO_WHEN_READY";
         if ("AUTO_WHEN_READY".equals(mode)) return "LINKED_TO_GOD";
-        return "РУЧНОЙ";
+        return "MANUAL";
     }
 
     private static String defaultLinked(String owner) { return nextLinked(owner, ""); }
