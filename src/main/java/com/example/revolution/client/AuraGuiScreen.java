@@ -19,7 +19,6 @@ import org.lwjgl.input.Mouse;
 /** Client projection of existing server-authoritative Auras; no gameplay mutations are defined here. */
 public final class AuraGuiScreen extends GuiScreen {
     private static final int ROW_HEIGHT = 24;
-    private static long nonce = System.currentTimeMillis();
     private final List<AuraSnapshotPacket.Entry> visible = new ArrayList<>();
     private String rarityFilter = "ALL";
     private String selectedId = "";
@@ -158,7 +157,7 @@ public final class AuraGuiScreen extends GuiScreen {
     }
 
     private void send(String action, String value, String ids) {
-        NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket(action, value, ids, ++nonce));
+        NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket(action, value, ids, AuraActionNonce.next()));
     }
 
     private void cycleFilter() {
