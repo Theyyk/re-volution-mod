@@ -17,7 +17,6 @@ import org.lwjgl.input.Keyboard;
 public final class AuraCraftGuiScreen extends GuiScreen {
     private static final String[] RARITIES = {"COMMON", "RARE", "EPIC", "LEGENDARY"};
     private static final int ROW = 29;
-    private static long nonce = System.currentTimeMillis();
     private final AuraGuiScreen parent;
     private final List<String> selectedIds = new ArrayList<>();
     private String rarity = "";
@@ -98,7 +97,7 @@ public final class AuraCraftGuiScreen extends GuiScreen {
                 if (ids.length() != 0) ids.append(',');
                 ids.append(id);
             }
-            NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket("craft", rarity, ids.toString(), ++nonce));
+            NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket("craft", rarity, ids.toString(), AuraActionNonce.next()));
             mc.displayGuiScreen(parent);
         }
     }
