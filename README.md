@@ -2,11 +2,11 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v2.12.2`.**
+**Стабильная версия: `v2.13.0`.**
 
-Опубликованный Stable Gameplay — v2.12.2. Исходный код ветки develop содержит кандидат v2.13.0 Variant A; опубликованной Stable-версией остаётся v2.12.2 до отдельного release promotion. **GitHub Release и установка в PROD — разные этапы:** публикация JAR не обновляет игровой сервер или подписанный production manifest.
+Gameplay v2.13.0 — Variant A (Unified UI/GUI System). Версия предназначена для Stable GitHub Release; установка на PROD Docker и публикация production Client manifest являются отдельными операциями. **GitHub Release и установка в PROD — разные этапы:** публикация JAR не обновляет игровой сервер или подписанный production manifest.
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.12.2](docs/releases/v2.12.2.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.13.0](docs/releases/v2.13.0.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
