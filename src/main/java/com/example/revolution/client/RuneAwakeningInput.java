@@ -22,15 +22,8 @@ final class RuneAwakeningInput {
         int statusId = RuneStatusConfig.statusForCollection(activeCollection);
         if (!RuneStatusConfig.isRuneStatus(statusId) || !inventory.hasAllCatalogRunes()) return -1;
 
-        boolean allAdvanced = true;
-        for (int rune = 0; rune < RuneInventory.BOOST_TYPE_COUNT; rune++) {
-            RuneInventory.Entry entry = inventory.getBoost(rune);
-            if (entry != null && entry.layer < RuneInventory.ADVANCED_RANK) {
-                allAdvanced = false;
-                break;
-            }
-        }
-        if (allAdvanced) return -1;
+        // ADVANCED is not the terminal rank: 26 ADVANCED runes may awaken to MYTHIC.
+        // Per-rune eligibility below already rejects MYTHIC and incomplete progression.
 
         int x = layout.canvasMouseX(screenX);
         int y = layout.canvasMouseY(screenY);
