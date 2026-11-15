@@ -41,12 +41,12 @@ public final class RunePurchaseAvailabilityTest {
     @Test void purchaseRoundTripPreservesVisiblePrice() {
         String before = RunePurchaseAvailability.purchaseLabel(true, 10, 5, "монет", null);
         assertEquals(before, RunePurchaseAvailability.purchaseLabel(false, 10, 5, "монет", before));
-        assertEquals("Купить руну:\\nот 15 монет",
+        assertEquals("Купить руну:\nот 15 монет",
                 RunePurchaseAvailability.purchaseLabel(true, 15, 5, "монет", before));
     }
 
     @Test void changingCollectionDoesNotReuseOldPrice() {
-        String previousCollectionPrice = "Купить руну:\\n10 монет";
+        String previousCollectionPrice = "Купить руну:\n10 монет";
         assertEquals("Купить руну",
                 RunePurchaseAvailability.purchaseLabel(false, 50, 1, "осколков", null));
         assertNotEquals(previousCollectionPrice,
