@@ -79,6 +79,8 @@ public class RunesGuiScreen extends GuiScreen {
     private static final int UNIQUE_AWAKEN_ID = 521;
     private static final int UNIQUE_ROLLBACK_ID = 522;
     private int buyAmount = 1;
+    // Presentation is kept stable during a purchase round-trip, never used as purchase authority.
+    private int purchasePresentationCollection = -1;
     private static RenderItem renderItem;
 
     private final GuiLayout layout = new GuiLayout(VISIBLE_RUNE_SLOTS);
@@ -235,6 +237,7 @@ public class RunesGuiScreen extends GuiScreen {
 
         observedCrystalWallet = ClientPlayerStats.getCrystals();
         if (isUniqueCollectionSelected()) ClientUniqueRunes.sync();
+        ClientPlayerStats.invalidatePurchaseSnapshot();
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("get_player_stats"));
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_decks"));
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_cards"));
@@ -429,9 +432,29 @@ public class RunesGuiScreen extends GuiScreen {
                         }
                     }
                 } else {
-                    button.displayString = "Купить руну:\n"
-                            + (RUNE_UNIT_PRICE * buyAmount)
-                            + " монет";
+                    String resource = ClientPlayerStats.getPurchaseResource();
+                    int unitCost = ClientPlayerStats.getPurchaseUnitCost();
+                    boolean known = ClientPlayerStats.hasPurchaseSnapshot()
+                            && ClientRuneCollections.activeCollection() == activeCollection;
+                    java.math.BigDecimal wallet = ClientPlayerStats.getResourceBalance(resource);
+                    if (purchasePresentationCollection != activeCollection) {
+                        // Never show a previous collection's price while its own snapshot is loading.
+                        purchasePresentationCollection = activeCollection;
+                        button.displayString = "Купить руну";
+                        button.enabled = false;
+                    }
+                    // Do not modify the button's appearance for an in-flight purchase.
+                    // actionPerformed checks hasPurchaseSnapshot before sending any packet, so an
+                    // apparently clickable button cannot trigger another request while stale.
+                    if (known) {
+                        button.enabled = RunePurchaseAvailability.isAvailable(
+                                true, ClientRuneCollections.isUnlocked(activeCollection), false,
+                                wallet, unitCost);
+                        String resourceName = com.example.revolution.resource.definition.ResourceDefinitions.getDisplayName(resource);
+                        // Batches may stop early as the authoritative per-attempt cost advances.
+                        button.displayString = RunePurchaseAvailability.purchaseLabel(
+                                true, unitCost, buyAmount, resourceName, button.displayString);
+                    }
                 }
             } else if (button.id == AMOUNT_BUTTON_START_ID) {
                 button.enabled = !full;
@@ -486,6 +509,7 @@ public class RunesGuiScreen extends GuiScreen {
                 }
                 updatePurchaseAvailability();
                 if (targetCollection != activeCollection) {
+                    ClientPlayerStats.invalidatePurchaseSnapshot();
                     clearRunes();
                     NetworkHandler.INSTANCE.sendToServer(new PingPacket("switch_deck:" + targetCollection));
                 } else if (returnFromUnique) NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_cards"));
@@ -494,6 +518,14 @@ public class RunesGuiScreen extends GuiScreen {
         }
 
         if (button.id == BUY_BUTTON_ID) {
+            if (!RunePurchaseAvailability.isAvailable(
+                    ClientPlayerStats.hasPurchaseSnapshot()
+                            && ClientRuneCollections.activeCollection() == activeCollection,
+                    ClientRuneCollections.isUnlocked(activeCollection),
+                    inventory.isPurchaseLimitReached(),
+                    ClientPlayerStats.getResourceBalance(ClientPlayerStats.getPurchaseResource()),
+                    ClientPlayerStats.getPurchaseUnitCost())) return;
+            ClientPlayerStats.invalidatePurchaseSnapshot();
             NetworkHandler.INSTANCE.sendToServer(
                     new PingPacket("buy_cards:" + buyAmount)
             );
@@ -571,9 +603,9 @@ public class RunesGuiScreen extends GuiScreen {
 
         drawHeadingString("СТАТИСТИКА", x, y, textW, HEADING_TEXT_COLOR, true);
         y += scaled(21, 16);
-        drawStatLine(x, y, "Урон за клик", LargeNumbers.format(ClientPlayerStats.getResolvedClickDamage()), textW);
+        drawStatLine(x, y, "Урон за клик", LargeNumbers.format(ClientPlayerStats.getProjectedClickDamage()), textW);
         y += 13;
-        drawStatLine(x, y, "Урон яда", LargeNumbers.format(ClientPlayerStats.getResolvedPoisonDamage()), textW);
+        drawStatLine(x, y, "Урон яда", LargeNumbers.format(ClientPlayerStats.getProjectedPoisonDamage()), textW);
 
         if (this instanceof RuneResourcesGuiScreen) return;
 
@@ -585,6 +617,26 @@ public class RunesGuiScreen extends GuiScreen {
         drawStatLine(x, y, "Монеты", LargeNumbers.format(ClientPlayerStats.getCoins()), textW);
         y += scaled(16, 12);
         drawStatLine(x, y, "Кристаллы", LargeNumbers.format(ClientPlayerStats.getCrystals()), textW);
+    }
+
+    /** Hover on E damage values: server-derived deterministic layers with explicit exclusions. */
+    private void drawCombatBreakdownTooltip(int mouseX, int mouseY) {
+        int pad = scaled(8, 4);
+        int x = layout.leftPanelX + pad;
+        int y = layout.leftPanelY + pad + scaled(21, 16);
+        int right = layout.leftPanelX + layout.leftPanelWidth - pad;
+        if (mouseX < x || mouseX > right) return;
+        String details;
+        if (mouseY >= y && mouseY <= y + 11) details = ClientPlayerStats.getClickBreakdown();
+        else if (mouseY >= y + 13 && mouseY <= y + 24) details = ClientPlayerStats.getPoisonBreakdown();
+        else return;
+        if (details == null || details.isEmpty()) return;
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        lines.add("§eРасчётный урон по обычному мобу");
+        for (String line : details.split("\\n")) lines.add("§7" + line);
+        // Keep the breakdown off the hovered values; left-panel anchoring previously
+        // covered the Click/Poison rows and could obscure adjacent UI.
+        drawCanvasTooltip(lines, layout.leftPanelX + layout.leftPanelWidth + 12, mouseY);
     }
 
     private void drawStatLine(int x, int y, String name, String value, int availableWidth) {
@@ -1224,10 +1276,19 @@ public class RunesGuiScreen extends GuiScreen {
         }
     }
 
+    private int combatProjectionRefreshTicks;
+
     @Override
     public void updateScreen() {
         super.updateScreen();
         if (searchField != null) searchField.updateCursorCounter();
+        // Refresh server-authoritative E values once per second while this menu is open.
+        // Hit-triggered Rune effects are temporary and can expire without wallet changes;
+        // per-frame requests would unnecessarily flood the server.
+        if (++combatProjectionRefreshTicks >= 20) {
+            combatProjectionRefreshTicks = 0;
+            NetworkHandler.INSTANCE.sendToServer(new PingPacket("get_player_stats"));
+        }
     }
 
     @Override
@@ -1270,6 +1331,7 @@ public class RunesGuiScreen extends GuiScreen {
         if (isUniqueCollectionSelected()) drawInlineUniqueTooltip(mouseX, mouseY);
         else drawRuneTooltip(mouseX, mouseY);
         if (equipmentTooltip != null) drawCanvasTooltip(java.util.Collections.singletonList(equipmentTooltip), mouseX, mouseY);
+        drawCombatBreakdownTooltip(mouseX, mouseY);
         GlStateManager.popMatrix();
     }
 

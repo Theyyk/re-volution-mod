@@ -18,8 +18,8 @@ import org.lwjgl.input.Mouse;
 
 /** Client projection of existing server-authoritative Auras; no gameplay mutations are defined here. */
 public final class AuraGuiScreen extends GuiScreen {
+    private final GuiBackgroundBlur backgroundBlur = new GuiBackgroundBlur();
     private static final int ROW_HEIGHT = 24;
-    private static long nonce = System.currentTimeMillis();
     private final List<AuraSnapshotPacket.Entry> visible = new ArrayList<>();
     private String rarityFilter = "ALL";
     private String selectedId = "";
@@ -73,6 +73,7 @@ public final class AuraGuiScreen extends GuiScreen {
         buttonList.add(new GuiControls.PanelButton(31, x + listWidth() - 27, topY + panelHeight() - 55, 27, 19, ">"));
         rebuildVisible();
         updateButtons();
+        backgroundBlur.enable(mc);
     }
 
     private boolean auraAvailable() {
@@ -158,7 +159,7 @@ public final class AuraGuiScreen extends GuiScreen {
     }
 
     private void send(String action, String value, String ids) {
-        NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket(action, value, ids, ++nonce));
+        NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket(action, value, ids, AuraActionNonce.next()));
     }
 
     private void cycleFilter() {
@@ -337,6 +338,14 @@ public final class AuraGuiScreen extends GuiScreen {
                 (AuraListLayout.lastPage(visible.size(), rowsPerPage()) + 1),
                 lx + 35, y + h - 49, lw - 73, GuiTheme.SILVER_COLOR);
         super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    @Override public void onGuiClosed() {
+        try {
+            backgroundBlur.disable(mc);
+        } finally {
+            super.onGuiClosed();
+        }
     }
 
     @Override public boolean doesGuiPauseGame() { return false; }

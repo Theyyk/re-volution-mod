@@ -1,0 +1,56 @@
+package com.example.revolution.client;
+
+import java.math.BigDecimal;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+public final class RunePurchaseAvailabilityTest {
+    @Test void exactBalanceIsAvailable() {
+        assertTrue(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.TEN, 10));
+    }
+    @Test void insufficientWalletIsUnavailable() {
+        assertFalse(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.valueOf(9), 10));
+        assertFalse(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.ZERO, 1));
+    }
+    @Test void unknownAndLockedStateFailClosed() {
+        assertFalse(RunePurchaseAvailability.isAvailable(false, true, false, BigDecimal.TEN, 1));
+        assertFalse(RunePurchaseAvailability.isAvailable(true, false, false, BigDecimal.TEN, 1));
+        assertFalse(RunePurchaseAvailability.isAvailable(true, true, true, BigDecimal.TEN, 1));
+        assertFalse(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.TEN, 0));
+    }
+    @Test void newerWalletSnapshotChangesEligibility() {
+        assertTrue(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.TEN, 10));
+        assertFalse(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.ZERO, 10));
+        assertTrue(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.TEN, 10));
+    }
+    @Test void pendingPurchaseHidesTechnicalSyncDetails() {
+        String label = RunePurchaseAvailability.purchaseLabel(false, 10, 5, "монет", null);
+        assertEquals("Купить руну", label);
+        assertFalse(label.contains("Ожидание"));
+        assertFalse(label.contains("данных"));
+        assertFalse(RunePurchaseAvailability.isAvailable(false, true, false, BigDecimal.TEN, 10));
+    }
+    @Test void publishedPriceReturnsAfterFreshSnapshot() {
+        assertEquals("Купить руну:\n10 монет",
+                RunePurchaseAvailability.purchaseLabel(true, 10, 1, "монет", "Купить руну"));
+        assertEquals("Купить руну:\nот 10 монет",
+                RunePurchaseAvailability.purchaseLabel(true, 10, 5, "монет", "Купить руну"));
+        assertEquals("Купить руну:\nНедоступно",
+                RunePurchaseAvailability.purchaseLabel(true, 0, 1, "монет", "Купить руну"));
+    }
+    @Test void purchaseRoundTripPreservesVisiblePrice() {
+        String before = RunePurchaseAvailability.purchaseLabel(true, 10, 5, "монет", null);
+        assertEquals(before, RunePurchaseAvailability.purchaseLabel(false, 10, 5, "монет", before));
+        assertEquals("Купить руну:\nот 15 монет",
+                RunePurchaseAvailability.purchaseLabel(true, 15, 5, "монет", before));
+    }
+
+    @Test void changingCollectionDoesNotReuseOldPrice() {
+        String previousCollectionPrice = "Купить руну:\n10 монет";
+        assertEquals("Купить руну",
+                RunePurchaseAvailability.purchaseLabel(false, 50, 1, "осколков", null));
+        assertNotEquals(previousCollectionPrice,
+                RunePurchaseAvailability.purchaseLabel(false, 50, 1, "осколков", null));
+    }
+}
+

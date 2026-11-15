@@ -17,9 +17,14 @@ public final class ClientPlayerStats {
     private static int totalDamage;
     private static double resolvedClickDamage;
     private static double resolvedPoisonDamage;
+    private static double projectedClickDamage;
+    private static double projectedPoisonDamage;
+    private static String clickBreakdown = "";
+    private static String poisonBreakdown = "";
     private static int activeRuneStatusId = RuneStatusConfig.STATUS_POISON;
     private static String purchaseResource = "coins";
     private static int purchaseUnitCost = 100;
+    private static boolean purchaseSnapshotReady;
     private static String awakeningResource = "";
     private static int awakeningNormalCost;
     private static int awakeningImprovedCost;
@@ -33,7 +38,8 @@ public final class ClientPlayerStats {
         coins = safe(newCoins); crystals = safe(newCrystals); runeDust = safe(newRuneDust); runeShards = safe(newRuneShards); runeCores = safe(newRuneCores);
         totalDamage = newTotalDamage; activeRuneStatusId = newActiveRuneStatusId;
         purchaseResource = newPurchaseResource == null || newPurchaseResource.trim().isEmpty() ? "coins" : ResourceDefinitions.normalize(newPurchaseResource);
-        purchaseUnitCost = Math.max(1, newPurchaseUnitCost);
+        purchaseUnitCost = Math.max(0, newPurchaseUnitCost);
+        purchaseSnapshotReady = true;
         awakeningResource = newAwakeningResource == null ? "" : ResourceDefinitions.normalize(newAwakeningResource);
         awakeningNormalCost = Math.max(0, newAwakeningNormalCost); awakeningImprovedCost = Math.max(0, newAwakeningImprovedCost);
     }
@@ -47,6 +53,13 @@ public final class ClientPlayerStats {
     public static void setResolvedCombat(double clickDamage, double poisonDamage) {
         resolvedClickDamage = finiteNonNegative(clickDamage);
         resolvedPoisonDamage = finiteNonNegative(poisonDamage);
+    }
+
+    public static void setDamageProjection(double click, double poison, String clickDetails, String poisonDetails) {
+        projectedClickDamage = finiteNonNegative(click);
+        projectedPoisonDamage = finiteNonNegative(poison);
+        clickBreakdown = clickDetails == null ? "" : clickDetails;
+        poisonBreakdown = poisonDetails == null ? "" : poisonDetails;
     }
 
     private static double finiteNonNegative(double value) {
@@ -76,9 +89,15 @@ public final class ClientPlayerStats {
     public static int getTotalDamage() { return totalDamage; }
     public static double getResolvedClickDamage() { return resolvedClickDamage; }
     public static double getResolvedPoisonDamage() { return resolvedPoisonDamage; }
+    public static double getProjectedClickDamage() { return projectedClickDamage; }
+    public static double getProjectedPoisonDamage() { return projectedPoisonDamage; }
+    public static String getClickBreakdown() { return clickBreakdown; }
+    public static String getPoisonBreakdown() { return poisonBreakdown; }
     public static int getActiveRuneStatusId() { return activeRuneStatusId; }
     public static String getPurchaseResource() { return purchaseResource; }
     public static int getPurchaseUnitCost() { return purchaseUnitCost; }
+    public static boolean hasPurchaseSnapshot() { return purchaseSnapshotReady; }
+    public static void invalidatePurchaseSnapshot() { purchaseSnapshotReady = false; }
     public static String getAwakeningResource() { return awakeningResource; }
     public static int getAwakeningNormalCost() { return awakeningNormalCost; }
     public static int getAwakeningImprovedCost() { return awakeningImprovedCost; }

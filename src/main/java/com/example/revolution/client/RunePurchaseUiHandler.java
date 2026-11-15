@@ -33,14 +33,14 @@ public class RunePurchaseUiHandler {
     @SubscribeEvent public void onInitGui(GuiScreenEvent.InitGuiEvent.Post event) {
         trackedScreen = event.getGui(); trackedButtons = event.getButtonList(); enhancementAmount = 1;
         compactStatusButtons(event.getGui(), trackedButtons); installEnhancementAmountButton(event.getGui(), trackedButtons);
-        applyState(event.getGui()); applyPurchaseEconomy(event.getGui(), trackedButtons); applyAwakeningEconomy(event.getGui(), trackedButtons); applyEnhancementEconomy(event.getGui(), trackedButtons);
+        applyState(event.getGui()); applyAwakeningEconomy(event.getGui(), trackedButtons); applyEnhancementEconomy(event.getGui(), trackedButtons);
     }
 
     @SubscribeEvent public void onDrawPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
         applyState(event.getGui());
         if (event.getGui() == trackedScreen) {
             installEnhancementAmountButton(event.getGui(), trackedButtons); compactStatusButtons(event.getGui(), trackedButtons);
-            applyPurchaseEconomy(event.getGui(), trackedButtons); applyAwakeningEconomy(event.getGui(), trackedButtons); applyEnhancementEconomy(event.getGui(), trackedButtons);
+            applyAwakeningEconomy(event.getGui(), trackedButtons); applyEnhancementEconomy(event.getGui(), trackedButtons);
         }
     }
 
@@ -131,24 +131,6 @@ public class RunePurchaseUiHandler {
             maximum = maximum == null || cost.compareTo(maximum) > 0 ? cost : maximum;
         }
         return minimum == null ? CostRange.invalid() : new CostRange(true, minimum, maximum);
-    }
-
-    private void applyPurchaseEconomy(GuiScreen gui, List<GuiButton> buttons) {
-        if (!(gui instanceof RunesGuiScreen) || buttons == null || !usesStatusPurchaseEconomy()) return;
-        GuiButton purchase = findButton(buttons, PURCHASE_OR_AWAKENING_BUTTON_ID);
-        if (purchase == null || !purchase.enabled) return;
-
-        int unitCost = Math.max(1, ClientPlayerStats.getPurchaseUnitCost());
-        long total = (long) unitCost * currentBuyAmount(buttons);
-        if (total > Integer.MAX_VALUE) total = Integer.MAX_VALUE;
-
-        String resource = ClientPlayerStats.getPurchaseResource();
-        String resourceName = priceResourceName(resource);
-        BigDecimal totalCost = BigDecimal.valueOf(total);
-        BigDecimal balance = ClientPlayerStats.getResourceBalance(resource);
-
-        purchase.displayString = "Купить руну:\n" + LargeNumbers.format(totalCost) + " " + resourceName;
-        purchase.enabled = balance.signum() >= 0 && balance.compareTo(totalCost) >= 0;
     }
 
     private void applyAwakeningEconomy(GuiScreen gui, List<GuiButton> buttons) {

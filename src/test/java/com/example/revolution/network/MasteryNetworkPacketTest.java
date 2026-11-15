@@ -37,6 +37,9 @@ public final class MasteryNetworkPacketTest {
         original.masteryPending = "4";
         original.petPending = "8";
         original.ranks = "POISON_I";
+        original.masteryClickMultiplier = "1.02";
+        original.masteryPoisonMultiplier = "1.17";
+        original.masteryAllMultiplier = "1.01";
         original.startedAt = 1234L;
         original.masteryResetAvailable = true;
         original.premiumPreserveAvailable = true;
@@ -44,7 +47,8 @@ public final class MasteryNetworkPacketTest {
         original.premiumPreservePets = false;
         original.premiumCrystalCost = 12;
         original.addBranch(new MasterySnapshotPacket.BranchEntry("POISON", "POISON_DAMAGE", "999", 2, 15, 3));
-        original.addPermanentRank(new MasterySnapshotPacket.RankEntry("POISON", "POISON_I", "100", 2, 15));
+        original.addPermanentRank(new MasterySnapshotPacket.RankEntry("POISON", "POISON_I", "100", 2, 15,
+                "POISON_DAMAGE_MULTIPLIER", "0.06"));
         original.addPermanentRank(new MasterySnapshotPacket.RankEntry("POISON", "POISON_II", "500", 0, 15));
         ByteBuf buf = Unpooled.buffer();
         try {
@@ -62,6 +66,9 @@ public final class MasteryNetworkPacketTest {
             assertEquals("4", copy.masteryPending);
             assertEquals("8", copy.petPending);
             assertEquals("POISON_I", copy.ranks);
+            assertEquals("1.02", copy.masteryClickMultiplier);
+            assertEquals("1.17", copy.masteryPoisonMultiplier);
+            assertEquals("1.01", copy.masteryAllMultiplier);
             assertEquals(1234L, copy.startedAt);
             assertTrue(copy.masteryResetAvailable);
             assertTrue(copy.premiumPreserveAvailable);
@@ -76,6 +83,8 @@ public final class MasteryNetworkPacketTest {
             assertEquals("100", copy.getPermanentRanks().get(0).threshold);
             assertEquals(2, copy.getPermanentRanks().get(0).metaLevel);
             assertEquals(15, copy.getPermanentRanks().get(0).metaCap);
+            assertEquals("POISON_DAMAGE_MULTIPLIER", copy.getPermanentRanks().get(0).effectStat);
+            assertEquals("0.06", copy.getPermanentRanks().get(0).effectValue);
             assertEquals("POISON_II", copy.getPermanentRanks().get(1).id);
             assertFalse(buf.isReadable());
         } finally { buf.release(); }

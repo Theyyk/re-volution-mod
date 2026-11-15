@@ -1,5 +1,6 @@
 package com.example.revolution.player.service;
 
+import com.example.revolution.gameplay.GameplayDamageSource;
 import com.example.revolution.network.NetworkHandler;
 import com.example.revolution.network.PlayerStatsPacket;
 import com.example.revolution.player.repository.PlayerRepository;
@@ -31,6 +32,23 @@ public final class PlayerStatsSyncService {
     private RunePurchaseBalanceService purchaseBalance;
     private RuneRankUpBalanceService rankUpBalance;
     private UniqueRuneService uniqueRunes;
+    /** Read-only server evaluator of all deterministic managed-mob combat layers. */
+    public interface DamageProjection {
+        DamagePreview project(UUID playerUuid, GameplayDamageSource channel, double runeBase);
+    }
+    public static final class DamagePreview {
+        public final double amount;
+        public final String breakdown;
+        public DamagePreview(double amount, String breakdown) {
+            this.amount = Double.isFinite(amount) ? Math.max(0.0D, amount) : 0.0D;
+            this.breakdown = breakdown == null ? "" : breakdown;
+        }
+    }
+    private DamageProjection damageProjection;
+    public void bindDamageProjection(DamageProjection provider) {
+        if (provider == null || damageProjection != null) throw new IllegalStateException("Damage projection already bound or null");
+        damageProjection = provider;
+    }
 
     public PlayerStatsSyncService(
             PlayerRepository players,
@@ -79,10 +97,13 @@ public final class PlayerStatsSyncService {
         int activeCollection = players.getActiveCollection(uuid);
         int statusId = RuneStatusConfig.statusForCollection(activeCollection);
 
-        RuneCombatMath.Snapshot stableCombat = combat.resolveStable(uuid);
+        // Read the same tick-aware Rune snapshot used for actual CLICK/POISON damage.
+        // Proc remains false: E shows deterministic damage, not a guaranteed random proc.
+        // This also exposes an already-active hit-triggered temporary buff until it expires.
+        RuneCombatMath.Snapshot liveCombat = combat.resolve(uuid, player.getServerWorld().getTotalWorldTime());
         double baseDamage = player.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).getAttributeValue();
-        double resolvedClickDamage = RuneCombatMath.clickDamage(baseDamage, stableCombat, false);
-        double resolvedPoisonDamage = RuneCombatMath.poisonDamage(stableCombat);
+        double resolvedClickDamage = RuneCombatMath.clickDamage(baseDamage, liveCombat, false);
+        double resolvedPoisonDamage = RuneCombatMath.poisonDamage(liveCombat);
 
         String purchaseResource = RuneEconomyConfig.purchaseResourceForStatus(statusId);
         String canonicalPurchaseResource = ResourceDefinitions.findCanonicalName(purchaseResource);
@@ -90,12 +111,14 @@ public final class PlayerStatsSyncService {
         int purchaseUnitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
         int[] bestRanks = null;
         RuneCollectionId fixedCollection = RuneCollectionId.fromLegacyIndex(activeCollection);
-        if (fixedCollection != null && RuneStatusConfig.isRuneStatus(statusId)) {
+        if (fixedCollection != null) {
             bestRanks = loadBestRanks(uuid, activeCollection);
             if (purchaseBalance != null) {
                 RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(bestRanks);
-                canonicalPurchaseResource = purchaseBalance.purchaseResource(statusId);
-                purchaseUnitCost = resolvePurchaseUnitCost(purchaseBalance, statusId, progression);
+                canonicalPurchaseResource = purchaseBalance.purchaseResource(fixedCollection);
+                purchaseUnitCost = progression.isComplete() ? 0 : purchaseBalance.purchaseCost(
+                        fixedCollection, progression.stageRank(), progression.lowerProgress(),
+                        progression.higherRuneCount());
             }
         }
 
@@ -104,7 +127,7 @@ public final class PlayerStatsSyncService {
         if (canonicalAwakeningResource == null) canonicalAwakeningResource = awakeningResource;
         int awakeningNormalCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.NORMAL_RANK);
         int awakeningImprovedCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.IMPROVED_RANK);
-        if (bestRanks != null && rankUpBalance != null) {
+        if (bestRanks != null && rankUpBalance != null && RuneStatusConfig.isRuneStatus(statusId)) {
             RuneRankUpRule currentRule = currentAwakeningRule(rankUpBalance, fixedCollection, bestRanks);
             if (currentRule != null) {
                 canonicalAwakeningResource = currentRule.resource;
@@ -120,6 +143,18 @@ public final class PlayerStatsSyncService {
         PlayerStatsPacket snapshot = new PlayerStatsPacket(coins, crystals, runeDust, runeShards, runeCores, totalDamage,
                 statusId, canonicalPurchaseResource, purchaseUnitCost, canonicalAwakeningResource, awakeningNormalCost,
                 awakeningImprovedCost, resolvedClickDamage, resolvedPoisonDamage);
+        if (damageProjection != null) {
+            // DamageBonusHandler uses legacy additive stats when no RuneCombat snapshot exists.
+            // Match that authoritative fallback instead of advertising only vanilla base damage.
+            double clickBase = liveCombat == null
+                    ? Math.max(0.0D, baseDamage + playerStats.getTotalDamageBonusValue(uuid))
+                    : resolvedClickDamage;
+            DamagePreview clickPreview = damageProjection.project(uuid, GameplayDamageSource.CLICK, clickBase);
+            DamagePreview poisonPreview = damageProjection.project(uuid, GameplayDamageSource.POISON, resolvedPoisonDamage);
+            NetworkHandler.sendToClient(new com.example.revolution.network.CombatProjectionPacket(
+                    clickPreview.amount, poisonPreview.amount,
+                    clickPreview.breakdown, poisonPreview.breakdown), player);
+        }
         if (uniqueRunes != null) snapshot.setUniqueWalletBalances(
                 uniqueRunes.pearlBalance(uuid), uniqueRunes.offeringsBalance(uuid));
         NetworkHandler.sendToClient(snapshot, player);

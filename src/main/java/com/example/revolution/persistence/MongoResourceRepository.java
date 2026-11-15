@@ -4,6 +4,8 @@ import com.example.revolution.number.LargeNumbers;
 import com.example.revolution.rune.service.RunePurchaseProfiling;
 import com.example.revolution.resource.repository.ResourceRepository;
 import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.MongoWriteException;
+import com.mongodb.client.result.UpdateResult;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.bson.Document;
@@ -54,6 +56,68 @@ public final class MongoResourceRepository implements ResourceRepository {
                 new Document("_id", uuid.toString()),
                 new Document("$set", new Document(field, LargeNumbers.canonical(value.max(BigDecimal.ZERO)))),
                 new UpdateOptions().upsert(true)));
+    }
+
+
+    /** The whole snapshot is read from one document, including the reset generation. */
+    @Override
+    public ResourceSnapshot resourceSnapshot(UUID uuid, String canonical) {
+        String field = playerResourceField(canonical);
+        Document doc = connection.collection("players")
+                .find(new Document("_id", uuid.toString())).first();
+        Object raw = doc == null ? null : nested(doc, field);
+        String epoch = doc == null ? null : doc.getString("resourceResetEpoch");
+        BigDecimal value = decimal(raw);
+        return new ResourceSnapshot(value, raw, epoch);
+    }
+
+    /** Atomic compare-and-set closes the race with reset and with concurrent rewards. */
+    @Override
+    public boolean compareAndSetPlayerResource(UUID uuid, String canonical,
+                                               ResourceSnapshot observed, BigDecimal next) {
+        return writeGuarded(uuid, canonical, observed, next, null);
+    }
+
+    @Override
+    public boolean compareAndSetPlayerResourceForRun(UUID uuid, String canonical,
+                                                      ResourceSnapshot observed, BigDecimal next,
+                                                      String expectedRunId) {
+        if (expectedRunId == null || expectedRunId.isEmpty()) return false;
+        return writeGuarded(uuid, canonical, observed, next, expectedRunId);
+    }
+
+    private boolean writeGuarded(UUID uuid, String canonical, ResourceSnapshot observed,
+                                 BigDecimal next, String expectedRunId) {
+        if (uuid == null || observed == null || next == null || next.signum() < 0) return false;
+        String field = playerResourceField(canonical);
+        Document filter = new Document("_id", uuid.toString())
+                .append(field, observed.observedValue)
+                .append("resourceResetEpoch", observed.resetEpoch);
+        if (expectedRunId != null) filter.append("prestige.activeRun.runId", expectedRunId);
+        try {
+            UpdateResult result = connection.collection("players").updateOne(filter,
+                    new Document("$set", new Document(field, LargeNumbers.canonical(next))),
+                    new UpdateOptions().upsert(expectedRunId == null));
+            return result != null && (result.getMatchedCount() > 0 || result.getUpsertedId() != null);
+        } catch (MongoWriteException duplicate) {
+            if (duplicate.getError().getCode() == 11000) return false;
+            throw duplicate;
+        }
+    }
+
+    private static Object nested(Document document, String path) {
+        Object result = document;
+        for (String part : path.split("\\.")) {
+            if (!(result instanceof Document)) return null;
+            result = ((Document) result).get(part);
+        }
+        return result;
+    }
+
+    private static BigDecimal decimal(Object raw) {
+        if (raw == null) return BigDecimal.ZERO;
+        try { return LargeNumbers.parseExact(String.valueOf(raw)); }
+        catch (RuntimeException invalid) { return BigDecimal.ZERO; }
     }
 
     private BigDecimal getDecimal(Document doc, String field) {

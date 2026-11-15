@@ -43,6 +43,20 @@ public final class AuraClientState {
     public static synchronized boolean featureEnabled() { return featureEnabled; }
     public static synchronized int craftCost(String rarity) { Integer value = CRAFT_COSTS.get(rarity); return value == null ? 0 : Math.max(0, value); }
     public static synchronized int dismantleReturn(String rarity) { Integer value = DISMANTLE_RETURNS.get(rarity); return value == null ? 0 : Math.max(0, value); }
+    /** Do not carry Aura ownership/unlock UI across connections or player sessions. */
+    public static synchronized void reset() {
+        ENTRIES.clear();
+        CRAFT_COSTS.clear();
+        DISMANTLE_RETURNS.clear();
+        auraKeys = 0;
+        crystals = 0;
+        keyCrystalPrice = 0;
+        totalChestOpens = 0L;
+        totalChestAuraDrops = 0L;
+        skipAnimation = false;
+        featureEnabled = false;
+        openRequested = false;
+    }
     public static synchronized void requestOpen() { openRequested = true; }
     public static synchronized boolean consumeOpenRequested() { boolean value = openRequested; openRequested = false; return value; }
 }

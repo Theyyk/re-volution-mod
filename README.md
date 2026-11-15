@@ -2,11 +2,11 @@
 
 Серверно-авторитетный gameplay-мод RE:volution для Minecraft Forge 1.12.2. Репозиторий содержит основную игровую логику: интерфейс игрока, руны и статусы, экономику ресурсов, managed-мобов, Realm runtime, Location/stage progression, переходы между стадиями и MongoDB persistence.
 
-**Стабильная версия: `v2.12.2`.**
+**Стабильная версия: `v2.13.0`.**
 
-Версия исходного кода подготовлена для v2.12.2; до Minecraft Release QA PASS, promotion и публикации GitHub Release эта версия является кандидатом, а действующий опубликованный Stable — v2.12.1. **GitHub Release и установка в PROD — разные этапы:** публикация JAR не обновляет игровой сервер или подписанный production manifest.
+Gameplay v2.13.0 — Variant A (Unified UI/GUI System). Версия предназначена для Stable GitHub Release; установка на PROD Docker и публикация production Client manifest являются отдельными операциями. **GitHub Release и установка в PROD — разные этапы:** публикация JAR не обновляет игровой сервер или подписанный production manifest.
 
-[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.12.2](docs/releases/v2.12.2.md) · [История релизов](docs/releases/README.md)
+[Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.13.0](docs/releases/v2.13.0.md) · [История релизов](docs/releases/README.md)
 
 README описывает только **актуальное состояние проекта**. История изменений хранится в `docs/releases/` и GitHub Releases и здесь не дублируется.
 
@@ -178,7 +178,7 @@ Namespace rune-ассетов: `customguimod`. При отсутствии ну�
 
 Gameplay-изменения проходят через feature/fix branch → PR в `develop` → exact-head CI → обычный merge → post-merge CI. Stable promotion в `main` выполняется отдельно; squash/rebase для release history не используются.
 
-Перед stable promotion CI дополнительно требует, чтобы version metadata, строка стабильной версии README и ссылка README на текущий release contract совпадали. Поэтому тег нельзя штатно выпустить с устаревшим README.
+CI требует, чтобы source version metadata совпадали между Gradle, mcmod.info и Java. На development-ветках README может указывать последний опубликованный Stable и его контракт. При создании release tag все версии, README Stable-маркер и ссылка на контракт обязаны совпадать с тегом. До Stable promotion исходный кандидат v2.13.0 не является опубликованным Stable.
 
 CI проверяет:
 

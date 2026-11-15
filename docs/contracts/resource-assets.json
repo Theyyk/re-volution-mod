@@ -51,7 +51,7 @@
   "src/main/resources/assets/revolution/textures/entity/location1/wood_mantis.png": "26f7d63ede2e942d7e2a4143ad9c044297ab06b885101a8039c690ad57b1de0c",
   "src/main/resources/assets/revolution/textures/entity/location1/wood_serpent.png": "6a7aacee1121b7bb44fb416d158cca10f797b6b8f31e036acebc24a7641116c9",
   "src/main/resources/assets/revolution/textures/gui/runes/README.md": "ded957eca8f1981aed7bf82c9c42845fa09d74f7904585605f0ded4c0e878dbe",
-  "src/main/resources/balance/default-balance.json": "3337a9273ec4224505195489b3ef9acbbe07a96b2f1fba99cf0c976a425d6239",
+  "src/main/resources/balance/default-balance.json": "d7173e589bbecbb78f089de0674a06c10a466bbad65671cfba6af720c73001e1",
   "src/main/resources/balance/v2.10.0-achievements.json": "bab2ab928ddbbc90f91420a6992deb858db24c205260a33e19f412bfbe08be6d",
   "src/main/resources/balance/v2.11.0-unique-runes.json": "851f5b64ee431cece116561a79b4097040fd30dfb9f84e71b05d82f4311c009a",
   "src/main/resources/balance/v2.12.0-mechanic-unlocks.json": "ff1d95c17f04354156ee43db5341193264afc59091823e2faaa78f1c1fb46472",
@@ -62,7 +62,7 @@
   "src/main/resources/balance/v2.5.0-mastery-reset.json": "7062367866e00fe2295a4504a27da6a615fa725058ee34622d23f506c6c58721",
   "src/main/resources/balance/v2.6.0-run-exchange.json": "c804a7cb188838421bd61c14854b14e85f0b19e9e575b0137e94b68b801bc7d1",
   "src/main/resources/balance/v2.7.0-quests.json": "5e4f5688faff16274d6bc148358c990e273064b9df87e468368658adfbb95376",
-  "src/main/resources/balance/v2.8.0-god-worship.json": "576f899bce5905ecefe9ab52ce8e4dd6a78a4d0d4e9515c5553996e30f0cfd76",
+  "src/main/resources/balance/v2.8.0-god-worship.json": "9dba3e8864b01c9ba6ab9ecd10ebf1decc5d4fe2e6ec4c255b01f945980df895",
   "src/main/resources/balance/v2.9.0-auras.json": "17735504f5a82765208cd217ca27e8b7785be1b5610546003bf7300f314c1ce2",
   "src/main/resources/pack.mcmeta": "a94f455eda44e4abab68a6425353cac65c10a0dcd1f4fcad8143f7965a866fe4"
 }

@@ -19,6 +19,27 @@ public final class GodWorshipRequestLimiter {
         }
     }
 
+    /**
+     * Bound queued God click work before it reaches the Minecraft server thread.
+     * This does not replace the Balance Core click rate or server-side nonce checks.
+     */
+    public static boolean beginQueuedClick(UUID playerUuid) {
+        if (playerUuid == null) return false;
+        State state = STATES.computeIfAbsent(playerUuid, ignored -> new State());
+        synchronized (state) {
+            if (state.clickQueued) return false;
+            state.clickQueued = true;
+            return true;
+        }
+    }
+
+    public static void finishQueuedClick(UUID playerUuid) {
+        if (playerUuid == null) return;
+        State state = STATES.get(playerUuid);
+        if (state == null) return;
+        synchronized (state) { state.clickQueued = false; }
+    }
+
     public static boolean acceptClick(UUID playerUuid, long nowMillis, int maxPerSecond) {
         if (playerUuid == null || maxPerSecond <= 0) return false;
         State state = STATES.computeIfAbsent(playerUuid, ignored -> new State());
@@ -37,6 +58,7 @@ public final class GodWorshipRequestLimiter {
     public static void reset() { STATES.clear(); }
 
     private static final class State {
+        boolean clickQueued;
         long lastNonce;
         long clickWindowStart;
         int clickCount;

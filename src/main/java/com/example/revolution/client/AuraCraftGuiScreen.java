@@ -15,9 +15,9 @@ import org.lwjgl.input.Keyboard;
 
 /** UI-only three-stage explicit material selector; server remains authoritative. */
 public final class AuraCraftGuiScreen extends GuiScreen {
+    private final GuiBackgroundBlur backgroundBlur = new GuiBackgroundBlur();
     private static final String[] RARITIES = {"COMMON", "RARE", "EPIC", "LEGENDARY"};
     private static final int ROW = 29;
-    private static long nonce = System.currentTimeMillis();
     private final AuraGuiScreen parent;
     private final List<String> selectedIds = new ArrayList<>();
     private String rarity = "";
@@ -40,7 +40,17 @@ public final class AuraCraftGuiScreen extends GuiScreen {
     }
     private int lastPage(int count) { return Math.max(0, (Math.max(0, count) - 1) / rows()); }
 
-    @Override public void initGui() { buttonList.clear(); }
+    @Override public void initGui() {
+        buttonList.clear();
+        backgroundBlur.enable(mc);
+    }
+    @Override public void onGuiClosed() {
+        try {
+            backgroundBlur.disable(mc);
+        } finally {
+            super.onGuiClosed();
+        }
+    }
     @Override public boolean doesGuiPauseGame() { return false; }
     private static boolean hit(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
@@ -98,7 +108,7 @@ public final class AuraCraftGuiScreen extends GuiScreen {
                 if (ids.length() != 0) ids.append(',');
                 ids.append(id);
             }
-            NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket("craft", rarity, ids.toString(), ++nonce));
+            NetworkHandler.INSTANCE.sendToServer(new AuraActionPacket("craft", rarity, ids.toString(), AuraActionNonce.next()));
             mc.displayGuiScreen(parent);
         }
     }

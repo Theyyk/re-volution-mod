@@ -39,9 +39,23 @@ public final class RuneAwakeningInputTest {
         for (int rune = 0; rune < 25; rune++) inventory.set(rune, rune, RuneInventory.NORMAL_RANK);
         equal(select(layout, inventory, 0, 665, 118), -1, "incomplete collection must not awaken");
         fill(inventory, RuneInventory.ADVANCED_RANK);
-        equal(select(layout, inventory, 0, 665, 118), -1, "all gold collection must not awaken");
+        equal(select(layout, inventory, 0, 665, 118), 0,
+                "full ADVANCED collection must allow ADVANCED to MYTHIC");
+        equal(inventory.awakeningDecision(0).nextRank, RuneInventory.MYTHIC_RANK,
+                "eligible ADVANCED rune targets MYTHIC");
+        inventory.set(0, 0, RuneInventory.MYTHIC_RANK);
+        equal(select(layout, inventory, 0, 665, 118), -1,
+                "already MYTHIC rune cannot awaken beyond maximum");
+        equal(select(layout, inventory, 0, 735, 118), 1,
+                "remaining ADVANCED rune can still awaken beside MYTHIC");
         inventory.set(25, 25, RuneInventory.IMPROVED_RANK);
-        equal(select(layout, inventory, 0, 940, 228), 25, "mixed ranks remain selectable");
+        equal(select(layout, inventory, 0, 735, 118), -1,
+                "ADVANCED awakening requires all 26 runes at least ADVANCED");
+        equal(select(layout, inventory, 0, 940, 228), 25,
+                "IMPROVED rune remains eligible in mixed-rank collection");
+        fill(inventory, RuneInventory.MYTHIC_RANK);
+        equal(select(layout, inventory, 0, 665, 118), -1,
+                "full MYTHIC collection must reject terminal-rank awakening");
         System.out.println("Awakening left-click input, scaling, search and collection guards passed");
     }
 

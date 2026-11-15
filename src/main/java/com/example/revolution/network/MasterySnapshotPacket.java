@@ -28,10 +28,18 @@ public final class MasterySnapshotPacket implements IMessage {
         public String threshold = "0";
         public int metaLevel;
         public int metaCap;
+        /** Server-projected existing rank contribution; no new modifier balance. */
+        public String effectStat = "";
+        public String effectValue = "0";
         public RankEntry() {}
         public RankEntry(String branch, String id, String threshold, int metaLevel, int metaCap) {
             this.branch = branch; this.id = id; this.threshold = threshold;
             this.metaLevel = metaLevel; this.metaCap = metaCap;
+        }
+        public RankEntry(String branch, String id, String threshold, int metaLevel, int metaCap,
+                         String effectStat, String effectValue) {
+            this(branch, id, threshold, metaLevel, metaCap);
+            this.effectStat = effectStat; this.effectValue = effectValue;
         }
     }
     public long requestId;
@@ -48,6 +56,10 @@ public final class MasterySnapshotPacket implements IMessage {
     public String masteryPending = "0";
     public String petPending = "0";
     public String ranks = "";
+    /** Read-only server projections of the existing Mastery contribution layer, NOT final hit damage. */
+    public String masteryClickMultiplier = "1";
+    public String masteryPoisonMultiplier = "1";
+    public String masteryAllMultiplier = "1";
     public boolean masteryResetAvailable;
     public boolean premiumPreserveAvailable;
     public boolean premiumPreserveRunes;
@@ -70,6 +82,7 @@ public final class MasterySnapshotPacket implements IMessage {
         previewKind = read(buf); previewDetails = read(buf);
         runId = read(buf); activeBranch = read(buf); progress = read(buf); level = buf.readInt();
         fragments = read(buf); masteryPending = read(buf); petPending = read(buf); ranks = read(buf);
+        masteryClickMultiplier = read(buf); masteryPoisonMultiplier = read(buf); masteryAllMultiplier = read(buf);
         masteryResetAvailable = buf.readBoolean(); premiumPreserveAvailable = buf.readBoolean();
         premiumPreserveRunes = buf.readBoolean(); premiumPreservePets = buf.readBoolean();
         premiumCrystalCost = buf.readInt(); startedAt = buf.readLong();
@@ -89,6 +102,7 @@ public final class MasterySnapshotPacket implements IMessage {
             RankEntry rank = new RankEntry();
             rank.branch = read(buf); rank.id = read(buf); rank.threshold = read(buf);
             rank.metaLevel = buf.readInt(); rank.metaCap = buf.readInt();
+            rank.effectStat = read(buf); rank.effectValue = read(buf);
             permanentRanks.add(rank);
         }
     }
@@ -98,6 +112,7 @@ public final class MasterySnapshotPacket implements IMessage {
         write(buf, previewKind); write(buf, previewDetails);
         write(buf, runId); write(buf, activeBranch); write(buf, progress); buf.writeInt(level);
         write(buf, fragments); write(buf, masteryPending); write(buf, petPending); write(buf, ranks);
+        write(buf, masteryClickMultiplier); write(buf, masteryPoisonMultiplier); write(buf, masteryAllMultiplier);
         buf.writeBoolean(masteryResetAvailable); buf.writeBoolean(premiumPreserveAvailable);
         buf.writeBoolean(premiumPreserveRunes); buf.writeBoolean(premiumPreservePets);
         buf.writeInt(premiumCrystalCost); buf.writeLong(startedAt);
@@ -110,6 +125,7 @@ public final class MasterySnapshotPacket implements IMessage {
         for (RankEntry rank : permanentRanks) {
             write(buf, rank.branch); write(buf, rank.id); write(buf, rank.threshold);
             buf.writeInt(rank.metaLevel); buf.writeInt(rank.metaCap);
+            write(buf, rank.effectStat); write(buf, rank.effectValue);
         }
     }
     private static String read(ByteBuf buf) { return ByteBufUtils.readUTF8String(buf); }

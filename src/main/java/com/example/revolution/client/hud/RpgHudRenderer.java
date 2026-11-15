@@ -40,12 +40,14 @@ public final class RpgHudRenderer {
 
     private static void renderCombat(Minecraft minecraft, ScaledResolution resolution) {
         FontRenderer font = minecraft.fontRenderer;
-        String click = LargeNumbers.format(ClientPlayerStats.getResolvedClickDamage());
-        String poison = LargeNumbers.format(ClientPlayerStats.getResolvedPoisonDamage());
+        String click = "База клик: " + LargeNumbers.format(ClientPlayerStats.getResolvedClickDamage());
+        String poison = "База яд: " + LargeNumbers.format(ClientPlayerStats.getResolvedPoisonDamage());
         int width = Math.max(font.getStringWidth(click), font.getStringWidth(poison)) + 28;
         int x = 8;
         int y = 8;
 
+        // These are stable RuneCombatMath projections, not the final per-hit result after
+        // Mastery, Pets, Unique Runes, God Worship, Aura, procs and target effects.
         drawPanel(x, y, x + width, y + 34);
         drawSwordIcon(x + 7, y + 6, DAMAGE);
         font.drawStringWithShadow(click, x + 22, y + 6, TEXT);
