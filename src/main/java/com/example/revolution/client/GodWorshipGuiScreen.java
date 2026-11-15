@@ -51,31 +51,31 @@ public final class GodWorshipGuiScreen extends GuiScreen {
             int y = top + 38 + i * 44;
             int base = 100 + i * 10;
             GuiButton action = new GuiButton(base, left + 220, y, 62, 18,
-                    e.unlocked ? ("BUFF_ACTIVE".equals(e.phase) ? "Active" : "Worship") : "Unlock");
+                    e.unlocked ? ("BUFF_ACTIVE".equals(e.phase) ? "Активно" : "Молитва")  : "Открыть");
             action.enabled = !"BUFF_ACTIVE".equals(e.phase);
             buttonList.add(action);
-            GuiButton upgrade = new GuiButton(base + 1, left + 285, y, 62, 18, "Upgrade");
+            GuiButton upgrade = new GuiButton(base + 1, left + 285, y, 62, 18, "Улучшить");
             upgrade.enabled = e.unlocked;
             buttonList.add(upgrade);
-            GuiButton auto = new GuiButton(base + 2, left + 350, y, 78, 18, e.autoWorshipEnabled ? "Auto: ON" : "Auto: OFF");
+            GuiButton auto = new GuiButton(base + 2, left + 350, y, 78, 18, e.autoWorshipEnabled ? "Авто: ВКЛ" : "Авто: ВЫКЛ");
             auto.enabled = e.unlocked && ClientMechanicUnlocks.isUnlocked(BalanceMechanicUnlockPolicy.GOD_AUTO_WORSHIP);
             buttonList.add(auto);
-            GuiButton mode = new GuiButton(base + 3, left + 220, y + 20, 128, 18, "Mode: " + shortMode(e.activationMode));
+            GuiButton mode = new GuiButton(base + 3, left + 220, y + 20, 128, 18, "Режим: " + shortMode(e.activationMode));
             mode.enabled = e.unlocked && autoActivationEnabled;
             buttonList.add(mode);
             GuiButton link = new GuiButton(base + 4, left + 350, y + 20, 78, 18,
-                    "LINKED_TO_GOD".equals(e.activationMode) ? shortGod(e.linkedGodId) : "Link: -");
+                    "LINKED_TO_GOD".equals(e.activationMode) ? shortGod(e.linkedGodId) : "Связь: -");
             link.enabled = e.unlocked && autoActivationEnabled && "LINKED_TO_GOD".equals(e.activationMode);
             buttonList.add(link);
         }
         GuiButton duration = new GuiButton(10, left, top + 266, 220, 20,
                 durationUpgradeEnabled
-                        ? "Duration +1 level (" + durationUpgradeCost + " Offerings)"
-                        : "Permanent Duration: LOCKED");
+                        ? "Длительность +1 (" + durationUpgradeCost + " подношений)"
+                        : "Постоянная длительность: недоступна");
         duration.enabled = durationUpgradeEnabled;
         buttonList.add(duration);
-        buttonList.add(new GuiButton(11, left + 224, top + 266, 100, 20, "Refresh"));
-        buttonList.add(new GuiButton(12, left + 328, top + 266, 100, 20, "Close"));
+        buttonList.add(new GuiButton(11, left + 224, top + 266, 100, 20, "Обновить"));
+        buttonList.add(new GuiButton(12, left + 328, top + 266, 100, 20, "Закрыть"));
         backgroundBlur.enable(mc);
     }
 
@@ -104,30 +104,30 @@ public final class GodWorshipGuiScreen extends GuiScreen {
         drawDefaultBackground();
         int left = width / 2 - 215;
         int top = height / 2 - 142;
-        drawCenteredString(fontRenderer, "God Worship", width / 2, top, 0xFFFFFF);
-        drawString(fontRenderer, "Offerings: " + offerings + "   Duration Lv: " + permanentDurationLevel
+        drawCenteredString(fontRenderer, "Поклонение богам", width / 2, top, 0xFFFFFF);
+        drawString(fontRenderer,  "Подношения: " + offerings + "   Длительность ур.: " + permanentDurationLevel
                 + " ( +" + permanentDurationBonusSeconds + "s )", left, top + 14, 0xAAAAAA);
-        drawString(fontRenderer, "Auto Activation: " + (autoActivationEnabled ? "UNLOCKED" : "LOCKED")
-                + "   Secondary Buffs: " + (secondaryBuffsEnabled ? "UNLOCKED" : "LOCKED"), left, top + 25, 0x777777);
+        drawString(fontRenderer, "Автоактивация: " + (autoActivationEnabled ? "доступна" : "отключена Balance Core")
+                + "   Вторичные эффекты: " + (secondaryBuffsEnabled ? "доступны" : "недоступны"), left, top + 25, 0x777777);
         long now = System.currentTimeMillis();
         for (int i = 0; i < entries.size() && i < 5; i++) {
             GodWorshipSnapshotPacket.Entry e = entries.get(i);
             int y = top + 38 + i * 44;
             drawRect(left, y - 2, left + 428, y + 40, 0x88000000);
-            drawString(fontRenderer, shortGod(e.godId) + "  Lv " + e.level + "  [" + e.phase + "]  x" + e.currentMultiplier,
+            drawString(fontRenderer, shortGod(e.godId) + "  Ур. " + e.level + "  [" + phase(e.phase) + "]  x" + e.currentMultiplier,
                     left + 6, y + 3, 0xFFFFFF);
             String channels = shortChannel(e.primaryChannel);
             if (!e.secondaryChannel.isEmpty()) channels += " + " + shortChannel(e.secondaryChannel)
-                    + (secondaryBuffsEnabled ? "" : " (locked)");
-            drawString(fontRenderer, "Channels: " + channels, left + 6, y + 13, 0x55FFFF);
+                    + (secondaryBuffsEnabled ? "" : " (недоступно)");
+            drawString(fontRenderer, "Эффекты: " + channels, left + 6, y + 13, 0x55FFFF);
             if (!e.unlocked) {
-                drawString(fontRenderer, "Unlock: " + e.unlockCost + " " + e.resource, left + 6, y + 25, 0xFFFF55);
+                drawString(fontRenderer, "Открытие: " + e.unlockCost + " " + e.resource, left + 6, y + 25, 0xFFFF55);
             } else {
-                String progress = "Charge: " + e.chargeProgress + "/" + e.chargeRequired;
-                if ("BUFF_ACTIVE".equals(e.phase)) progress = "Buff left: " + secondsLeft(e.buffActiveUntil, now) + "s";
-                else if ("COOLDOWN".equals(e.phase)) progress = "Cooldown: " + secondsLeft(e.cooldownUntil, now) + "s";
+                String progress = "Заряд: " + e.chargeProgress + "/" + e.chargeRequired;
+                if ("BUFF_ACTIVE".equals(e.phase)) progress = "Действует: " + secondsLeft(e.buffActiveUntil, now) + "s";
+                else if ("COOLDOWN".equals(e.phase)) progress = "Перезарядка: " + secondsLeft(e.cooldownUntil, now) + "s";
                 String linked = "LINKED_TO_GOD".equals(e.activationMode) ? "   -> " + shortGod(e.linkedGodId) : "";
-                drawString(fontRenderer, progress + "   Upgrade: " + e.upgradeCost + " " + e.resource + linked,
+                drawString(fontRenderer, progress + "   Улучшение: " + e.upgradeCost + " " + e.resource + linked,
                         left + 6, y + 25, 0xAAAAAA);
             }
         }
@@ -162,7 +162,7 @@ public final class GodWorshipGuiScreen extends GuiScreen {
     private static String nextMode(String mode) {
         if ("MANUAL".equals(mode)) return "AUTO_WHEN_READY";
         if ("AUTO_WHEN_READY".equals(mode)) return "LINKED_TO_GOD";
-        return "MANUAL";
+        return "РУЧНОЙ";
     }
 
     private static String defaultLinked(String owner) { return nextLinked(owner, ""); }
@@ -179,19 +179,31 @@ public final class GodWorshipGuiScreen extends GuiScreen {
     }
 
     private static String shortMode(String mode) {
-        if ("AUTO_WHEN_READY".equals(mode)) return "AUTO";
-        if ("LINKED_TO_GOD".equals(mode)) return "LINK";
+        if ("AUTO_WHEN_READY".equals(mode)) return "АВТО";
+        if ("LINKED_TO_GOD".equals(mode)) return "СВЯЗЬ";
         return "MANUAL";
     }
 
     private static String shortGod(String godId) {
         if (godId == null || godId.isEmpty()) return "-";
-        return godId.replace("GOD_", "God ");
+        return godId.replace("GOD_", "Бог ");
     }
 
     private static String shortChannel(String channel) {
         if (channel == null || channel.isEmpty()) return "-";
-        return channel.replace("_DAMAGE_MULTIPLIER", "").replace("_MULTIPLIER", "");
+        return channel.replace("_DAMAGE_MULTIPLIER", "").replace("_MULTIPLIER", "")
+                .replace("CLICK", "клик").replace("POISON", "яд").replace("BURNING", "горение")
+                .replace("BLEEDING", "кровотечение").replace("CURSE", "проклятие")
+                .replace("WITHER", "иссушение").replace("DECAY", "разложение")
+                .replace("ALL_DAMAGE", "весь урон");
+    }
+
+    private static String phase(String value) {
+        if ("BUFF_ACTIVE".equals(value)) return "Эффект активен";
+        if ("COOLDOWN".equals(value)) return "Перезарядка";
+        if ("CHARGING".equals(value)) return "Зарядка";
+        if ("READY".equals(value)) return "Готово";
+        return "Ожидание";
     }
 
     private static long secondsLeft(long until, long now) {
