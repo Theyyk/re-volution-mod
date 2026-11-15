@@ -24,7 +24,7 @@ public final class RunePurchaseAvailabilityTest {
         assertTrue(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.TEN, 10));
     }
     @Test void pendingPurchaseHidesTechnicalSyncDetails() {
-        String label = RunePurchaseAvailability.purchaseLabel(false, 10, 5, "монет");
+        String label = RunePurchaseAvailability.purchaseLabel(false, 10, 5, "монет", null);
         assertEquals("Купить руну", label);
         assertFalse(label.contains("Ожидание"));
         assertFalse(label.contains("данных"));
@@ -32,10 +32,25 @@ public final class RunePurchaseAvailabilityTest {
     }
     @Test void publishedPriceReturnsAfterFreshSnapshot() {
         assertEquals("Купить руну:\n10 монет",
-                RunePurchaseAvailability.purchaseLabel(true, 10, 1, "монет"));
+                RunePurchaseAvailability.purchaseLabel(true, 10, 1, "монет", "Купить руну"));
         assertEquals("Купить руну:\nот 10 монет",
-                RunePurchaseAvailability.purchaseLabel(true, 10, 5, "монет"));
+                RunePurchaseAvailability.purchaseLabel(true, 10, 5, "монет", "Купить руну"));
         assertEquals("Купить руну:\nНедоступно",
-                RunePurchaseAvailability.purchaseLabel(true, 0, 1, "монет"));
+                RunePurchaseAvailability.purchaseLabel(true, 0, 1, "монет", "Купить руну"));
+    }
+    @Test void purchaseRoundTripPreservesVisiblePrice() {
+        String before = RunePurchaseAvailability.purchaseLabel(true, 10, 5, "монет", null);
+        assertEquals(before, RunePurchaseAvailability.purchaseLabel(false, 10, 5, "монет", before));
+        assertEquals("Купить руну:\\nот 15 монет",
+                RunePurchaseAvailability.purchaseLabel(true, 15, 5, "монет", before));
+    }
+
+    @Test void changingCollectionDoesNotReuseOldPrice() {
+        String previousCollectionPrice = "Купить руну:\\n10 монет";
+        assertEquals("Купить руну",
+                RunePurchaseAvailability.purchaseLabel(false, 50, 1, "осколков", null));
+        assertNotEquals(previousCollectionPrice,
+                RunePurchaseAvailability.purchaseLabel(false, 50, 1, "осколков", null));
     }
 }
+
