@@ -2,6 +2,7 @@ package com.example.revolution.client;
 
 import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.definition.RuneTechnicalCatalog;
+import com.example.revolution.rune.definition.TechnicalRuneUiLabels;
 import com.example.revolution.rune.rules.RuneProgression;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,7 +14,7 @@ final class TechnicalRuneTooltipContent {
     private TechnicalRuneTooltipContent() {}
 
     static String name(int collectionIndex, int runeIndex) {
-        return String.format(Locale.ROOT, "Коллекция %02d / Руна %02d", collectionIndex + 1, runeIndex + 1);
+        return TechnicalRuneUiLabels.runeName(collectionIndex, runeIndex);
     }
 
     static String type(int collectionIndex, int runeIndex) {
@@ -21,7 +22,7 @@ final class TechnicalRuneTooltipContent {
         List<RuneTechnicalCatalog.EffectLabel> effects = RuneTechnicalCatalog.effects(collectionId, runeIndex);
         if (effects.isEmpty()) return "Нет эффекта";
         RuneTechnicalCatalog.EffectLabel first = effects.get(0);
-        return label(first.type) + (first.channel == null ? "" : " — " + channel(first.channel.name()));
+        return TechnicalRuneUiLabels.effect(first.type) + (first.channel == null ? "" : " — " + TechnicalRuneUiLabels.channel(first.channel));
     }
 
     static List<String> lines(int collectionIndex, int runeIndex, int rank, int enhancementLevel) {
@@ -40,44 +41,11 @@ final class TechnicalRuneTooltipContent {
         lines.add("§7Усиление: §f+" + Math.max(0, enhancementLevel));
         lines.add("§7Эффекты:");
         for (RuneTechnicalCatalog.EffectLabel effect : effects) {
-            String target = effect.channel == null ? "" : " — " + channel(effect.channel.name());
+            String target = effect.channel == null ? "" : " — " + TechnicalRuneUiLabels.channel(effect.channel);
             String note = effect.runtimeNoOp ? " (§cне действует§f)" : "";
-            lines.add("§f" + label(effect.type) + target + note);
+            lines.add("§f" + TechnicalRuneUiLabels.effect(effect.type) + target + note);
         }
         return lines;
     }
 
-    private static String channel(String raw) {
-        switch (raw) {
-            case "CLICK": return "клик";
-            case "POISON": return "яд";
-            case "BURNING": return "горение";
-            case "BLEEDING": return "кровотечение";
-            case "CURSE": return "проклятие";
-            case "WITHER": return "иссушение";
-            case "DECAY": return "разложение";
-            default: return "неизвестный канал";
-        }
-    }
-
-    private static String label(String type) {
-        switch (type) {
-            case "DAMAGE_FLAT": return "Дополнительный урон";
-            case "DAMAGE_MULTIPLIER": return "Множитель урона";
-            case "VULNERABILITY": return "Уязвимость";
-            case "ALL_DAMAGE_MULTIPLIER": return "Множитель всего урона";
-            case "TARGETED_POWER": return "Усиление выбранного эффекта";
-            case "PROC_CHANCE": return "Шанс срабатывания";
-            case "PROC_DAMAGE_MULTIPLIER": return "Множитель урона срабатывания";
-            case "TEMPORARY_DAMAGE_MULTIPLIER": return "Временный множитель урона";
-            case "MONSTER_GOLD_MULTIPLIER": return "Монеты за монстров";
-            case "MONSTER_RESOURCE_MULTIPLIER": return "Ресурсы за монстров";
-            case "PET_XP_MULTIPLIER": return "Опыт питомца";
-            case "DELAYED_DAMAGE_BONUS": return "Отложенный дополнительный урон";
-            case "EFFECTIVENESS": return "Эффективность";
-            case "TEMPORARY_EFFECT_DURATION": return "Длительность временного эффекта";
-            case "ENHANCEMENT_EFFECTIVENESS": return "Эффективность усиления";
-            default: return "Неизвестный технический эффект";
-        }
-    }
 }
