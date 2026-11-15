@@ -1,6 +1,8 @@
 package com.example.revolution.client;
 
 import com.example.revolution.client.network.GodWorshipClientState;
+import com.example.revolution.client.mechanic.ClientMechanicUnlocks;
+import com.example.revolution.mechanic.BalanceMechanicUnlockPolicy;
 import com.example.revolution.network.GodWorshipActionPacket;
 import com.example.revolution.network.GodWorshipSnapshotPacket;
 import com.example.revolution.network.NetworkHandler;
@@ -55,7 +57,7 @@ public final class GodWorshipGuiScreen extends GuiScreen {
             upgrade.enabled = e.unlocked;
             buttonList.add(upgrade);
             GuiButton auto = new GuiButton(base + 2, left + 350, y, 78, 18, e.autoWorshipEnabled ? "Auto: ON" : "Auto: OFF");
-            auto.enabled = e.unlocked;
+            auto.enabled = e.unlocked && ClientMechanicUnlocks.isUnlocked(BalanceMechanicUnlockPolicy.GOD_AUTO_WORSHIP);
             buttonList.add(auto);
             GuiButton mode = new GuiButton(base + 3, left + 220, y + 20, 128, 18, "Mode: " + shortMode(e.activationMode));
             mode.enabled = e.unlocked && autoActivationEnabled;
