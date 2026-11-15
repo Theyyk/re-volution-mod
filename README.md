@@ -4,7 +4,7 @@
 
 **Стабильная версия: `v2.12.2`.**
 
-Версия исходного кода подготовлена для v2.12.2; до Minecraft Release QA PASS, promotion и публикации GitHub Release эта версия является кандидатом, а действующий опубликованный Stable — v2.12.1. **GitHub Release и установка в PROD — разные этапы:** публикация JAR не обновляет игровой сервер или подписанный production manifest.
+Опубликованный Stable Gameplay — v2.12.2. Следующая целевая версия v2.13.0 Variant A находится в подготовке и ещё не выпущена. **GitHub Release и установка в PROD — разные этапы:** публикация JAR не обновляет игровой сервер или подписанный production manifest.
 
 [Скачать актуальный релиз](https://github.com/Theyyk/re-volution-mod/releases/latest) · [Документация](docs/README.md) · [Архитектура](docs/architecture.md) · [Контракт v2.12.2](docs/releases/v2.12.2.md) · [История релизов](docs/releases/README.md)
 
