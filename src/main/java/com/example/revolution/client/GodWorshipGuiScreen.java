@@ -14,6 +14,7 @@ import net.minecraft.client.gui.GuiScreen;
 
 /** Functional v2.8.0 God Worship UI. Visual polish is intentionally deferred. */
 public final class GodWorshipGuiScreen extends GuiScreen {
+    private final GuiBackgroundBlur backgroundBlur = new GuiBackgroundBlur();
     private static long nextNonce = Math.max(1L, System.currentTimeMillis());
     private final List<GodWorshipSnapshotPacket.Entry> entries;
     private final String offerings;
@@ -75,6 +76,7 @@ public final class GodWorshipGuiScreen extends GuiScreen {
         buttonList.add(duration);
         buttonList.add(new GuiButton(11, left + 224, top + 266, 100, 20, "Refresh"));
         buttonList.add(new GuiButton(12, left + 328, top + 266, 100, 20, "Close"));
+        backgroundBlur.enable(mc);
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
@@ -133,13 +135,17 @@ public final class GodWorshipGuiScreen extends GuiScreen {
     }
 
     @Override public void onGuiClosed() {
-        if (!suppressCloseSignal) {
-            GodWorshipClientState.requestClose();
-            if (mc != null && mc.getConnection() != null) {
-                NetworkHandler.INSTANCE.sendToServer(new GodWorshipActionPacket("menu_closed", "", "", "", 0L));
+        try {
+            if (!suppressCloseSignal) {
+                GodWorshipClientState.requestClose();
+                if (mc != null && mc.getConnection() != null) {
+                    NetworkHandler.INSTANCE.sendToServer(new GodWorshipActionPacket("menu_closed", "", "", "", 0L));
+                }
             }
+        } finally {
+            backgroundBlur.disable(mc);
+            super.onGuiClosed();
         }
-        super.onGuiClosed();
     }
 
     @Override public boolean doesGuiPauseGame() { return false; }

@@ -22,6 +22,25 @@ final class GodWorshipRequestLimiterTest {
     }
 
     @Test
+    void queuedClickGuardRejectsConcurrentWorkAndReleasesAfterCompletion() {
+        assertTrue(GodWorshipRequestLimiter.beginQueuedClick(PLAYER));
+        assertFalse(GodWorshipRequestLimiter.beginQueuedClick(PLAYER));
+        GodWorshipRequestLimiter.finishQueuedClick(PLAYER);
+        assertTrue(GodWorshipRequestLimiter.beginQueuedClick(PLAYER));
+        GodWorshipRequestLimiter.finishQueuedClick(PLAYER);
+    }
+
+    @Test
+    void queuedClickGuardDoesNotConsumeGameplayClickRateBudget() {
+        long start = 10_000L;
+        assertTrue(GodWorshipRequestLimiter.beginQueuedClick(PLAYER));
+        GodWorshipRequestLimiter.finishQueuedClick(PLAYER);
+        assertTrue(GodWorshipRequestLimiter.acceptClick(PLAYER, start, 2));
+        assertTrue(GodWorshipRequestLimiter.acceptClick(PLAYER, start + 1L, 2));
+        assertFalse(GodWorshipRequestLimiter.acceptClick(PLAYER, start + 2L, 2));
+    }
+
+    @Test
     void clickWindowRejectsBurstAboveBalanceLimitAndResetsNextSecond() {
         long start = 10_000L;
         assertTrue(GodWorshipRequestLimiter.acceptClick(PLAYER, start, 2));

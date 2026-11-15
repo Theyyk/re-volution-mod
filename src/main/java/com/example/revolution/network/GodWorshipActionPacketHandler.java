@@ -24,7 +24,22 @@ public final class GodWorshipActionPacketHandler implements IMessageHandler<GodW
     @Override public IMessage onMessage(GodWorshipActionPacket message, MessageContext ctx) {
         EntityPlayerMP player = ctx.getServerHandler().player;
         if (player == null || message == null) return null;
-        player.getServerWorld().addScheduledTask(() -> handle(player, message));
+        // Do not enqueue an unbounded number of expensive Mongo-backed click mutations.
+        // Existing nonce and Balance Core per-second checks still run on the server thread.
+        boolean click = "click".equals(message.getAction());
+        if (click && !GodWorshipRequestLimiter.beginQueuedClick(player.getUniqueID())) return null;
+        try {
+            player.getServerWorld().addScheduledTask(() -> {
+                try {
+                    handle(player, message);
+                } finally {
+                    if (click) GodWorshipRequestLimiter.finishQueuedClick(player.getUniqueID());
+                }
+            });
+        } catch (RuntimeException schedulingFailure) {
+            if (click) GodWorshipRequestLimiter.finishQueuedClick(player.getUniqueID());
+            throw schedulingFailure;
+        }
         return null;
     }
 
