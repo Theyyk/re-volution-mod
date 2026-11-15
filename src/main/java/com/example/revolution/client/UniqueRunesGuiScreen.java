@@ -164,13 +164,21 @@ public final class UniqueRunesGuiScreen extends GuiScreen {
             int x = slotX(slot), y = slotY(slot), size = slotSize();
             UniqueRuneSnapshotPacket.Entry e = runeAtSlot(owned, slot);
             if (e != null && mouseX >= x && mouseX < x+size && mouseY >= y && mouseY < y+size) {
-                drawHoveringText(Arrays.asList(e.name, e.rarity + " +" + e.enhancement,
+                drawHoveringText(Arrays.asList(e.name, ruRarity(e.rarity) + " · Усиление +" + e.enhancement,
                         e.effects,
                         e.acquiredCommon ? "Текущий ранг: зачтена" : "Текущий ранг: не зачтена",
                         "ЛКМ: поделиться", "Shift+ЛКМ: случайное усиление"), mouseX, mouseY);
                 break;
             }
         }
+    }
+
+    private static String ruRarity(String raw) {
+        if ("COMMON".equals(raw)) return "Обычная";
+        if ("IMPROVED".equals(raw)) return "Улучшенная";
+        if ("ADVANCED".equals(raw)) return "Продвинутая";
+        if ("MYTHIC".equals(raw)) return "Мифическая";
+        return "Неизвестный ранг";
     }
 
     @Override protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {

@@ -29,16 +29,16 @@ public final class QuestGuiScreen extends GuiScreen {
         int top = height / 2 - 92;
         for (int i = 0; i < entries.size(); i++) {
             QuestSnapshotPacket.Entry entry = entries.get(i);
-            buttonList.add(new GuiButton(200 + i, left + 144, top + i * 48 + 15, 69, 20, "Share"));
+            buttonList.add(new GuiButton(200 + i, left + 144, top + i * 48 + 15, 69, 20, "Поделиться"));
             if ("COMPLETED".equals(entry.state)) {
-                buttonList.add(new GuiButton(100 + i, left + 218, top + i * 48 + 15, 75, 20, "Claim +" + entry.crystalReward));
+                buttonList.add(new GuiButton(100 + i, left + 218, top + i * 48 + 15, 75, 20, "Забрать +" + entry.crystalReward));
             }
         }
-        GuiButton reroll = new GuiButton(10, left, top + 154, 120, 20, "Reroll (" + rerollsRemaining + ")");
+        GuiButton reroll = new GuiButton(10, left, top + 154, 120, 20, "Заменить (" + rerollsRemaining + ")");
         reroll.enabled = rerollsRemaining > 0 && hasActive();
         buttonList.add(reroll);
-        buttonList.add(new GuiButton(11, left + 128, top + 154, 80, 20, "Refresh"));
-        buttonList.add(new GuiButton(12, left + 216, top + 154, 77, 20, "Close"));
+        buttonList.add(new GuiButton(11, left + 128, top + 154, 80, 20, "Обновить"));
+        buttonList.add(new GuiButton(12, left + 216, top + 154, 77, 20, "Закрыть"));
     }
 
     @Override protected void actionPerformed(GuiButton button) throws IOException {
@@ -61,19 +61,19 @@ public final class QuestGuiScreen extends GuiScreen {
         drawDefaultBackground();
         int left = width / 2 - 150;
         int top = height / 2 - 92;
-        drawCenteredString(fontRenderer, "Quests", width / 2, top - 14, 0xFFFFFF);
-        drawString(fontRenderer, "Completed: " + completedQuestCount, left, top - 2, 0xAAAAAA);
+        drawCenteredString(fontRenderer, "Задания", width / 2, top - 14, 0xFFFFFF);
+        drawString(fontRenderer, "Выполнено: " + completedQuestCount, left, top - 2, 0xAAAAAA);
         for (int i = 0; i < entries.size(); i++) {
             QuestSnapshotPacket.Entry entry = entries.get(i);
             int y = top + i * 48 + 12;
             drawRect(left, y - 7, left + 300, y + 34, 0x88000000);
-            drawString(fontRenderer, entry.templateId + " [T" + entry.difficultyTier + "]", left + 7, y, 0xFFFFFF);
-            drawString(fontRenderer, entry.progress + " / " + entry.target + "   " + entry.state, left + 7, y + 12, stateColor(entry.state));
-            drawString(fontRenderer, "Reward: " + entry.crystalReward + " crystals", left + 7, y + 24, 0x55FFFF);
+            drawString(fontRenderer, entry.templateId + " [Сл. " + entry.difficultyTier + "]", left + 7, y, 0xFFFFFF);
+            drawString(fontRenderer, entry.progress + " / " + entry.target + "   " + localizedState(entry.state), left + 7, y + 12, stateColor(entry.state));
+            drawString(fontRenderer, "Награда: " + entry.crystalReward + " кристаллов", left + 7, y + 24, 0x55FFFF);
         }
         if (cooldownUntil > System.currentTimeMillis()) {
             long seconds = Math.max(0L, (cooldownUntil - System.currentTimeMillis() + 999L) / 1000L);
-            drawString(fontRenderer, "Next cooldown refresh: " + formatDuration(seconds), left, top + 142, 0xAAAAAA);
+            drawString(fontRenderer, "До обновления: " + formatDuration(seconds), left, top + 142, 0xAAAAAA);
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
@@ -83,6 +83,14 @@ public final class QuestGuiScreen extends GuiScreen {
     private boolean hasActive() {
         for (QuestSnapshotPacket.Entry entry : entries) if ("ACTIVE".equals(entry.state)) return true;
         return false;
+    }
+
+    private static String localizedState(String state) {
+        if ("ACTIVE".equals(state)) return "Активно";
+        if ("COMPLETED".equals(state)) return "Выполнено";
+        if ("CLAIMED".equals(state)) return "Получено";
+        if ("COOLDOWN".equals(state)) return "Перезарядка";
+        return "Ожидание";
     }
 
     private static int stateColor(String state) {

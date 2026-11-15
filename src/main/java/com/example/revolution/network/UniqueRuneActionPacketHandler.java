@@ -46,12 +46,13 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         if ("sync".equals(action)) { sendSnapshot(player, services); return; }
         UniqueRuneModel.CollectionId collection = collection(request.getCollectionId());
         UniqueRuneService.Result crystalRoll = null;
+        UniqueRuneService.Result enhancement = null;
         if ("purchase_crystal".equals(action)) crystalRoll = RunePurchaseProfiling.phase("purchase",
                 () -> services.uniqueRunes.purchaseCrystal(player.getUniqueID(), request.getRequestNonce()));
         else if ("purchase_offerings".equals(action)) RunePurchaseProfiling.phase("purchase",
                 () -> services.uniqueRunes.purchaseOfferings(player.getUniqueID(), request.getRequestNonce()));
         else if ("daily".equals(action)) services.uniqueRunes.claimDailyAtMillis(player.getUniqueID(), System.currentTimeMillis(), request.getRequestNonce());
-        else if ("enhance".equals(action)) services.uniqueRunes.enhance(player.getUniqueID(), request.getRequestNonce());
+        else if ("enhance".equals(action)) enhancement = services.uniqueRunes.enhance(player.getUniqueID(), request.getRequestNonce());
         else if ("awaken".equals(action) && collection != null) {
             UniqueRuneService.Result result = services.uniqueRunes.awaken(
                     player.getUniqueID(), collection, request.getRuneId(), request.getRequestNonce());
@@ -74,6 +75,20 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
         else if ("rollback".equals(action) && collection != null) services.uniqueRunes.rollback(player.getUniqueID(), collection, request.getRuneId(), request.isConfirmed(), request.getRequestNonce());
         else if ("share".equals(action) && collection != null) { share(player, services, collection, request.getRuneId()); return; }
         else return;
+        if ("purchase_crystal".equals(action) || "enhance".equals(action)) {
+            UniqueRuneService.Result result = "enhance".equals(action) ? enhancement : crystalRoll;
+            if (result != null) {
+                int level = "enhance".equals(action) && result.ok()
+                        ? services.uniqueRunes.snapshot(player.getUniqueID())
+                                .collection(UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION).enhancement(result.runeId)
+                        : 0;
+                UniqueRuneModel.RuneDefinition rune = result.runeId.isEmpty() ? null
+                        : services.uniqueRunePolicy.definition(UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION).rune(result.runeId);
+                String display = UniqueRuneUiText.runeName(result.runeId, rune == null ? "" : rune.displayName);
+                String feedback = UniqueRuneUiText.notification(action, result, display, level);
+                if (feedback != null) player.sendMessage(new net.minecraft.util.text.TextComponentString(feedback));
+            }
+        }
         if ("purchase_crystal".equals(action)) {
             final UniqueRuneService.Result result = crystalRoll;
             RunePurchaseProfiling.phase("snapshot", () -> sendSnapshot(player, services, result));
@@ -112,13 +127,13 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 UniqueRuneModel.RuneDefinition rune = definition.rune(owned.getKey()); if (rune == null) continue;
                 UniqueRuneService.SharePayload payload = services.uniqueRunes.shareFromSnapshot(state, id, rune.runeId); if (payload == null) continue;
                 UniqueRuneSnapshotPacket.Entry entry = new UniqueRuneSnapshotPacket.Entry(); entry.collectionId = id.name(); entry.runeId = rune.runeId;
-                entry.name = rune.displayName; entry.rarity = owned.getValue().name(); entry.enhancement = payload.enhancement;
+                entry.name = UniqueRuneUiText.runeName(rune.runeId, rune.displayName); entry.rarity = owned.getValue().name(); entry.enhancement = payload.enhancement;
                 entry.canAwaken = collection.canAwaken(rune.runeId) && out.unlocked;
                 entry.canRollback = canRollback(id, collection, rune.runeId) && out.unlocked;
                 entry.acquiredCommon = collection.ownsAtCurrent(rune.runeId);
                 entry.enhancementPearlCost = id == UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION
                         ? exact(services.uniqueRunePolicy.enhancementPearlCost(rune.runeId, payload.enhancement)) : "0";
-                entry.effects = effectText(payload.effects); entries.add(entry);
+                entry.effects = UniqueRuneUiText.effects(payload.effects); entries.add(entry);
             }
         }
         long nowMillis = System.currentTimeMillis();
@@ -147,9 +162,11 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
     private static void share(EntityPlayerMP player, ServerServices services, UniqueRuneModel.CollectionId collection, String runeId) {
         UniqueRuneService.SharePayload payload = services.uniqueRunes.share(player.getUniqueID(), collection, runeId); if (payload == null) return;
         UniqueRuneModel.RuneDefinition definition = services.uniqueRunePolicy.definition(collection).rune(runeId); if (definition == null) return;
-        String tooltipText = definition.displayName + "\nCollection: " + collection.name() + "\nRarity: " + payload.rarity.name()
-                + "\nEnhancement: +" + payload.enhancement + "\nEffects: " + effectText(payload.effects);
-        ShareChatDelivery.send(player, "Unique Rune: " + definition.displayName, tooltipText);
+        String name = UniqueRuneUiText.runeName(runeId, definition.displayName);
+        String tooltipText = name + "\nКоллекция: " + UniqueRuneUiText.collection(collection)
+                + "\nРанг: " + UniqueRuneUiText.rarity(payload.rarity)
+                + "\nУсиление: +" + payload.enhancement + "\nЭффекты: " + UniqueRuneUiText.effects(payload.effects);
+        ShareChatDelivery.send(player, "Уникальная руна: " + name, tooltipText);
     }
 
     private static String effectText(Map<String, String> effects) { if (effects == null || effects.isEmpty()) return "none"; StringBuilder out = new StringBuilder(); for (Map.Entry<String, String> entry : effects.entrySet()) { if (out.length() > 0) out.append(", "); out.append(entry.getKey()).append(" +").append(entry.getValue()); } return out.toString(); }

@@ -2,6 +2,7 @@ package com.example.revolution.client;
 
 import com.example.revolution.rune.definition.RuneCollectionId;
 import com.example.revolution.rune.definition.RuneTechnicalCatalog;
+import com.example.revolution.rune.definition.TechnicalRuneUiLabels;
 import com.example.revolution.rune.rules.RuneProgression;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,15 +14,15 @@ final class TechnicalRuneTooltipContent {
     private TechnicalRuneTooltipContent() {}
 
     static String name(int collectionIndex, int runeIndex) {
-        return String.format(Locale.ROOT, "Collection %02d / Rune %02d", collectionIndex + 1, runeIndex + 1);
+        return TechnicalRuneUiLabels.runeName(collectionIndex, runeIndex);
     }
 
     static String type(int collectionIndex, int runeIndex) {
         RuneCollectionId collectionId = RuneCollectionId.fromLegacyIndex(collectionIndex);
         List<RuneTechnicalCatalog.EffectLabel> effects = RuneTechnicalCatalog.effects(collectionId, runeIndex);
-        if (effects.isEmpty()) return "NONE";
+        if (effects.isEmpty()) return "Нет эффекта";
         RuneTechnicalCatalog.EffectLabel first = effects.get(0);
-        return first.channel == null ? first.type : first.channel.name();
+        return TechnicalRuneUiLabels.effect(first.type) + (first.channel == null ? "" : " — " + TechnicalRuneUiLabels.channel(first.channel));
     }
 
     static List<String> lines(int collectionIndex, int runeIndex, int rank, int enhancementLevel) {
@@ -40,10 +41,11 @@ final class TechnicalRuneTooltipContent {
         lines.add("§7Усиление: §f+" + Math.max(0, enhancementLevel));
         lines.add("§7Эффекты:");
         for (RuneTechnicalCatalog.EffectLabel effect : effects) {
-            String target = effect.channel == null ? "" : " " + effect.channel.name();
-            String note = effect.runtimeNoOp ? " (runtime no-op)" : "";
-            lines.add("§f" + effect.type + target + note);
+            String target = effect.channel == null ? "" : " — " + TechnicalRuneUiLabels.channel(effect.channel);
+            String note = effect.runtimeNoOp ? " (§cне действует§f)" : "";
+            lines.add("§f" + TechnicalRuneUiLabels.effect(effect.type) + target + note);
         }
         return lines;
     }
+
 }
