@@ -133,7 +133,7 @@ public final class UniqueRuneActionPacketHandler implements IMessageHandler<Uniq
                 entry.acquiredCommon = collection.ownsAtCurrent(rune.runeId);
                 entry.enhancementPearlCost = id == UniqueRuneModel.CollectionId.CRYSTAL_COLLECTION
                         ? exact(services.uniqueRunePolicy.enhancementPearlCost(rune.runeId, payload.enhancement)) : "0";
-                entry.effects = effectText(payload.effects); entries.add(entry);
+                entry.effects = UniqueRuneUiText.effects(payload.effects); entries.add(entry);
             }
         }
         long nowMillis = System.currentTimeMillis();
