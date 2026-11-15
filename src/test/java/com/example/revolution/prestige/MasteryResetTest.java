@@ -262,6 +262,47 @@ public final class MasteryResetTest {
         assertFalse(service.isRunActive(player));
     }
 
+
+    @Test
+    public void godResetObserverExecutesExactlyOnceForAllFourSuccessfulResetModes() {
+        for (int variant = 0; variant < 4; variant++) {
+            MemoryRepository repository = new MemoryRepository();
+            repository.availableCrystals = 1000;
+            UUID player = UUID.randomUUID();
+            PrestigeState initial = new PrestigeState();
+            fillClickMeta(initial.branch(PrestigeBranch.CLICK), 5);
+            repository.save(player, initial);
+
+            AtomicInteger observerCalls = new AtomicInteger();
+            AtomicInteger runeResetCalls = new AtomicInteger();
+            PrestigeService service = new PrestigeService(
+                    repository, new PrestigeBranchRegistry(),
+                    (uuid, branch) -> BigDecimal.ONE,
+                    uuid -> runeResetCalls.incrementAndGet(),
+                    PREMIUM_POLICY,
+                    (uuid, mode) -> {
+                        assertEquals(player, uuid);
+                        observerCalls.incrementAndGet();
+                    });
+
+            PrestigeState.RunState run = service.startRun(player, PrestigeBranch.CLICK);
+            if (variant == 0 || variant == 1) {
+                boolean premium = variant == 1;
+                assertEquals(PrestigeResetService.ResetResult.APPLIED, service.reset(player, run.runId, premium));
+                assertEquals(PrestigeResetService.ResetResult.DUPLICATE, service.reset(player, run.runId, premium));
+            } else {
+                MasteryResetMode mode = variant == 3 ? MasteryResetMode.PREMIUM_PRESERVE : MasteryResetMode.NORMAL;
+                assertEquals(PrestigeResetService.MasteryResetResult.APPLIED,
+                        service.masteryReset(player, run.runId, mode));
+                assertEquals(PrestigeResetService.MasteryResetResult.DUPLICATE,
+                        service.masteryReset(player, run.runId, mode));
+            }
+            assertEquals(1, observerCalls.get(), "God reset observer must run once after a committed reset");
+            assertEquals((variant == 1 || variant == 3) ? 0 : 1, runeResetCalls.get(),
+                    "Premium Preserve rune behavior must remain unchanged");
+        }
+    }
+
     @Test
     public void allFourResetModesPersistExactlyOneReturnIntent() {
         for (int variant = 0; variant < 4; variant++) {

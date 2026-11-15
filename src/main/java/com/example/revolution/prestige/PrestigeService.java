@@ -222,6 +222,9 @@ public final class PrestigeService implements EffectResolver.Source {
         PrestigeResetService.ResetResult result = resets.reset(playerUuid, expectedRunId, premiumPreserve);
         if (result == PrestigeResetService.ResetResult.APPLIED) {
             if (!preserveRunes) appliedResetParticipant.afterAppliedReset(playerUuid);
+            // The God reset observer applies to both reset types. The NORMAL mode
+            // identifies the ordinary path without changing Premium Preserve.
+            appliedMasteryResetObserver.afterAppliedMasteryReset(playerUuid, MasteryResetMode.NORMAL);
             emitMasteryReset(playerUuid, before);
         }
         return result;
