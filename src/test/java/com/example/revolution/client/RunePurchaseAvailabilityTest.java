@@ -23,4 +23,19 @@ public final class RunePurchaseAvailabilityTest {
         assertFalse(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.ZERO, 10));
         assertTrue(RunePurchaseAvailability.isAvailable(true, true, false, BigDecimal.TEN, 10));
     }
+    @Test void pendingPurchaseHidesTechnicalSyncDetails() {
+        String label = RunePurchaseAvailability.purchaseLabel(false, 10, 5, "монет");
+        assertEquals("Купить руну", label);
+        assertFalse(label.contains("Ожидание"));
+        assertFalse(label.contains("данных"));
+        assertFalse(RunePurchaseAvailability.isAvailable(false, true, false, BigDecimal.TEN, 10));
+    }
+    @Test void publishedPriceReturnsAfterFreshSnapshot() {
+        assertEquals("Купить руну:\n10 монет",
+                RunePurchaseAvailability.purchaseLabel(true, 10, 1, "монет"));
+        assertEquals("Купить руну:\nот 10 монет",
+                RunePurchaseAvailability.purchaseLabel(true, 10, 5, "монет"));
+        assertEquals("Купить руну:\nНедоступно",
+                RunePurchaseAvailability.purchaseLabel(true, 0, 1, "монет"));
+    }
 }
