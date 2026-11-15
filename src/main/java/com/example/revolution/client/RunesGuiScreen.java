@@ -235,6 +235,7 @@ public class RunesGuiScreen extends GuiScreen {
 
         observedCrystalWallet = ClientPlayerStats.getCrystals();
         if (isUniqueCollectionSelected()) ClientUniqueRunes.sync();
+        ClientPlayerStats.invalidatePurchaseSnapshot();
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("get_player_stats"));
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_decks"));
         NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_cards"));
@@ -429,9 +430,21 @@ public class RunesGuiScreen extends GuiScreen {
                         }
                     }
                 } else {
-                    button.displayString = "Купить руну:\n"
-                            + (RUNE_UNIT_PRICE * buyAmount)
-                            + " монет";
+                    String resource = ClientPlayerStats.getPurchaseResource();
+                    int unitCost = ClientPlayerStats.getPurchaseUnitCost();
+                    boolean known = ClientPlayerStats.hasPurchaseSnapshot()
+                            && ClientRuneCollections.activeCollection() == activeCollection;
+                    java.math.BigDecimal wallet = ClientPlayerStats.getResourceBalance(resource);
+                    button.enabled = RunePurchaseAvailability.isAvailable(
+                            known, ClientRuneCollections.isUnlocked(activeCollection), false,
+                            wallet, unitCost);
+                    String resourceName = com.example.revolution.resource.definition.ResourceDefinitions.getDisplayName(resource);
+                    // Batch purchases can stop early; per-attempt price changes with Rune progression.
+                    // Show the authoritative next-attempt cost, not an invented linear batch total.
+                    button.displayString = !known ? "Купить руну:\nОжидание данных"
+                            : unitCost <= 0 ? "Купить руну:\nНедоступно"
+                            : "Купить руну:\n" + (buyAmount > 1 ? "от " : "")
+                                    + unitCost + " " + resourceName;
                 }
             } else if (button.id == AMOUNT_BUTTON_START_ID) {
                 button.enabled = !full;
@@ -486,6 +499,7 @@ public class RunesGuiScreen extends GuiScreen {
                 }
                 updatePurchaseAvailability();
                 if (targetCollection != activeCollection) {
+                    ClientPlayerStats.invalidatePurchaseSnapshot();
                     clearRunes();
                     NetworkHandler.INSTANCE.sendToServer(new PingPacket("switch_deck:" + targetCollection));
                 } else if (returnFromUnique) NetworkHandler.INSTANCE.sendToServer(new PingPacket("load_cards"));
@@ -494,6 +508,14 @@ public class RunesGuiScreen extends GuiScreen {
         }
 
         if (button.id == BUY_BUTTON_ID) {
+            if (!RunePurchaseAvailability.isAvailable(
+                    ClientPlayerStats.hasPurchaseSnapshot()
+                            && ClientRuneCollections.activeCollection() == activeCollection,
+                    ClientRuneCollections.isUnlocked(activeCollection),
+                    inventory.isPurchaseLimitReached(),
+                    ClientPlayerStats.getResourceBalance(ClientPlayerStats.getPurchaseResource()),
+                    ClientPlayerStats.getPurchaseUnitCost())) return;
+            ClientPlayerStats.invalidatePurchaseSnapshot();
             NetworkHandler.INSTANCE.sendToServer(
                     new PingPacket("buy_cards:" + buyAmount)
             );

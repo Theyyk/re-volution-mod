@@ -111,12 +111,14 @@ public final class PlayerStatsSyncService {
         int purchaseUnitCost = RuneEconomyConfig.purchaseUnitCost(statusId);
         int[] bestRanks = null;
         RuneCollectionId fixedCollection = RuneCollectionId.fromLegacyIndex(activeCollection);
-        if (fixedCollection != null && RuneStatusConfig.isRuneStatus(statusId)) {
+        if (fixedCollection != null) {
             bestRanks = loadBestRanks(uuid, activeCollection);
             if (purchaseBalance != null) {
                 RuneCollectionProgression progression = RuneCollectionProgression.fromBestRanks(bestRanks);
-                canonicalPurchaseResource = purchaseBalance.purchaseResource(statusId);
-                purchaseUnitCost = resolvePurchaseUnitCost(purchaseBalance, statusId, progression);
+                canonicalPurchaseResource = purchaseBalance.purchaseResource(fixedCollection);
+                purchaseUnitCost = progression.isComplete() ? 0 : purchaseBalance.purchaseCost(
+                        fixedCollection, progression.stageRank(), progression.lowerProgress(),
+                        progression.higherRuneCount());
             }
         }
 
@@ -125,7 +127,7 @@ public final class PlayerStatsSyncService {
         if (canonicalAwakeningResource == null) canonicalAwakeningResource = awakeningResource;
         int awakeningNormalCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.NORMAL_RANK);
         int awakeningImprovedCost = RuneEconomyConfig.awakeningCost(statusId, RuneInventory.IMPROVED_RANK);
-        if (bestRanks != null && rankUpBalance != null) {
+        if (bestRanks != null && rankUpBalance != null && RuneStatusConfig.isRuneStatus(statusId)) {
             RuneRankUpRule currentRule = currentAwakeningRule(rankUpBalance, fixedCollection, bestRanks);
             if (currentRule != null) {
                 canonicalAwakeningResource = currentRule.resource;

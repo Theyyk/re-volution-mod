@@ -24,6 +24,7 @@ public final class ClientPlayerStats {
     private static int activeRuneStatusId = RuneStatusConfig.STATUS_POISON;
     private static String purchaseResource = "coins";
     private static int purchaseUnitCost = 100;
+    private static boolean purchaseSnapshotReady;
     private static String awakeningResource = "";
     private static int awakeningNormalCost;
     private static int awakeningImprovedCost;
@@ -37,7 +38,8 @@ public final class ClientPlayerStats {
         coins = safe(newCoins); crystals = safe(newCrystals); runeDust = safe(newRuneDust); runeShards = safe(newRuneShards); runeCores = safe(newRuneCores);
         totalDamage = newTotalDamage; activeRuneStatusId = newActiveRuneStatusId;
         purchaseResource = newPurchaseResource == null || newPurchaseResource.trim().isEmpty() ? "coins" : ResourceDefinitions.normalize(newPurchaseResource);
-        purchaseUnitCost = Math.max(1, newPurchaseUnitCost);
+        purchaseUnitCost = Math.max(0, newPurchaseUnitCost);
+        purchaseSnapshotReady = true;
         awakeningResource = newAwakeningResource == null ? "" : ResourceDefinitions.normalize(newAwakeningResource);
         awakeningNormalCost = Math.max(0, newAwakeningNormalCost); awakeningImprovedCost = Math.max(0, newAwakeningImprovedCost);
     }
@@ -94,6 +96,8 @@ public final class ClientPlayerStats {
     public static int getActiveRuneStatusId() { return activeRuneStatusId; }
     public static String getPurchaseResource() { return purchaseResource; }
     public static int getPurchaseUnitCost() { return purchaseUnitCost; }
+    public static boolean hasPurchaseSnapshot() { return purchaseSnapshotReady; }
+    public static void invalidatePurchaseSnapshot() { purchaseSnapshotReady = false; }
     public static String getAwakeningResource() { return awakeningResource; }
     public static int getAwakeningNormalCost() { return awakeningNormalCost; }
     public static int getAwakeningImprovedCost() { return awakeningImprovedCost; }
