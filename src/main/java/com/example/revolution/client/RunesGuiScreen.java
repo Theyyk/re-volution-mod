@@ -79,6 +79,8 @@ public class RunesGuiScreen extends GuiScreen {
     private static final int UNIQUE_AWAKEN_ID = 521;
     private static final int UNIQUE_ROLLBACK_ID = 522;
     private int buyAmount = 1;
+    // Presentation is kept stable during a purchase round-trip, never used as purchase authority.
+    private int purchasePresentationCollection = -1;
     private static RenderItem renderItem;
 
     private final GuiLayout layout = new GuiLayout(VISIBLE_RUNE_SLOTS);
@@ -435,14 +437,24 @@ public class RunesGuiScreen extends GuiScreen {
                     boolean known = ClientPlayerStats.hasPurchaseSnapshot()
                             && ClientRuneCollections.activeCollection() == activeCollection;
                     java.math.BigDecimal wallet = ClientPlayerStats.getResourceBalance(resource);
-                    button.enabled = RunePurchaseAvailability.isAvailable(
-                            known, ClientRuneCollections.isUnlocked(activeCollection), false,
-                            wallet, unitCost);
-                    String resourceName = com.example.revolution.resource.definition.ResourceDefinitions.getDisplayName(resource);
-                    // Batch purchases can stop early; per-attempt price changes with Rune progression.
-                    // Show the authoritative next-attempt cost, not an invented linear batch total.
-                    button.displayString = RunePurchaseAvailability.purchaseLabel(
-                            known, unitCost, buyAmount, resourceName);
+                    if (purchasePresentationCollection != activeCollection) {
+                        // Never show a previous collection's price while its own snapshot is loading.
+                        purchasePresentationCollection = activeCollection;
+                        button.displayString = "Купить руну";
+                        button.enabled = false;
+                    }
+                    // Do not modify the button's appearance for an in-flight purchase.
+                    // actionPerformed checks hasPurchaseSnapshot before sending any packet, so an
+                    // apparently clickable button cannot trigger another request while stale.
+                    if (known) {
+                        button.enabled = RunePurchaseAvailability.isAvailable(
+                                true, ClientRuneCollections.isUnlocked(activeCollection), false,
+                                wallet, unitCost);
+                        String resourceName = com.example.revolution.resource.definition.ResourceDefinitions.getDisplayName(resource);
+                        // Batches may stop early as the authoritative per-attempt cost advances.
+                        button.displayString = RunePurchaseAvailability.purchaseLabel(
+                                true, unitCost, buyAmount, resourceName, button.displayString);
+                    }
                 }
             } else if (button.id == AMOUNT_BUTTON_START_ID) {
                 button.enabled = !full;
