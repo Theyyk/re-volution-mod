@@ -17,8 +17,11 @@ function accepts(overrides = {}) {
 // Relevant fields from the real v1.3.9 tag run 40114068931.
 assert.equal(accepts({head_branch: 'v1.3.9'}), false, 'stable tag must never dispatch DEV');
 assert.equal(accepts(), true, 'successful develop push must dispatch DEV');
+for (const branch of ['feature/test-foundation', 'fix/test', 'hotfix/urgent', 'develop-copy', 'develop/test', 'ui/refactor']) {
+  assert.equal(accepts({head_branch: branch}), true, branch);
+}
 for (const branch of ['v1.3.10', 'v1.3.10-rc.1', 'main', 'master', 'stable', 'release',
-  'release/v1.3.10', 'feature/test-foundation', 'fix/test', 'develop-copy', 'develop/test', '']) {
+  'release/v1.3.10', 'main/prod', 'master/legacy', 'stable/rc', '']) {
   assert.equal(accepts({head_branch: branch}), false, branch);
 }
 for (const conclusion of ['failure', 'cancelled', 'skipped', 'timed_out', null]) {
@@ -28,7 +31,13 @@ for (const event of ['pull_request', 'workflow_dispatch', 'release']) {
   assert.equal(accepts({event}), false, event);
 }
 assert.equal(accepts({head_repository: {full_name: 'fork/re-volution-mod'}}), false);
-assert.match(workflow, /workflow_run:\s*\n\s+workflows: \['Build and Release'\]\s*\n\s+branches: \[develop\]/);
+const release = fs.readFileSync('.github/workflows/release.yml', 'utf8');
+assert.equal((release.match(/if: >-\n          github.event_name == 'push' &&/g) || []).length, 4);
+assert.doesNotMatch(release, /github.ref == 'refs\/heads\/develop'/);
+for (const excluded of ['main', 'master', 'stable', 'release'])
+  assert.ok(release.includes(`github.ref_name != '${excluded}'`));
+assert.match(workflow, /workflow_run:\s*\n\s+workflows: \['Build and Release'\]/);
+assert.doesNotMatch(workflow, /branches: \[develop\]/);
 assert.match(workflow, /ghcr\\\.io\/theyyk\/re-volution-gameplay-dev@sha256/);
 assert.match(workflow, /event_type:\"mod-dev-build\"/);
 assert.match(workflow, /client_payload:\{gameplay_image:\$gameplay_image\}/);
