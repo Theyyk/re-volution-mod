@@ -78,6 +78,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checked-out source
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
       - name: Reject permission-pending GUI assets
         shell: bash
@@ -121,6 +128,34 @@ jobs:
 
       - name: Verify packaged classes and resources
         run: python3 .github/scripts/check-structure.py build/libs/RE-volution-*.jar
+
+      - name: Prepare exact-HEAD Minecraft QA candidate (PR only, no deploy)
+        if: github.event_name == 'pull_request'
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          mapfile -t jars < <(find build/libs -maxdepth 1 -type f -name 'RE-volution-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | sort)
+          test "${#jars[@]}" -eq 1
+          mkdir -p build/qa-candidate
+          cp "${jars[0]}" build/qa-candidate/
+          (cd build/qa-candidate && sha256sum "$(basename "${jars[0]}")" > SHA256SUMS.txt)
+          printf 'repository=%s\npr=%s\nsource_sha=%s\nworkflow_run=%s\n' \
+            "$GITHUB_REPOSITORY" "$PR_NUMBER" "$SOURCE_SHA" "$SOURCE_RUN_ID" \
+            > build/qa-candidate/SOURCE.txt
+
+      - name: Upload exact-HEAD Minecraft QA candidate (PR only, no deploy)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gameplay-pr-${{ github.event.pull_request.number }}-sha-${{ github.event.pull_request.head.sha }}
+          path: build/qa-candidate/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Prepare immutable DEV gameplay OCI image
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
