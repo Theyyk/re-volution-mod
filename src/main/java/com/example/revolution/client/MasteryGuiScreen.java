@@ -74,19 +74,21 @@ public final class MasteryGuiScreen extends GuiScreen {
             premium.enabled = unlocked && state.premiumPreserveAvailable && !MasteryClientState.pending();
             buttonList.add(premium);
         }
-        buttonList.add(new GuiButton(20, x + w - half - 12, active ? footerY - 26 : footerY, half, 20, "Обновить"));
-        // Exchange is a separate interface for the canonical existing Run Exchange service.
-        GuiButton exchange = new GuiControls.PanelButton(30, x + w - 95, y + 8, 85, 18, "Обмен");
-        exchange.enabled = !MasteryClientState.pending();
-        buttonList.add(exchange);
-        // Premium selector and Refresh share the same row without overlapping.
-        GuiButton refresh = buttonList.get(buttonList.size() - 1);
+        // Keep a direct reference: the Exchange button is appended afterwards and
+        // must never be moved when sizing Refresh beside the Premium selector.
+        GuiButton refresh = new GuiButton(20, x + w - half - 12, active ? footerY - 26 : footerY,
+                half, 20, "Обновить");
         if (active) {
             int premiumWidth = Math.min(180, Math.max(65, w - 120));
             refresh.width = Math.min(100, Math.max(60, w - premiumWidth - 27));
             refresh.x = x + w - refresh.width - 9;
-            refresh.enabled = !MasteryClientState.pending();
         }
+        refresh.enabled = !MasteryClientState.pending();
+        buttonList.add(refresh);
+        // Exchange remains in the header, independently of Refresh and Premium.
+        GuiButton exchange = new GuiControls.PanelButton(30, x + w - 95, y + 8, 85, 18, "Обмен");
+        exchange.enabled = !MasteryClientState.pending();
+        buttonList.add(exchange);
     }
 
     private static boolean contains(List<MasterySnapshotPacket.BranchEntry> list, String id) {
