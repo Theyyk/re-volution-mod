@@ -21,7 +21,7 @@ for (const branch of ['feature/test-foundation', 'fix/test', 'hotfix/urgent', 'd
   assert.equal(accepts({head_branch: branch}), true, branch);
 }
 for (const branch of ['v1.3.10', 'v1.3.10-rc.1', 'main', 'master', 'stable', 'release',
-  'release/v1.3.10', 'feature/test-foundation', 'fix/test', 'develop-copy', 'develop/test', '']) {
+  'release/v1.3.10', 'main/prod', 'master/legacy', 'stable/rc', '']) {
   assert.equal(accepts({head_branch: branch}), false, branch);
 }
 for (const conclusion of ['failure', 'cancelled', 'skipped', 'timed_out', null]) {
@@ -32,7 +32,7 @@ for (const event of ['pull_request', 'workflow_dispatch', 'release']) {
 }
 assert.equal(accepts({head_repository: {full_name: 'fork/re-volution-mod'}}), false);
 const release = fs.readFileSync('.github/workflows/release.yml', 'utf8');
-assert.equal((release.match(/if: >-\n      github.event_name == 'push' &&/g) || []).length, 4);
+assert.equal((release.match(/if: >-\n          github.event_name == 'push' &&/g) || []).length, 4);
 assert.doesNotMatch(release, /github.ref == 'refs\/heads\/develop'/);
 for (const excluded of ['main', 'master', 'stable', 'release'])
   assert.ok(release.includes(`github.ref_name != '${excluded}'`));
