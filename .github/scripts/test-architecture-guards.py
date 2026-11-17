@@ -42,6 +42,22 @@ class ArchitectureGuardTest(unittest.TestCase):
         self.assertTrue(architecture.violations('RandomManager.java', 'class RandomManager {}'))
         self.assertFalse(architecture.violations('RevolutionMod.java', 'class RevolutionMod {}'))
 
+    def test_mastery_refresh_does_not_move_exchange_header(self):
+        # Regression: a former buttonList[-1] lookup selected the Exchange
+        # button instead of Refresh and moved Exchange into the footer.
+        root = Path(__file__).resolve().parents[2]
+        screen = (root / 'src/main/java/com/example/revolution/client/MasteryGuiScreen.java').read_text(
+            encoding='utf-8')
+        layout = screen.split('public void refreshButtons()', 1)[1].split(
+            'private static boolean contains(', 1)[0]
+        self.assertIn('GuiButton refresh = new GuiButton(20,', layout)
+        self.assertIn('buttonList.add(refresh);', layout)
+        self.assertIn('GuiButton exchange = new GuiControls.PanelButton(30,', layout)
+        self.assertIn('buttonList.add(exchange);', layout)
+        self.assertLess(layout.index('buttonList.add(refresh);'),
+                        layout.index('GuiButton exchange ='))
+        self.assertNotIn('buttonList.get(buttonList.size() - 1)', layout)
+
     def test_resource_text_is_portable_and_binary_stays_exact(self):
         self.assertEqual(architecture.resource_digest('moss_turtle.palette.txt', b'palette\r\n'),
                          architecture.resource_digest('moss_turtle.palette.txt', b'palette\n'))
