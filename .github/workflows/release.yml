@@ -1,22 +1,17 @@
-name: Build and Release
+name: Gameplay CI (PR-only build)
 
+# CI-ISOLATION-01: no push trigger. The legacy default-branch workflow_run
+# dispatcher authorizes successful push builds, so branch pushes MUST NOT run.
 on:
   pull_request:
     branches: [develop]
-  push:
-    branches:
-      - "**"
-    tags:
-      - "v*"
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) }}
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   changes:
@@ -121,126 +116,3 @@ jobs:
 
       - name: Verify packaged classes and resources
         run: python3 .github/scripts/check-structure.py build/libs/RE-volution-*.jar
-
-      - name: Prepare immutable DEV gameplay OCI image
-        if: >-
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/heads/') &&
-          github.ref_name != 'main' &&
-          github.ref_name != 'master' &&
-          github.ref_name != 'stable' &&
-          github.ref_name != 'release' &&
-          !startsWith(github.ref_name, 'main/') &&
-          !startsWith(github.ref_name, 'master/') &&
-          !startsWith(github.ref_name, 'stable/') &&
-          !startsWith(github.ref_name, 'release/') &&
-          !startsWith(github.ref_name, 'v')
-        id: gameplay
-        shell: bash
-        run: |
-          set -euo pipefail
-          JAR=$(find build/libs -maxdepth 1 -type f -name 'RE-volution-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | sort | head -n 1)
-          test -n "$JAR"
-          VERSION=$(grep -E "^[[:space:]]*version[[:space:]]*=" build.gradle | head -n 1 | sed -E "s/.*['\"]([^'\"]+)['\"].*/\1/")
-          HASH=$(sha256sum "$JAR" | cut -d' ' -f1)
-          SIZE=$(stat -c%s "$JAR")
-          test -n "$VERSION"
-          test "$SIZE" -gt 0
-          mkdir -p build/gameplay-oci
-          cp "$JAR" build/gameplay-oci/RE-volution.jar
-          cat > build/gameplay-oci/Dockerfile <<'EOF'
-          FROM scratch
-          ARG MOD_SHA
-          ARG MOD_REF
-          ARG MOD_VERSION
-          ARG MOD_JAR_SHA256
-          ARG MOD_JAR_SIZE
-          ARG MOD_SOURCE_RUN_ID
-          ARG MOD_SOURCE_RUN_ATTEMPT
-          LABEL org.opencontainers.image.title="RE-volution DEV Gameplay" \
-                org.opencontainers.image.source="https://github.com/Theyyk/re-volution-mod" \
-                org.opencontainers.image.revision="${MOD_SHA}" \
-                re.vol.mod.ref="${MOD_REF}" \
-                re.vol.mod.version="${MOD_VERSION}" \
-                re.vol.mod.jar.sha256="${MOD_JAR_SHA256}" \
-                re.vol.mod.jar.size="${MOD_JAR_SIZE}" \
-                re.vol.mod.source.run-id="${MOD_SOURCE_RUN_ID}" \
-                re.vol.mod.source.run-attempt="${MOD_SOURCE_RUN_ATTEMPT}"
-          COPY RE-volution.jar /RE-volution.jar
-          EOF
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
-          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
-
-      - name: Log in to GHCR for DEV gameplay package
-        if: >-
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/heads/') &&
-          github.ref_name != 'main' &&
-          github.ref_name != 'master' &&
-          github.ref_name != 'stable' &&
-          github.ref_name != 'release' &&
-          !startsWith(github.ref_name, 'main/') &&
-          !startsWith(github.ref_name, 'master/') &&
-          !startsWith(github.ref_name, 'stable/') &&
-          !startsWith(github.ref_name, 'release/') &&
-          !startsWith(github.ref_name, 'v')
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Set up Buildx for DEV gameplay package
-        if: >-
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/heads/') &&
-          github.ref_name != 'main' &&
-          github.ref_name != 'master' &&
-          github.ref_name != 'stable' &&
-          github.ref_name != 'release' &&
-          !startsWith(github.ref_name, 'main/') &&
-          !startsWith(github.ref_name, 'master/') &&
-          !startsWith(github.ref_name, 'stable/') &&
-          !startsWith(github.ref_name, 'release/') &&
-          !startsWith(github.ref_name, 'v')
-        uses: docker/setup-buildx-action@v3
-
-      - name: Publish exact DEV gameplay package
-        if: >-
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/heads/') &&
-          github.ref_name != 'main' &&
-          github.ref_name != 'master' &&
-          github.ref_name != 'stable' &&
-          github.ref_name != 'release' &&
-          !startsWith(github.ref_name, 'main/') &&
-          !startsWith(github.ref_name, 'master/') &&
-          !startsWith(github.ref_name, 'stable/') &&
-          !startsWith(github.ref_name, 'release/') &&
-          !startsWith(github.ref_name, 'v')
-        uses: docker/build-push-action@v6
-        with:
-          context: build/gameplay-oci
-          file: build/gameplay-oci/Dockerfile
-          push: true
-          tags: ghcr.io/theyyk/re-volution-gameplay-dev:sha-${{ github.sha }}
-          provenance: false
-          build-args: |
-            MOD_SHA=${{ github.sha }}
-            MOD_REF=${{ github.ref_name }}
-            MOD_VERSION=${{ steps.gameplay.outputs.version }}
-            MOD_JAR_SHA256=${{ steps.gameplay.outputs.hash }}
-            MOD_JAR_SIZE=${{ steps.gameplay.outputs.size }}
-            MOD_SOURCE_RUN_ID=${{ github.run_id }}
-            MOD_SOURCE_RUN_ATTEMPT=${{ github.run_attempt }}
-
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          gh release create "${GITHUB_REF_NAME}" build/libs/RE-volution-*.jar \
-            --title "RE:volution Mod ${GITHUB_REF_NAME}" \
-            --notes-file ".github/release-notes/${GITHUB_REF_NAME}.md"
