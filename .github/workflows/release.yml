@@ -1,14 +1,10 @@
-name: Gameplay CI (build only)
+name: Gameplay CI (PR-only build)
 
+# CI-ISOLATION-01: no push trigger. The legacy default-branch workflow_run
+# dispatcher authorizes successful push builds, so branch pushes MUST NOT run.
 on:
   pull_request:
     branches: [develop]
-  push:
-    branches:
-      - "**"
-    tags:
-      - "v*"
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}

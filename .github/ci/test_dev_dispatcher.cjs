@@ -1,13 +1,17 @@
-// CI-ISOLATION-01: Gameplay tests/build must never publish packages or dispatch Docker.
-// Read-only static contract, executable by existing Gameplay CI via Node.
+// CI-ISOLATION-01: enforce PR-only Gameplay CI without publish or Docker dispatch.
+// Default-branch workflow_run dispatches successful PUSH builds even if
+// the upstream workflow has been renamed. PR-only prevents that trust leak.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const ci = fs.readFileSync('.github/workflows/release.yml', 'utf8');
 const dispatcher = fs.readFileSync('.github/workflows/dispatch-dev-docker.yml', 'utf8');
 
-assert.match(ci, /^name: Gameplay CI \(build only\)$/m);
-assert.match(ci, /^  pull_request:\s*\n    branches: \[develop\]/m);
-assert.match(ci, /^  push:\s*\n    branches:\s*\n      - "\*\*"/m);
+const trigger = ci.split(/\n(?=concurrency:)/)[0];
+assert.match(ci, /^name: Gameplay CI \(PR-only build\)$/m);
+assert.match(trigger, /^on:\s*\n  pull_request:\s*\n    branches: \[develop\]/m);
+for (const forbidden of ['  push:', '  workflow_dispatch:', '  workflow_run:', '  repository_dispatch:', '  pull_request_target:']) {
+  assert.equal(trigger.includes(forbidden), false, 'forbidden trigger: ' + forbidden);
+}
 assert.match(ci, /permissions:\s*\n  contents: read/);
 assert.doesNotMatch(ci, /(?:^|\n)\s+(?:contents|packages|actions): write\s*(?:\n|$)/);
 assert.match(ci, /run: \.\/gradlew .*clean build/);
@@ -21,9 +25,9 @@ for (const forbidden of [
 ]) {
   assert.equal(ci.includes(forbidden), false, 'forbidden CI side effect: ' + forbidden);
 }
-// Default-branch legacy dispatcher listens to OLD workflow name only.
-// The newly renamed build-only workflow must not match it.
+// Dispatcher runs from repository default branch, not this feature branch.
+// Critical guard is the *source event*, NOT the renamed workflow name.
+assert.match(dispatcher, /github\.event\.workflow_run\.event == 'push'/);
+assert.match(dispatcher, /workflow_run:/);
 assert.match(dispatcher, /workflows: \['Build and Release'\]/);
-assert.doesNotMatch(dispatcher, /workflows: \['Gameplay CI \(build only\)'\]/);
-assert.doesNotMatch(ci, /^name: Build and Release$/m);
-console.log('Gameplay CI isolation: build retained, publication and dispatch routing disabled');
+console.log('Gameplay CI isolation: PR-only build, no publish, downstream push admission denied');
